@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
+  TID_CONFIRM_DIALOG_CONFIRM,
   TID_SVN_BRANCH_SWITCHER,
   TID_SVN_COMMIT_BUTTON,
   TID_SVN_COMMIT_DIALOG,
@@ -147,17 +148,47 @@ async function waitForChangeRow(path: string, present = true) {
 }
 
 async function setRowChecked(path: string, checked: boolean) {
-  await browser.execute(
-    (target: string, nextChecked: boolean) => {
-      const checkbox = document.querySelector<HTMLButtonElement>(
-        `[data-svn-change-path="${target}"] [data-slot="checkbox"]`,
-      );
-      if (checkbox && (checkbox.getAttribute("data-state") === "checked") !== nextChecked) {
-        checkbox.click();
-      }
-    },
-    path.replace(/\\/g, "/"),
-    checked,
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute(
+        (target: string, nextChecked: boolean) => {
+          const checkbox = document.querySelector<HTMLButtonElement>(
+            `[data-svn-change-path="${target}"] [data-slot="checkbox"]`,
+          );
+          if (!checkbox) {
+            return false;
+          }
+          if ((checkbox.getAttribute("data-state") === "checked") !== nextChecked) {
+            checkbox.click();
+            return false;
+          }
+          return true;
+        },
+        path.replace(/\\/g, "/"),
+        checked,
+      )) as boolean,
+    { timeout: 15000, timeoutMsg: `${path} 的勾选状态没有变为 ${checked}` },
+  );
+}
+
+/** unversioned 分组默认折叠，必须先展开才能操作行内勾选框。 */
+async function expandGroup(groupId: string) {
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute((id: string) => {
+        const header = document.querySelector<HTMLButtonElement>(
+          `[data-svn-group="${id}"] button[aria-expanded]`,
+        );
+        if (!header) {
+          return false;
+        }
+        if (header.getAttribute("aria-expanded") !== "true") {
+          header.click();
+          return false;
+        }
+        return true;
+      }, groupId)) as boolean,
+    { timeout: 15000, timeoutMsg: `SVN 分组 ${groupId} 没有展开` },
   );
 }
 
@@ -184,14 +215,20 @@ async function confirmAlert(labels: readonly string[]) {
   await browser.waitUntil(
     async () =>
       (await browser.execute(
-        (candidates: string[]) => {
-          const dialog = document.querySelector('[role="alertdialog"]');
-          const button = Array.from(
-            dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-          ).find((element) => candidates.includes(element.innerText.trim()));
-          button?.click();
-          return Boolean(button);
+        (confirmTestId: string, candidates: string[]) => {
+          const button = document.querySelector<HTMLButtonElement>(
+            `[data-testid="${confirmTestId}"]`,
+          );
+          if (!button || button.disabled) {
+            return false;
+          }
+          if (!candidates.some((label) => (button.innerText ?? "").includes(label))) {
+            return false;
+          }
+          button.click();
+          return true;
         },
+        TID_CONFIRM_DIALOG_CONFIRM,
         [...labels],
       )) as boolean,
     { timeout: 15000, timeoutMsg: `确认弹窗中没有找到 ${labels.join("/")}` },
@@ -220,6 +257,10 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     }
     await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
     fixture = await prepareSvnFixture();
+    // VCS 判定只在 workspace 挂载时读取一次；fixture 在 app 启动后才创建 .svn，
+    // 必须重载 renderer 才能让 useWorkspaceVcs 识别为 SVN 工作区。
+    await browser.refresh();
+    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
     await createActiveTask();
   });
 
@@ -236,6 +277,9 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     // 自动刷新防抖较长，打开面板后手动刷新一次以读取刚写入的改动。
     await clickTestId(TID_SVN_REFRESH_BUTTON, "SVN 刷新按钮不可用");
     await waitForChangeRow(TRACKED_FILE);
+    // 未纳入版本控制的文件默认折叠，先展开分组再勾选。
+    await expandGroup("unversioned");
+    await waitForChangeRow(NEW_FILE);
     await setRowChecked(NEW_FILE, true);
     await commitFromPane("test(svn): commit selected files");
     await waitForChangeRow(TRACKED_FILE, false);
@@ -290,7 +334,12 @@ describe("SVN 工作流 UI manual-review E2E", () => {
       { timeout: 60000, timeoutMsg: "工作副本没有切换到 branches/feature" },
     );
     await browser.waitUntil(
-      async () => ((await $(sel(TID_SVN_BRANCH_SWITCHER)).getText()) ?? "").includes("feature"),
+      async () =>
+        ((await browser.execute(
+          (testId: string) =>
+            document.querySelector(`[data-testid="${testId}"]`)?.textContent ?? "",
+          TID_SVN_BRANCH_SWITCHER,
+        )) as string).includes("feature"),
       { timeout: 30000, timeoutMsg: "分支入口没有显示 feature" },
     );
   });
