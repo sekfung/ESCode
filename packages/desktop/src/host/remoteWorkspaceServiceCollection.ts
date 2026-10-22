@@ -4,6 +4,8 @@ import {
   IFileService,
   IMediaPreviewService,
   IGitService,
+  ISvnService,
+  IWorkspaceVcsService,
   IGitCheckpointService,
   ISystemService,
   ITerminalService,
@@ -216,6 +218,8 @@ export function createRemoteWorkspaceServiceCollection(params: {
     .register(IFileService, params.connectionServices.fileService)
     .register(IGitService, params.connectionServices.gitService)
     .register(IGitCheckpointService, params.connectionServices.gitCheckpointService)
+    .registerOptional(ISvnService, params.connectionServices.svnService)
+    .registerOptional(IWorkspaceVcsService, params.connectionServices.workspaceVcsService)
     .register(ISystemService, params.connectionServices.systemService)
     .register(ITerminalService, params.connectionServices.terminalService)
     .register(ISettingService, localSettingService)
@@ -282,6 +286,8 @@ export function createServerRemoteWorkspaceServiceCollection(params: {
     )
     .register(IGitService, params.connectionServices.gitService)
     .register(IGitCheckpointService, params.connectionServices.gitCheckpointService)
+    .registerOptional(ISvnService, params.connectionServices.svnService)
+    .registerOptional(IWorkspaceVcsService, params.connectionServices.workspaceVcsService)
     .register(ISystemService, params.connectionServices.systemService)
     .register(ITerminalService, params.connectionServices.terminalService)
     .register(ISettingService, params.connectionServices.settingService)

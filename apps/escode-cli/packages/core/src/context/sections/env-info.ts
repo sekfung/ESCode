@@ -9,6 +9,12 @@ import { estimateTokens } from "../utils.js";
 const ENVIRONMENT_HEADING = "# Environment";
 const WORKING_DIRECTORY_LABEL = "Primary working directory";
 const IS_GIT_REPOSITORY_LABEL = "Is a git repository";
+const IS_SVN_WORKING_COPY_LABEL = "Is an SVN working copy";
+const SVN_SYSTEM_CONTEXT_PREFIX =
+  "svnStatus: This is the SVN working copy status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation. SVN commits go directly to the server; there is no local commit or push.";
+const SVN_URL_LABEL = "Repository URL";
+const SVN_REVISION_LABEL = "Working copy revision";
+const RECENT_REVISIONS_LABEL = "Recent revisions";
 const PLATFORM_LABEL = "Platform";
 const SHELL_LABEL = "Shell";
 const OS_VERSION_LABEL = "OS Version";
@@ -70,6 +76,7 @@ function buildEnvInfoContent(info: EnvInfo, model?: Model): string {
     "You have been invoked in the following environment:",
     `- ${WORKING_DIRECTORY_LABEL}: ${info.cwd}`,
     `- ${IS_GIT_REPOSITORY_LABEL}: ${hasGitRepository ? YES_LABEL : NO_LABEL}`,
+    ...(info.svn ? [`- ${IS_SVN_WORKING_COPY_LABEL}: ${YES_LABEL}`] : []),
     `- ${PLATFORM_LABEL}: ${info.platform}`,
     `- ${SHELL_LABEL}: ${info.shell}`,
     `- ${OS_VERSION_LABEL}: ${info.osVersion}`,
@@ -99,6 +106,41 @@ function buildGitSystemContextContent(info: EnvInfo): string {
   lines.push("", `${RECENT_COMMITS_LABEL}:\n${formatRecentCommits(info)}`);
 
   return lines.join("\n");
+}
+
+/** SVN 工作副本快照段；与 Git 段互斥（同一 workspace 只收集其中一种）。 */
+export function buildSvnSystemContextSection(envInfo: EnvInfo): ContextSection | null {
+  const svn = envInfo.svn;
+  if (!svn) {
+    return null;
+  }
+  const lines: string[] = [SVN_SYSTEM_CONTEXT_PREFIX];
+  if (svn.url) {
+    lines.push("", `${SVN_URL_LABEL}: ${svn.url}`);
+  }
+  if (svn.branch) {
+    lines.push("", `${CURRENT_BRANCH_LABEL}: ${svn.branch}`);
+  }
+  if (svn.revision !== undefined) {
+    lines.push("", `${SVN_REVISION_LABEL}: r${svn.revision}`);
+  }
+  lines.push(
+    "",
+    `${STATUS_LABEL}:\n${svn.statusLines.length > 0 ? svn.statusLines.join("\n") : CLEAN_GIT_STATUS}`,
+  );
+  lines.push("", `${RECENT_REVISIONS_LABEL}:\n${svn.recentLogs.join("\n")}`);
+  const content = lines.join("\n");
+
+  return {
+    name: "System Context",
+    source: "system_context",
+    injectionTarget: "system",
+    cacheHint: "dynamic",
+    chars: content.length,
+    tokens: estimateTokens(content),
+    content,
+    preview: content.slice(0, 100),
+  };
 }
 
 export function isEnvInfoGitRepository(info: EnvInfo): boolean {

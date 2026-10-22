@@ -37,6 +37,8 @@ import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { WorkspacePluginPreview } from "@/WorkspacePluginPreview.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
 import { GitBranchSwitcher } from "@/GitBranchSwitcher.js";
+import { SvnBranchSwitcher } from "@/svn/SvnBranchSwitcher.js";
+import { useSvnWorkspaceContext } from "@/svn/SvnWorkspaceContext.js";
 import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 
 import { AUTOMATIONS_TOAST_ANCHOR_ID, AutomationsSection } from "@/settings/AutomationsSection.js";
@@ -738,6 +740,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     return activeWorkspaceKey === requestWorkspaceKey ? searchResultHighlightRequest : null;
   }, [activeTaskId, searchResultHighlightRequest, workspaceAbsPath, workspaceIdentity]);
   const renderChatFindDialog = () => <TaskFindDialog {...taskFindDialogProps} placement="chat" />;
+  const svnController = useSvnWorkspaceContext();
   const gitDirtyFileCount = useMemo(() => {
     // 关键业务逻辑：同一个文件可能同时出现在 staged / unstaged。
     // 这里按 path 去重后再统计，避免入口里“未提交更改文件数”被重复计算。
@@ -1206,6 +1209,13 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
             workspaceIdentity={workspaceIdentity}
             remoteSessionId={workspaceRemoteSessionId ?? undefined}
           />
+        ) : !isOfficeMode && activeWorkspacePurpose === "project" && svnController ? (
+          <SvnBranchSwitcher
+            controller={svnController}
+            className="px-0 pt-0"
+            // 与 Git 分支菜单一致：输入区在底部，菜单固定向上弹出。
+            popoverSide="top"
+          />
         ) : !isOfficeMode && activeWorkspacePurpose === "project" ? (
           <GitBranchSwitcher
             workspacePath={workspaceAbsPath}
@@ -1224,6 +1234,7 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     ),
     [
       isOfficeMode,
+      svnController,
       workspaceRemoteSessionId,
       handleOpenPluginStore,
       handleSelectComposerPlugin,

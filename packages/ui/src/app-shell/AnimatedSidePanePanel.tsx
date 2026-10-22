@@ -27,6 +27,9 @@ import { findScreenshotSurfaceTabForRender } from "@/browser-use/useBrowserScree
 import { HumanBrowserView } from "@/browser-use/HumanBrowserView.js";
 import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 import { GitPane } from "@/GitPane.js";
+import { SvnPane } from "@/svn/SvnPane.js";
+import { createCodeViewerSourceForWorkspaceFile } from "@/workspace-file-tree/model.js";
+import { useSvnWorkspaceContext } from "@/svn/SvnWorkspaceContext.js";
 import { TreemappingPane } from "@/TreemappingPane.js";
 import { WhiteboardPane } from "@/WhiteboardPane.js";
 import { ModelTrajectoryPane } from "@/ModelTrajectoryPane.js";
@@ -422,6 +425,7 @@ export function AnimatedSidePanePanel({
   onBrowserPageMetadataChange: (tabId: string, metadata: BrowserSidePaneMetadata) => void;
   onSelectGitSource: (value: GitChangeSourceId) => void;
 }) {
+  const svnController = useSvnWorkspaceContext();
   const onOpenPluginUi = useOpenPluginUi();
   const { intl } = useESCodeIntl();
   const isOfficeMode = useIsOfficeMode();
@@ -1279,6 +1283,18 @@ export function AnimatedSidePanePanel({
                               isSidePaneVisible: isVisible,
                               visibleInlineSizePx: sidePaneVisibleInlineSizePx,
                             })}
+                          />
+                        ) : tab.type === "git" && svnController ? (
+                          // SVN workspace 复用同一个审阅 tab，内容换成 SVN 面板。
+                          <SvnPane
+                            controller={svnController}
+                            workspaceIdentity={workspaceIdentity}
+                            workspaceRemoteSessionId={workspaceRemoteSessionId}
+                            isDesktop={isDesktop}
+                            onOpenFile={(path) =>
+                              onOpenCodeViewer(createCodeViewerSourceForWorkspaceFile(path))
+                            }
+                            onRevealFileInTree={onRevealGitFileInTree}
                           />
                         ) : tab.type === "git" ? (
                           <GitPane

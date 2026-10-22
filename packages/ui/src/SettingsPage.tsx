@@ -1,4 +1,5 @@
 /* oxlint-disable eslint(max-lines) */
+import { VersionControlSettings } from "@/settings/VersionControlSettings.js";
 import { ArrowLeft, Rocket, type LucideIcon } from "lucide-react";
 import {
   useCallback,
@@ -1074,6 +1075,17 @@ export function SettingsPage({
                               handleAskUserQuestionAutoResolutionEnabledChange
                             }
                             onOpenOnboardingDialog={() => requestOnboardingDialog()}
+                          />
+                        ) : null}
+                        {activeSection === "general" ? (
+                          <VersionControlSettings
+                            workspacePath={activeWorkspacePath}
+                            workspaceIdentity={activeWorkspaceIdentity}
+                            remoteSessionId={activeWorkspaceTab?.remoteSessionId ?? undefined}
+                            remoteCheckEnabled={sharedSettings?.svnRemoteCheckEnabled !== false}
+                            onRemoteCheckEnabledChange={(enabled) => {
+                              void updateSharedSettings({ svnRemoteCheckEnabled: enabled });
+                            }}
                           />
                         ) : activeSection === "appearance" ? (
                           <AppearanceSectionContent

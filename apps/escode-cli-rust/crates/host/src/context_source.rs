@@ -61,10 +61,17 @@ impl ContextPort for WorkspaceContext {
             "x86_64" => "x64",
             other => other,
         };
-        let (git, release) = tokio::join!(
-            super::context_git::snapshot(&self.cwd, cancel),
-            super::context_git::os_release(&self.cwd, cancel),
-        );
+        // SVN 工作副本（且比 Git 仓库更近）时注入 SVN 快照，不再收集 Git 快照。
+        let is_svn = super::context_svn::is_svn_workspace(&self.cwd, cancel).await;
+        let vcs = async {
+            if is_svn {
+                (None, Some(super::context_svn::snapshot(&self.cwd, cancel).await))
+            } else {
+                (super::context_git::snapshot(&self.cwd, cancel).await, None)
+            }
+        };
+        let ((git, svn), release) =
+            tokio::join!(vcs, super::context_git::os_release(&self.cwd, cancel));
         anyhow::ensure!(!cancel.is_cancelled(), "Cancelled");
         Ok(PromptSnapshot {
             cwd: self.cwd.to_string_lossy().into_owned(),
@@ -73,6 +80,7 @@ impl ContextPort for WorkspaceContext {
             os_version: format!("{platform} {} {arch}", release.trim()),
             current_date: chrono::Local::now().format("%Y-%m-%d").to_string(),
             git,
+            svn,
         })
     }
     async fn instructions(&self, cancel: &CancellationToken) -> Result<Vec<InstructionSource>> {

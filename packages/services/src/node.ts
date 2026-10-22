@@ -72,6 +72,8 @@ export {
   ESCODE_WINDOWS_APP_INSTALL_DIR_ENV,
 } from "./paths.js";
 export { createGitService } from "./git/gitService.js";
+export { createSvnService } from "./svn/svnService.js";
+export { createWorkspaceVcsService, findVcsMarkers } from "./vcs/workspaceVcsService.js";
 export { GitCommitMessageGenerator } from "./git/gitCommitMessageGenerator.js";
 export { createGitCheckpointService } from "./git/gitCheckpointService.js";
 export { createSystemService } from "./system/systemService.js";
@@ -297,6 +299,10 @@ import { createFileService } from "./file/fileService.js";
 import { createMediaPreviewService } from "./media-preview/mediaPreview.js";
 import type { WorkspaceFileSearchFilter } from "./file/workspaceFileMentionFilter.js";
 import { createGitService } from "./git/gitService.js";
+import { createSvnService } from "./svn/svnService.js";
+import { ISvnService } from "./svn/svn.js";
+import { createWorkspaceVcsService } from "./vcs/workspaceVcsService.js";
+import { IWorkspaceVcsService } from "./vcs/workspaceVcs.js";
 import { GitCommitMessageGenerator } from "./git/gitCommitMessageGenerator.js";
 import { createGitCheckpointService } from "./git/gitCheckpointService.js";
 import { createSystemService } from "./system/systemService.js";
@@ -1950,6 +1956,13 @@ export function createLocalServices(options: {
   const gitService = createGitService({
     commitMessageGenerator: gitCommitMessageGenerator,
   });
+  // SVN 与 Git 共用同一提交信息生成器；VCS 类型判定只由 workspaceVcsService 负责。
+  const svnService = createSvnService({
+    settingService,
+    commitMessageGenerator: gitCommitMessageGenerator,
+    logger: createServiceLogger("svn"),
+  });
+  const workspaceVcsService = createWorkspaceVcsService({ settingService });
   // task wrapper 由 ESCode task service adapter 提供；核心 session 状态由 ESCode agent server 维护。
   const escodeTaskService = createESCodeTaskServiceAdapter({
     escodeAgentService,
@@ -1972,6 +1985,8 @@ export function createLocalServices(options: {
   const services = new ServiceCollection()
     .register(IGitService, gitService)
     .register(IGitCheckpointService, gitCheckpointService)
+    .register(ISvnService, svnService)
+    .register(IWorkspaceVcsService, workspaceVcsService)
     .register(ISystemService, systemService)
     .register(ITerminalService, createTerminalService({ settingService }))
     .register(ISettingService, settingService)

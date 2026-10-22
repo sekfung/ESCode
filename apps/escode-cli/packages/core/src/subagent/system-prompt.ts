@@ -31,6 +31,7 @@ export function buildSubagentEnvironmentContext(
     "<env>",
     `Working directory: ${envInfo.cwd}`,
     `Is directory a git repo: ${isEnvInfoGitRepository(envInfo) ? "Yes" : "No"}`,
+    ...(envInfo.svn ? ["Is directory an SVN working copy: Yes"] : []),
     `Platform: ${envInfo.platform}`,
     `Shell: ${envInfo.shell}`,
     `OS Version: ${envInfo.osVersion}`,

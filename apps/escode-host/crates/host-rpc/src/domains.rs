@@ -263,6 +263,7 @@ pub fn channels_with(
     });
     let mut list = vec![
         setting_channel(home.clone(), data_base_dir_for_setting),
+        crate::domains_workspace_vcs::workspace_vcs_channel(home.clone()),
         system_channel(home),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_skill_sync::skill_sync_channel(&home_for_skill_sync),

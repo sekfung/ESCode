@@ -6,6 +6,8 @@ import type { IFileService } from "./file/file.js";
 import type { IMediaPreviewService } from "./media-preview/mediaPreview.js";
 import type { IGitService } from "./git/git.js";
 import type { IGitCheckpointService } from "./git/gitCheckpoint.js";
+import type { ISvnService } from "./svn/svn.js";
+import type { IWorkspaceVcsService } from "./vcs/workspaceVcs.js";
 import type { ISystemService } from "./system/system.js";
 import type { ITerminalService } from "./terminal/terminal.js";
 import type { ISerialService } from "./serial/serial.js";
@@ -46,6 +48,10 @@ export interface IServiceAccessor {
   readonly mediaPreviewService?: IMediaPreviewService;
   readonly gitService: IGitService;
   readonly gitCheckpointService: IGitCheckpointService;
+  /** SVN 服务；旧 Host / 旧远端 server 可能未注册，UI 按“当前 Host 不支持”处理。 */
+  readonly svnService?: ISvnService;
+  /** workspace VCS 类型判定；缺省时 UI 按 Git 处理，保持旧 Host 行为不变。 */
+  readonly workspaceVcsService?: IWorkspaceVcsService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
   /** 本机串口调试器；仅 Desktop Local Host 注册，UI 按平台能力 supportsSerialPort 决定是否使用。 */

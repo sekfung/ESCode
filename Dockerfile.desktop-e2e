@@ -70,6 +70,7 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
       pkg-config \
       procps \
       python3 \
+      subversion \
       unzip \
       wget \
       xdg-utils \

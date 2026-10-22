@@ -1,4 +1,6 @@
 /* eslint-disable max-lines -- 文件树数据 hook 需要集中维护目录加载、watcher 刷新和 Git 状态竞态。 */
+import { useSvnWorkspaceContext } from "@/svn/SvnWorkspaceContext.js";
+import { buildSvnFileTreeDecorations } from "@/svn/svnDisplay.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { logger } from "@/logger.js";
@@ -67,6 +69,23 @@ export function useWorkspaceFileTreeData({
     workspacePath,
     workspaceRemoteSessionId,
     workspaceIdentity,
+  );
+  // SVN workspace 的标记来自 SVN 控制器已读取的状态；此时不再调用 Git 命令。
+  const svnController = useSvnWorkspaceContext();
+  const svnTreeState =
+    svnController && svnController.workspacePath === workspacePath ? svnController.state : null;
+  const isSvnWorkspace = svnTreeState !== null;
+  const enableGitFeatures = enableWorkspaceFeatures && !isSvnWorkspace;
+  const svnDecorations = useMemo(
+    () =>
+      svnTreeState
+        ? buildSvnFileTreeDecorations(
+            workspacePath,
+            svnTreeState.changes,
+            svnTreeState.ignoredPaths,
+          )
+        : null,
+    [svnTreeState, workspacePath],
   );
   const workspaceGenerationRef = useRef(0);
   const requestVersionRef = useRef(0);
@@ -227,7 +246,7 @@ export function useWorkspaceFileTreeData({
           return "stale";
         }
 
-        if (enableWorkspaceFeatures) {
+        if (enableGitFeatures) {
           void gitService
             .getIgnoredPaths({
               workspacePath,
@@ -305,7 +324,7 @@ export function useWorkspaceFileTreeData({
       }
     },
     [
-      enableWorkspaceFeatures,
+      enableGitFeatures,
       fileService,
       gitService,
       setDirectoryLoaded,
@@ -320,7 +339,7 @@ export function useWorkspaceFileTreeData({
       if (workspaceGenerationRef.current !== workspaceGeneration) {
         return;
       }
-      if (!enableWorkspaceFeatures) {
+      if (!enableGitFeatures) {
         setGitStatusByPath(new Map());
         setGitStatusAvailable(false);
         return;
@@ -357,7 +376,7 @@ export function useWorkspaceFileTreeData({
         setGitStatusByPath(new Map());
       }
     },
-    [enableWorkspaceFeatures, gitService, workspacePath],
+    [enableGitFeatures, gitService, workspacePath],
   );
 
   const refreshDirectoryFromWatcher = useCallback(
@@ -641,9 +660,11 @@ export function useWorkspaceFileTreeData({
     loadedDirectoryPaths,
     loadingDirectoryPaths,
     errorByDirectory,
-    gitStatusByPath,
-    gitStatusAvailable,
-    ignoredPathSet,
+    gitStatusByPath: svnDecorations?.statusByPath ?? gitStatusByPath,
+    gitStatusAvailable: svnDecorations
+      ? svnTreeState?.info?.isWorkingCopy === true
+      : gitStatusAvailable,
+    ignoredPathSet: svnDecorations?.ignoredPathSet ?? ignoredPathSet,
     refreshingLoadedDirectories,
     loadDirectory,
     loadGitStatus,

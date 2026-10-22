@@ -50,6 +50,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # SVN 服务与 Agent 快照的集成测试用 svnadmin + file:// 搭真实仓库；缺少 svn 时这些用例会显式跳过，
+      # CI 必须安装 subversion，否则 SVN 能力在门禁中没有真实覆盖（docs/svn/requirements.md「测试与验收」）。
+      - name: 安装 Subversion
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends subversion
+          svn --version --quiet
+
       # 不能依赖 pnpm 的 side-effects cache：历史上本 job 在 ELECTRON_SKIP_BINARY_DOWNLOAD=1
       # 下安装过 electron，后续 install/rebuild 不会重跑 postinstall，导致 10 个直接 import
       # electron 的 desktop suite 在 import 阶段失败。直接执行官方 install.js 并验证二进制在场。

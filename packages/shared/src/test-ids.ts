@@ -56,6 +56,28 @@ export const TID_BROWSER_PANE = "browser-pane";
 export const TID_BROWSER_CLOSE_BUTTON = "browser-close-button";
 /** Git 面板容器 */
 export const TID_GIT_PANE = "git-pane";
+/** SVN 面板容器 */
+export const TID_SVN_PANE = "svn-pane";
+/** SVN 提交弹窗 */
+export const TID_SVN_COMMIT_DIALOG = "svn-commit-dialog";
+/** SVN 提交信息输入框 */
+export const TID_SVN_COMMIT_MESSAGE_INPUT = "svn-commit-message-input";
+/** SVN 历史弹窗 */
+export const TID_SVN_HISTORY_DIALOG = "svn-history-dialog";
+/** SVN 分支切换入口 */
+export const TID_SVN_BRANCH_SWITCHER = "svn-branch-switcher";
+/** 会话状态面板中 SVN 改动入口（打开审阅面板） */
+export const TID_SVN_STATUS_CHANGES = "svn-status-changes";
+/** 会话状态面板中 SVN 提交入口 */
+export const TID_SVN_STATUS_COMMIT = "svn-status-commit";
+/** SVN 面板刷新按钮 */
+export const TID_SVN_REFRESH_BUTTON = "svn-refresh-button";
+/** SVN 面板更新按钮 */
+export const TID_SVN_UPDATE_BUTTON = "svn-update-button";
+/** SVN 面板提交按钮 */
+export const TID_SVN_COMMIT_BUTTON = "svn-commit-button";
+/** SVN 提交弹窗确认按钮 */
+export const TID_SVN_COMMIT_SUBMIT = "svn-commit-submit";
 /** Git 面板关闭按钮 */
 export const TID_GIT_CLOSE_BUTTON = "git-close-button";
 /** 顶部 Git 提交或推送主入口 */

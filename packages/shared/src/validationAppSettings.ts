@@ -12,6 +12,9 @@ import {
   embeddedBrowserViewportPreferenceSchema,
 } from "./browser-use/command-metadata.js";
 import { providerFamilyConnectionSelectionSettingsSchema } from "./provider-family-connection-selection.js";
+import { WORKSPACE_VCS_OVERRIDES } from "./vcs.js";
+
+const workspaceVcsOverridesSchema = z.record(z.string().min(1), z.enum(WORKSPACE_VCS_OVERRIDES));
 
 /** 引导职业枚举；单独导出供 onboarding 记录回填 settings 时做窄化校验。 */
 const appSettingsOccupationSchema = z.enum([
@@ -509,6 +512,9 @@ const appSettingsObjectSchema = z.object({
   // default(false)：新装与存量用户首次启动都视为未归位，由 main 进程按平台决定是否迁移。
   closeToTrayLinuxMigrationInitialized: z.boolean().default(false),
   keepAwakeWhileRunning: z.boolean().default(false),
+  workspaceVcsOverrides: workspaceVcsOverridesSchema.optional(),
+  svnBinaryPath: z.string().optional(),
+  svnRemoteCheckEnabled: z.boolean().optional(),
   desktopZoomLevel: desktopZoomLevelSchema.optional(),
   desktopWindowSize: desktopWindowSizeSchema.optional(),
   desktopChromiumHardwareAccelerationEnabled: z.boolean().default(true),
@@ -583,6 +589,9 @@ export const appSettingsPatchSchema = z.object({
   taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).optional(),
   closeToTrayOnWindows: z.boolean().optional(),
   keepAwakeWhileRunning: z.boolean().optional(),
+  workspaceVcsOverrides: workspaceVcsOverridesSchema.optional(),
+  svnBinaryPath: z.string().optional(),
+  svnRemoteCheckEnabled: z.boolean().optional(),
   closeToTrayOnWindowsMigrationInitialized: z.boolean().optional(),
   closeToTrayLinuxMigrationInitialized: z.boolean().optional(),
   desktopZoomLevel: desktopZoomLevelSchema.optional(),

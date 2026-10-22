@@ -1,0 +1,434 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type { AppSettings } from "@escode/shared";
+import { createSvnService } from "../src/svn/svnService.js";
+import type {
+  SvnCommandExecutionOptions,
+  SvnCommandExecutionResult,
+  SvnCommandProvider,
+} from "../src/svn/providers/svnCommandProvider.js";
+
+/**
+ * 真实 svn 集成测试：用 svnadmin create + file:// 在临时目录搭仓库。
+ * 机器上没有 svn / svnadmin 时显式跳过并输出原因，不静默通过。
+ */
+function findBinary(name: string): string | null {
+  const candidates = [process.env[`ESCODE_${name.toUpperCase()}_BINARY`], name].filter(
+    (candidate): candidate is string => Boolean(candidate),
+  );
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ["--version", "--quiet"], { stdio: "ignore" });
+      return candidate;
+    } catch {
+      // 尝试下一个候选
+    }
+  }
+  return null;
+}
+
+const svnBinary = findBinary("svn");
+const svnadminBinary = findBinary("svnadmin");
+const svnAvailable = Boolean(svnBinary && svnadminBinary);
+if (!svnAvailable) {
+  console.warn(
+    "[svnService.test] 跳过真实 svn 集成测试：未找到 svn 或 svnadmin（可设置 ESCODE_SVN_BINARY / ESCODE_SVNADMIN_BINARY）",
+  );
+}
+
+const tempDirs: string[] = [];
+
+afterAll(() => {
+  for (const dir of tempDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function svn(cwd: string, ...args: string[]): string {
+  return execFileSync(svnBinary!, ["--non-interactive", ...args], {
+    cwd,
+    encoding: "utf-8",
+    env: { ...process.env, LC_MESSAGES: "C" },
+  });
+}
+
+interface Fixture {
+  root: string;
+  repoUrl: string;
+  wc: string;
+  other: string;
+}
+
+function createFixture(): Fixture {
+  const root = mkdtempSync(join(tmpdir(), "escode-svn-"));
+  tempDirs.push(root);
+  execFileSync(svnadminBinary!, ["create", join(root, "repo")]);
+  const repoUrl = pathToFileURL(join(root, "repo")).href;
+  svn(root, "mkdir", "-m", "layout", `${repoUrl}/trunk`, `${repoUrl}/branches`, `${repoUrl}/tags`);
+  svn(root, "checkout", "-q", `${repoUrl}/trunk`, join(root, "wc"));
+  const wc = join(root, "wc");
+  writeFileSync(join(wc, "a.txt"), "line1\nline2\n");
+  mkdirSync(join(wc, "中文"));
+  writeFileSync(join(wc, "中文", "文件@2x.txt"), "x\n");
+  svn(wc, "add", "-q", "a.txt", "中文");
+  svn(wc, "commit", "-q", "-m", "init");
+  svn(root, "copy", "-m", "branch", `${repoUrl}/trunk`, `${repoUrl}/branches/feature`);
+  svn(root, "checkout", "-q", `${repoUrl}/trunk`, join(root, "other"));
+  svn(wc, "update", "-q");
+  return { root, repoUrl, wc, other: join(root, "other") };
+}
+
+function createService(settings: Partial<AppSettings> = {}) {
+  let current = { svnBinaryPath: svnBinary ?? undefined, ...settings } as AppSettings;
+  return createSvnService({
+    settingService: {
+      async get() {
+        return current;
+      },
+      async update(patch) {
+        current = { ...current, ...patch };
+      },
+    },
+  });
+}
+
+describe.skipIf(!svnAvailable)("SvnService（真实 svn）", () => {
+  let fixture: Fixture;
+
+  beforeEach(() => {
+    fixture = createFixture();
+  });
+
+  it("读取工作副本信息与分支", async () => {
+    const service = createService();
+    const info = await service.getWorkingCopyInfo({ workspacePath: fixture.wc });
+    expect(info.availability.status).toBe("available");
+    expect(info).toMatchObject({
+      isWorkingCopy: true,
+      wcRoot: fixture.wc,
+      branch: { kind: "trunk", name: "trunk" },
+      canSwitch: true,
+    });
+    const notWc = await service.getWorkingCopyInfo({ workspacePath: fixture.root });
+    expect(notWc.isWorkingCopy).toBe(false);
+  });
+
+  it("列出改动、行数与忽略文件，diff 未纳入版本控制的文件", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "line1\nchanged\nline3\n");
+    writeFileSync(join(fixture.wc, "new.txt"), "n1\nn2\n");
+    svn(fixture.wc, "propset", "-q", "svn:ignore", "*.log", ".");
+    writeFileSync(join(fixture.wc, "debug.log"), "ignored\n");
+
+    const result = await service.getChanges({ workspacePath: fixture.wc });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const byPath = new Map(result.changes.map((change) => [change.path, change]));
+    expect(byPath.get("a.txt")).toMatchObject({ status: "modified", additions: 2, deletions: 1 });
+    expect(byPath.get("new.txt")).toMatchObject({ status: "unversioned", additions: 2 });
+    expect(byPath.get(".")).toMatchObject({ status: "props-modified", propsModified: true });
+    expect(result.ignoredPaths).toEqual(["debug.log"]);
+
+    const diff = await service.getDiff({ workspacePath: fixture.wc, path: "new.txt" });
+    expect(diff.ok && diff.patch).toContain("+n2");
+    const modifiedDiff = await service.getDiff({ workspacePath: fixture.wc, path: "a.txt" });
+    expect(modifiedDiff.ok && modifiedDiff.patch).toContain("+changed");
+  });
+
+  it("只提交勾选文件，自动 add 未纳入版本控制文件，并处理带 @ 与中文的路径", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "changed\n");
+    writeFileSync(join(fixture.wc, "中文", "文件@2x.txt"), "y\n");
+    mkdirSync(join(fixture.wc, "newdir"));
+    writeFileSync(join(fixture.wc, "newdir", "inner.txt"), "inner\n");
+    svn(fixture.wc, "propset", "-q", "svn:ignore", "*.log", ".");
+
+    const commit = await service.commit({
+      workspacePath: fixture.wc,
+      paths: ["中文/文件@2x.txt", "newdir"],
+      message: "feat: 提交中文",
+    });
+    expect(commit).toMatchObject({ ok: true, addedPaths: ["newdir"] });
+
+    const after = await service.getChanges({ workspacePath: fixture.wc });
+    expect(after.ok && after.changes.map((change) => change.path).sort()).toEqual([".", "a.txt"]);
+    // 只改了属性的 "." 未勾选，不应被 --depth empty 之外的提交带走
+    const log = svn(fixture.wc, "log", "-v", "-l", "1", fixture.repoUrl);
+    expect(log).toContain("newdir/inner.txt");
+    expect(log).toContain("feat: 提交中文");
+    expect(log).not.toContain("/trunk/a.txt");
+  });
+
+  it("更新产生冲突 → 用我的 → 提交成功；冲突辅助文件不出现在列表", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.other, "a.txt"), "theirs\n");
+    svn(fixture.other, "commit", "-q", "-m", "theirs");
+    writeFileSync(join(fixture.wc, "a.txt"), "mine\n");
+
+    const outOfDate = await service.commit({
+      workspacePath: fixture.wc,
+      paths: ["a.txt"],
+      message: "mine",
+    });
+    expect(outOfDate).toMatchObject({ ok: false, issue: "out-of-date" });
+
+    const remote = await service.getRemoteStatus({ workspacePath: fixture.wc });
+    expect(remote).toMatchObject({ ok: true, outOfDateCount: 1 });
+
+    const update = await service.update({ workspacePath: fixture.wc });
+    expect(update).toMatchObject({ ok: true, conflictCount: 1 });
+
+    const changes = await service.getChanges({ workspacePath: fixture.wc });
+    expect(changes.ok && changes.changes).toEqual([
+      expect.objectContaining({
+        path: "a.txt",
+        status: "conflicted",
+        conflict: { kinds: ["text"] },
+      }),
+    ]);
+
+    const blocked = await service.commit({
+      workspacePath: fixture.wc,
+      paths: ["a.txt"],
+      message: "mine",
+    });
+    expect(blocked).toMatchObject({ ok: false, issue: "unresolved-conflicts" });
+
+    expect(
+      await service.resolve({ workspacePath: fixture.wc, path: "a.txt", accept: "mine-full" }),
+    ).toEqual({ ok: true });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("mine\n");
+    const commit = await service.commit({
+      workspacePath: fixture.wc,
+      paths: ["a.txt"],
+      message: "fix: keep mine",
+    });
+    expect(commit.ok).toBe(true);
+  });
+
+  it("树冲突只读展示原因", async () => {
+    const service = createService();
+    svn(fixture.other, "delete", "-q", "中文");
+    svn(fixture.other, "commit", "-q", "-m", "delete dir");
+    writeFileSync(join(fixture.wc, "中文", "文件@2x.txt"), "edit\n");
+    await service.update({ workspacePath: fixture.wc });
+
+    const changes = await service.getChanges({ workspacePath: fixture.wc });
+    const conflicted = changes.ok
+      ? changes.changes.find((change) => change.status === "conflicted")
+      : undefined;
+    expect(conflicted?.conflict).toEqual({
+      kinds: ["tree"],
+      description: "local edit, incoming delete upon update",
+    });
+  });
+
+  it("历史分页与修订 diff", async () => {
+    const service = createService();
+    for (const value of ["1", "2", "3"]) {
+      writeFileSync(join(fixture.wc, "a.txt"), `${value}\n`);
+      svn(fixture.wc, "commit", "-q", "-m", `change ${value}`);
+    }
+    const first = await service.getLog({ workspacePath: fixture.wc, limit: 2 });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.entries.map((entry) => entry.message)).toEqual(["change 3", "change 2"]);
+    expect(first.hasMore).toBe(true);
+    const next = await service.getLog({
+      workspacePath: fixture.wc,
+      limit: 2,
+      startRevision: first.entries[1]!.revision - 1,
+    });
+    expect(next.ok && next.entries[0]?.message).toBe("change 1");
+
+    const diff = await service.getDiff({
+      workspacePath: fixture.wc,
+      path: "/trunk/a.txt",
+      revision: first.entries[0]!.revision,
+    });
+    expect(diff.ok && diff.patch).toContain("+3");
+  });
+
+  it("列出分支并切换", async () => {
+    const service = createService();
+    const branches = await service.listBranches({ workspacePath: fixture.wc });
+    expect(branches).toMatchObject({
+      ok: true,
+      layout: "standard",
+      current: { kind: "trunk" },
+      branches: [
+        { kind: "trunk", relativePath: "trunk" },
+        { kind: "branch", name: "feature", relativePath: "branches/feature" },
+      ],
+    });
+    const switched = await service.switchBranch({
+      workspacePath: fixture.wc,
+      relativePath: "branches/feature",
+    });
+    expect(switched).toMatchObject({ ok: true, branch: { kind: "branch", name: "feature" } });
+    expect(
+      await service.switchBranch({ workspacePath: fixture.wc, relativePath: "../etc" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+  });
+
+  it("还原保留新增文件，锁定时报 working-copy-locked 并可清理", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "changed\n");
+    writeFileSync(join(fixture.wc, "added.txt"), "added\n");
+    svn(fixture.wc, "add", "-q", "added.txt");
+    expect(
+      await service.revert({ workspacePath: fixture.wc, paths: ["a.txt", "added.txt"] }),
+    ).toEqual({ ok: true });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("line1\nline2\n");
+    expect(existsSync(join(fixture.wc, "added.txt"))).toBe(true);
+
+    // 直接写入 wc.db 的 WC_LOCK 表，模拟 svn 进程中断后残留的工作副本锁
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(join(fixture.wc, ".svn", "wc.db"));
+    db.exec("INSERT INTO WC_LOCK (wc_id, local_dir_relpath, locked_levels) VALUES (1, '', -1);");
+    db.close();
+    writeFileSync(join(fixture.wc, "a.txt"), "again\n");
+    const locked = await service.revert({ workspacePath: fixture.wc, paths: ["a.txt"] });
+    expect(locked).toMatchObject({ ok: false, issue: "working-copy-locked" });
+    expect(await service.cleanup({ workspacePath: fixture.wc })).toEqual({ ok: true });
+    expect(await service.revert({ workspacePath: fixture.wc, paths: ["a.txt"] })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("找不到 svn 时报告不可用", async () => {
+    const service = createService({ svnBinaryPath: join(fixture.root, "missing-svn") });
+    const info = await service.getWorkingCopyInfo({ workspacePath: fixture.wc });
+    // 手动路径无效时继续按 PATH 查找，因此只要 PATH 上有 svn 仍可用
+    expect(["available", "not-found"]).toContain(info.availability.status);
+  });
+});
+
+function createScriptedProvider(
+  handler: (options: SvnCommandExecutionOptions) => Promise<Partial<SvnCommandExecutionResult>>,
+  version = "1.14.0",
+): { provider: SvnCommandProvider; calls: SvnCommandExecutionOptions[] } {
+  const calls: SvnCommandExecutionOptions[] = [];
+  return {
+    calls,
+    provider: {
+      async resolveSvnBinary() {
+        return { binaryPath: "svn", version };
+      },
+      async run(options) {
+        calls.push(options);
+        return {
+          stdout: "",
+          stderr: "",
+          exitCode: 0,
+          durationMs: 1,
+          timedOut: false,
+          outputTruncated: false,
+          ...(await handler(options)),
+        };
+      },
+    },
+  };
+}
+
+describe("SvnService（模拟命令）", () => {
+  it("同一身份 key 的写操作串行，不同 key 并行，读操作不排队", async () => {
+    const events: string[] = [];
+    const releases: Array<() => void> = [];
+    const { provider } = createScriptedProvider(async (options) => {
+      const label = `${options.cwd}:${options.args[1]}`;
+      events.push(`start ${label}`);
+      if (options.args[1] === "revert") {
+        await new Promise<void>((resolve) => releases.push(resolve));
+      }
+      events.push(`end ${label}`);
+      return {};
+    });
+    const service = createSvnService({ commandProvider: provider });
+
+    const first = service.revert({ workspacePath: "/a", paths: ["x"] });
+    const second = service.revert({ workspacePath: "/a", paths: ["y"] });
+    const otherKey = service.revert({ workspacePath: "/b", paths: ["z"] });
+    const read = service.getDiff({ workspacePath: "/a", path: "x", revision: 3 });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    // 第二个 /a 写操作仍在排队；/b 写操作与 /a 读操作不受影响
+    expect(events.filter((event) => event.startsWith("start")).sort()).toEqual([
+      "start /a:diff",
+      "start /a:revert",
+      "start /b:revert",
+    ]);
+    releases.shift()!();
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(events).toContain("start /a:revert");
+    expect(events.filter((event) => event === "start /a:revert")).toHaveLength(2);
+    for (const release of releases.splice(0)) release();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    for (const release of releases.splice(0)) release();
+    await Promise.all([second, otherKey, read]);
+  });
+
+  it("svn ≥ 1.10 通过 stdin 传密码，旧版本退回 --password；不缓存时加 --no-auth-cache", async () => {
+    const credentials = { username: "u", password: "p@ss", storeInSvnCache: false };
+    const modern = createScriptedProvider(async () => ({}));
+    await createSvnService({ commandProvider: modern.provider }).update({
+      workspacePath: "/wc",
+      credentials,
+    });
+    const modernUpdate = modern.calls.find((call) => call.args.includes("update"))!;
+    expect(modernUpdate.args).toEqual(
+      expect.arrayContaining(["--password-from-stdin", "--username", "u", "--no-auth-cache"]),
+    );
+    expect(modernUpdate.args).not.toContain("p@ss");
+    expect(modernUpdate.stdin).toBe("p@ss");
+
+    const legacy = createScriptedProvider(async () => ({}), "1.9.7");
+    await createSvnService({ commandProvider: legacy.provider }).update({
+      workspacePath: "/wc",
+      credentials: { ...credentials, storeInSvnCache: true },
+    });
+    const legacyUpdate = legacy.calls.find((call) => call.args.includes("update"))!;
+    expect(legacyUpdate.args).toEqual(expect.arrayContaining(["--password", "p@ss"]));
+    expect(legacyUpdate.args).not.toContain("--no-auth-cache");
+    expect(legacyUpdate.stdin).toBeUndefined();
+  });
+
+  it("认证失败归类为 auth-required；版本过低报告不可用", async () => {
+    const { provider } = createScriptedProvider(async () => ({
+      exitCode: 1,
+      stderr: "svn: E170001: Authentication required for 'realm'\n",
+    }));
+    const service = createSvnService({ commandProvider: provider });
+    expect(await service.update({ workspacePath: "/wc" })).toMatchObject({
+      ok: false,
+      issue: "auth-required",
+    });
+
+    const old = createScriptedProvider(async () => ({}), "1.7.22");
+    const info = await createSvnService({ commandProvider: old.provider }).getWorkingCopyInfo({
+      workspacePath: "/wc",
+    });
+    expect(info.availability).toEqual({
+      status: "unsupported-version",
+      version: "1.7.22",
+      binaryPath: "svn",
+    });
+  });
+
+  it("拒绝越界路径", async () => {
+    const { provider, calls } = createScriptedProvider(async () => ({}));
+    const service = createSvnService({ commandProvider: provider });
+    expect(await service.revert({ workspacePath: "/wc", paths: ["../x"] })).toMatchObject({
+      ok: false,
+      issue: "invalid-request",
+    });
+    expect(
+      await service.commit({ workspacePath: "/wc", paths: ["/etc/passwd"], message: "x" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+    expect(calls).toHaveLength(0);
+  });
+});

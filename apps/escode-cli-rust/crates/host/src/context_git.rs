@@ -14,7 +14,7 @@ impl Drop for Group {
         }
     }
 }
-async fn command(
+pub(super) async fn command(
     cwd: &Path,
     program: &str,
     args: &[&str],

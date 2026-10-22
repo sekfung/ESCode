@@ -22,6 +22,8 @@ import {
   createESCodeAgentConnectionScope,
   IFileService,
   IGitService,
+  ISvnService,
+  IWorkspaceVcsService,
   ISystemService,
   ITerminalService,
   IProviderProvisioningTargetService,
@@ -387,6 +389,8 @@ export function createHttpServer(
           const remoteServices = new ServiceCollection()
             .register(IFileService, connection.services.fileService)
             .register(IGitService, connection.services.gitService)
+            .registerOptional(ISvnService, connection.services.svnService)
+            .registerOptional(IWorkspaceVcsService, connection.services.workspaceVcsService)
             .register(ISystemService, connection.services.systemService)
             .register(ITerminalService, connection.services.terminalService);
 

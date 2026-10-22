@@ -4,6 +4,7 @@ use std::path::Path;
 pub mod child_env;
 pub mod client_platform;
 mod context_git;
+mod context_svn;
 pub mod context_source;
 pub mod credential_cipher;
 pub mod credential_store;

@@ -15,7 +15,11 @@ import { estimateTokens } from "./utils.js";
 import { buildCliPrefixSection } from "./sections/cli-prefix.js";
 import { buildIdentitySection } from "./sections/identity.js";
 import { buildWorkflowActorIdentitySection } from "./sections/workflow-actor.js";
-import { buildEnvInfoSection, buildGitSystemContextSection } from "./sections/env-info.js";
+import {
+  buildEnvInfoSection,
+  buildGitSystemContextSection,
+  buildSvnSystemContextSection,
+} from "./sections/env-info.js";
 import { buildSkillsSection } from "./sections/skills.js";
 import { buildRequestUserContextSection } from "./sections/request-user-context.js";
 import { buildCurrentDateSection } from "./sections/current-date.js";
@@ -173,6 +177,10 @@ export class ContextBuilder {
       const gitSystemContextSection = buildGitSystemContextSection(this.config.envInfo);
       if (gitSystemContextSection) {
         sections.push(gitSystemContextSection);
+      }
+      const svnSystemContextSection = buildSvnSystemContextSection(this.config.envInfo);
+      if (svnSystemContextSection) {
+        sections.push(svnSystemContextSection);
       }
     }
 

@@ -9,6 +9,7 @@ import {
   buildCliPrefixSection,
   buildEnvInfoSection,
   buildGitSystemContextSection,
+  buildSvnSystemContextSection,
   buildIdentitySection,
   buildSkillsSection,
 } from "../src/context/index.js";
@@ -1246,6 +1247,45 @@ describe("ContextBuilder meta user context", () => {
     expect(nonGitSection.content).toContain("- Is a git repository: no");
     expect(nonGitSection.content).not.toContain("not a git repository");
     expect(nonGitSection.content).not.toContain("- **Git**:");
+  });
+
+  it("renders svn snapshot as systemContext and marks the environment", () => {
+    const envInfo = {
+      cwd: "/workspace",
+      platform: "linux",
+      shell: "bash",
+      osVersion: "Linux 6.8",
+      nodeVersion: "v24.14.0",
+      isGitRepository: false,
+      gitStatus: "not_repo" as const,
+      svn: {
+        url: "https://svn.example.invalid/repo/trunk",
+        revision: 120,
+        branch: "trunk",
+        statusLines: ["M       src/a.ts", "?       new.txt"],
+        recentLogs: ["r120 alice: fix login", "r119 bob: refactor cache"],
+      },
+    };
+    expect(buildGitSystemContextSection(envInfo)).toBeNull();
+    expect(buildSvnSystemContextSection(envInfo)?.content).toBe(
+      [
+        "svnStatus: This is the SVN working copy status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation. SVN commits go directly to the server; there is no local commit or push.",
+        "",
+        "Repository URL: https://svn.example.invalid/repo/trunk",
+        "",
+        "Current branch: trunk",
+        "",
+        "Working copy revision: r120",
+        "",
+        "Status:\nM       src/a.ts\n?       new.txt",
+        "",
+        "Recent revisions:\nr120 alice: fix login\nr119 bob: refactor cache",
+      ].join("\n"),
+    );
+    expect(buildEnvInfoSection(envInfo).content).toContain("- Is an SVN working copy: yes");
+    expect(
+      buildSvnSystemContextSection({ ...envInfo, svn: undefined }),
+    ).toBeNull();
   });
 
   it("renders git snapshot copy as systemContext", () => {

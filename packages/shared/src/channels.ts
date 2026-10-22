@@ -77,6 +77,10 @@ export const ServiceChannels = {
   Git: "git",
   /** Git checkpoint 服务 */
   GitCheckpoint: "git-checkpoint",
+  /** SVN 服务；spec：docs/svn/architecture.md */
+  Svn: "svn",
+  /** workspace VCS 类型判定（git / svn / none）的唯一入口 */
+  WorkspaceVcs: "workspace-vcs",
   Setting: "setting",
   /** 凭据管理（从 main IPC 迁移到 host RPC） */
   Credential: "credential",

@@ -115,6 +115,8 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("file", "readWorkspaceFileSearchIgnore"),
     ("file", "applyWorkspaceFileSearchIgnoreTransform"),
     ("file", "writeWorkspaceFileSearchIgnore"),
+    ("workspace-vcs", "getWorkspaceVcsInfo"),
+    ("workspace-vcs", "setWorkspaceVcsOverride"),
     ("git", "getRepositorySummary"),
     ("git", "generateCommitMessage"),
     ("git", "getWorkspaceRepositoryInfo"),

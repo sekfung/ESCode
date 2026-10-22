@@ -20,6 +20,16 @@ const COMMIT_MESSAGE_QUERY_SOURCE = "git_commit_message";
 const CONVENTIONAL_COMMIT_RE =
   /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .{1,100}$/;
 
+/**
+ * 生成器只依赖与 VCS 无关的最小字段：Git 直接传入 GitFileChange / GitDiffResult，
+ * SVN 把工作副本改动映射成同样的结构后复用同一生成器（spec：docs/svn/architecture.md）。
+ */
+export type CommitMessageFileInput = Pick<
+  GitFileChange,
+  "kind" | "repoRelativePath" | "added" | "removed"
+>;
+export type CommitMessageDiffInput = Pick<GitDiffResult, "path" | "patch" | "summary">;
+
 export interface GitCommitMessageCurrentModelProvider {
   readCurrentModel(params: {
     workspacePath: string;
@@ -62,8 +72,8 @@ export class GitCommitMessageGenerator {
     workspaceIdentity?: string;
     branchName: string | null;
     locale?: Locale;
-    files: readonly GitFileChange[];
-    diffs: readonly GitDiffResult[];
+    files: readonly CommitMessageFileInput[];
+    diffs: readonly CommitMessageDiffInput[];
     conversationContext?: GitCommitMessageConversationContext;
   }): Promise<{ message: string; providerId: string; model: string }> {
     const selection = await this.resolveCurrentModel(params);
@@ -175,8 +185,8 @@ export class GitCommitMessageGenerator {
 function buildGitCommitMessageGenerationPrompt(params: {
   branchName: string | null;
   locale?: Locale;
-  files: readonly GitFileChange[];
-  diffs: readonly GitDiffResult[];
+  files: readonly CommitMessageFileInput[];
+  diffs: readonly CommitMessageDiffInput[];
   conversationContext?: GitCommitMessageConversationContext;
 }): string {
   const normalizedBranchName = params.branchName?.trim() || "(detached or unknown)";
@@ -254,7 +264,7 @@ function validateGeneratedGitCommitMessage(
   return { ok: true, message };
 }
 
-function buildDiffSummary(diffs: readonly GitDiffResult[]): string {
+function buildDiffSummary(diffs: readonly CommitMessageDiffInput[]): string {
   let totalChars = 0;
   const chunks: string[] = [];
   for (const diff of diffs.slice(0, MAX_DIFF_FILES)) {

@@ -1,3 +1,4 @@
+import type { WorkspaceVcsOverride } from "./vcs.js";
 import type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
 import type { SerialChecksumConfig } from "./serial/serialChecksum.js";
 import type { RemoteResourcePackageSelection } from "./remoteResourcePackages.js";
@@ -324,6 +325,15 @@ export interface AppSettings {
   closeToTrayOnWindows?: boolean;
   /** 存在执行中的闲时任务时阻止系统闲置休眠（手动开关，防不了合盖）。 */
   keepAwakeWhileRunning?: boolean;
+  /**
+   * 按 workspace 身份 key（workspaceIdentity?.trim() || workspacePath）保存的 VCS 类型覆盖。
+   * 只由所在 Host 的 IWorkspaceVcsService 读写；缺省等价于 auto（spec：docs/svn/requirements.md）。
+   */
+  workspaceVcsOverrides?: Record<string, WorkspaceVcsOverride>;
+  /** 手动指定的 svn 可执行文件路径；为空时自动查找。只对保存它的 Host 生效。 */
+  svnBinaryPath?: string;
+  /** 是否低频检查 SVN 服务器新修订；缺省开启。 */
+  svnRemoteCheckEnabled?: boolean;
   /** Windows 关闭到托盘默认值是否已执行过一次性迁移；只用于设置迁移，不参与业务判断。 */
   closeToTrayOnWindowsMigrationInitialized?: boolean;
   /**

@@ -4,6 +4,8 @@ import {
   IFileService,
   IMediaPreviewService,
   IGitService,
+  ISvnService,
+  IWorkspaceVcsService,
   IGitCheckpointService,
   ISystemService,
   ITerminalService,
@@ -53,6 +55,8 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly mediaPreviewService: IMediaPreviewService;
   readonly gitService: IGitService;
   readonly gitCheckpointService: IGitCheckpointService;
+  readonly svnService: ISvnService;
+  readonly workspaceVcsService: IWorkspaceVcsService;
   readonly systemService: ISystemService;
   readonly terminalService: ITerminalService;
   // 只有 Desktop Local Host 注册 serial channel；Web/远端 server 上该代理存在但不会被调用，
@@ -109,6 +113,12 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.gitCheckpointService = ProxyChannel.toService<IGitCheckpointService>(
       channelClient.getChannel(IGitCheckpointService.channelName),
+    );
+    this.svnService = ProxyChannel.toService<ISvnService>(
+      channelClient.getChannel(ISvnService.channelName),
+    );
+    this.workspaceVcsService = ProxyChannel.toService<IWorkspaceVcsService>(
+      channelClient.getChannel(IWorkspaceVcsService.channelName),
     );
     this.systemService = ProxyChannel.toService<ISystemService>(
       channelClient.getChannel(ISystemService.channelName),

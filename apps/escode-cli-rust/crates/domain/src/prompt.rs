@@ -11,6 +11,9 @@ pub struct PromptSnapshot {
     pub os_version: String,
     pub current_date: String,
     pub git: Option<GitSnapshot>,
+    /// SVN 工作副本快照（docs/svn/architecture.md「Agent 集成」）；与 `git` 互斥。
+    #[serde(default)]
+    pub svn: Option<SvnSnapshot>,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +23,15 @@ pub struct GitSnapshot {
     pub user: String,
     pub status: String,
     pub recent_commits: String,
+}
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SvnSnapshot {
+    pub url: String,
+    pub revision: Option<u64>,
+    pub branch: String,
+    pub status: String,
+    pub recent_logs: String,
 }
 pub struct InstructionSource {
     pub path: String,
@@ -104,6 +116,11 @@ pub fn prefix(
         snapshot.shell,
         snapshot.os_version,
     );
+    if snapshot.svn.is_some() {
+        // 与 TS env-info 一致：Git 行保留，SVN 工作副本额外追加一行。
+        let at = env.find("\n- Platform:").unwrap_or(env.len());
+        env.insert_str(at, "\n- Is an SVN working copy: yes");
+    }
     if let Some((provider, model)) = model {
         env.push_str(&format!(
             "\n- You are powered by the model named {provider}/{model}."
@@ -153,6 +170,9 @@ pub fn prefix(
             },
             git.recent_commits
         ));
+    }
+    if let Some(svn) = &snapshot.svn {
+        dynamic.push_str(&svn_system_context(svn));
     }
     // 工作流 actor 没有 CLI 前缀，身份段换成 actor 身份（TS buildWorkflowActorIdentitySection）。
     // actor 的身份段与动态段在 TS 里合成同一条 system 消息。
@@ -217,6 +237,32 @@ pub fn prefix(
     messages
 }
 
+/// 与 TS `buildSvnSystemContextSection` 同文案；SVN 提交直接写入服务器，没有本地提交或推送。
+fn svn_system_context(svn: &SvnSnapshot) -> String {
+    let mut text = String::from(
+        "\n\nsvnStatus: This is the SVN working copy status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation. SVN commits go directly to the server; there is no local commit or push.",
+    );
+    if !svn.url.is_empty() {
+        text.push_str(&format!("\n\nRepository URL: {}", svn.url));
+    }
+    if !svn.branch.is_empty() {
+        text.push_str(&format!("\n\nCurrent branch: {}", svn.branch));
+    }
+    if let Some(revision) = svn.revision {
+        text.push_str(&format!("\n\nWorking copy revision: r{revision}"));
+    }
+    text.push_str(&format!(
+        "\n\nStatus:\n{}\n\nRecent revisions:\n{}",
+        if svn.status.is_empty() {
+            "(clean)"
+        } else {
+            &svn.status
+        },
+        svn.recent_logs
+    ));
+    text
+}
+
 #[cfg(test)]
 mod date_change_tests {
     use super::date_change_reminder;
@@ -256,5 +302,43 @@ mod conversation_quote_tests {
         );
         assert_eq!(with_conversation_quotes("hi", &json!([])), "hi");
         assert!(with_conversation_quotes("", &quotes).starts_with("<conversation_quote>"));
+    }
+}
+
+
+#[cfg(test)]
+mod svn_prompt_tests {
+    use super::{PromptSnapshot, SvnSnapshot, prefix};
+
+    #[test]
+    fn svn_snapshot_renders_environment_line_and_system_context() {
+        let snapshot = PromptSnapshot {
+            cwd: "/workspace".into(),
+            platform: "linux".into(),
+            shell: "bash".into(),
+            os_version: "linux 6.8 x64".into(),
+            svn: Some(SvnSnapshot {
+                url: "https://svn.example.invalid/repo/trunk".into(),
+                revision: Some(120),
+                branch: "trunk".into(),
+                status: "M       src/a.ts".into(),
+                recent_logs: "r120 alice: fix login".into(),
+            }),
+            ..Default::default()
+        };
+        let messages = prefix(&snapshot, &[], None, false, None, false, None, None);
+        let dynamic = messages
+            .iter()
+            .filter_map(|message| message["content"].as_str())
+            .find(|content| content.contains("# Environment"))
+            .expect("environment section");
+        assert!(dynamic.contains(
+            "- Is a git repository: no\n- Is an SVN working copy: yes\n- Platform: linux"
+        ));
+        assert!(dynamic.contains(
+            "svnStatus: This is the SVN working copy status at the start of the conversation."
+        ));
+        assert!(dynamic.contains("\n\nRepository URL: https://svn.example.invalid/repo/trunk\n\nCurrent branch: trunk\n\nWorking copy revision: r120\n\nStatus:\nM       src/a.ts\n\nRecent revisions:\nr120 alice: fix login"));
+        assert!(!dynamic.contains("gitStatus:"));
     }
 }

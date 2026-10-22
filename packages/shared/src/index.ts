@@ -243,6 +243,8 @@ export * from "./process-names.js";
 export * from "./mcp.js";
 export * from "./runtime-tool-runtime.js";
 export * from "./git.js";
+export * from "./svn.js";
+export * from "./vcs.js";
 export * from "./assistant-message-parts.js";
 export * from "./escodePersistedMessageMerge.js";
 export * from "./assistant-presentation.js";

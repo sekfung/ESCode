@@ -1,4 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- 状态面板同时维护收起态摘要、展开态分区、菜单策略和宽度自适应，同文件能保证两种形态共享同一内容优先级。 */
+import { useSvnWorkspaceContext } from "@/svn/SvnWorkspaceContext.js";
+import { SvnStatusSectionContent } from "@/svn/SvnStatusSection.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
 import {
   forwardRef,
@@ -1948,7 +1950,13 @@ function ConversationStatusPanelImpl({
   const panelMenuLabel = intl.formatMessage({
     id: "chat.summaryPanel.displayMode",
   });
-  const canRenderGit = Boolean(model.git && gitSummary && onRefreshGit);
+  // SVN workspace 的环境区由 SVN 控制器提供；同一 workspace 不同时渲染 Git 区。
+  const svnController = useSvnWorkspaceContext();
+  const canRenderSvn = Boolean(
+    svnController && svnController.workspacePath === workspacePath && !isOfficeMode,
+  );
+  const canRenderGit = !canRenderSvn && Boolean(model.git && gitSummary && onRefreshGit);
+  const canRenderVcs = canRenderGit || canRenderSvn;
   const canRenderGoal = Boolean(model.goal);
   const canRenderSessionPlans = Boolean(model.sessionPlans);
   const canRenderPlan = Boolean(model.plan);
@@ -1988,7 +1996,7 @@ function ConversationStatusPanelImpl({
   // 会话会连整个胶囊一起消失——而那正是重启后打开一条旧对话的样子，run 目录的入口于是又没了。
   // 已结束的 run 因此单独开这道门。（Agents 的已结束行有同一个洞：`endedSubagentCount` 也
   // 没进 `hasContent`。那是既有行为，不在本轮一起翻。）
-  if (!model.hasContent && !canRenderEndedWorkflows) {
+  if (!model.hasContent && !canRenderEndedWorkflows && !canRenderSvn) {
     return null;
   }
 
@@ -2113,10 +2121,22 @@ function ConversationStatusPanelImpl({
                 useVerticalFloatingPanels={useVerticalFloatingPanels}
               />
             ) : null}
+            {canRenderSvn && svnController ? (
+              <StatusSection
+                section="environment"
+                separated={false}
+                title={intl.formatMessage({ id: "chat.statusPanel.environment" })}
+              >
+                <SvnStatusSectionContent
+                  controller={svnController}
+                  onOpenReview={onOpenGitReview ? () => onOpenGitReview() : undefined}
+                />
+              </StatusSection>
+            ) : null}
             {canRenderGoal ? (
               <GoalStatusSection
                 model={model}
-                separated={canRenderGit}
+                separated={canRenderVcs}
                 onPauseGoal={onPauseGoal}
                 onResumeGoal={onResumeGoal}
               />
@@ -2126,14 +2146,14 @@ function ConversationStatusPanelImpl({
                 model={model}
                 parentSessionId={parentSessionId}
                 onOpenPlanDetail={onOpenPlanDetail}
-                separated={canRenderGit || canRenderGoal}
+                separated={canRenderVcs || canRenderGoal}
               />
             ) : null}
             {canRenderPlan ? (
               <PlanStatusSection
                 model={model}
                 popoverSide={useVerticalFloatingPanels ? "bottom" : "left"}
-                separated={canRenderGit || canRenderGoal || canRenderSessionPlans}
+                separated={canRenderVcs || canRenderGoal || canRenderSessionPlans}
               />
             ) : null}
             {canRenderTerminals ? (
@@ -2144,7 +2164,7 @@ function ConversationStatusPanelImpl({
                 works={model.runningBashWorks}
                 open={terminalSectionOpen}
                 onOpenChange={onTerminalSectionOpenChange}
-                separated={canRenderGit || canRenderGoal || canRenderSessionPlans || canRenderPlan}
+                separated={canRenderVcs || canRenderGoal || canRenderSessionPlans || canRenderPlan}
                 onCancelBackgroundWork={onCancelBackgroundWork}
               />
             ) : null}
@@ -2156,7 +2176,7 @@ function ConversationStatusPanelImpl({
                 open={workflowSectionOpen}
                 onOpenChange={onWorkflowSectionOpenChange}
                 separated={
-                  canRenderGit ||
+                  canRenderVcs ||
                   canRenderGoal ||
                   canRenderSessionPlans ||
                   canRenderPlan ||
@@ -2177,7 +2197,7 @@ function ConversationStatusPanelImpl({
                 open={agentSectionOpen}
                 onOpenChange={onAgentSectionOpenChange}
                 separated={
-                  canRenderGit ||
+                  canRenderVcs ||
                   canRenderGoal ||
                   canRenderSessionPlans ||
                   canRenderPlan ||

@@ -3,6 +3,8 @@ import {
   IFileService,
   IMediaPreviewService,
   IGitService,
+  ISvnService,
+  IWorkspaceVcsService,
   ISystemService,
   ITerminalService,
   ISettingService,
@@ -56,6 +58,8 @@ export function createRemoteConnectionServiceCollection(params: {
         }),
       )
       .register(IGitService, params.connectionServices.gitService)
+      .registerOptional(ISvnService, params.connectionServices.svnService)
+      .registerOptional(IWorkspaceVcsService, params.connectionServices.workspaceVcsService)
       .register(ISystemService, params.connectionServices.systemService)
       .register(ITerminalService, params.connectionServices.terminalService)
       .register(ISettingService, createSettingService())

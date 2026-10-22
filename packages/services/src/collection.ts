@@ -14,6 +14,14 @@ export class ServiceCollection {
     return this;
   }
 
+  /** 只在实例存在时注册；用于旧 Host / 旧远端 server 可能缺失的可选服务。 */
+  registerOptional<T>(descriptor: ServiceDescriptor<T>, instance: T | undefined): this {
+    if (instance !== undefined) {
+      this._services.set(descriptor.channelName, instance);
+    }
+    return this;
+  }
+
   get<T>(descriptor: ServiceDescriptor<T>): T {
     const instance = this._services.get(descriptor.channelName);
     if (!instance) {

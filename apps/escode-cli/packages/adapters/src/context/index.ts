@@ -20,6 +20,7 @@ import type {
   UserInstructionsOptions,
 } from "@escode/contracts";
 import { resolveGitSnapshot } from "./git-snapshot.js";
+import { detectWorkspaceVcsKind, resolveSvnSnapshot } from "./svn-snapshot.js";
 
 const DEFAULT_PRIORITY_FILES = ["AGENTS.md"];
 const DEFAULT_MAX_BYTES = 100 * 1024;
@@ -73,7 +74,13 @@ export class NodeContextSourceAdapter implements ContextSourcePort {
   ): Promise<EnvInfo> {
     const shellPath = this.env.SHELL ?? this.env.ComSpec ?? this.env.COMSPEC ?? "";
     const shell = effectiveShellDisplayName ?? (shellPath ? basename(shellPath) : "unknown");
-    const gitSnapshot = await resolveGitSnapshot(workingDirectory);
+    // SVN 工作副本（且比 Git 仓库更近）时注入 SVN 快照，不再收集 Git 快照。
+    const vcsKind = await detectWorkspaceVcsKind(workingDirectory);
+    const gitSnapshot =
+      vcsKind === "svn"
+        ? { isGitRepository: false, gitStatus: "not_repo" as const }
+        : await resolveGitSnapshot(workingDirectory);
+    const svn = vcsKind === "svn" ? await resolveSvnSnapshot(workingDirectory, this.env) : undefined;
     return {
       cwd: workingDirectory,
       platform: process.platform,
@@ -81,6 +88,7 @@ export class NodeContextSourceAdapter implements ContextSourcePort {
       osVersion: `${process.platform} ${release()} ${arch()}`,
       nodeVersion: process.version,
       ...gitSnapshot,
+      ...(svn ? { svn } : {}),
     };
   }
 }

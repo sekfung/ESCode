@@ -10,6 +10,10 @@ export function buildRemoteWorkspaceSessionServices(
     mediaPreviewService: remoteServices.mediaPreviewService,
     gitService: remoteServices.gitService,
     gitCheckpointService: remoteServices.gitCheckpointService,
+    // SVN 命令与 VCS 判定必须在 workspace 所在 Host 执行；远端缺失时保持 undefined，
+    // 不能回落到本机服务去探测远端路径。
+    svnService: remoteServices.svnService,
+    workspaceVcsService: remoteServices.workspaceVcsService,
     systemService: remoteServices.systemService,
     terminalService: remoteServices.terminalService,
     // 远端附件必须由当前 workspace host 上传并改写路径；沿用本地服务会把
