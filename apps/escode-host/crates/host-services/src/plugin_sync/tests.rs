@@ -102,12 +102,16 @@ async fn export_and_import_round_trip_adds_config_dir() {
     )
     .unwrap();
     assert_eq!(config["features"]["mcp"], json!(true));
+    // Windows 上导入路径可能带 canonicalize 前缀或不同分隔符；按规范化路径比较。
+    let expected_target = std::fs::canonicalize(&target).unwrap();
     assert!(
         config["plugins"]["dirs"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|value| value.as_str() == Some(target.to_string_lossy().as_ref()))
+            .filter_map(|value| value.as_str())
+            .filter_map(|value| std::fs::canonicalize(value).ok())
+            .any(|value| value == expected_target)
     );
 
     let again = remote

@@ -162,8 +162,14 @@ mod tests {
 
     #[test]
     fn absolute_paths_fold_dot_and_parent_segments() {
-        let path = normalize_absolute("/a/./b/../c").unwrap();
-        assert_eq!(path, PathBuf::from("/a/c"));
+        // Windows 的绝对路径需要盘符，不能复用 POSIX 路径字符串。
+        let (input, expected) = if cfg!(windows) {
+            (r"C:\a\.\b\..\c", PathBuf::from(r"C:\a\c"))
+        } else {
+            ("/a/./b/../c", PathBuf::from("/a/c"))
+        };
+        let path = normalize_absolute(input).unwrap();
+        assert_eq!(path, expected);
         assert!(normalize_absolute("relative/path").is_err());
     }
 
