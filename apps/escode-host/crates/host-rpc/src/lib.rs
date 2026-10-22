@@ -19,6 +19,7 @@ mod domains_broadcast;
 mod domains_client;
 mod domains_commands;
 mod domains_credential;
+mod domains_cua_permission;
 pub mod domains_file;
 mod domains_file_channel;
 mod domains_file_index;

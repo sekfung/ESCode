@@ -399,10 +399,6 @@ import {
   buildAgentRuntimeEnv,
 } from "./runtime-tools/agentProxyEnv.js";
 import { ensureAppCaCert } from "./runtime-tools/appCaCert.js";
-import {
-  buildHelperOpenArgs,
-  isCuaLocalDevelopmentRuntime,
-} from "@escode/escode-cua/broker/server";
 import { createServiceLogger, type ServiceLogger } from "#src/logger/serviceLogger.js";
 import { createOfficialMcpAuthHeadersResolver } from "./official-mcp/officialMcpCredentials.js";
 import {
@@ -420,22 +416,23 @@ import {
   ICuaPipSessionService,
   isOfficialCuaPluginEnabledForWorkspace,
   isPotentialESCodeCuaAgentMcpServer,
-  isScreenCaptureProbeSuccess,
   reapOrphanedHelpers,
-  resolveStandaloneStatusLaunchCandidates,
-  shouldRunCuaScreenCaptureProbe,
   type CuaHelperHost,
   type CuaHelperTransportRestartOptions,
   type CuaHelperTransportRestartResult,
   type ManagedCuaProductHelperHost,
   type CuaProductMcpServerResolver,
   type CuaProductMcpServerResolverContext,
-  type CuaPermissionRestartOptions,
-  type CuaPermissionRestartResult,
-  type CuaPermissionState,
-  type CuaPermissionStatusQueryOptions,
-  type CuaPermissionStatusResult,
 } from "#src/cua-permission-broker/index.js";
+import {
+  createCuaPermissionService,
+  probeStableCuaHelperSocket,
+} from "./cua-permission-broker/cuaPermissionServiceRuntime.js";
+export {
+  createCuaPermissionService,
+  probeStableCuaHelperSocket,
+  type CuaPermissionHelper,
+} from "./cua-permission-broker/cuaPermissionServiceRuntime.js";
 import {
   resolveWindowsCuaRuntime,
   WindowsCuaDevRuntimeResolutionError,
@@ -619,46 +616,10 @@ export function shouldEnableCuaOperationStateReporter(opts: {
   return opts.hasReporter && opts.serviceAuthorityMode === "desktop-local";
 }
 
-export async function runCuaScreenCaptureReadinessProbe(
-  host: Pick<CuaHelperHost, "queryScreenCaptureProbe">,
-  screenRecording: "granted" | "denied" | "unknown",
-  queryOptions?: CuaPermissionStatusQueryOptions,
-): Promise<boolean> {
-  if (!shouldRunCuaScreenCaptureProbe(screenRecording, queryOptions)) {
-    return false;
-  }
-  try {
-    return isScreenCaptureProbeSuccess(await host.queryScreenCaptureProbe());
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Screen Recording 的展示态取值：优先短命 Helper 读到的 TCC 真值，拿不到才沿用常驻 Helper 的报告。
- *
- * 为什么不能直接信常驻 Helper：macOS 撤销 Screen Recording 对**已运行进程**不生效 ——
- * 进程在退出前保留已获得的录屏能力，`CGPreflightScreenCaptureAccess()` 也继续返回撤销前的值。
- * 于是用户在系统设置里关掉授权后，常驻 broker Helper 会一直报 granted 直到它自己重启，
- * 设置页跟着显示「已授权」；而下一次 Helper 重启 CUA 就真的不可用了。
- * 授予方向同样陈旧：刚授权完常驻 Helper 仍可能报 denied。
- *
- * fail-open 是刻意的：预检失败（open 失败 / 超时 / 结果不合法）时沿用报告值，
- * 不比不做预检更糟。硬报 denied 会把已授权用户推进一次无意义的授权引导。
- */
-export async function resolveCuaScreenRecordingState(
-  host: Pick<CuaHelperHost, "queryScreenRecordingPreflight">,
-  reported: "granted" | "denied" | "unknown",
-): Promise<"granted" | "denied" | "unknown"> {
-  // unknown 表示连 CGPreflight 符号都没拿到（macOS 10.15 前）。预检跑的是同一个 native 调用，
-  // 换个进程也只会得到 unknown，不值得花一次 LaunchServices 冷启。
-  if (reported === "unknown") return reported;
-  try {
-    return (await host.queryScreenRecordingPreflight()) ?? reported;
-  } catch {
-    return reported;
-  }
-}
+export {
+  resolveCuaScreenRecordingState,
+  runCuaScreenCaptureReadinessProbe,
+} from "./cua-permission-broker/cuaPermissionServiceRuntime.js";
 
 export function createDynamicCuaProductMcpServerResolver(options: {
   isPluginEnabled: (context?: CuaProductMcpServerResolverContext) => boolean;
@@ -1403,113 +1364,6 @@ export function createLocalServices(options: {
   };
   const isDefaultCuaProductHelperCurrent = (helper: DefaultCuaProductHelper): boolean =>
     defaultCuaProductHelperLifecycle.peek()?.helper === helper;
-  // Helper 懒启动：宿主启动时仅探测稳定 socket 上是否有一个
-  // 自启动（SDK 首调拉起）的 Helper。只 ping，绝不拉起；300ms 预算。probe 结果仅用于
-  // 状态展示 / PiP 凭据发现；权限详情与 onboarding 仍走显式 host 流。
-  const probeStableCuaHelperSocket = async (): Promise<string | null> => {
-    const socketPath =
-      process.platform === "win32" ? getStableCuaPipeName() : resolveBrokerSocketPath();
-    try {
-      const { createConnection } = await import("node:net");
-      return await new Promise<string | null>((resolve) => {
-        const socket = createConnection(socketPath);
-        const finish = (value: string | null): void => {
-          socket.destroy();
-          resolve(value);
-        };
-        const timer = setTimeout(() => finish(null), 300);
-        socket.on("connect", () => {
-          clearTimeout(timer);
-          socket.write(`{"id":0,"method":"ping","params":{}}\n`);
-          let buffer = "";
-          socket.on("data", (chunk: Buffer) => {
-            buffer += chunk.toString("utf8");
-            if (buffer.includes("\n")) {
-              try {
-                const nl = buffer.indexOf("\n");
-                const reply = JSON.parse(buffer.slice(0, nl)) as { ok?: boolean };
-                finish(reply.ok === true ? socketPath : null);
-              } catch {
-                finish(null);
-              }
-            }
-          });
-        });
-        socket.on("error", () => {
-          clearTimeout(timer);
-          finish(null);
-        });
-      });
-    } catch {
-      return null;
-    }
-  };
-
-  // 按需启动：拉起 standalone Helper（稳定 socket）。dev 场景（本 Helper 构建内嵌 dev
-  // policy）成对带 unsigned-launcher/external-escape argv，让 ad-hoc 签名的本进程也能过
-  // 签名门查询；产品 Helper 不嵌 dev policy，这对 argv 无效（产品签名天然过 Team 门）。
-  // 拉起后轮询 ping（5s/100ms），就绪返回 socket 路径，否则 null。
-  //
-  // dev 判定直接用上游的 isCuaLocalDevelopmentRuntime（@escode/escode-cua/broker/server，
-  // 即本文件已经用来 import buildHelperOpenArgs 的那个 subpath，可正常导入）。
-  //
-  // 行为等价性（别误读成安全加固）：上游是 `COMPILED_LOCAL_DEVELOPMENT_RUNTIME &&
-  // ESCODE_RUNTIME_ENV!=="production"`，而那个编译期常量只有 scripts/build-cua-helper-app.mjs
-  // 会用 define 折叠（Helper bundle）；desktop host bundle 没有该 define，于是回退成
-  // `process.env.NODE_ENV !== "production"` —— 正是复制品写的那一项。所以在**当前**打包形态下
-  // 两者逐字等价，关门靠的是 ESCODE_RUNTIME_ENV=production（打包态显式注入且不传 NODE_ENV）。
-  //
-  // 换成上游的收益是消除漂移面：折叠点、因子个数与 fail-closed 方向都由上游一处决定，
-  // 哪天 host bundle 也补上 __ESCODE_LOCAL_DEVELOPMENT_RUNTIME__ define（Helper 侧已经有），
-  // 编译期门自动生效，不需要再回来改这里。
-
-  const launchStandaloneCuaHelperForStatus = async (): Promise<string | null> => {
-    if (process.platform !== "darwin") return null;
-    const { existsSync } = await import("node:fs");
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    const socketPath = resolveBrokerSocketPath();
-    const appPath = resolveStandaloneStatusLaunchCandidates(process.env).find((candidate) =>
-      existsSync(candidate),
-    );
-    if (!appPath) return null;
-    // Helper 启动参数统一由 buildHelperOpenArgs 构造，避免多处手写导致漏传或漂移。
-    // 设置页只读权限探测不承载 PiP，不传 --launcher-pid 和 --pip-mode；
-    // exit-log 使用 .settings.exit.log。新增参数应定义在 HelperLaunchSpec 中供调用方共用。
-    const args = buildHelperOpenArgs({
-      appPath,
-      socketPath,
-      exitLogPath: `${socketPath}.settings.exit.log`,
-      ...(isCuaLocalDevelopmentRuntime(process.env)
-        ? { allowUnsignedLauncherLocalDev: true, allowExternalBrokerClientLocalDev: true }
-        : {}),
-    });
-    try {
-      await promisify(execFile)("/usr/bin/open", args, { timeout: 5_000 });
-    } catch {
-      // LaunchServices 已接单也可能超时；继续等 ping。
-    }
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const ready = await probeStableCuaHelperSocket();
-      if (ready) return ready;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    return null;
-  };
-
-  const launchWindowsCuaHelperForStatus = async (): Promise<string | null> => {
-    try {
-      const managed = await getOrCreateDefaultCuaProductHelper(undefined);
-      if (managed) void managed.host.start().catch(() => {});
-    } catch {}
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const ready = await probeStableCuaHelperSocket();
-      if (ready) return ready;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    return null;
-  };
-
   // enabled 与 onCuaPipSessionLifecycle 是否挂上，都由 serviceAuthorityMode 单点决定；
   // 提出来命名，避免下面的启动期诊断与真实取值漂移。
   const cuaPipSessionEnabled =
@@ -1543,195 +1397,19 @@ export function createLocalServices(options: {
   // 用户授权后从明确入口精确重启一次 Helper。重启**必须走 resolver.restart()**（不是裸 host.restart），
   // 因为 resolver 优先复用既有 socket/token；裸 host.restart() 可能 fresh 新凭据，使已有 Agent
   // 继续持有旧 transport，无法连接新的 broker。
-  const cuaPermissionService: ICuaPermissionService = {
-    async getStatus(
-      workspacePath: string,
-      workspaceIdentity?: string,
-      queryOptions?: CuaPermissionStatusQueryOptions,
-    ): Promise<CuaPermissionStatusResult> {
-      if (process.platform !== "darwin" && process.platform !== "win32") {
-        return {
-          available: false,
-          reason: "CUA permissions are only available on macOS and Windows.",
-        };
-      }
-      const context = workspacePath ? { workspacePath, workspaceIdentity } : undefined;
-      // 插件关闭只门控后续 Agent；权限页刷新不得进入 acquire，否则会把仍被已有 Agent 使用的 Helper 停掉。
-      if (
-        !shouldUseCuaPermissionService({
-          cuaEnabled: isCuaEnabledForContext(context),
-        })
-      ) {
-        return {
-          available: false,
-          reason: "ESCode Computer Use is not enabled (plugin off or not product mode).",
-        };
-      }
-      // 懒启动：状态查询绝不拉起 Helper。托管 host 在（如刚完成授权流）→ 全量查询；
-      // 否则探测稳定 socket 上自启动的 Helper（probe-only）；都没有 → 未运行（首次使用时自动启动）。
+  // Computer Use Helper 权限状态服务：Renderer 经 host RPC 查询/重启 Helper。
+  // 与 Electron Main 共用 cuaPermissionServiceRuntime 的编排，这里只注入 Node Host 的生命周期。
+  const cuaPermissionService = createCuaPermissionService({
+    platform: process.platform,
+    env: process.env,
+    isCuaEnabled: isCuaEnabledForContext,
+    peekHelper: () => {
       const peeked = defaultCuaProductHelperLifecycle.peek()?.helper;
-      const helper = peeked && isDefaultCuaProductHelperCurrent(peeked) ? peeked : undefined;
-      const host = helper ? helper.macPermissionHost : undefined;
-      if (!host || !host.running) {
-        // Helper 按需启动：设置页查询 = 拉起 standalone Helper（稳定 socket、
-        // 无 launcher-pid → 300s 无访问自动休眠，不进托管体系）。拉起后经稳定 socket 查真值。
-        let stable = await probeStableCuaHelperSocket();
-        if (!stable) {
-          stable =
-            process.platform === "darwin"
-              ? await launchStandaloneCuaHelperForStatus()
-              : await launchWindowsCuaHelperForStatus();
-        }
-        if (!stable) {
-          return {
-            available: false,
-            reason:
-              "ESCode Computer Use is not running; it will start automatically on first Computer Use use.",
-            idle: true,
-          } satisfies { available: false; reason: string; idle: true };
-        }
-        // standalone Helper 上直接查权限真值（身份模式，无 token）。
-        try {
-          const { callBrokerMethod } = await import("@escode/escode-cua/broker/helperHealth");
-          const report = await callBrokerMethod<{
-            grant_owner: string;
-            owner?: { display_name?: string };
-            accessibility: CuaPermissionState;
-            accessibility_probe_ok?: boolean;
-            screen_recording: CuaPermissionState;
-          }>({
-            socketPath: stable,
-            method: "permission_status",
-            timeoutMs: 3000,
-          });
-          return {
-            grantOwner: report.grant_owner,
-            grantOwnerDisplayName: report.owner?.display_name ?? report.grant_owner,
-            accessibility: report.accessibility,
-            accessibilityProbeOk: report.accessibility_probe_ok === true,
-            screenRecording: report.screen_recording,
-            screenCaptureProbeOk: false,
-          };
-        } catch {
-          return {
-            available: false,
-            reason: "ESCode Computer Use is starting up; retry in a moment.",
-            idle: true,
-          } satisfies { available: false; reason: string; idle: true };
-        }
-      }
-      try {
-        const report = await host.queryPermissionStatus();
-        if (!helper || !isDefaultCuaProductHelperCurrent(helper)) {
-          return {
-            available: false,
-            reason: "ESCode Computer Use lifecycle is disposed.",
-          };
-        }
-        // Screen Recording 的真值必须来自一个新进程：撤销对已运行的常驻 Helper 不生效，
-        // 它会一直报撤销前的 granted。拿不到真值时 fail-open 沿用 report 值。
-        const screenRecording = await resolveCuaScreenRecordingState(host, report.screen_recording);
-        if (!isDefaultCuaProductHelperCurrent(helper)) {
-          return {
-            available: false,
-            reason: "ESCode Computer Use lifecycle is disposed.",
-          };
-        }
-        // 真实 screen-capture 探针：TCC screen_recording === "granted" 只说明系统记录了授权，并不保证
-        // WindowServer 已对本进程放行像素（wallpaper-frame / SR-not-live 背离）。只有真的抓到非空像素
-        // 才算 screen 端到端可用——UI 的"就绪/自动关闭"据此判定。fail-closed：探测抛错/超时一律 false。
-        // 用预检后的 state 做门控：预检已判 denied 时没有必要再花一次抓屏。
-        const screenCaptureProbeOk = await runCuaScreenCaptureReadinessProbe(
-          host,
-          screenRecording,
-          queryOptions,
-        );
-        if (!isDefaultCuaProductHelperCurrent(helper)) {
-          return {
-            available: false,
-            reason: "ESCode Computer Use lifecycle is disposed.",
-          };
-        }
-        const reportedOwnerDisplayName =
-          typeof report.owner?.display_name === "string" ? report.owner.display_name : undefined;
-        return {
-          grantOwner: report.grant_owner,
-          grantOwnerDisplayName: reportedOwnerDisplayName ?? report.grant_owner,
-          accessibility: report.accessibility,
-          accessibilityProbeOk:
-            report.accessibility_probe?.ok === true &&
-            report.accessibility_probe?.classification === "functional",
-          screenRecording,
-          screenCaptureProbeOk,
-        };
-      } catch (error) {
-        return {
-          available: false,
-          reason: `Could not read Computer Use Helper permission status: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
-      }
+      return peeked && isDefaultCuaProductHelperCurrent(peeked) ? peeked : undefined;
     },
-    async restartHelper(
-      workspacePath: string,
-      workspaceIdentity?: string,
-      restartOptions?: CuaPermissionRestartOptions,
-    ): Promise<CuaPermissionRestartResult> {
-      if (process.platform !== "darwin") {
-        return {
-          ok: false,
-          reason: "CUA permissions are only available on macOS.",
-        };
-      }
-      const context = workspacePath ? { workspacePath, workspaceIdentity } : undefined;
-      // 与 getStatus 一致：插件关闭时不触碰现有 Helper，避免设置页动作改变已有 Agent runtime。
-      if (
-        !shouldUseCuaPermissionService({
-          cuaEnabled: isCuaEnabledForContext(context),
-        })
-      ) {
-        return {
-          ok: false,
-          reason: "ESCode Computer Use is not enabled (plugin off or not product mode).",
-        };
-      }
-      // 走 resolver.restart()，让 host 尽可能复用 transport；不得通过 disposeWorkspace
-      // 重建正在运行的 Agent。
-      const helper = await getOrCreateDefaultCuaProductHelper(context);
-      const resolver =
-        helper && helper.macPermissionHost && isDefaultCuaProductHelperCurrent(helper)
-          ? helper.resolver
-          : undefined;
-      if (!resolver) {
-        return {
-          ok: false,
-          reason: "ESCode Computer Use is not enabled (plugin off or not product mode).",
-        };
-      }
-      try {
-        if (restartOptions?.reason === "permission_granted") {
-          await resolver.restartAfterPermissionGrant(restartOptions.onboardingSessionId);
-        } else {
-          await resolver.restart();
-        }
-        if (!helper || !isDefaultCuaProductHelperCurrent(helper)) {
-          return {
-            ok: false,
-            reason: "ESCode Computer Use lifecycle is disposed.",
-          };
-        }
-        return { ok: true };
-      } catch (error) {
-        return {
-          ok: false,
-          reason: `Failed to restart ESCode Computer Use: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
-      }
-    },
-  };
+    getOrCreateHelper: getOrCreateDefaultCuaProductHelper,
+    isCurrent: isDefaultCuaProductHelperCurrent,
+  });
   // 动态工作流的用户选择（docs/dynamic-workflow/launch.md「The user's choice」）：本机设置文件是唯一来源，
   // 每次使用时读取。desktop-attached remote Host 读不到桌面的设置，选择由 desktop 推送
   // （escodeAgentService.syncDynamicWorkflowUserMode），这里不注入。读取失败按「跟随」处理。

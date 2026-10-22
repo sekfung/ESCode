@@ -187,6 +187,10 @@ import {
   setBrowserUseGuestWebContentsIdsProvider,
 } from "./resourceManagerWindow.js";
 import { createRustHostManager, defaultRustHostBinary } from "./rustHostManager.js";
+import {
+  disposeDesktopCuaPermissionService,
+  handleCuaPermissionMainRequest,
+} from "./desktopCuaPermissionService.js";
 import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
@@ -232,6 +236,8 @@ async function handleRustHostMainRequest(request: {
   method: string;
   params: unknown;
 }): Promise<unknown> {
+  const cua = handleCuaPermissionMainRequest(request.method, request.params);
+  if (cua) return cua;
   switch (request.method) {
     case "gen-ui.prepareSandbox":
     case "plugin-ui-bridge.prepareSandbox":
@@ -996,6 +1002,13 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
         logger.warn(`[app-quit] rust host stop failed (${reason}):`, error);
       }
     })(),
+    (async () => {
+      try {
+        await disposeDesktopCuaPermissionService();
+      } catch (error) {
+        logger.warn(`[app-quit] cua permission service dispose failed (${reason}):`, error);
+      }
+    })(),
     // remote session、attachment 和 transport 都由窗口 Host 持有；这里先清理
     // Main 的请求关联，再由下方每窗口唯一 Host 的 shutdown barrier 释放真实连接与 Agent。
     remoteSessionManager.disposeAllAndWaitForAppShutdown(reason),
@@ -1636,6 +1649,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
         hideWindow: () => win.hide(),
       }),
     windowHostProcessMap,
+    rustHostManager,
     onHostProcessReady: (windowKey) => cuaPipFocusRouter.refreshWindow(windowKey),
     awaitFirstHostSpawnDecision,
     spawnHostProcess: (win, label, initMessage) =>

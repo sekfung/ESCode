@@ -1,4 +1,5 @@
 import { getDatabaseStartupPortPayload } from "./databaseStartupRelay.js";
+import { attachRustHostWindow, type RustWindowAttachment } from "./desktopRustHostWindow.js";
 import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, Menu, MessageChannelMain } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
@@ -27,6 +28,8 @@ export function createWindow(options: {
   forceQuitRef: { current: boolean };
   handleBeforeClose?: (win: BrowserWindow, label: string) => boolean;
   windowHostProcessMap: Map<number, ElectronUtilityProcess>;
+  /** H2.3：开着时窗口经 attachment 接入 App 级 Rust Host，不再 spawn utility process。 */
+  rustHostManager?: import("./rustHostManager.js").RustHostManager;
   spawnHostProcess: (
     win: BrowserWindow,
     label: string,
@@ -119,6 +122,7 @@ export function createWindow(options: {
   registerMainApplicationWindow(wcId);
   let domReadyGeneration = 0;
   let cancelRuntimeProcessEnvWait: (() => void) | null = null;
+  let rustAttachment: RustWindowAttachment | undefined;
   win.webContents.on("dom-ready", async () => {
     cancelRuntimeProcessEnvWait?.();
     cancelRuntimeProcessEnvWait = null;
@@ -128,6 +132,36 @@ export function createWindow(options: {
     if (process.platform === "win32" && !win.isDestroyed()) {
       win.show();
       win.focus();
+    }
+
+    // H2.3：Rust Host 模式下窗口只是一个 attachment；reload/close 都不停 Host。
+    if (options.rustHostManager?.enabled) {
+      rustAttachment?.dispose();
+      rustAttachment = undefined;
+      try {
+        const attachment = await attachRustHostWindow({
+          win,
+          manager: options.rustHostManager,
+          logger: options.logger,
+          onLost: () => {
+            options.logger.warn(`[createWindow] Rust Host attachment lost (${label})`);
+          },
+        });
+        if (currentDomReadyGeneration !== domReadyGeneration || win.isDestroyed()) {
+          attachment.dispose();
+          return;
+        }
+        rustAttachment = attachment;
+        options.onHostProcessReady?.(wcId);
+        options.syncAutoUpdaterStateToWindow(win);
+        options.syncReadyUpdateToWindow(win);
+        options.syncPostUpdateReleaseNotesToWindow(win);
+        options.reattachRemoteWorkspaceSessionsForWindow(win, `${label}:renderer-ready`);
+      } catch (error) {
+        // 与 M2 的启动失败语义一致：显式报错，不回退 Node Host。
+        options.logger.warn(`[createWindow] Rust Host attachment failed (${label}):`, error);
+      }
+      return;
     }
 
     const oldChild = options.windowHostProcessMap.get(wcId);
@@ -260,6 +294,8 @@ export function createWindow(options: {
     unregisterMainApplicationWindow(wcId);
     cancelRuntimeProcessEnvWait?.();
     cancelRuntimeProcessEnvWait = null;
+    rustAttachment?.dispose();
+    rustAttachment = undefined;
     options.logger.info(`[createWindow] window closed, killing host process (${label})`);
     const child = options.windowHostProcessMap.get(wcId);
     if (child) {

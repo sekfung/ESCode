@@ -62,6 +62,7 @@ impl Workspace {
             workspace_identity: None,
             data_dir: Some(self.data_dir.clone()),
             config: Some(config),
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         }
     }
 

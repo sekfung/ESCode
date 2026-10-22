@@ -19,6 +19,7 @@ fn test_channels(home: std::path::PathBuf) -> Channels {
                 workspace_identity: workspace.identity.clone(),
                 data_dir: None,
                 config: None,
+                legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
             }
         });
     channels(

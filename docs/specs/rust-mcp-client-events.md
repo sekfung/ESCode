@@ -36,11 +36,11 @@ live-only 会话事件（不进 snapshot/replayable/持久化）
 
 ## 2. 事件与顺序
 
-| 事件 | 来源 | Engine 处理 |
-| --- | --- | --- |
-| `ResourceUpdated { server, uri }` | `notifications/resources/updated` | 查 `(server, uri)` 订阅 → 校验实例 → 每 session 一条 `PluginUiResourceUpdated` |
-| `ResourceListChanged { server }` | `notifications/resources/list_changed` | 查该 server 的全部订阅 → 每 session 一条 `PluginUiResourceListChanged` |
-| `Sampling`（S3） | `sampling/createMessage` | 校验实例 → 任务模型调用 → 回包 |
+| 事件                              | 来源                                   | Engine 处理                                                                    |
+| --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------ |
+| `ResourceUpdated { server, uri }` | `notifications/resources/updated`      | 查 `(server, uri)` 订阅 → 校验实例 → 每 session 一条 `PluginUiResourceUpdated` |
+| `ResourceListChanged { server }`  | `notifications/resources/list_changed` | 查该 server 的全部订阅 → 每 session 一条 `PluginUiResourceListChanged`         |
+| `Sampling`（S3）                  | `sampling/createMessage`               | 校验实例 → 任务模型调用 → 回包                                                 |
 
 顺序保证：同一 server 的通知按到达顺序进入 channel；Engine 单循环处理，校验失败的事件丢弃且
 不影响后续事件。

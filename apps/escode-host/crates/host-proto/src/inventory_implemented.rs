@@ -398,4 +398,5 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("subagents", "setEnabled"),
     ("subagents", "setBuiltInModelOverride"),
     ("subagents", "setPluginAgentModelOverride"),
+    ("cua-permission", "getStatus"), ("cua-permission", "restartHelper"),
 ];

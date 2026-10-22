@@ -61,6 +61,7 @@ impl Script {
             workspace_identity: None,
             data_dir: None,
             config: None,
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         }
     }
 }

@@ -59,6 +59,7 @@ pub async fn start_with_instances(
                 data_dir: workspace.data_dir.clone().map(std::path::PathBuf::from),
                 // 会话夹具经 RPC 的 `config` 传入 `--config` 同格式的模型配置（组合根同法）。
                 config: workspace.config.clone().map(std::path::PathBuf::from),
+                legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
             }
         }
     });

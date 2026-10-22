@@ -155,7 +155,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - `system.info` 与 `file` 精确子集（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法）；
   - tasks-index 只读切片（生成器提取 TS 迁移账本与物理 DDL + 账本三分类对账 + `escode-task.getTaskMeta` + 真实 TS Repo 逐字段差分，含 `listTaskList` 全文搜索与分组结构读），见 `rust-u2-tasks-index.md`；
   - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——桌面的时间线/置顶/归档/全局搜索不再空列表。
-- [ ] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：需广播/实时总线等子系统接受非 utility-process 的 window host。
+- [ ] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 已落地窗口 attachment（`desktopRustHostWindow.ts`），但默认翻转仍被 `rust-u2-window-host.md` §5 的 parity 缺口阻塞。
 - [ ] **优先序 4–9 其余服务域**：各域进度见对应子 spec 的进度表（`git` 17/18、`terminal` T1、`file-watcher`、`providers` P1 已交付；extensions / automation / remote 未开始）。
 
 工作区结构：新增 `apps/escode-host`（独立 Cargo workspace），共用基础代码放独立 shared workspace（对标三 workspace 结构，理由：Host 不拖 CLI 编译与依赖）。注意现有 `apps/escode-cli-rust/crates/host` 是 CLI 的配置/路径 adapter，与新 Host 概念重名，子 spec 中明确更名或文档注明。

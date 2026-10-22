@@ -167,6 +167,11 @@ describe("rust host manager (dev switch)", () => {
     expect(defaultRustHostBinary("/repo/packages/desktop", false)).toContain(
       join("apps", "escode-host", "target", "debug", name),
     );
+    expect(
+      defaultRustHostBinary("/repo/packages/desktop", false, {
+        ESCODE_RUST_HOST_BINARY: "/custom/escode-host",
+      }),
+    ).toBe("/custom/escode-host");
   });
 });
 

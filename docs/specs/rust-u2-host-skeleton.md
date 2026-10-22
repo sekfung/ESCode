@@ -117,7 +117,8 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 
 ## 6. dev 开关与回退
 
-- 单一开关（env `ESCODE_RUST_HOST=1`，dev 默认关；阶段 3 翻转默认）同时决定 Host 实现；开关只影响装配，不影响任何协议语义。
+- 单一开关（env `ESCODE_RUST_HOST=1`，**默认仍关**；默认翻转被 `rust-u2-window-host.md` §5 的 parity 缺口阻塞）同时决定 Host 实现；开关只影响装配，不影响任何协议语义。
+- 二进制路径可用 `ESCODE_RUST_HOST_BINARY` 显式覆盖（E2E/自定义安装布局）。
 - child 模式：`runtime-link = child` 时 Host 以 `app-server --stdio` 拉起 CLI 子进程（阶段 1 之前的形态），用于差分、回退与故障隔离。
 - 回退矩阵与演练沿用 `rust-release-rollback.md`（阶段 3 扩展 installed 四平台）。
 
@@ -155,9 +156,9 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 
 CI（2026-10-14 已接入 `rust-runtime-ci.yml`）：checks 作业加 `pnpm check:escode-host`（边界 + fmt + clippy）与 host 工作区缓存；test 作业（三平台）加 `pnpm test:escode-host`（cargo 单测 + 双 Host settings 交替写读演练）。
 
-dev 开关（`ESCODE_RUST_HOST=1`，2026-10-14 落地）：Main 懒启动一个 App 级 Rust Host（`rustHostManager.ts`：single-flight 启动、退出时收口；失败抛带分类的 `RustHostStartError`，调用方不回退、错误上抛，意外退出受限自动重启——2026-10-18 M2 订正，见 `rust-u2-host-resilience.md` §3/§4。原文“失败抛错由调用方回退 Node Host”与代码不符：`attachWorkspaceHost` 并不捕获该错误），窗口/远控 attachment 经 `rustHostBridge.ts` 把 MessagePort 字节桥到 Rust Host 的 `/ws`（消费方协议不变：端口上仍是 `@escode/rpc`）；开关接入 `webRemoteControlSharedHostAttachments.attachLocalHost` 的本地分支（消费者只用 `attachmentId` 与 `port`，已核对）。握手消息 `rpcListen` 由 Main 提交两个根：`home`（设置域根，Node `os.homedir()` 语义）与 `dataBaseDir`（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir，供会话工作区派生）——Host 不读进程 env 推断业务事实。测试：`packages/desktop/test/rustHostBridge.test.ts`（5 例：开关判真、启动+桥接+真实客户端读写与落盘、manager 门控与路径解析、端口对桥接）。
+dev 开关（`ESCODE_RUST_HOST=1`，2026-10-14 落地；2026-10-22 窗口 attachment 落地）：Main 懒启动一个 App 级 Rust Host（`rustHostManager.ts`：single-flight 启动、退出时收口；失败抛带分类的 `RustHostStartError`，调用方不回退、错误上抛，意外退出受限自动重启——2026-10-18 M2 订正，见 `rust-u2-host-resilience.md` §3/§4），窗口经 `desktopRustHostWindow.ts` 直接 attach 到 Host（`MessageChannelMain` + synthetic `DatabaseStartupState`），reload/close 只解绑 attachment，见 `rust-u2-window-host.md`。握手消息 `rpcListen` 由 Main 提交两个根：`home`（设置域根，Node `os.homedir()` 语义）与 `dataBaseDir`（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir，供会话工作区派生）——Host 不读进程 env 推断业务事实。测试：`packages/desktop/test/rustHostBridge.test.ts`、`rustHostCuaPermission.test.ts`、`desktopRustHostWindow.test.ts`、`desktopWindowLifecycle.test.ts`。
 
-未落地（u2a 余项）：**桌面窗口自身 host 的进程无关化**——`desktopHostProcess.ts:762` 的 `MessageChannelMain` 已把 `port1` 给 renderer、`port2` 给 Electron utility Host，切到 Rust Host 需 `windowHostProcessMap` / `broadcastHub` / `taskRealtimeBus` / `registerHostProcess` 等子系统接受"非 utility process 的 window host"（独立改造，不建议与协议面同批）；`Hello/Ready` 握手与分片预算的正式 spec 化（当前最小增量登记于本表）。
+未落地（u2a 余项）：**默认开关翻转与 H2.3 的完整 parity**——远程 workspace、资源管理器 host 采样/进程行、网络捕获、Agent 进程事件、CUA 操作状态、browser-use 执行、真实数据库启动门、每窗口 runtime env 仍依赖 Node Host 的 `parentPort` 协议。逐项清单与验收见 `rust-u2-window-host.md` §5/§6；在这些缺口清零前 `ESCODE_RUST_HOST` 保持默认关。
 
 TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与 `escode-cli-host`，本工作区不重复实现（已验证可跨 workspace path 依赖）。
 

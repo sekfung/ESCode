@@ -16,33 +16,33 @@
 
 ### 1.1 runtime 方法
 
-| 方法 | 作用 | 依赖 |
-| --- | --- | --- |
-| `mcp/uiOpenInstance` | 为一次页面打开签发实例凭证（runtimeId / generation / token / appIdentity） | 实例登记表 |
-| `mcp/uiValidateInstance` | 校验凭证与当前连接代际；失效即撤销 | 实例登记表 + MCP 连接快照 |
-| `mcp/uiCloseInstance` | 撤销凭证；`onlyIfIdle` 与调用 pin 原子裁决 | 实例登记表 + 调用登记表 |
-| `mcp/uiRecycleInstance` | 旧实例闲置时换发新代际（Host `recycleInstance` 使用） | 实例登记表 |
-| `mcp/readResource` | Host 取 `ui://` 资源（保留 `_meta`） | MCP `resources/read` |
-| `mcp/uiReadResource` | 页面读资源；去掉 `_meta`，8 MiB + MIME 白名单 | MCP `resources/read` |
-| `mcp/uiListResources` | `resources/list` 代理（标准描述符） | MCP `resources/list` |
-| `mcp/uiListResourceTemplates` | `resources/templates/list` 代理 | MCP `resources/templates/list` |
-| `mcp/uiSubscribeResource` / `mcp/uiUnsubscribeResource` | 资源更新订阅；通知带完整凭证 | MCP `resources/subscribe` + 连接通知 |
-| `mcp/uiCallTool` | 页面调用本 server 可见工具；复用工具权限链，不产生 transcript row | MCP `tools/call` + visibility |
-| `mcp/uiCancelCall` | 按 `callId` abort 进行中的页面调用 | 调用登记表 |
-| `mcp/uiRegisterAppTools` / `mcp/uiUnregisterAppTools` | App-Provided Tools 登记/注销（按实例整体替换） | App 工具登记表 |
-| `mcp/uiClaimAppToolCall` / `mcp/uiResolveAppToolCall` | 认领与回传（5 s 认领、30 s 执行、只执行一次） | App 工具登记表 |
-| `mcp/uiSampling` / `mcp/uiCancelSampling` | 页面采样；60 s 绝对期限、并发上限 1/4/8 | 采样账本 + 任务模型 |
-| `plugins/listUiSurfaces` | 工作区级 MCP App 面板枚举 | 资源发现 + 插件目录 |
+| 方法                                                    | 作用                                                                       | 依赖                                 |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ |
+| `mcp/uiOpenInstance`                                    | 为一次页面打开签发实例凭证（runtimeId / generation / token / appIdentity） | 实例登记表                           |
+| `mcp/uiValidateInstance`                                | 校验凭证与当前连接代际；失效即撤销                                         | 实例登记表 + MCP 连接快照            |
+| `mcp/uiCloseInstance`                                   | 撤销凭证；`onlyIfIdle` 与调用 pin 原子裁决                                 | 实例登记表 + 调用登记表              |
+| `mcp/uiRecycleInstance`                                 | 旧实例闲置时换发新代际（Host `recycleInstance` 使用）                      | 实例登记表                           |
+| `mcp/readResource`                                      | Host 取 `ui://` 资源（保留 `_meta`）                                       | MCP `resources/read`                 |
+| `mcp/uiReadResource`                                    | 页面读资源；去掉 `_meta`，8 MiB + MIME 白名单                              | MCP `resources/read`                 |
+| `mcp/uiListResources`                                   | `resources/list` 代理（标准描述符）                                        | MCP `resources/list`                 |
+| `mcp/uiListResourceTemplates`                           | `resources/templates/list` 代理                                            | MCP `resources/templates/list`       |
+| `mcp/uiSubscribeResource` / `mcp/uiUnsubscribeResource` | 资源更新订阅；通知带完整凭证                                               | MCP `resources/subscribe` + 连接通知 |
+| `mcp/uiCallTool`                                        | 页面调用本 server 可见工具；复用工具权限链，不产生 transcript row          | MCP `tools/call` + visibility        |
+| `mcp/uiCancelCall`                                      | 按 `callId` abort 进行中的页面调用                                         | 调用登记表                           |
+| `mcp/uiRegisterAppTools` / `mcp/uiUnregisterAppTools`   | App-Provided Tools 登记/注销（按实例整体替换）                             | App 工具登记表                       |
+| `mcp/uiClaimAppToolCall` / `mcp/uiResolveAppToolCall`   | 认领与回传（5 s 认领、30 s 执行、只执行一次）                              | App 工具登记表                       |
+| `mcp/uiSampling` / `mcp/uiCancelSampling`               | 页面采样；60 s 绝对期限、并发上限 1/4/8                                    | 采样账本 + 任务模型                  |
+| `plugins/listUiSurfaces`                                | 工作区级 MCP App 面板枚举                                                  | 资源发现 + 插件目录                  |
 
 `mcp/uiCancelCall` 是 Rust 新增的取消面（TS 已有）；Host 的 `plugin-ui-bridge.cancelToolCall` 依赖它。
 
 ### 1.2 Host 成员
 
-| channel | 成员 |
-| --- | --- |
-| `plugin-ui-bridge` | `prepareSandbox`、`readResource`、`callTool`、`cancelToolCall`、`listResources`、`listResourceTemplates`、`subscribeResource`、`unsubscribeResource`、`listSurfaces`、`validateInstance`、`recycleInstance`、`closeInstance` |
-| `plugin-ui-app-tools` | `registerAppTools`、`unregisterAppTools`、`claimAppToolCall`、`resolveAppToolCall` |
-| `plugin-ui-sampling` | `sample`、`cancelSampling` |
+| channel               | 成员                                                                                                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugin-ui-bridge`    | `prepareSandbox`、`readResource`、`callTool`、`cancelToolCall`、`listResources`、`listResourceTemplates`、`subscribeResource`、`unsubscribeResource`、`listSurfaces`、`validateInstance`、`recycleInstance`、`closeInstance` |
+| `plugin-ui-app-tools` | `registerAppTools`、`unregisterAppTools`、`claimAppToolCall`、`resolveAppToolCall`                                                                                                                                           |
+| `plugin-ui-sampling`  | `sample`、`cancelSampling`                                                                                                                                                                                                   |
 
 **不做**：`cua-permission`（2）与 `cua-pip-session`（3）不属本 spec；
 `provider-provisioning-target.apply`（1）无消费者，维持非缺口。
@@ -94,15 +94,15 @@ sampling    → 账本容量/并发校验 → pin 实例 → 模型调用 → �
 
 ## 3. 错误映射
 
-| 条件 | JSON-RPC code | 携带 data |
-| --- | --- | --- |
-| server 不在本会话 MCP 配置 | `-32602` | `{serverName}` |
-| 工具不存在 / 不可见给页面 | `-32602` | `{serverName, toolName}` |
-| 实例凭证失效 | `-32000` | 无 |
-| 资源超 8 MiB / MIME 不在白名单 | `-32001` | `{uri, bytes?, maxBytes?, mimeType?}` |
-| 资源订阅不支持 | `-32000` | `{serverName, method}` |
-| 采样忙碌 / 超时 / 取消 | `-32000` | 无 |
-| 重复 `callId` / `operationId` | `-32602` | 无 |
+| 条件                           | JSON-RPC code | 携带 data                             |
+| ------------------------------ | ------------- | ------------------------------------- |
+| server 不在本会话 MCP 配置     | `-32602`      | `{serverName}`                        |
+| 工具不存在 / 不可见给页面      | `-32602`      | `{serverName, toolName}`              |
+| 实例凭证失效                   | `-32000`      | 无                                    |
+| 资源超 8 MiB / MIME 不在白名单 | `-32001`      | `{uri, bytes?, maxBytes?, mimeType?}` |
+| 资源订阅不支持                 | `-32000`      | `{serverName, method}`                |
+| 采样忙碌 / 超时 / 取消         | `-32000`      | 无                                    |
+| 重复 `callId` / `operationId`  | `-32602`      | 无                                    |
 
 ## 4. 分阶段实现
 

@@ -46,6 +46,7 @@ impl Fixture {
             workspace_identity: None,
             data_dir: Some(self.data_dir.clone()),
             config: Some(self.model_config()),
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         }
     }
 
@@ -554,4 +555,49 @@ async fn concurrent_workspaces_write_tools_stay_in_their_own_directories() {
     );
     stub_a.abort();
     stub_b.abort();
+}
+
+#[tokio::test]
+async fn explicit_missing_import_source_fails_before_ready() {
+    let fixture = Fixture::new();
+    let mut options = fixture.options();
+    options.legacy_import =
+        embed::LegacyImport::Explicit(fixture._root.path().join("missing-session.sqlite"));
+    let mut embedded = embed::spawn(options);
+    let frame = loop {
+        let frame = notice_for(&mut embedded.io, "startup/storageState").await;
+        if frame["params"]["phase"] != "checking" {
+            break frame;
+        }
+    };
+    assert_eq!(frame["params"]["phase"], "failed");
+    assert_eq!(frame["params"]["errorCode"], "sql_failed");
+    let result = tokio::time::timeout(Duration::from_secs(30), embedded.task)
+        .await
+        .expect("instance stops after import failure")
+        .expect("instance task join");
+    assert!(
+        result.is_err(),
+        "explicit missing source must fail the instance"
+    );
+}
+
+#[tokio::test]
+async fn implicit_import_without_a_typescript_database_is_a_noop() {
+    let fixture = Fixture::new();
+    let mut options = fixture.options();
+    options.legacy_import = embed::LegacyImport::Implicit;
+    let embedded = start_ready(options).await;
+    close(embedded).await.expect("close");
+
+    let conn = rusqlite::Connection::open(fixture.data_dir.join("rust-sessions.sqlite"))
+        .expect("open rust store");
+    let ledger: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='rust_legacy_import')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("ledger probe");
+    assert!(!ledger, "no TS database means no import ledger");
 }

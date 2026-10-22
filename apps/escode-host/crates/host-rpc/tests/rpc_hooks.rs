@@ -28,6 +28,7 @@ async fn start_hooks(
                 workspace_identity: workspace.identity.clone(),
                 data_dir: workspace.data_dir.clone().map(std::path::PathBuf::from),
                 config: workspace.config.clone().map(std::path::PathBuf::from),
+                legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
             }
         }
     });

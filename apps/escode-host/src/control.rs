@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use escode_cli_rust::embed::RuntimeOptions;
+use escode_cli_rust::embed::{LegacyImport, RuntimeOptions};
 use escode_host_control::logging::LogSink;
 use escode_host_control::{ControlMessage, ControlWriter, WorkspaceDescriptor};
 use escode_host_runtime::Instance;
@@ -207,6 +207,7 @@ pub fn runtime_options_with(
         workspace_identity: workspace.identity.clone(),
         data_dir: workspace.data_dir.clone().map(std::path::PathBuf::from),
         config: workspace.config.clone().map(std::path::PathBuf::from),
+        legacy_import: LegacyImport::Implicit,
     }
 }
 

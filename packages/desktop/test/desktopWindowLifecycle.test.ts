@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/main/databaseStartupRelay.js", () => ({
   getDatabaseStartupPortPayload: () => ({ databaseStartupId: "window-host-test" }),
+  requestDatabaseStartupQuit: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
@@ -17,6 +18,10 @@ vi.mock("electron", () => ({
   MessageChannelMain: class MessageChannelMain {
     readonly port1 = { id: "port-1" };
     readonly port2 = { id: "port-2" };
+  },
+  ipcMain: {
+    on: vi.fn(),
+    removeListener: vi.fn(),
   },
 }));
 
@@ -399,6 +404,72 @@ describe("desktopWindowLifecycle createWindow", () => {
       win,
       "local-47",
       expect.objectContaining({ type: "init-local" }),
+    );
+  });
+
+  it("Rust Host 模式下窗口只建 attachment，不 spawn utility process", async () => {
+    let handleDomReady: (() => Promise<void>) | undefined;
+    const webContents = {
+      id: 48,
+      on: vi.fn((event: string, listener: () => Promise<void>) => {
+        if (event === "dom-ready") handleDomReady = listener;
+      }),
+      postMessage: vi.fn(),
+      send: vi.fn(),
+      isDestroyed: vi.fn(() => false),
+    };
+    const win = {
+      id: 11,
+      webContents,
+      on: vi.fn(),
+      once: vi.fn(),
+      removeListener: vi.fn(),
+      isDestroyed: vi.fn(() => false),
+      show: vi.fn(),
+      focus: vi.fn(),
+    };
+    vi.mocked(createBrowserWindow).mockReturnValue(win as never);
+    const spawnHostProcess = vi.fn();
+    const attachment = { port: { id: "rust-port" }, dispose: vi.fn(), onLost: vi.fn() };
+    const rustHostManager = {
+      enabled: true,
+      attachLocalPort: vi.fn(async () => attachment),
+    };
+
+    createWindow({
+      iconPath: "/tmp/icon.png",
+      preloadPath: "/tmp/preload.js",
+      logger: { info: vi.fn(), warn: vi.fn() },
+      forceQuitRef: { current: false },
+      windowHostProcessMap: new Map(),
+      rustHostManager: rustHostManager as never,
+      spawnHostProcess,
+      disposeHostProcess: vi.fn(),
+      syncAutoUpdaterStateToWindow: vi.fn(),
+      syncReadyUpdateToWindow: vi.fn(),
+      syncPostUpdateReleaseNotesToWindow: vi.fn(),
+      disposeRemoteWorkspaceSessionsForWindow: vi.fn(),
+      reattachRemoteWorkspaceSessionsForWindow: vi.fn(),
+      agentSpawnFallbackCwd: "/Users/demo/.escode/workspace/default",
+      deviceMid: "device-mid",
+      runtimeProcessEnvFallbackPatch: {},
+    });
+
+    await handleDomReady?.();
+
+    expect(spawnHostProcess).not.toHaveBeenCalled();
+    expect(rustHostManager.attachLocalPort).toHaveBeenCalledWith(
+      expect.any(Function),
+      "desktop-continuous",
+    );
+    expect(webContents.postMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ databaseStartupId: expect.any(String) }),
+      [attachment.port],
+    );
+    expect(webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ phase: "ready" }),
     );
   });
 });

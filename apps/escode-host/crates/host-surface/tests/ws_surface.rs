@@ -113,6 +113,7 @@ fn options_factory(fixture_home: PathBuf) -> escode_host_surface::OptionsFactory
             workspace_identity: workspace.identity.clone(),
             data_dir: workspace.data_dir.clone().map(PathBuf::from),
             config: workspace.config.clone().map(PathBuf::from),
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         }
     })
 }

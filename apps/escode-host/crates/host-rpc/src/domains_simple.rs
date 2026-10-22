@@ -37,9 +37,14 @@ pub(crate) fn simple_channels(
     ];
     channels.push(crate::domains_onboarding::onboarding_channel(data_base_dir));
     // `gen-ui`：模型写可视化文件、Host 受限读取；widget 状态与通知同源。
+    let cua_broker = main_broker.clone();
     channels.push(crate::domains_gen_ui::gen_ui_channel(
         data_base_dir.map(std::path::Path::to_path_buf),
         main_broker,
+    ));
+    // `cua-permission`：Helper 生命周期归 Main，Host 只经 mainRequest 转发。
+    channels.push(crate::domains_cua_permission::cua_permission_channel(
+        cua_broker,
     ));
     // `usage-stats` 只读实例表（不按 workspace 路由、不启动运行时），与其余域无共享状态。
     channels.push(crate::domains_usage_stats::usage_stats_channel(

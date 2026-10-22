@@ -12,6 +12,10 @@ let quit: (() => void) | undefined;
 export function configureDatabaseStartupQuit(handler: () => void): void {
   quit = handler;
 }
+/** 启动页的“退出”控制对 Rust Host attachment 同样生效（与 Node Host 共用同一 quit 策略）。 */
+export function requestDatabaseStartupQuit(): void {
+  quit?.();
+}
 const readyListeners = new Set<() => void>();
 /** Main 只按 Host ready 调度既有 scheduler，不拥有迁移状态或账本。 */
 export function onLocalDatabaseStartupReady(listener: () => void): void {

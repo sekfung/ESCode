@@ -248,6 +248,7 @@ async fn non_loopback_bind_is_refused() {
                 workspace_identity: workspace.identity.clone(),
                 data_dir: None,
                 config: None,
+                legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
             }
         }),
     );

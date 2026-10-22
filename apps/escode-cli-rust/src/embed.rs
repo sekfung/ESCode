@@ -8,7 +8,8 @@
 //!
 //! 与二进制入口的差异：不监听信号、不 `process::exit`（信号与退出码是进程
 //! 概念，归调用方）；`WorkspaceOwned` 以错误类型返回（`downcast_ref` 判断）；
-//! 不做 TS 历史导入与 `--prepare-storage`（嵌入方控制存储就绪）。
+//! `--prepare-storage` 仍是二进制入口专有；TS 历史导入由 `RuntimeOptions.legacy_import`
+//! 显式控制（默认不导入，Host 首启传 `Implicit`，见 `docs/specs/rust-u2-legacy-import.md`）。
 use anyhow::Result;
 use escode_cli_app_server::{EmbeddedIo, Link, MemoryLink};
 use escode_cli_core_api::{EnvSnapshot, InstanceContext, Spawner, env};
@@ -21,6 +22,20 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+
+/// 嵌入实例的 TS 历史导入策略（`docs/specs/rust-u2-legacy-import.md`）。
+///
+/// 默认 `Disabled`：测试/诊断嵌入方不会被进程环境影响；App Host 首启显式传 `Implicit`。
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum LegacyImport {
+    /// 不导入。
+    #[default]
+    Disabled,
+    /// 按 `legacy_paths::resolve(None, cwd, true)` 自动发现。
+    Implicit,
+    /// 显式来源；不存在即失败。
+    Explicit(PathBuf),
+}
 
 /// 一个嵌入实例的装配参数。`env` 是实例可见的完整环境（缺失的 HOME /
 /// USERPROFILE 以 `home` 补齐）；`argv` 与 `std::env::args` 同形（含 argv[0]）；
@@ -35,6 +50,7 @@ pub struct RuntimeOptions {
     pub workspace_identity: Option<String>,
     pub data_dir: Option<PathBuf>,
     pub config: Option<PathBuf>,
+    pub legacy_import: LegacyImport,
 }
 
 /// 实例收口宽限：serve 返回后等待任务排空的上限，超时中止残余并在错误里点名。
@@ -147,9 +163,33 @@ async fn run_embedded(
     let store = Store::open(ws.db.clone()).await?;
     // 模型层用量事实落本实例的会话库：实例上下文里的 set 是实例槽，多实例互不串扰。
     escode_cli_core_api::set_model_usage_sink(store.usage_recorder());
-    output
-        .send(vec![progress("checking", 1), progress("ready", 2)])
-        .await?;
+    output.send(vec![progress("checking", 1)]).await?;
+    // H3.5：策略由嵌入方给出；导入语义与 CLI `import_history` 完全同源。
+    let (explicit, allow_implicit) = match options.legacy_import {
+        LegacyImport::Disabled => (None, false),
+        LegacyImport::Implicit => (None, true),
+        LegacyImport::Explicit(path) => (Some(path), false),
+    };
+    if explicit.is_some() || allow_implicit {
+        match crate::runtime::import_history(&store, &ws, explicit, allow_implicit, &cancel).await {
+            Ok(true) => {
+                // 取消：与 CLI 相同，不发出 ready/failed。
+                drop(output);
+                let _ = escode_cli_app_server::finish(writer).await;
+                return Ok(());
+            }
+            Ok(false) => {}
+            Err(error) => {
+                let mut frame = progress("failed", 2);
+                frame["params"]["errorCode"] = json!("sql_failed");
+                let _ = output.send(vec![frame]).await;
+                drop(output);
+                let _ = escode_cli_app_server::finish(writer).await;
+                return Err(error.context("TS history import failed; source remains unchanged"));
+            }
+        }
+    }
+    output.send(vec![progress("ready", 2)]).await?;
     // 协议入口（嵌入方为 Host 形态）：desktop 呈现面 + 内联视图宿主，与
     // `app-server --stdio --surface desktop` 相同（Node includeVisualize=true）。
     let served = crate::runtime::build_engine(&ws, store, config.as_ref(), true, true)

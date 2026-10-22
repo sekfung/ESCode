@@ -206,3 +206,88 @@ Rust 侧用 presence 一致表达即可。
 `mainRequest` 调 `registerFromHost` 注册真实沙箱。剩余 `cua-permission`（2）仍需要 Main
 直接提供 CUA Helper 生命周期；`plugin-ui-bridge.prepareSandbox` 仍同时受 Main 注册与
 Rust runtime `mcp/ui*` 上游阻塞；`plugin-ui-*` 的其余 16 个成员同样等 `mcp/ui*`。
+
+## 8. M3 剩余 Pending 的逐条定性（2026-10-22）
+
+> 口径同 §7：只有 **Renderer 可达且 Host 不能自足** 的成员才算缺口。
+> 本节登记当前 inventory 的 60 个 Pending：真实缺口 2 个（`cua-permission`，落点 Main，见
+> `rust-u2-cua-permission.md`），其余 58 个为非缺口。登记后若后续出现真实消费者，按“恢复条件”重新立项。
+
+### 8.1 `escode-agent` MCP App 别名（20）
+
+`plugin-ui-bridge`（12）、`plugin-ui-app-tools`（4）、`plugin-ui-sampling`（2）已全部 Implemented
+（`docs/specs/rust-mcp-ui.md`）。下列 `escode-agent` 成员是 TS Node Host 的内部别名，Renderer 实际使用
+`pluginUiBridgeService` / `pluginUiAppToolsService` / `pluginUiSamplingService`，按 channel 直达新实现，
+不经过 `escode-agent`。恢复条件：出现直接按 `IESCodeAgentService` 调用这些别名的 Renderer/外部客户端。
+
+| `escode-agent` 成员                                         | 等价实现                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `callMcpToolForUi`                                          | `plugin-ui-bridge.callTool`                                             |
+| `cancelMcpToolCallForUi`                                    | `plugin-ui-bridge.cancelToolCall`                                       |
+| `readMcpResource` / `readMcpResourceForUi`                  | `plugin-ui-bridge.readResource`                                         |
+| `listMcpResourcesForUi`                                     | `plugin-ui-bridge.listResources`                                        |
+| `listMcpResourceTemplatesForUi`                             | `plugin-ui-bridge.listResourceTemplates`                                |
+| `subscribeMcpResourceForUi` / `unsubscribeMcpResourceForUi` | `plugin-ui-bridge.subscribeResource` / `unsubscribeResource`            |
+| `listPluginUiSurfaces`                                      | `plugin-ui-bridge.listSurfaces`                                         |
+| `validateMcpUiInstance`                                     | `plugin-ui-bridge.validateInstance`                                     |
+| `recycleMcpUiInstance`                                      | `plugin-ui-bridge.recycleInstance`                                      |
+| `closeMcpUiInstance`                                        | `plugin-ui-bridge.closeInstance`                                        |
+| `openMcpUiInstance`                                         | `plugin-ui-bridge.prepareSandbox` 内部调用 runtime `mcp/uiOpenInstance` |
+| `registerAppToolsForUi` / `unregisterAppToolsForUi`         | `plugin-ui-app-tools.registerAppTools` / `unregisterAppTools`           |
+| `claimAppToolCallForUi` / `resolveAppToolCallForUi`         | `plugin-ui-app-tools.claimAppToolCall` / `resolveAppToolCall`           |
+| `sampleMcpApp`                                              | `plugin-ui-sampling.sample`                                             |
+| `cancelMcpAppSampling`                                      | `plugin-ui-sampling.cancelSampling`                                     |
+| `listMcpServerStatuses`                                     | `mcp-sync.listWorkspaceMcpServerStatuses`                               |
+
+### 8.2 `escode-agent` 旧 session/task 别名（27）
+
+这些成员是 TS `escodeAgentService` 的兼容面；桌面 Renderer 的当前调用点走 `escode-session` / `escode-task` /
+`hooks` / `provider-settings` / `usage-stats`。`escodeTaskServiceAdapter` 里的调用只存在 Node Host 组合中，
+Rust Host 使用原生 `escode-task`，不经过该适配器。
+
+| `escode-agent` 成员                                                                  | 等价实现 / 非缺口依据                                                                                                                        |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSession` / `resumeSession` / `closeSession` / `readSession` / `listSessions`  | `escode-session` 同名成员                                                                                                                    |
+| `readSessionMessages` / `readWorkspacePresentation`                                  | `escode-session` 同名成员                                                                                                                    |
+| `setMode` / `setModel` / `setThoughtLevel`                                           | `escode-session` 同名成员                                                                                                                    |
+| `sendPrompt` / `compactSession` / `goalSession` / `initialize` / `getTaskTokenUsage` | `escode-task` 同名成员                                                                                                                       |
+| `grantWorkspaceHookTrust`                                                            | `hooks.grantWorkspaceHookTrust`                                                                                                              |
+| `testModelConnectivity`                                                              | `provider-settings.testModelConnectivity`                                                                                                    |
+| `getAppUsageStats`                                                                   | `usage-stats.getAppUsageSnapshot`                                                                                                            |
+| `readSessionEvents`                                                                  | 运行时无 `session/events`；当前 UI/客户端无调用点（另见 §8.4）                                                                               |
+| `collectLocalRuntimeChildProcesses`                                                  | Node Host 的进程巡检；Rust Host 由 `escode-host` 子进程与实例表自行收口，无 Renderer 调用                                                    |
+| `disposeAll` / `disposeWorkspace`                                                    | Node Host 生命周期入口；Rust Host 由 Host `Shutdown` / 实例表负责，无 Renderer 调用                                                          |
+| `prepareStorage` / `getStorageStartupState`                                          | Node Host 数据库启动门；Rust 模式由 `startup/storageState` 协议与 Main 的 `DatabaseStartupState` 承担                                        |
+| `hasActiveCuaOperationTurn`                                                          | Node Host 内部 CUA 门控；Main 侧 CUA 服务不依赖该查询（差异登记见 `rust-u2-cua-permission.md` §4.1）                                         |
+| `generateWorkspaceText`                                                              | Renderer 走 `git.generateCommitMessage` / 已保存工作流；该别名只由 Node 组合使用                                                             |
+| `respondSessionRuntimePreferences`                                                   | Rust runtime 的反向请求 `session/requestRuntimePreferences` 由 Host 的 `runtime_requests` 直接应答；该 RPC 只服务 Node Host 的远程 workspace |
+
+### 8.3 `escode-agent` 旧事件别名（6）
+
+| 成员                                                | 非缺口依据                                                                                            |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `onDynamicConversationTelemetryFact`                | 产品已删除遥测上报（2026-10-21）；V4 `onDynamicConversationFrame` 承载实时事实                        |
+| `onDynamicProviderRuntimeHeadersRequest`            | V4 面使用已实现的 `onDynamicWorkspaceProviderRuntimeHeadersRequest` + `respondProviderRuntimeHeaders` |
+| `onDynamicSessionEvent`                             | 旧 `session/subscribe` 订阅面已在 M5 删波次 2 移除；V4 使用 `onDynamicConversationFrame`              |
+| `onDynamicSessionRuntimePreferencesRequest`         | 同上；Host `runtime_requests` 直接应答，Node Host 远程路径才需要该事件                                |
+| `onDynamicStorageStartupState`                      | Rust 模式的存储启动状态走 Main→Renderer 的 `InternalChannels.DatabaseStartupState`，不是服务订阅      |
+| `onDynamicWorkspaceProviderRuntimeHeadersCancelled` | 无 Renderer 消费者；Host 的 `provider_headers` 在内部处理取消                                         |
+
+### 8.4 其余非缺口（5）
+
+| 成员                                                            | 判定                                                                                                     |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `cua-pip-session.dispose` / `publishFocus` / `publishLifecycle` | 无 Renderer 调用；占位 producer 恒 `enabled:false`（§2.2）                                               |
+| `escode-session.readSessionEvents`                              | 运行时无 `session/events`；当前 UI/client 零调用。恢复条件：运行时新增 `session/events` 且出现真实消费者 |
+| `provider-provisioning-target.apply`                            | 零消费者（UI/client/server 均无调用）。恢复条件：出现真实消费者并按 provider 域立项                      |
+
+### 8.5 计数
+
+| 项                | 数量                                              |
+| ----------------- | ------------------------------------------------- |
+| 当前 Pending 总数 | 60                                                |
+| 真实缺口          | 2（`cua-permission.getStatus` / `restartHelper`） |
+| 本节登记的非缺口  | 58                                                |
+
+`cua-permission` 落地后，inventory 应为 **43 channels / 495 members / 437 Implemented / 58 Pending**，
+且这 58 个 Pending 均有本节登记。

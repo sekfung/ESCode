@@ -47,6 +47,7 @@ impl Fixture {
             workspace_identity: Some(self.identity()),
             data_dir: Some(self.data_dir.clone()),
             config: None,
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         }
     }
 }
@@ -259,6 +260,7 @@ async fn live_any_picks_the_lexicographically_first_identity() {
             workspace_identity: Some(workspace.to_string_lossy().into_owned()),
             data_dir: Some(data_dir),
             config: None,
+            legacy_import: escode_cli_rust::embed::LegacyImport::Disabled,
         };
         (workspace.to_string_lossy().into_owned(), options)
     };

@@ -27,6 +27,7 @@ fn runtime_env_from_main_reaches_the_instance_snapshot() {
         ),
     ]);
     let options = runtime_options_with(&workspace(Some("remote:abc")), &runtime_env);
+    assert_eq!(options.legacy_import, LegacyImport::Implicit);
     assert_eq!(
         options.env["ESCODE_BUILTIN_PROVIDER_CONFIG_FILE"],
         "/cfg/builtin.json"
@@ -49,6 +50,7 @@ fn runtime_env_from_main_reaches_the_instance_snapshot() {
 #[test]
 fn legacy_entry_adds_only_the_workspace_identity() {
     let options = runtime_options(&workspace(Some("id")));
+    assert_eq!(options.legacy_import, LegacyImport::Implicit);
     assert_eq!(options.env.len(), 1);
     assert_eq!(options.env["ESCODE_WORKSPACE_IDENTITY"], "id");
 }
