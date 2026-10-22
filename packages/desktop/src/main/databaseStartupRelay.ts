@@ -6,8 +6,17 @@ import {
   databaseStartupControlSchema,
   type DatabaseStartupState,
 } from "@escode/shared";
+import { logger } from "./logger.js";
 
 let localStorageReady = false;
+/**
+ * CI 安装包启动检查从 main stdout 读取这一行判断数据库启动终态
+ * （scripts/ci-install-desktop.mjs）。终态只上报一次，无需携带迁移细节。
+ */
+export function logDatabaseStartupTerminal(state: Pick<DatabaseStartupState, "phase">): void {
+  if (state.phase !== "ready" && state.phase !== "failed") return;
+  logger.info(`[database-startup] terminal { status: '${state.phase}' }`);
+}
 let quit: (() => void) | undefined;
 export function configureDatabaseStartupQuit(handler: () => void): void {
   quit = handler;
@@ -43,6 +52,7 @@ export function bindDatabaseStartupRelay(
   let disposed = false;
   let latest: DatabaseStartupState | undefined;
   let exited = false;
+  let terminalLogged = false;
   const forward = (state: DatabaseStartupState) => {
     if (!disposed && !win.isDestroyed() && !win.webContents.isDestroyed())
       win.webContents.send(InternalChannels.DatabaseStartupState, state);
@@ -51,6 +61,10 @@ export function bindDatabaseStartupRelay(
     if (latest && state.startupId === latest.startupId && state.sequence <= latest.sequence) return;
     latest = state;
     forward(state);
+    if (!terminalLogged && (state.phase === "ready" || state.phase === "failed")) {
+      terminalLogged = true;
+      logDatabaseStartupTerminal(state);
+    }
     if (state.phase === "ready" && !localStorageReady) {
       localStorageReady = true;
       for (const listener of readyListeners) listener();

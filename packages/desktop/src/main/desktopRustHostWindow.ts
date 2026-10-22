@@ -13,7 +13,10 @@ import {
   InternalChannels,
   type DatabaseStartupState,
 } from "@escode/shared";
-import { requestDatabaseStartupQuit } from "./databaseStartupRelay.js";
+import {
+  logDatabaseStartupTerminal,
+  requestDatabaseStartupQuit,
+} from "./databaseStartupRelay.js";
 import type { RustHostManager } from "./rustHostManager.js";
 
 export interface RustWindowAttachment {
@@ -67,16 +70,16 @@ export async function attachRustHostWindow(options: {
     );
   } catch (error) {
     // 启动失败不静默挂起：renderer 先收到 failed，再看到 Main 的显式错误。
+    const failed = startupState(startupId, attemptId, 1, "failed", startedAt);
+    logDatabaseStartupTerminal(failed);
     if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-      win.webContents.send(
-        InternalChannels.DatabaseStartupState,
-        startupState(startupId, attemptId, 1, "failed", startedAt),
-      );
+      win.webContents.send(InternalChannels.DatabaseStartupState, failed);
     }
     throw error;
   }
   let disposed = false;
   let state = startupState(startupId, attemptId, 1, "ready", startedAt);
+  logDatabaseStartupTerminal(state);
 
   const forward = (next: DatabaseStartupState) => {
     if (disposed || win.isDestroyed() || win.webContents.isDestroyed()) return;

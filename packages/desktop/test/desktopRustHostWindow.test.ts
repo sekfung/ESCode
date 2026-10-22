@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { quit } = vi.hoisted(() => ({ quit: vi.fn() }));
+const { quit, logTerminal } = vi.hoisted(() => ({
+  quit: vi.fn(),
+  logTerminal: vi.fn(),
+}));
 vi.mock("../src/main/databaseStartupRelay.js", () => ({
   requestDatabaseStartupQuit: quit,
+  logDatabaseStartupTerminal: logTerminal,
 }));
 
 vi.mock("electron", () => ({
@@ -84,6 +88,7 @@ describe("detached Rust Host window attachment", () => {
     const state = win.webContents.send.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(state.startupId).toBe(result.startupId);
     expect(state.phase).toBe("ready");
+    expect(logTerminal).toHaveBeenCalledWith(expect.objectContaining({ phase: "ready" }));
     result.dispose();
   });
 

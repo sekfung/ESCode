@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/main/databaseStartupRelay.js", () => ({
   getDatabaseStartupPortPayload: () => ({ databaseStartupId: "window-host-test" }),
   requestDatabaseStartupQuit: vi.fn(),
+  logDatabaseStartupTerminal: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
