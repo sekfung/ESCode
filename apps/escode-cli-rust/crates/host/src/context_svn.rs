@@ -78,12 +78,13 @@ fn percent_decode(value: &str) -> String {
     let mut out = Vec::with_capacity(bytes.len());
     let mut index = 0;
     while index < bytes.len() {
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) = (hex(bytes[index + 1]), hex(bytes[index + 2])) {
-                out.push(high << 4 | low);
-                index += 3;
-                continue;
-            }
+        if bytes[index] == b'%'
+            && index + 2 < bytes.len()
+            && let (Some(high), Some(low)) = (hex(bytes[index + 1]), hex(bytes[index + 2]))
+        {
+            out.push(high << 4 | low);
+            index += 3;
+            continue;
         }
         out.push(bytes[index]);
         index += 1;
@@ -179,9 +180,11 @@ pub(super) async fn snapshot(cwd: &Path, cancel: &CancellationToken) -> SvnSnaps
         .and_then(|start| info[start..].split("revision=\"").nth(1))
         .and_then(|tail| tail.split('"').next())
         .and_then(|value| value.parse().ok());
-    let branch = (!root.is_empty() && url.starts_with(&root))
-        .then(|| branch_label(&percent_decode(&url[root.len()..])))
-        .unwrap_or_default();
+    let branch = if !root.is_empty() && url.starts_with(&root) {
+        branch_label(&percent_decode(&url[root.len()..]))
+    } else {
+        String::new()
+    };
     let logs = if url.is_empty() {
         String::new()
     } else {
