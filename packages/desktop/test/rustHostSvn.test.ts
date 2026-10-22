@@ -236,6 +236,7 @@ const STEPS: Array<[string, Step]> = [
       }),
   ],
   ["changes after merge commit", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  ["branch graph", (s, f) => s.getBranchGraph({ workspacePath: f.wc })],
   [
     "file log tracked",
     (s, f) => s.getFileLog({ workspacePath: f.wc, path: "tracked.md", limit: 2 }),

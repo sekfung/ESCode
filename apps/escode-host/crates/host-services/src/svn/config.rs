@@ -27,6 +27,12 @@ pub const LOG_CACHE_MAX_ENTRIES: usize = 2_000;
 pub const LINE_STAT_MAX_FILES: usize = 200;
 /// Blame 最多返回的行数；超出后截断。
 pub const MAX_BLAME_LINES: usize = 5_000;
+/// 分支图谱最多展示的分支/标签数。
+pub const GRAPH_MAX_NODES: usize = 200;
+/// 并行探测 copyfrom 的分支数。
+pub const GRAPH_COPY_CONCURRENCY: usize = 4;
+/// 每个分支回看多少条日志来定位 copyfrom。
+pub const GRAPH_COPY_LOG_LIMIT: usize = 500;
 
 const INTERACTIVE_ENV_VARS: [&str; 4] = ["SVN_EDITOR", "SVN_MERGE", "VISUAL", "EDITOR"];
 

@@ -10,6 +10,7 @@ import type {
 } from "@escode/shared";
 import {
   TID_SVN_COMMIT_BUTTON,
+  TID_SVN_BRANCH_GRAPH_BUTTON,
   TID_SVN_MERGE_BUTTON,
   TID_SVN_PANE,
   TID_SVN_REFRESH_BUTTON,
@@ -22,6 +23,7 @@ import {
   FileTextIcon,
   GitMergeIcon,
   HistoryIcon,
+  NetworkIcon,
   RefreshCw,
   Undo2Icon,
 } from "lucide-react";
@@ -39,6 +41,7 @@ import { resolveTheme } from "@/useTheme.js";
 import { getWorkspaceFileRelativePath } from "@/workspace-file-tree/model.js";
 import { SvnChangeRow } from "@/svn/SvnChangeRow.js";
 import { SvnBlameDialog } from "@/svn/SvnBlameDialog.js";
+import { SvnBranchGraphDialog } from "@/svn/SvnBranchGraphDialog.js";
 import { SvnCommitDialog } from "@/svn/SvnCommitDialog.js";
 import { SvnHistoryDialog } from "@/svn/SvnHistoryDialog.js";
 import { SvnMergeDialog } from "@/svn/SvnMergeDialog.js";
@@ -111,6 +114,7 @@ export function SvnPane({
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
   const [blamePath, setBlamePath] = useState<string | null>(null);
+  const [branchGraphOpen, setBranchGraphOpen] = useState(false);
   const diffGenerationRef = useRef(0);
 
   const groups = useMemo(() => groupSvnChanges(state.changes), [state.changes]);
@@ -483,6 +487,16 @@ export function SvnPane({
             type="button"
             variant="ghost"
             size="icon-lg"
+            data-testid={TID_SVN_BRANCH_GRAPH_BUTTON}
+            aria-label={intl.formatMessage({ id: "svn.action.branchGraph" })}
+            onClick={() => setBranchGraphOpen(true)}
+          >
+            <NetworkIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
             data-testid={TID_SVN_REFRESH_BUTTON}
             aria-label={intl.formatMessage({ id: "git.action.refresh" })}
             disabled={state.loading}
@@ -676,6 +690,12 @@ export function SvnPane({
             setBlamePath(null);
           }
         }}
+      />
+      <SvnBranchGraphDialog
+        open={branchGraphOpen}
+        controller={controller}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={setBranchGraphOpen}
       />
       <SvnMergeDialog
         open={mergeDialogOpen}

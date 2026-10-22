@@ -98,6 +98,10 @@ export const TID_SVN_FILE_HISTORY_BUTTON = "svn-file-history-button";
 export const TID_SVN_BLAME_BUTTON = "svn-blame-button";
 /** SVN Blame 弹窗 */
 export const TID_SVN_BLAME_DIALOG = "svn-blame-dialog";
+/** SVN 分支图谱入口 */
+export const TID_SVN_BRANCH_GRAPH_BUTTON = "svn-branch-graph-button";
+/** SVN 分支图谱弹窗 */
+export const TID_SVN_BRANCH_GRAPH_DIALOG = "svn-branch-graph-dialog";
 /** Git 面板关闭按钮 */
 export const TID_GIT_CLOSE_BUTTON = "git-close-button";
 /** 顶部 Git 提交或推送主入口 */

@@ -356,6 +356,68 @@ describe.skipIf(!svnAvailable)("SvnService（真实 svn）", () => {
     ).toMatchObject({ ok: false, issue: "invalid-request" });
   });
 
+  it("分支图谱展示 copyfrom 与 mergeinfo", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.branchWc, "feature.txt"), "from feature\n");
+    svn(fixture.branchWc, "add", "-q", "feature.txt");
+    svn(fixture.branchWc, "commit", "-q", "-m", "feat: graph source");
+    svn(fixture.wc, "update", "-q");
+    expect(
+      await service.merge({ workspacePath: fixture.wc, relativeSourcePath: "branches/feature" }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await service.commit({
+        workspacePath: fixture.wc,
+        paths: ["feature.txt", "."],
+        message: "test: graph merge",
+      }),
+    ).toMatchObject({ ok: true });
+
+    const graph = await service.getBranchGraph({ workspacePath: fixture.wc });
+    expect(graph.ok).toBe(true);
+    if (!graph.ok) return;
+    expect(graph.layout).toBe("standard");
+    expect(graph.truncated).toBe(false);
+    expect(graph.nodes).toContainEqual({ relativePath: "trunk", kind: "trunk", name: "trunk" });
+    expect(graph.nodes).toContainEqual({
+      relativePath: "branches/feature",
+      kind: "branch",
+      name: "feature",
+      createdFrom: "trunk",
+      createdRevision: 3,
+    });
+    expect(graph.edges).toContainEqual({
+      kind: "copy",
+      from: "trunk",
+      to: "branches/feature",
+      revision: 3,
+    });
+    const mergeEdge = graph.edges.find(
+      (edge) => edge.kind === "merge" && edge.from === "branches/feature" && edge.to === "trunk",
+    );
+    expect(mergeEdge?.revisions).toContain("4");
+
+    // 非标准布局：只有当前节点，不推导拓扑。
+    const nonStandardRoot = mkdtempSync(join(tmpdir(), "escode-svn-flat-"));
+    tempDirs.push(nonStandardRoot);
+    execFileSync(svnadminBinary!, ["create", join(nonStandardRoot, "repo")]);
+    const flatUrl = pathToFileURL(join(nonStandardRoot, "repo")).href;
+    svn(nonStandardRoot, "checkout", "-q", flatUrl, join(nonStandardRoot, "wc"));
+    writeFileSync(join(nonStandardRoot, "wc", "a.txt"), "a\n");
+    svn(join(nonStandardRoot, "wc"), "add", "-q", "a.txt");
+    svn(join(nonStandardRoot, "wc"), "commit", "-q", "-m", "flat");
+    const flat = await service.getBranchGraph({
+      workspacePath: join(nonStandardRoot, "wc"),
+    });
+    expect(flat).toMatchObject({
+      ok: true,
+      layout: "non-standard",
+      edges: [],
+      truncated: false,
+    });
+    expect(flat.ok && flat.nodes).toEqual([{ relativePath: "", kind: "other", name: "/" }]);
+  });
+
   it("合并分支改动，记录 mergeinfo 并可提交", async () => {
     const service = createService();
     writeFileSync(join(fixture.branchWc, "feature.txt"), "from feature\n");

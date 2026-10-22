@@ -188,6 +188,42 @@ export interface SvnBlameResult {
   truncated: boolean;
 }
 
+export interface SvnBranchGraphRequest extends SvnRequest {
+  credentials?: SvnCredentials;
+}
+
+export interface SvnBranchGraphNode {
+  /** 相对仓库根，例如 `trunk`、`branches/feature`、`tags/v1.0`。 */
+  relativePath: string;
+  kind: SvnBranchKind;
+  name: string;
+  /** 分支创建（copy 或 mkdir）的修订号；无法在回看窗口内定位时省略。 */
+  createdRevision?: number;
+  /** copyfrom 的来源分支相对路径。 */
+  createdFrom?: string;
+}
+
+export type SvnBranchGraphEdgeKind = "copy" | "merge";
+
+export interface SvnBranchGraphEdge {
+  kind: SvnBranchGraphEdgeKind;
+  /** 相对仓库根的分支路径。 */
+  from: string;
+  to: string;
+  /** copy 边的复制修订号。 */
+  revision?: number;
+  /** merge 边聚合后的 mergeinfo 修订区间，例如 `1-5,7`。 */
+  revisions?: string;
+}
+
+export interface SvnBranchGraphResult {
+  layout: "standard" | "non-standard";
+  nodes: SvnBranchGraphNode[];
+  edges: SvnBranchGraphEdge[];
+  /** 分支/标签数量超过上限时为 true。 */
+  truncated: boolean;
+}
+
 export interface SvnRemoteStatusRequest extends SvnRequest {
   credentials?: SvnCredentials;
 }

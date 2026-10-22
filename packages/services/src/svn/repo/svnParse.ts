@@ -171,6 +171,30 @@ export interface SvnListEntry {
   kind: "file" | "dir";
 }
 
+export interface SvnMergeinfoEntry {
+  /** 仓库内路径，以 / 开头。 */
+  path: string;
+  mergeinfo: string;
+}
+
+/** 解析 `svn propget --xml -R svn:mergeinfo` 的 properties/target/property 结构。 */
+export function parseSvnMergeinfoXml(xml: string): SvnMergeinfoEntry[] {
+  const root = parseSvnXml(xml);
+  const entries: SvnMergeinfoEntry[] = [];
+  for (const target of childrenOf(root, "target")) {
+    const path = target.attrs.path;
+    if (!path) {
+      continue;
+    }
+    for (const property of childrenOf(target, "property")) {
+      if (property.attrs.name === "svn:mergeinfo") {
+        entries.push({ path, mergeinfo: textOf(property) ?? "" });
+      }
+    }
+  }
+  return entries;
+}
+
 /** 解析 `svn blame --xml`；超过上限时只保留前 maxLines 行并标记 truncated。 */
 export function parseSvnBlameXml(
   xml: string,

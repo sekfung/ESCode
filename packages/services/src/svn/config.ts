@@ -16,6 +16,12 @@ export const SVN_LINE_STAT_MAX_FILES = 200;
 export const SVN_LINE_STAT_CONCURRENCY = 4;
 /** Blame 最多返回的行数；超出后截断，避免大文件一次灌入渲染器。 */
 export const MAX_SVN_BLAME_LINES = 5_000;
+/** 分支图谱最多展示的分支/标签数。 */
+export const SVN_GRAPH_MAX_NODES = 200;
+/** 并行探测 copyfrom 的分支数。 */
+export const SVN_GRAPH_COPY_CONCURRENCY = 4;
+/** 每个分支回看多少条日志来定位 copyfrom；超出后不展示来源。 */
+export const SVN_GRAPH_COPY_LOG_LIMIT = 500;
 
 function getWindowsTortoiseSvnCandidates(): string[] {
   return [

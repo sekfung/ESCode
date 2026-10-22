@@ -16,6 +16,7 @@ import type { SvnCommandProvider } from "./providers/svnCommandProvider.js";
 import { svnFailure } from "./repo/svnErrors.js";
 import { createSvnHistoryReader } from "./svnHistory.js";
 import { readSvnChanges, readSvnDiff, readSvnWorkspaceInfo } from "./svnReads.js";
+import { readSvnBranchGraph } from "./svnGraph.js";
 import { createSvnRuntime } from "./svnRuntime.js";
 import { createSvnWriter } from "./svnWrites.js";
 import type { ISvnService } from "./svn.js";
@@ -88,6 +89,7 @@ export function createSvnService(options: SvnServiceOptions = {}): ISvnService {
     getBlame: (params) => history.getBlame(params),
     getRemoteStatus: (params) => history.getRemoteStatus(params),
     listBranches: (params) => history.listBranches(params),
+    getBranchGraph: (params) => readSvnBranchGraph(runtime, params),
     commit: (params) => writer.commit(params),
     update: (params) => writer.update(params),
     revert: (params) => writer.revert(params),

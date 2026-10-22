@@ -4,7 +4,7 @@ use super::config::{compare_versions, extract_error_codes, normalize_svn_path, p
 use super::errors::{classify, summarize};
 use super::parse::{
     count_diff_lines, count_updated_paths, item_status, parse_blame, parse_committed_revision,
-    parse_info, parse_list, parse_log, parse_status,
+    parse_info, parse_list, parse_log, parse_mergeinfo, parse_status,
 };
 use super::paths::{
     build_unversioned_patch, derive_branch_ref, is_safe_relative_path, local_target,
@@ -304,6 +304,18 @@ fn parses_blame_lines_and_truncates() {
     let (lines, truncated) = parse_blame(xml, 1);
     assert!(truncated);
     assert_eq!(lines.len(), 1);
+}
+
+#[test]
+fn parses_mergeinfo_targets() {
+    let xml = r#"<properties>
+<target path="file:///repo/trunk"><property name="svn:mergeinfo">/branches/feature:3-4</property></target>
+<target path="file:///repo/branches/feature"><property name="other">x</property></target>
+</properties>"#;
+    let entries = parse_mergeinfo(xml);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].path, "file:///repo/trunk");
+    assert_eq!(entries[0].mergeinfo, "/branches/feature:3-4");
 }
 
 #[tokio::test]

@@ -110,6 +110,12 @@ pub fn svn_channel(
             }),
         ),
         (
+            "getBranchGraph",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.get_branch_graph(&params).await })
+            }),
+        ),
+        (
             "commit",
             value_method(Arc::clone(&service), |service, params| {
                 Box::pin(async move { service.commit(&params).await })

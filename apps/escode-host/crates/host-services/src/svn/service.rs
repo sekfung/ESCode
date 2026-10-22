@@ -3,7 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use super::runtime::SvnService;
-use super::{BinaryState, history, reads, text, writes, writes_merge};
+use super::{BinaryState, graph, history, reads, text, writes, writes_merge};
 
 impl SvnService {
     pub async fn get_working_copy_info(&self, params: &Value) -> Value {
@@ -74,6 +74,10 @@ impl SvnService {
 
     pub async fn list_branches(&self, params: &Value) -> Value {
         history::list_branches(self, params).await
+    }
+
+    pub async fn get_branch_graph(&self, params: &Value) -> Value {
+        graph::get_branch_graph(self, params).await
     }
 
     pub async fn commit(&self, params: &Value) -> Value {

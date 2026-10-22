@@ -8,6 +8,8 @@ import {
   TID_CONFIRM_DIALOG_CONFIRM,
   TID_SVN_BLAME_BUTTON,
   TID_SVN_BLAME_DIALOG,
+  TID_SVN_BRANCH_GRAPH_BUTTON,
+  TID_SVN_BRANCH_GRAPH_DIALOG,
   TID_SVN_BRANCH_SWITCHER,
   TID_SVN_COMMIT_BUTTON,
   TID_SVN_COMMIT_DIALOG,
@@ -39,12 +41,13 @@ import {
 } from "../../helpers/v4-conversation.js";
 
 /**
- * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §13）：
+ * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §14）：
  * - SVN-UI-01 修改 → 勾选 → 提交（含自动 add 未纳入版本控制的文件）
  * - SVN-UI-02 更新产生冲突 → 用我的 → 提交
  * - SVN-UI-03 切换分支
  * - SVN-UI-04 合并分支改动 → 提交（mergeinfo 写入服务器）
  * - SVN-UI-05 文件历史与 Blame
+ * - SVN-UI-06 分支图谱（copyfrom + mergeinfo）
  * 需要运行环境里有 svn / svnadmin（可用 ESCODE_SVN_BINARY / ESCODE_SVNADMIN_BINARY 指定）；
  * 缺失时显式跳过并输出原因。
  */
@@ -501,5 +504,37 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     );
     await browser.keys("Escape");
     await $(sel(TID_SVN_BLAME_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
+  });
+
+  it("SVN-UI-06: 分支图谱展示 copyfrom 与 mergeinfo", async function () {
+    this.timeout(TEST_TIMEOUT_MS);
+    await clickTestId(TID_SVN_BRANCH_GRAPH_BUTTON, "SVN 分支图谱入口不可用");
+    await $(sel(TID_SVN_BRANCH_GRAPH_DIALOG)).waitForDisplayed({ timeout: 30000 });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute((testId: string) => {
+          const dialog = document.querySelector(`[data-testid="${testId}"]`);
+          if (!dialog) {
+            return false;
+          }
+          const hasNode = (path: string) =>
+            Boolean(dialog.querySelector(`[data-svn-graph-node="${path}"]`));
+          const hasEdge = (kind: string, from: string, to: string) =>
+            Boolean(
+              dialog.querySelector(
+                `[data-svn-graph-edge="${kind}"][data-from="${from}"][data-to="${to}"]`,
+              ),
+            );
+          return (
+            hasNode("trunk") &&
+            hasNode("branches/feature") &&
+            hasEdge("copy", "trunk", "branches/feature") &&
+            hasEdge("merge", "branches/feature", "trunk")
+          );
+        }, TID_SVN_BRANCH_GRAPH_DIALOG)) as boolean,
+      { timeout: 30000, timeoutMsg: "分支图谱中没有 copyfrom / mergeinfo 边" },
+    );
+    await browser.keys("Escape");
+    await $(sel(TID_SVN_BRANCH_GRAPH_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
   });
 });

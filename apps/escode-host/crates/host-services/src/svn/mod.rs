@@ -8,6 +8,7 @@ mod command;
 mod commit_message;
 mod config;
 mod errors;
+mod graph;
 mod history;
 mod parse;
 mod paths;

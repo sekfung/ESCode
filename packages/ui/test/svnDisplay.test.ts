@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SvnFileChange } from "@escode/shared";
+import type { SvnBranchGraphResult, SvnFileChange } from "@escode/shared";
 import {
   buildSvnFileTreeDecorations,
   canShowSvnBlame,
@@ -17,6 +17,7 @@ import {
   toSvnDiffCardModel,
   validateSvnMergeRange,
 } from "../src/svn/svnDisplay.js";
+import { layoutSvnBranchGraph } from "../src/svn/svnGraphLayout.js";
 import { buildSvnAutoRefreshWatchPaths } from "../src/svn/useSvnWorkspace.js";
 
 function change(path: string, status: SvnFileChange["status"], extra: Partial<SvnFileChange> = {}) {
@@ -159,6 +160,45 @@ describe("SVN 展示辅助", () => {
     expect(validateSvnMergeRange("6", "4")).toBe("invalid");
     expect(parseSvnMergeRange("4", "6")).toEqual({ startRevision: 4, endRevision: 6 });
     expect(parseSvnMergeRange("6", "4")).toBeNull();
+  });
+
+  it("分支图谱按 trunk/branch/tag 分行，边只连接已知节点", () => {
+    const graph: SvnBranchGraphResult = {
+      layout: "standard",
+      truncated: false,
+      nodes: [
+        { relativePath: "trunk", kind: "trunk", name: "trunk" },
+        {
+          relativePath: "branches/feature",
+          kind: "branch",
+          name: "feature",
+          createdFrom: "trunk",
+          createdRevision: 3,
+        },
+        { relativePath: "tags/v1.0", kind: "tag", name: "v1.0" },
+      ],
+      edges: [
+        { kind: "copy", from: "trunk", to: "branches/feature", revision: 3 },
+        { kind: "merge", from: "branches/feature", to: "trunk", revisions: "4-5" },
+      ],
+    };
+    const layout = layoutSvnBranchGraph(graph);
+    expect(layout.width).toBeGreaterThan(0);
+    expect(layout.height).toBeGreaterThan(0);
+    expect(layout.nodes).toHaveLength(3);
+    expect(layout.edges).toHaveLength(2);
+    const trunk = layout.nodes.find((entry) => entry.node.relativePath === "trunk")!;
+    const branch = layout.nodes.find((entry) => entry.node.relativePath === "branches/feature")!;
+    const tag = layout.nodes.find((entry) => entry.node.relativePath === "tags/v1.0")!;
+    expect(trunk.y).toBeLessThan(branch.y);
+    expect(branch.y).toBeLessThan(tag.y);
+    expect(layout.edges[0]!.path.startsWith("M ")).toBe(true);
+
+    const partial = layoutSvnBranchGraph({
+      ...graph,
+      edges: [...graph.edges, { kind: "merge", from: "trunk", to: "missing", revisions: "1" }],
+    });
+    expect(partial.edges).toHaveLength(2);
   });
 
   it("文件树标记复用改动结果并标出忽略文件", () => {

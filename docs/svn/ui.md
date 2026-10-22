@@ -112,6 +112,7 @@ flowchart TD
 - **更新**：执行期间按钮显示进度且禁用；完成后 toast 显示“已更新到 r{n}，{k} 个文件变更”；产生冲突时 toast 显示冲突数并展开冲突分组。
 - **合并**：打开 `SvnMergeDialog`（§11）。工作副本根不是分支根时禁用。
 - **历史**：打开 `SvnHistoryDialog`。
+- **分支图谱**：打开 `SvnBranchGraphDialog`（§13），只读展示 copyfrom 与 mergeinfo 关系。
 - 服务器有新修订时，修订号右侧显示“服务器 r{n}”，点击即更新。
 
 ### 3.7 异常状态
@@ -199,6 +200,7 @@ flowchart TD
 | 切换                   | 切换                   | Switch                                |
 | 合并                   | 合并                   | Merge                                 |
 | Blame                  | Blame                  | Blame                                 |
+| 分支图谱               | 分支图谱               | Branch graph                          |
 | 标记已解决             | 标记已解决             | Mark as resolved                      |
 | 用我的                 | 用我的                 | Use mine                              |
 | 用他们的               | 用他们的               | Use theirs                            |
@@ -234,7 +236,26 @@ flowchart TD
 - 未纳入版本控制的文件不显示历史 / Blame；已计划添加（scheduled add）尚无仓库历史，也不显示入口；目录不显示 Blame；缺失或已删除文件只保留文件历史。
 - 读取失败时在弹窗内展示 svn 错误；认证失败走凭据弹窗并重试一次。
 
-## 13. E2E 场景
+## 13. 分支图谱：`SvnBranchGraphDialog`
+
+```
+┌ 分支图谱 ───────────────────────────────── [×] ┐
+│ ○ trunk                                        │
+│ │ copy r4              ⤍ merge (1-7)           │
+│ ▼                                               │
+│ ○ branches/feature       ○ tags/v1.0            │
+│ [实线 = copyfrom]  [虚线 = mergeinfo]           │
+└─────────────────────────────────────────────────┘
+```
+
+- 入口在 `SvnPane` 顶部操作；与历史一样按需读取，不参与自动刷新。
+- 节点：`trunk`、`^/branches/*`、`^/tags/*`，显示名称、类型与创建修订；有 copyfrom 时显示来源与复制修订。
+- 边：`copy` 用实线箭头，`merge` 用虚线箭头并标注合并的修订区间；同一对分支聚合为一条边。
+- 非标准布局只展示当前工作副本节点，并说明无法推导拓扑。
+- 节点超过 200 个时截断并提示；读取失败展示 svn 错误，认证失败走凭据弹窗重试一次。
+- 窄屏允许横向滚动；双主题下节点/边使用主题色。
+
+## 14. E2E 场景
 
 用例文件：`packages/desktop/test/e2e/git/manual-review/svn-workflow-ui-flow.test.ts`（manual-review 待审，人工审阅通过后按 E2E 生命周期提升为正式用例）。运行环境需提供 svn / svnadmin（可用 `ESCODE_SVN_BINARY` / `ESCODE_SVNADMIN_BINARY` 指定），缺失时显式跳过。
 
@@ -243,3 +264,4 @@ flowchart TD
 3. **SVN-UI-03 切换分支**：夹具包含 `branches/feature`；通过 `SvnBranchSwitcher` 切换；断言工作副本 URL 为 `^/branches/feature`，入口显示 feature。
 4. **SVN-UI-04 合并分支**：在 `branches/feature` 提交一个新文件；切回 trunk 后通过 `SvnMergeDialog` 合并 feature；断言新文件出现在改动列表（自动 add），提交后服务器修订包含该文件与合并信息。
 5. **SVN-UI-05 文件历史与 Blame**：修改并提交文件后，从改动行打开文件历史，断言包含最新修订；打开 Blame，断言目标行显示提交该行的修订号与作者。
+6. **SVN-UI-06 分支图谱**：夹具包含 `branches/feature` 的 copyfrom 与一次 trunk→feature 的 merge；打开图谱，断言 feature 节点的来源为 trunk，且存在 copy 与 merge 边。

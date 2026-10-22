@@ -72,6 +72,36 @@ pub struct BlameLine {
     pub content: String,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct MergeinfoEntry {
+    pub path: String,
+    pub mergeinfo: String,
+}
+
+/// 解析 `svn propget --xml -R svn:mergeinfo` 的 properties/target/property 结构。
+pub fn parse_mergeinfo(xml: &str) -> Vec<MergeinfoEntry> {
+    let root = parse(xml);
+    let mut entries = Vec::new();
+    for target in children(root.as_ref(), "target") {
+        let Some(path) = target.attrs.get("path").cloned() else {
+            continue;
+        };
+        for property in children(Some(target), "property") {
+            if property
+                .attrs
+                .get("name")
+                .is_some_and(|name| name == "svn:mergeinfo")
+            {
+                entries.push(MergeinfoEntry {
+                    path: path.clone(),
+                    mergeinfo: property.text.clone(),
+                });
+            }
+        }
+    }
+    entries
+}
+
 /// 解析 `svn blame --xml`；超过 max_lines 时只保留前 max_lines 行。
 pub fn parse_blame(xml: &str, max_lines: usize) -> (Vec<BlameLine>, bool) {
     let root = parse(xml);

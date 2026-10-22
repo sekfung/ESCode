@@ -1,6 +1,8 @@
 import type {
   SvnBranchListRequest,
   SvnBranchListResult,
+  SvnBranchGraphRequest,
+  SvnBranchGraphResult,
   SvnChangesResult,
   SvnCommitRequest,
   SvnCommitResult,
@@ -46,6 +48,7 @@ export interface ISvnService {
   getBlame(params: SvnBlameRequest): Promise<SvnResult<SvnBlameResult>>;
   getRemoteStatus(params: SvnRemoteStatusRequest): Promise<SvnResult<SvnRemoteStatusResult>>;
   listBranches(params: SvnBranchListRequest): Promise<SvnResult<SvnBranchListResult>>;
+  getBranchGraph(params: SvnBranchGraphRequest): Promise<SvnResult<SvnBranchGraphResult>>;
   commit(params: SvnCommitRequest): Promise<SvnResult<SvnCommitResult>>;
   update(params: SvnUpdateRequest): Promise<SvnResult<SvnUpdateResult>>;
   revert(params: SvnRevertRequest): Promise<SvnResult>;
