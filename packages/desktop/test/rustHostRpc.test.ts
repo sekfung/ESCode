@@ -413,10 +413,11 @@ describe("rust host rpc surface", () => {
           } as never),
         ).toEqual(await repo.queryGroupedTaskViewStructure({ workspaceScopes: scopes } as never));
 
-        // 未迁移方法：显式缺口（列出已实现的方法）。escode-task 已 77/77，改用 escode-agent 的 Pending 方法。
+        // 未迁移方法：显式缺口（列出已实现的方法）。readSessionDebug 已迁移，
+        // 这里改用仍为 Pending 的 readSessionEvents。
         await expect(
-          services.escodeAgentService.readSessionDebug({ sessionId: "missing" } as never),
-        ).rejects.toThrow(/does not implement `escode-agent\.readSessionDebug` yet/);
+          services.escodeAgentService.readSessionEvents({ sessionId: "missing" } as never),
+        ).rejects.toThrow(/does not implement `escode-agent\.readSessionEvents` yet/);
         repo.close();
 
         // 会话工作区：`<dataBaseDir>/.escode/workspace/default`（TS `getConversationWorkspaceDir()`），

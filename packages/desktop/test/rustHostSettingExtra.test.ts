@@ -85,8 +85,13 @@ describe("rust host setting extras", () => {
         const expected = await outcome(() => ts.updateDataBaseDir(tsTarget));
         const actual = await outcome(() => rust.updateDataBaseDir(rustTarget));
         expect(actual).toEqual(expected);
-        expect(norm(await tree(join(rustTarget, ".escode")), rustTarget)).toEqual(
-          norm(await tree(join(tsTarget, ".escode")), tsTarget),
+        // tasks-index.sqlite 是 Rust Host 运行时索引缓存，不属于用户数据迁移的比对范围。
+        const comparable = (value: Record<string, string>) =>
+          Object.fromEntries(
+            Object.entries(value).filter(([path]) => !path.endsWith("tasks-index.sqlite")),
+          );
+        expect(norm(comparable(await tree(join(rustTarget, ".escode"))), rustTarget)).toEqual(
+          norm(comparable(await tree(join(tsTarget, ".escode"))), tsTarget),
         );
         const settingOf = async (home: string) =>
           JSON.parse(await readFile(join(home, ".escode", "v2", "setting.json"), "utf8"));
