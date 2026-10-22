@@ -550,6 +550,123 @@ describe.skipIf(!svnAvailable)("SvnService（真实 svn）", () => {
     });
   });
 
+  it("读取 svn:externals 的 -r 与 @peg 两种格式", async () => {
+    const service = createService();
+    const definitions = join(fixture.root, "externals.txt");
+    writeFileSync(definitions, `-r 2 ^/trunk ext-a\n${fixture.repoUrl}/branches/feature@3 ext/b`);
+    svn(fixture.wc, "propset", "-q", "-F", definitions, "svn:externals", ".");
+    const externals = await service.getExternals({ workspacePath: fixture.wc });
+    expect(externals.ok).toBe(true);
+    if (!externals.ok) return;
+    expect(externals.externals).toEqual([
+      { path: ".", name: "ext-a", url: "^/trunk", revision: 2 },
+      {
+        path: ".",
+        name: "ext/b",
+        url: `${fixture.repoUrl}/branches/feature`,
+        pegRevision: 3,
+      },
+    ]);
+    svn(fixture.wc, "propdel", "-q", "svn:externals", ".");
+    expect(await service.getExternals({ workspacePath: fixture.wc })).toEqual({
+      ok: true,
+      externals: [],
+    });
+  });
+
+  it("锁定状态进入改动列表，解锁他人锁需要 force", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "locked change\n");
+    expect(
+      await service.lock({ workspacePath: fixture.wc, paths: ["a.txt"], message: "hold" }),
+    ).toEqual({ ok: true });
+    const changes = await service.getChanges({ workspacePath: fixture.wc });
+    const locked = changes.ok ? changes.changes.find((change) => change.path === "a.txt") : null;
+    expect(locked?.lock).toMatchObject({ comment: "hold" });
+    expect(locked?.lock?.owner.length).toBeGreaterThan(0);
+
+    const withoutForce = await service.unlock({
+      workspacePath: fixture.other,
+      paths: ["a.txt"],
+    });
+    expect(withoutForce.ok).toBe(false);
+    expect(
+      await service.unlock({ workspacePath: fixture.other, paths: ["a.txt"], force: true }),
+    ).toEqual({ ok: true });
+    // status 的锁信息来自本地 wc.db；另一个工作副本解锁后需要 update 才能刷新。
+    svn(fixture.wc, "update", "-q");
+    const after = await service.getChanges({ workspacePath: fixture.wc });
+    expect(
+      after.ok && after.changes.find((change) => change.path === "a.txt")?.lock,
+    ).toBeUndefined();
+    expect(await service.lock({ workspacePath: fixture.wc, paths: ["../x"] })).toMatchObject({
+      ok: false,
+      issue: "invalid-request",
+    });
+  });
+
+  it("暂存架保存修改与新增文件，应用后恢复", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "shelf change\n");
+    writeFileSync(join(fixture.wc, "shelf-new.txt"), "new shelf\n");
+    const shelved = await service.shelve({
+      workspacePath: fixture.wc,
+      paths: ["a.txt", "shelf-new.txt"],
+      name: "s1",
+      message: "hold",
+    });
+    expect(shelved).toMatchObject({
+      ok: true,
+      shelf: { name: "s1", message: "hold", paths: ["a.txt", "shelf-new.txt"] },
+    });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("line1\nline2\n");
+    expect(existsSync(join(fixture.wc, "shelf-new.txt"))).toBe(false);
+
+    const shelves = await service.listShelves({ workspacePath: fixture.wc });
+    expect(shelves.ok && shelves.shelves.map((shelf) => shelf.name)).toEqual(["s1"]);
+
+    expect(await service.unshelve({ workspacePath: fixture.wc, name: "s1" })).toEqual({
+      ok: true,
+    });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("shelf change\n");
+    expect(readFileSync(join(fixture.wc, "shelf-new.txt"), "utf-8")).toBe("new shelf\n");
+    const after = await service.getChanges({ workspacePath: fixture.wc });
+    expect(
+      after.ok && after.changes.find((change) => change.path === "shelf-new.txt")?.status,
+    ).toBe("added");
+
+    expect(await service.deleteShelf({ workspacePath: fixture.wc, name: "s1" })).toEqual({
+      ok: true,
+    });
+    expect(await service.listShelves({ workspacePath: fixture.wc })).toEqual({
+      ok: true,
+      shelves: [],
+    });
+    expect(await service.unshelve({ workspacePath: fixture.wc, name: "s1" })).toMatchObject({
+      ok: false,
+      issue: "shelf-not-found",
+    });
+    expect(
+      await service.shelve({ workspacePath: fixture.wc, paths: ["../x"], name: "bad" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+
+    // 缺失文件按删除暂存，暂存后恢复 BASE 内容。
+    rmSync(join(fixture.wc, "a.txt"));
+    expect(
+      await service.shelve({ workspacePath: fixture.wc, paths: ["a.txt"], name: "missing" }),
+    ).toMatchObject({ ok: true });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("line1\nline2\n");
+
+    // 二进制文件拒绝暂存。
+    writeFileSync(join(fixture.wc, "bin.dat"), Buffer.from([0, 1, 2]));
+    svn(fixture.wc, "add", "-q", "bin.dat");
+    svn(fixture.wc, "commit", "-q", "-m", "add bin");
+    writeFileSync(join(fixture.wc, "bin.dat"), Buffer.from([0, 9, 9]));
+    expect(
+      await service.shelve({ workspacePath: fixture.wc, paths: ["bin.dat"], name: "bin" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+  });
+
   it("找不到 svn 时报告不可用", async () => {
     const service = createService({ svnBinaryPath: join(fixture.root, "missing-svn") });
     const info = await service.getWorkingCopyInfo({ workspacePath: fixture.wc });

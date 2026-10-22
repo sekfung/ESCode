@@ -88,7 +88,8 @@ flowchart TD
 ### 3.3 文件行
 
 - 行首为勾选框与状态字母（M / A / D / R / ? / ! / C / X / ~），其后复用 `GitPaneChangeCard`：路径、`+/-`，展开后显示 inline diff。
-- 行尾提供“文件历史”和“Blame”图标按钮（spec：§12）；未纳入版本控制的文件不提供，目录不提供 Blame。
+- 行尾提供“文件历史”“Blame”“锁定 / 解锁”图标按钮（spec：§12、§15）；未纳入版本控制的文件不提供，目录不提供 Blame / 锁定。
+- 文件被锁定时行内显示 owner 与 comment；锁定状态来自 `svn status --xml`，刷新后更新。
 - 右键菜单与 Git 一致：在文件管理器中显示、复制绝对 / 相对路径、在文件树中显示。还原通过勾选后的“还原所选”完成。
 - 第一期 diff 只展示文本差异，`Property changes on:` 属性段从 diff 中去掉（共享 diff 组件只解析文本 hunk）；只改属性的条目显示为 M。
 
@@ -113,6 +114,8 @@ flowchart TD
 - **合并**：打开 `SvnMergeDialog`（§11）。工作副本根不是分支根时禁用。
 - **历史**：打开 `SvnHistoryDialog`。
 - **分支图谱**：打开 `SvnBranchGraphDialog`（§13），只读展示 copyfrom 与 mergeinfo 关系。
+- **外部定义**：打开 `SvnExternalsDialog`（§14），只读展示 `svn:externals`。
+- **暂存架**：打开 `SvnShelvesDialog`（§16），对勾选文件执行暂存 / 应用 / 删除。
 - 服务器有新修订时，修订号右侧显示“服务器 r{n}”，点击即更新。
 
 ### 3.7 异常状态
@@ -201,6 +204,9 @@ flowchart TD
 | 合并                   | 合并                   | Merge                                 |
 | Blame                  | Blame                  | Blame                                 |
 | 分支图谱               | 分支图谱               | Branch graph                          |
+| 外部定义               | 外部定义               | Externals                             |
+| 锁定 / 解锁            | 锁定 / 解锁            | Lock / Unlock                         |
+| 暂存架                 | 暂存架                 | Shelves                               |
 | 标记已解决             | 标记已解决             | Mark as resolved                      |
 | 用我的                 | 用我的                 | Use mine                              |
 | 用他们的               | 用他们的               | Use theirs                            |
@@ -255,7 +261,36 @@ flowchart TD
 - 节点超过 200 个时截断并提示；读取失败展示 svn 错误，认证失败走凭据弹窗重试一次。
 - 窄屏允许横向滚动；双主题下节点/边使用主题色。
 
-## 14. E2E 场景
+## 14. 外部定义：`SvnExternalsDialog`
+
+- 入口在 `SvnPane` 顶部操作；只读列表来自工作副本本地的 `svn:externals`（包含未提交属性）。
+- 每条展示定义所在目录、目标路径、URL、`-r` / `@peg` 修订；没有内容时显示空态。
+- 不提供新增 / 编辑 / 删除；外部工作副本的改动仍按 `external` 在改动列表只读展示。
+
+## 15. 锁定与解锁
+
+- 改动行对可锁定的版本控制文件显示锁图标：
+  - 未锁定：点击锁定，成功后刷新；
+  - 已锁定：显示锁定 owner/comment，点击解锁；他人锁在确认框中说明后使用 `--force`。
+- 锁定 / 解锁进入写队列；失败时 toast 展示 svn 原始错误，认证失败走凭据弹窗重试一次。
+
+## 16. 暂存架：`SvnShelvesDialog`
+
+```
+┌ 暂存架 ───────────────────────────────────── [×] ┐
+│ 名称 [shelf-...]  说明 [......]  [暂存所选 (2)]    │
+├──────────────────────────────────────────────────┤
+│ e2e-shelf · 3 个文件 · 18:00                      │
+│ [应用] [删除]                                      │
+└──────────────────────────────────────────────────┘
+```
+
+- 入口在 `SvnPane` 顶部操作，使用当前勾选文件作为暂存范围；没有勾选时禁用“暂存所选”。
+- 暂存后关闭弹窗、刷新面板；应用 / 删除后重新加载列表。
+- 二进制文件、未纳入版本控制的目录不可暂存；应用冲突时展示 svn 输出并保留 shelf。
+- 数据保存在 `wcRoot/.svn/escode-shelves/`，不写入版本库。
+
+## 17. E2E 场景
 
 用例文件：`packages/desktop/test/e2e/git/manual-review/svn-workflow-ui-flow.test.ts`（manual-review 待审，人工审阅通过后按 E2E 生命周期提升为正式用例）。运行环境需提供 svn / svnadmin（可用 `ESCODE_SVN_BINARY` / `ESCODE_SVNADMIN_BINARY` 指定），缺失时显式跳过。
 
@@ -265,3 +300,4 @@ flowchart TD
 4. **SVN-UI-04 合并分支**：在 `branches/feature` 提交一个新文件；切回 trunk 后通过 `SvnMergeDialog` 合并 feature；断言新文件出现在改动列表（自动 add），提交后服务器修订包含该文件与合并信息。
 5. **SVN-UI-05 文件历史与 Blame**：修改并提交文件后，从改动行打开文件历史，断言包含最新修订；打开 Blame，断言目标行显示提交该行的修订号与作者。
 6. **SVN-UI-06 分支图谱**：夹具包含 `branches/feature` 的 copyfrom 与一次 trunk→feature 的 merge；打开图谱，断言 feature 节点的来源为 trunk，且存在 copy 与 merge 边。
+7. **SVN-UI-07 外部定义 / 锁定 / 暂存架**：夹具包含 `svn:externals`；打开外部定义断言目标与 URL；锁定文件后断言行内显示 owner，再解锁；修改文件后暂存，断言改动消失，应用后断言改动恢复。

@@ -246,6 +246,7 @@ export async function readSvnChanges(
         path: entry.path,
         status: itemStatus,
         propsModified: entry.props === "modified" || entry.props === "conflicted",
+        ...(entry.lock ? { lock: entry.lock } : {}),
         ...(itemStatus === "conflicted"
           ? {
               conflict: {

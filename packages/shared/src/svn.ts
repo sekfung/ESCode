@@ -32,6 +32,7 @@ export type SvnIssueCode =
   | "unresolved-conflicts"
   | "nothing-to-commit"
   | "invalid-request"
+  | "shelf-not-found"
   | "unsupported-host"
   | "cancelled"
   | "timeout"
@@ -88,6 +89,13 @@ export interface SvnConflictInfo {
   description?: string;
 }
 
+export interface SvnLockInfo {
+  owner: string;
+  comment: string;
+  /** ISO 8601 */
+  created: string;
+}
+
 export interface SvnFileChange {
   /** 相对 workspacePath，分隔符统一为 /。 */
   path: string;
@@ -95,6 +103,7 @@ export interface SvnFileChange {
   propsModified: boolean;
   isDirectory: boolean;
   conflict?: SvnConflictInfo;
+  lock?: SvnLockInfo;
   additions: number;
   deletions: number;
   isBinary: boolean;
@@ -312,6 +321,69 @@ export interface SvnMergeResult {
 export interface SvnSetBinaryPathRequest {
   /** 空字符串表示清除手动路径、恢复自动查找。 */
   binaryPath: string;
+}
+
+export interface SvnExternalDefinition {
+  /** 定义所在目录，相对 workspacePath。 */
+  path: string;
+  /** 外部目标路径（相对定义目录）。 */
+  name: string;
+  url: string;
+  /** `-r N` 指定的操作修订。 */
+  revision?: number;
+  /** URL 上的 `@PEG` 修订。 */
+  pegRevision?: number;
+}
+
+export interface SvnExternalsRequest extends SvnRequest {}
+
+export interface SvnExternalsResult {
+  externals: SvnExternalDefinition[];
+}
+
+export interface SvnLockRequest extends SvnRequest {
+  paths: string[];
+  message?: string;
+  credentials?: SvnCredentials;
+}
+
+export interface SvnUnlockRequest extends SvnRequest {
+  paths: string[];
+  /** true 时使用 `--force` 解除他人锁。 */
+  force?: boolean;
+  credentials?: SvnCredentials;
+}
+
+export interface SvnShelf {
+  name: string;
+  message: string;
+  /** 创建时间（epoch ms）。 */
+  createdAt: number;
+  /** 暂存时包含的工作副本相对路径。 */
+  paths: string[];
+}
+
+export interface SvnShelveRequest extends SvnRequest {
+  paths: string[];
+  /** 省略时由服务端生成。 */
+  name?: string;
+  message?: string;
+}
+
+export interface SvnShelveResult {
+  shelf: SvnShelf;
+}
+
+export interface SvnListShelvesResult {
+  shelves: SvnShelf[];
+}
+
+export interface SvnUnshelveRequest extends SvnRequest {
+  name: string;
+}
+
+export interface SvnDeleteShelfRequest extends SvnRequest {
+  name: string;
 }
 
 export interface SvnGenerateCommitMessageRequest extends SvnRequest {

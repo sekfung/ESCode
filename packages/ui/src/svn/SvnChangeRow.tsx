@@ -1,7 +1,11 @@
 import { memo } from "react";
 import type { GitDiffResult, SvnFileChange, SvnResolveAccept } from "@escode/shared";
-import { TID_SVN_BLAME_BUTTON, TID_SVN_FILE_HISTORY_BUTTON } from "@escode/shared";
-import { FingerprintIcon, HistoryIcon } from "lucide-react";
+import {
+  TID_SVN_BLAME_BUTTON,
+  TID_SVN_FILE_HISTORY_BUTTON,
+  TID_SVN_LOCK_BUTTON,
+} from "@escode/shared";
+import { FingerprintIcon, HistoryIcon, LockIcon, LockOpenIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { Checkbox } from "@/components/ui/checkbox.js";
 import { cn } from "@/components/lib/utils.js";
@@ -13,6 +17,7 @@ import type { ResolvedTheme } from "@/useTheme.js";
 import {
   canShowSvnBlame,
   canShowSvnFileHistory,
+  canShowSvnLock,
   getSvnStatusLetter,
   isSvnChangeCommittable,
 } from "@/svn/svnDisplay.js";
@@ -44,6 +49,8 @@ export interface SvnChangeRowProps {
   onRevealInFileTree?: (change: GitPaneFileChange) => void;
   onShowFileHistory: (change: SvnFileChange) => void;
   onShowBlame: (change: SvnFileChange) => void;
+  onLock: (change: SvnFileChange) => void;
+  onUnlock: (change: SvnFileChange) => void;
 }
 
 const STATUS_TONE: Partial<Record<SvnFileChange["status"], string>> = {
@@ -77,6 +84,8 @@ export const SvnChangeRow = memo(function SvnChangeRow({
   onRevealInFileTree,
   onShowFileHistory,
   onShowBlame,
+  onLock,
+  onUnlock,
 }: SvnChangeRowProps) {
   const { intl } = useESCodeIntl();
   const committable = isSvnChangeCommittable(change);
@@ -122,6 +131,33 @@ export const SvnChangeRow = memo(function SvnChangeRow({
           />
         </div>
         <div className="flex h-8 shrink-0 items-center gap-0.5 pr-2">
+          {change.lock ? (
+            <Button
+              type="button"
+              data-testid={TID_SVN_LOCK_BUTTON}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={intl.formatMessage({ id: "svn.lock.unlock" })}
+              title={intl.formatMessage({ id: "svn.lock.owner" }, { owner: change.lock.owner })}
+              disabled={disabled}
+              onClick={() => onUnlock(change)}
+            >
+              <LockIcon className="size-3.5 text-warning" />
+            </Button>
+          ) : canShowSvnLock(change) ? (
+            <Button
+              type="button"
+              data-testid={TID_SVN_LOCK_BUTTON}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={intl.formatMessage({ id: "svn.lock.lock" })}
+              title={intl.formatMessage({ id: "svn.lock.lock" })}
+              disabled={disabled}
+              onClick={() => onLock(change)}
+            >
+              <LockOpenIcon className="size-3.5" />
+            </Button>
+          ) : null}
           {canShowSvnFileHistory(change) ? (
             <Button
               type="button"
@@ -152,6 +188,13 @@ export const SvnChangeRow = memo(function SvnChangeRow({
           ) : null}
         </div>
       </div>
+      {change.lock ? (
+        <p className="pb-2 pl-12 pr-3 text-ui-sm text-foreground-subtle">
+          <LockIcon className="mr-1 inline size-3" />
+          {intl.formatMessage({ id: "svn.lock.owner" }, { owner: change.lock.owner })}
+          {change.lock.comment ? ` · ${change.lock.comment}` : ""}
+        </p>
+      ) : null}
       {change.status === "conflicted" ? (
         <div className="flex flex-wrap items-center gap-1 pb-2 pl-12 pr-3">
           {isTextConflict ? (

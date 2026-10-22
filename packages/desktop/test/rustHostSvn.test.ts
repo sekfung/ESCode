@@ -122,7 +122,9 @@ function normalize(value: unknown, root: string): unknown {
     .split(root)
     .join("<ROOT>")
     // 提交时间必然不同（两个仓库交替提交），归一后再比较结构。
-    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<DATE>");
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<DATE>")
+    // shelf 的创建时间取当前时间，归一后再比较。
+    .replace(/"createdAt":\d+/g, '"createdAt":0');
   return JSON.parse(text);
 }
 
@@ -250,6 +252,54 @@ const STEPS: Array<[string, Step]> = [
     (s, f) => s.getBlame({ workspacePath: f.wc, path: "tracked.md", revision: 2 }),
   ],
   ["blame unsafe", (s, f) => s.getBlame({ workspacePath: f.wc, path: "../x" })],
+  [
+    "prepare externals",
+    async (_s, f) => {
+      const definitions = join(f.root, "externals.txt");
+      await writeFile(definitions, `-r 2 ^/trunk ext-a\n${f.repoUrl}/branches/feature@3 ext/b`);
+      await svn(f.wc, "propset", "-q", "-F", definitions, "svn:externals", ".");
+      return "<prepared>";
+    },
+  ],
+  ["externals", (s, f) => s.getExternals({ workspacePath: f.wc })],
+  [
+    "prepare lock",
+    async (_s, f) => {
+      await writeFile(join(f.wc, "tracked.md"), "line one\nlock change\n");
+      return "<prepared>";
+    },
+  ],
+  [
+    "lock tracked",
+    (s, f) => s.lock({ workspacePath: f.wc, paths: ["tracked.md"], message: "hold" }),
+  ],
+  ["changes locked", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  ["unlock tracked", (s, f) => s.unlock({ workspacePath: f.wc, paths: ["tracked.md"] })],
+  ["changes unlocked", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  [
+    "prepare shelf",
+    async (_s, f) => {
+      await writeFile(join(f.wc, "tracked.md"), "line one\nshelf change\n");
+      await writeFile(join(f.wc, "shelf-new.md"), "shelf new\n");
+      return "<prepared>";
+    },
+  ],
+  [
+    "shelve",
+    (s, f) =>
+      s.shelve({
+        workspacePath: f.wc,
+        paths: ["tracked.md", "shelf-new.md"],
+        name: "s1",
+        message: "hold",
+      }),
+  ],
+  ["changes shelved", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  ["shelves", (s, f) => s.listShelves({ workspacePath: f.wc })],
+  ["unshelve", (s, f) => s.unshelve({ workspacePath: f.wc, name: "s1" })],
+  ["changes unshelved", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  ["delete shelf", (s, f) => s.deleteShelf({ workspacePath: f.wc, name: "s1" })],
+  ["shelves empty", (s, f) => s.listShelves({ workspacePath: f.wc })],
   ["cleanup", (s, f) => s.cleanup({ workspacePath: f.wc })],
 ];
 

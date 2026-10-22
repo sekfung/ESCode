@@ -131,7 +131,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("git", "commit"),
     ("git", "push"),
     ("git", "getIdentity"), ("git", "refresh"),
-    ("svn", "getWorkingCopyInfo"), ("svn", "getChanges"), ("svn", "getDiff"), ("svn", "getLog"), ("svn", "getFileLog"), ("svn", "getBlame"), ("svn", "getRemoteStatus"), ("svn", "listBranches"), ("svn", "getBranchGraph"), ("svn", "commit"),
+    ("svn", "getWorkingCopyInfo"), ("svn", "getChanges"), ("svn", "getDiff"), ("svn", "getLog"), ("svn", "getFileLog"), ("svn", "getBlame"), ("svn", "getRemoteStatus"), ("svn", "listBranches"), ("svn", "getBranchGraph"), ("svn", "getExternals"), ("svn", "lock"), ("svn", "unlock"), ("svn", "listShelves"), ("svn", "shelve"), ("svn", "unshelve"), ("svn", "deleteShelf"), ("svn", "commit"),
     ("svn", "update"), ("svn", "revert"), ("svn", "resolve"), ("svn", "switchBranch"), ("svn", "merge"), ("svn", "cleanup"), ("svn", "setBinaryPath"), ("svn", "generateCommitMessage"),
     ("model-selection", "getView"), ("model-selection", "onDidChange"),
     ("plugin-management", "addPluginMarketplace"),

@@ -8,6 +8,7 @@ mod command;
 mod commit_message;
 mod config;
 mod errors;
+mod externals;
 mod graph;
 mod history;
 mod parse;
@@ -15,7 +16,9 @@ mod paths;
 mod reads;
 mod runtime;
 mod service;
+mod shelf;
 mod writes;
+mod writes_lock;
 mod writes_merge;
 mod xml;
 

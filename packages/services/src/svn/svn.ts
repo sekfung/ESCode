@@ -6,14 +6,19 @@ import type {
   SvnChangesResult,
   SvnCommitRequest,
   SvnCommitResult,
+  SvnDeleteShelfRequest,
   SvnDiffRequest,
   SvnDiffResult,
   SvnBlameRequest,
   SvnBlameResult,
+  SvnExternalsRequest,
+  SvnExternalsResult,
   SvnFileLogRequest,
   SvnFileLogResult,
   SvnGenerateCommitMessageRequest,
   SvnGenerateCommitMessageResult,
+  SvnListShelvesResult,
+  SvnLockRequest,
   SvnLogRequest,
   SvnLogResult,
   SvnMergeRequest,
@@ -25,8 +30,12 @@ import type {
   SvnResult,
   SvnRevertRequest,
   SvnSetBinaryPathRequest,
+  SvnShelveRequest,
+  SvnShelveResult,
   SvnSwitchRequest,
   SvnSwitchResult,
+  SvnUnlockRequest,
+  SvnUnshelveRequest,
   SvnUpdateRequest,
   SvnUpdateResult,
   SvnWorkingCopyInfo,
@@ -49,6 +58,13 @@ export interface ISvnService {
   getRemoteStatus(params: SvnRemoteStatusRequest): Promise<SvnResult<SvnRemoteStatusResult>>;
   listBranches(params: SvnBranchListRequest): Promise<SvnResult<SvnBranchListResult>>;
   getBranchGraph(params: SvnBranchGraphRequest): Promise<SvnResult<SvnBranchGraphResult>>;
+  getExternals(params: SvnExternalsRequest): Promise<SvnResult<SvnExternalsResult>>;
+  lock(params: SvnLockRequest): Promise<SvnResult>;
+  unlock(params: SvnUnlockRequest): Promise<SvnResult>;
+  listShelves(params: SvnRequest): Promise<SvnResult<SvnListShelvesResult>>;
+  shelve(params: SvnShelveRequest): Promise<SvnResult<SvnShelveResult>>;
+  unshelve(params: SvnUnshelveRequest): Promise<SvnResult>;
+  deleteShelf(params: SvnDeleteShelfRequest): Promise<SvnResult>;
   commit(params: SvnCommitRequest): Promise<SvnResult<SvnCommitResult>>;
   update(params: SvnUpdateRequest): Promise<SvnResult<SvnUpdateResult>>;
   revert(params: SvnRevertRequest): Promise<SvnResult>;

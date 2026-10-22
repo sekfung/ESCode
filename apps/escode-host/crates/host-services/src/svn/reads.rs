@@ -187,6 +187,16 @@ pub(crate) async fn read_changes(service: &SvnService, params: &Value) -> Value 
             "propsModified".to_owned(),
             Value::Bool(entry.props == "modified" || entry.props == "conflicted"),
         );
+        if let Some(lock) = &entry.lock {
+            change.insert(
+                "lock".to_owned(),
+                json!({
+                    "owner": lock.owner,
+                    "comment": lock.comment,
+                    "created": lock.created,
+                }),
+            );
+        }
         if status == "conflicted" {
             let kinds: Vec<&str> = detail
                 .and_then(|entry| entry.conflict.as_ref())

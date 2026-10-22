@@ -41,7 +41,7 @@ pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("skill-sync", &["checkRemoteUserSkillWriteAccess", "exportSkillsArchive", "importSkillsArchive", "listLocalUserSkillCandidates", "listRemoteUserSkillStatuses"]),
     ("skills", &["buildPromptContext", "copyToCommon", "deleteSkill", "list", "removeFromCommon", "setEnabled"]),
     ("subagents", &["createAgent", "deleteAgent", "getPrimaryUserAgentsDirectory", "list", "setBuiltInModelOverride", "setEnabled", "setPluginAgentModelOverride", "updateAgent"]),
-    ("svn", &["cleanup", "commit", "generateCommitMessage", "getBlame", "getBranchGraph", "getChanges", "getDiff", "getFileLog", "getLog", "getRemoteStatus", "getWorkingCopyInfo", "listBranches", "merge", "resolve", "revert", "setBinaryPath", "switchBranch", "update"]),
+    ("svn", &["cleanup", "commit", "deleteShelf", "generateCommitMessage", "getBlame", "getBranchGraph", "getChanges", "getDiff", "getExternals", "getFileLog", "getLog", "getRemoteStatus", "getWorkingCopyInfo", "listBranches", "listShelves", "lock", "merge", "resolve", "revert", "setBinaryPath", "shelve", "switchBranch", "unlock", "unshelve", "update"]),
     ("system", &["info", "listIntegratedTerminalShells", "probeIntranet"]),
     ("terminal", &["create", "dispose", "onDynamicData", "onDynamicExit", "resize", "write"]),
     ("usage-stats", &["getAppUsageSnapshot"]),

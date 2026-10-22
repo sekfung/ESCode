@@ -78,6 +78,11 @@ export function canShowSvnBlame(change: SvnFileChange): boolean {
   );
 }
 
+/** 锁定：存在工作副本文件的版本控制文件；冲突文件由冲突流程先处理。 */
+export function canShowSvnLock(change: SvnFileChange): boolean {
+  return canShowSvnBlame(change) && change.status !== "conflicted";
+}
+
 /** 默认勾选：已纳入版本控制的可提交改动；未纳入版本控制的文件默认不勾选。 */
 export function isSvnChangeCheckedByDefault(change: SvnFileChange): boolean {
   return isSvnChangeCommittable(change) && change.status !== "unversioned";

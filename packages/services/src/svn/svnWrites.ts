@@ -5,6 +5,7 @@ import {
   getWorkspaceVcsKey,
   type SvnCommitRequest,
   type SvnCommitResult,
+  type SvnLockRequest,
   type SvnMergeRequest,
   type SvnMergeResult,
   type SvnRequest,
@@ -13,12 +14,14 @@ import {
   type SvnRevertRequest,
   type SvnSwitchRequest,
   type SvnSwitchResult,
+  type SvnUnlockRequest,
   type SvnUpdateRequest,
   type SvnUpdateResult,
 } from "@escode/shared";
 import {
   DEFAULT_SVN_CLEANUP_TIMEOUT_MS,
   DEFAULT_SVN_LONG_WRITE_TIMEOUT_MS,
+  DEFAULT_SVN_REMOTE_READ_TIMEOUT_MS,
   normalizeSvnPath,
 } from "./config.js";
 import { svnFailure } from "./repo/svnErrors.js";
@@ -194,6 +197,48 @@ export function createSvnWriter(runtime: SvnRuntime) {
         const outcome = await runtime.run({
           cwd: params.workspacePath,
           args: ["resolve", "--accept", params.accept, "--", localTarget(params.path)],
+        });
+        return outcome.ok ? { ok: true } : outcome.failure;
+      });
+    },
+
+    async lock(params: SvnLockRequest): Promise<SvnResult> {
+      const paths = [...new Set(params.paths.map(normalizeSvnPath))];
+      if (paths.length === 0 || !paths.every(isSafeRelativePath)) {
+        return svnFailure("invalid-request", "paths must be relative to the workspace");
+      }
+      return await runtime.enqueueWrite(params, async () => {
+        const args = ["lock"];
+        if (params.message?.trim()) {
+          args.push("-m", params.message.trim());
+        }
+        args.push("--", ...paths.map(localTarget));
+        const outcome = await runtime.run({
+          cwd: params.workspacePath,
+          args,
+          credentials: params.credentials,
+          timeoutMs: DEFAULT_SVN_REMOTE_READ_TIMEOUT_MS,
+        });
+        return outcome.ok ? { ok: true } : outcome.failure;
+      });
+    },
+
+    async unlock(params: SvnUnlockRequest): Promise<SvnResult> {
+      const paths = [...new Set(params.paths.map(normalizeSvnPath))];
+      if (paths.length === 0 || !paths.every(isSafeRelativePath)) {
+        return svnFailure("invalid-request", "paths must be relative to the workspace");
+      }
+      return await runtime.enqueueWrite(params, async () => {
+        const args = ["unlock"];
+        if (params.force) {
+          args.push("--force");
+        }
+        args.push("--", ...paths.map(localTarget));
+        const outcome = await runtime.run({
+          cwd: params.workspacePath,
+          args,
+          credentials: params.credentials,
+          timeoutMs: DEFAULT_SVN_REMOTE_READ_TIMEOUT_MS,
         });
         return outcome.ok ? { ok: true } : outcome.failure;
       });

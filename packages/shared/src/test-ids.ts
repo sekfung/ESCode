@@ -102,6 +102,20 @@ export const TID_SVN_BLAME_DIALOG = "svn-blame-dialog";
 export const TID_SVN_BRANCH_GRAPH_BUTTON = "svn-branch-graph-button";
 /** SVN 分支图谱弹窗 */
 export const TID_SVN_BRANCH_GRAPH_DIALOG = "svn-branch-graph-dialog";
+/** SVN 外部定义入口 */
+export const TID_SVN_EXTERNALS_BUTTON = "svn-externals-button";
+/** SVN 外部定义弹窗 */
+export const TID_SVN_EXTERNALS_DIALOG = "svn-externals-dialog";
+/** SVN 改动行锁定/解锁按钮 */
+export const TID_SVN_LOCK_BUTTON = "svn-lock-button";
+/** SVN 暂存架入口 */
+export const TID_SVN_SHELVES_BUTTON = "svn-shelves-button";
+/** SVN 暂存架弹窗 */
+export const TID_SVN_SHELVES_DIALOG = "svn-shelves-dialog";
+/** SVN 暂存架名称输入框 */
+export const TID_SVN_SHELF_NAME = "svn-shelf-name";
+/** SVN 暂存所选按钮 */
+export const TID_SVN_SHELVE_SUBMIT = "svn-shelve-submit";
 /** Git 面板关闭按钮 */
 export const TID_GIT_CLOSE_BUTTON = "git-close-button";
 /** 顶部 Git 提交或推送主入口 */

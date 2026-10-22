@@ -31,11 +31,19 @@ pub struct InfoEntry {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct LockInfo {
+    pub owner: String,
+    pub comment: String,
+    pub created: String,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct StatusEntry {
     pub path: String,
     pub item: String,
     pub props: String,
     pub tree_conflicted: bool,
+    pub lock: Option<LockInfo>,
     /// externals 定义下的条目属于其他工作副本，第一期只读展示。
     pub in_external: bool,
 }
@@ -78,8 +86,13 @@ pub struct MergeinfoEntry {
     pub mergeinfo: String,
 }
 
-/// 解析 `svn propget --xml -R svn:mergeinfo` 的 properties/target/property 结构。
-pub fn parse_mergeinfo(xml: &str) -> Vec<MergeinfoEntry> {
+pub struct PropertyEntry {
+    pub path: String,
+    pub value: String,
+}
+
+/// 解析 `svn propget --xml -R <property>` 的 properties/target/property 结构。
+pub fn parse_properties(xml: &str, property_name: &str) -> Vec<PropertyEntry> {
     let root = parse(xml);
     let mut entries = Vec::new();
     for target in children(root.as_ref(), "target") {
@@ -90,16 +103,27 @@ pub fn parse_mergeinfo(xml: &str) -> Vec<MergeinfoEntry> {
             if property
                 .attrs
                 .get("name")
-                .is_some_and(|name| name == "svn:mergeinfo")
+                .is_some_and(|name| name == property_name)
             {
-                entries.push(MergeinfoEntry {
+                entries.push(PropertyEntry {
                     path: path.clone(),
-                    mergeinfo: property.text.clone(),
+                    value: property.text.clone(),
                 });
             }
         }
     }
     entries
+}
+
+/// 解析 `svn propget --xml -R svn:mergeinfo`。
+pub fn parse_mergeinfo(xml: &str) -> Vec<MergeinfoEntry> {
+    parse_properties(xml, "svn:mergeinfo")
+        .into_iter()
+        .map(|entry| MergeinfoEntry {
+            path: entry.path,
+            mergeinfo: entry.value,
+        })
+        .collect()
 }
 
 /// 解析 `svn blame --xml`；超过 max_lines 时只保留前 max_lines 行。
@@ -213,6 +237,11 @@ pub fn parse_status(xml: &str) -> Vec<StatusEntry> {
                 tree_conflicted: status
                     .and_then(|node| node.attrs.get("tree-conflicted"))
                     .is_some_and(|value| value == "true"),
+                lock: child(status, "lock").map(|lock| LockInfo {
+                    owner: trimmed_text(child(Some(lock), "owner")).unwrap_or_default(),
+                    comment: trimmed_text(child(Some(lock), "comment")).unwrap_or_default(),
+                    created: trimmed_text(child(Some(lock), "created")).unwrap_or_default(),
+                }),
                 in_external: false,
             });
         }

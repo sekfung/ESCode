@@ -15,13 +15,20 @@ import {
   TID_SVN_COMMIT_DIALOG,
   TID_SVN_COMMIT_MESSAGE_INPUT,
   TID_SVN_COMMIT_SUBMIT,
+  TID_SVN_EXTERNALS_BUTTON,
+  TID_SVN_EXTERNALS_DIALOG,
   TID_SVN_FILE_HISTORY_BUTTON,
   TID_SVN_HISTORY_DIALOG,
+  TID_SVN_LOCK_BUTTON,
   TID_SVN_MERGE_BUTTON,
   TID_SVN_MERGE_DIALOG,
   TID_SVN_MERGE_SUBMIT,
   TID_SVN_PANE,
   TID_SVN_REFRESH_BUTTON,
+  TID_SVN_SHELF_NAME,
+  TID_SVN_SHELVES_BUTTON,
+  TID_SVN_SHELVES_DIALOG,
+  TID_SVN_SHELVE_SUBMIT,
   TID_SVN_STATUS_CHANGES,
   TID_SVN_UPDATE_BUTTON,
   TID_V4_SESSION_PANE,
@@ -41,13 +48,14 @@ import {
 } from "../../helpers/v4-conversation.js";
 
 /**
- * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §14）：
+ * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §17）：
  * - SVN-UI-01 修改 → 勾选 → 提交（含自动 add 未纳入版本控制的文件）
  * - SVN-UI-02 更新产生冲突 → 用我的 → 提交
  * - SVN-UI-03 切换分支
  * - SVN-UI-04 合并分支改动 → 提交（mergeinfo 写入服务器）
  * - SVN-UI-05 文件历史与 Blame
  * - SVN-UI-06 分支图谱（copyfrom + mergeinfo）
+ * - SVN-UI-07 外部定义 / 锁定 / 暂存架
  * 需要运行环境里有 svn / svnadmin（可用 ESCODE_SVN_BINARY / ESCODE_SVNADMIN_BINARY 指定）；
  * 缺失时显式跳过并输出原因。
  */
@@ -258,6 +266,27 @@ async function clickRowTestId(path: string, testId: string) {
         testId,
       )) as boolean,
     { timeout: 30000, timeoutMsg: `${path} 行内没有可用的 ${testId}` },
+  );
+}
+
+async function clickShelfAction(name: string, action: "apply" | "delete") {
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute(
+        (shelfName: string, shelfAction: string) => {
+          const button = document.querySelector<HTMLButtonElement>(
+            `[data-svn-shelf="${shelfName}"] [data-svn-shelf-action="${shelfAction}"]`,
+          );
+          if (!button || button.disabled) {
+            return false;
+          }
+          button.click();
+          return true;
+        },
+        name,
+        action,
+      )) as boolean,
+    { timeout: 30000, timeoutMsg: `暂存架 ${name} 没有可用的 ${action} 操作` },
   );
 }
 
@@ -536,5 +565,108 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     );
     await browser.keys("Escape");
     await $(sel(TID_SVN_BRANCH_GRAPH_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
+  });
+
+  it("SVN-UI-07: 外部定义、锁定与暂存架", async function () {
+    this.timeout(TEST_TIMEOUT_MS);
+    await waitForChangeRow(TRACKED_FILE);
+
+    // 锁定 → 行内显示锁定状态 → 解锁。
+    await clickRowTestId(TRACKED_FILE, TID_SVN_LOCK_BUTTON);
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (path: string, id: string) => {
+            const button = document
+              .querySelector(`[data-svn-change-path="${path}"]`)
+              ?.querySelector(`[data-testid="${id}"]`);
+            return (button?.getAttribute("aria-label") ?? "").includes("解锁");
+          },
+          TRACKED_FILE,
+          TID_SVN_LOCK_BUTTON,
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "锁定后没有出现解锁入口" },
+    );
+    await clickRowTestId(TRACKED_FILE, TID_SVN_LOCK_BUTTON);
+    await confirmAlert(["解锁", "Unlock"]);
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (path: string, id: string) => {
+            const label =
+              document
+                .querySelector(`[data-svn-change-path="${path}"]`)
+                ?.querySelector(`[data-testid="${id}"]`)
+                ?.getAttribute("aria-label") ?? "";
+            return label.includes("锁定") && !label.includes("解锁");
+          },
+          TRACKED_FILE,
+          TID_SVN_LOCK_BUTTON,
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "解锁后没有恢复锁定入口" },
+    );
+
+    // 暂存所选 → 改动消失 → 应用 → 改动恢复 → 删除。
+    await clickTestId(TID_SVN_SHELVES_BUTTON, "SVN 暂存架入口不可用");
+    await $(sel(TID_SVN_SHELVES_DIALOG)).waitForDisplayed({ timeout: 15000 });
+    await $(sel(TID_SVN_SHELF_NAME)).setValue("e2e-shelf");
+    await clickTestId(TID_SVN_SHELVE_SUBMIT, "暂存所选按钮不可用");
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (name: string) => Boolean(document.querySelector(`[data-svn-shelf="${name}"]`)),
+          "e2e-shelf",
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "暂存架列表中没有出现 e2e-shelf" },
+    );
+    await waitForChangeRow(TRACKED_FILE, false);
+    await clickShelfAction("e2e-shelf", "apply");
+    await waitForChangeRow(TRACKED_FILE);
+    await clickShelfAction("e2e-shelf", "delete");
+    await confirmAlert(["删除", "Delete"]);
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (name: string) => !document.querySelector(`[data-svn-shelf="${name}"]`),
+          "e2e-shelf",
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "删除后暂存架仍然存在" },
+    );
+    await $(sel(TID_CONFIRM_DIALOG_CONFIRM)).waitForDisplayed({ reverse: true, timeout: 15000 });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute((testId: string) => {
+          const button = document.querySelector<HTMLButtonElement>(
+            `[data-testid="${testId}"] [data-slot="dialog-close"]`,
+          );
+          if (!button) {
+            return false;
+          }
+          button.click();
+          return true;
+        }, TID_SVN_SHELVES_DIALOG)) as boolean,
+      { timeout: 15000, timeoutMsg: "暂存架弹窗没有关闭按钮" },
+    );
+    await $(sel(TID_SVN_SHELVES_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
+
+    // 外部定义只读列表。
+    const definitions = join(tmpdir(), `escode-svn-externals-${Date.now()}.txt`);
+    await writeFile(definitions, "-r 2 ^/trunk ext-a\n", "utf8");
+    await svn(DEFAULT_WORKSPACE, "propset", "-q", "-F", definitions, "svn:externals", ".");
+    await clickTestId(TID_SVN_EXTERNALS_BUTTON, "SVN 外部定义入口不可用");
+    await $(sel(TID_SVN_EXTERNALS_DIALOG)).waitForDisplayed({ timeout: 15000 });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute((testId: string) => {
+          const text =
+            document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.innerText ?? "";
+          return text.includes("ext-a") && text.includes("^/trunk");
+        }, TID_SVN_EXTERNALS_DIALOG)) as boolean,
+      { timeout: 30000, timeoutMsg: "外部定义弹窗没有显示 ext-a" },
+    );
+    await browser.keys("Escape");
+    await $(sel(TID_SVN_EXTERNALS_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
+    await svn(DEFAULT_WORKSPACE, "propdel", "-q", "svn:externals", ".");
+    await svn(DEFAULT_WORKSPACE, "revert", "-q", TRACKED_FILE);
   });
 });

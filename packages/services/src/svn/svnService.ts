@@ -17,6 +17,13 @@ import { svnFailure } from "./repo/svnErrors.js";
 import { createSvnHistoryReader } from "./svnHistory.js";
 import { readSvnChanges, readSvnDiff, readSvnWorkspaceInfo } from "./svnReads.js";
 import { readSvnBranchGraph } from "./svnGraph.js";
+import { readSvnExternals } from "./svnExternals.js";
+import {
+  deleteSvnShelf,
+  listSvnShelves,
+  shelveSvnChanges,
+  unshelveSvnChanges,
+} from "./svnShelf.js";
 import { createSvnRuntime } from "./svnRuntime.js";
 import { createSvnWriter } from "./svnWrites.js";
 import type { ISvnService } from "./svn.js";
@@ -90,6 +97,13 @@ export function createSvnService(options: SvnServiceOptions = {}): ISvnService {
     getRemoteStatus: (params) => history.getRemoteStatus(params),
     listBranches: (params) => history.listBranches(params),
     getBranchGraph: (params) => readSvnBranchGraph(runtime, params),
+    getExternals: (params) => readSvnExternals(runtime, params),
+    lock: (params) => writer.lock(params),
+    unlock: (params) => writer.unlock(params),
+    listShelves: (params) => listSvnShelves(runtime, params),
+    shelve: (params) => shelveSvnChanges(runtime, params),
+    unshelve: (params) => unshelveSvnChanges(runtime, params),
+    deleteShelf: (params) => deleteSvnShelf(runtime, params),
     commit: (params) => writer.commit(params),
     update: (params) => writer.update(params),
     revert: (params) => writer.revert(params),

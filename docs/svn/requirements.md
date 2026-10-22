@@ -43,6 +43,9 @@
 - 分支显示与切换（`svn switch`）
 - 分支合并（`svn merge`）：把 trunk / 其他分支的改动合并到当前工作副本，冲突复用现有冲突处理
 - 分支拓扑图谱：按 copyfrom 展示分支来源、按 mergeinfo 展示分支之间的合并关系（只读）
+- 外部定义（externals）只读列表：展示 `svn:externals` 的来源目录、目标、URL 与修订
+- 文件锁定与解锁（`svn lock` / `svn unlock`），并在改动行展示锁定状态
+- 暂存架（shelve）：把本地改动暂存到工作副本、恢复干净状态，并可应用或删除
 - 工作副本锁定提示与用户触发的清理
 - 认证失败时的凭据弹窗
 - 文件树 SVN 状态标记与忽略文件置灰
@@ -50,9 +53,9 @@
 - Agent 感知：system prompt 注入 SVN 快照；bash 策略识别 svn 只读子命令
 - 运行环境：Desktop、Web、远程 workspace（SSH / WSL / Docker）、Rust Host；Windows / macOS / Linux
 
-### 第一期不包含（第二期按顺序推进）
+### 第二阶段
 
-1. externals、lock、shelve
+Rust Host、merge、单文件历史与 Blame、分支拓扑图谱、externals / lock / shelve 均已实现。
 
 ### 明确不做
 
@@ -172,9 +175,30 @@
 - `copy` 边连接来源与目标；`merge` 边来自目标路径的 `svn:mergeinfo`，标注已合并的修订区间；同一对分支的多条 mergeinfo 聚合为一条边。
 - 超过 200 个分支/标签时截断并提示；读取远端失败展示 svn 错误，认证失败走凭据弹窗重试一次。
 
+### 场景 14：我想查看工作副本的外部定义
+
+- SVN 面板顶部提供“外部定义”入口，打开只读列表；数据来自工作副本本地的 `svn:externals` 属性（包含尚未提交的属性修改）。
+- 每条展示定义所在目录、目标路径、URL 与 `-r` / `@peg` 修订；`^/`、`//host/` 与绝对 URL 原样展示。
+- 不提供新增、编辑或删除外部定义；外部工作副本中的改动仍在改动列表按 `external` 只读展示。
+- 没有外部定义时显示空态；读取失败展示 svn 错误，认证失败走凭据弹窗重试一次。
+
+### 场景 15：我想锁定文件，避免他人提交
+
+- 已纳入版本控制的文件在改动行提供锁定 / 解锁入口；目录、未纳入版本控制与 scheduled add 的文件不提供。
+- 锁定状态来自 `svn status --xml` 的 `<lock>`：行内显示 owner 与 comment；锁定成功后刷新列表。
+- 解锁默认只解除自己的锁；他人锁需要强制解锁，UI 在确认框中明确说明。
+- 锁定 / 解锁是写操作，按 workspace 身份 key 串行；认证失败走凭据弹窗重试一次。
+
+### 场景 16：我想临时收起本地改动
+
+- SVN 面板顶部提供“暂存架”入口；弹窗列出当前工作副本的暂存架，支持“暂存所选”、应用与删除。
+- 暂存内容是 `svn diff`（文本与属性）+ 未纳入版本控制文件的合成 patch；暂存后工作副本恢复到干净状态。
+- 由于 svn 1.14 已移除实验性的 `svn shelve` 命令，ESCode 使用 `svn diff` + `svn patch` 实现可移植暂存架，不依赖 svn 版本；数据保存在 wcRoot 的 `.svn/escode-shelves/`。
+- 二进制文件与未纳入版本控制的目录不能被暂存；缺失文件按删除暂存。应用失败（冲突 / 拒绝）时展示 svn 输出并保留暂存架。
+
 ## 非功能要求
 
-- **性能**：变更列表只依赖本地 `svn status`，不加 `-u`；历史分页加载，已加载修订按 `(仓库 URL, 修订号)` 缓存。远端新修订检查默认 5 分钟一次，可关闭。分支图谱按需读取，copyfrom 探测并发上限 4，节点上限 200。
+- **性能**：变更列表只依赖本地 `svn status`，不加 `-u`；历史分页加载，已加载修订按 `(仓库 URL, 修订号)` 缓存。远端新修订检查默认 5 分钟一次，可关闭。分支图谱按需读取，copyfrom 探测并发上限 4，节点上限 200。暂存架只在打开弹窗或执行操作时读写。
 - **编码**：非 ASCII 路径与提交信息在三平台正确显示与提交。
 - **安全**：密码不写日志、不落盘；svn ≥ 1.10 使用 `--password-from-stdin`。
 - **国际化**：所有新增文案提供中英文。
@@ -182,7 +206,7 @@
 
 ## 测试与验收
 
-- 服务层：用 `svnadmin create` 与 `file://` URL 在临时目录搭仓库，覆盖 status、diff、commit（含自动 add）、update、文本冲突与解决、switch、merge（含冲突与修订范围）、单文件历史、Blame、分支图谱（copyfrom/mergeinfo）、锁冲突与 cleanup、log 分页。
+- 服务层：用 `svnadmin create` 与 `file://` URL 在临时目录搭仓库，覆盖 status、diff、commit（含自动 add）、update、文本冲突与解决、switch、merge（含冲突与修订范围）、单文件历史、Blame、分支图谱（copyfrom/mergeinfo）、externals 解析、lock/unlock、shelve/unshelve、锁冲突与 cleanup、log 分页。
 - Rust Host：与 TS 服务在同一份仓库夹具上逐步差分（读面、提交、更新冲突与解决、切换、清理），归一化根路径与提交时间后全等。
 - 机器上没有 svn 时测试显式 skip 并输出原因；CI 需安装 svn。
 - UI：变更分组、勾选默认值、提交按钮禁用条件、分支名推导、术语文案。
@@ -193,4 +217,5 @@
   4. 合并分支改动 → 冲突或成功 → 提交
   5. 打开文件历史与 Blame → 断言修订 / 行归属
   6. 打开分支图谱 → 断言 copyfrom 来源与 mergeinfo 合并边
+  7. 外部定义、锁定/解锁与暂存/应用 shelf
 - Agent：SVN 快照收集与截断；bash 策略对 svn 子命令的分类（TS 与 Rust CLI 各自覆盖）。

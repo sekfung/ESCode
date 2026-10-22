@@ -112,6 +112,7 @@ type SvnIssueCode =
 | `getFileLog`                  | 读（远端） | `info --xml <path>` 取文件 URL，再 `log --xml -v --limit <n+1> -r <start\|HEAD>:1 <file URL>@<peg>`                                  |
 | `getBlame`                    | 读         | `blame --xml [-r <rev>] -- <path>`；解析每行修订、作者与内容，最多 5000 行                                                           |
 | `getBranchGraph`              | 读（远端） | `list --xml` 取 trunk/branches/tags；每个分支 `log --xml -v --stop-on-copy` 取 copyfrom；`propget --xml -R svn:mergeinfo` 取合并关系 |
+| `getExternals`                | 读         | `propget --xml -R svn:externals -- .`；解析 `[-r N] URL[@PEG] PATH`                                                                  |
 | `getRemoteStatus`             | 读（远端） | `status --xml -u -q`：统计过期条目数与 `against` 修订号                                                                              |
 | `listBranches`                | 读（远端） | `list --xml <root>`、`list --xml <root>/branches`                                                                                    |
 | `commit`                      | 写         | 未纳入版本控制项 `add --parents`，丢失项 `delete`，再 `commit --depth empty -F <tmp> --encoding UTF-8`                               |
@@ -119,6 +120,12 @@ type SvnIssueCode =
 | `revert`                      | 写         | `revert --depth infinity`（不加 `--remove-added`，撤销 add 后文件保留在磁盘）                                                        |
 | `resolve`                     | 写         | `resolve --accept mine-full\|theirs-full\|working`                                                                                   |
 | `switchBranch`                | 写         | 在 wcRoot 执行 `switch --accept postpone <root>/<relativePath>@HEAD .`；仅 `canSwitch` 时允许                                        |
+| `lock`                        | 写         | `lock [-m <msg>] -- <paths>`；按身份 key 串行                                                                                        |
+| `unlock`                      | 写         | `unlock [--force] -- <paths>`                                                                                                        |
+| `listShelves`                 | 本地       | 读取 `wcRoot/.svn/escode-shelves/*.json`                                                                                             |
+| `shelve`                      | 写         | `diff --internal-diff --depth infinity` + 未纳入版本控制 patch → 写 shelf → `revert` 并删除本地新增文件                              |
+| `unshelve`                    | 写         | `patch <wcRoot>/.svn/escode-shelves/<name>.patch`                                                                                    |
+| `deleteShelf`                 | 本地       | 删除 shelf 的 `.patch` 与 `.json`                                                                                                    |
 | `merge`                       | 写         | 在 wcRoot 执行 `merge --accept postpone [-c N \| -r start-1:end] <root>/<relativeSourcePath>@HEAD .`；仅 `canSwitch` 时允许          |
 | `cleanup`                     | 写         | 在 wcRoot 执行 `cleanup`                                                                                                             |
 | `setBinaryPath`               | 设置       | 写入所在 Host 设置 `svnBinaryPath`                                                                                                   |
@@ -133,6 +140,9 @@ type SvnIssueCode =
 - **单文件历史**：`getFileLog` 先对工作副本路径执行 `info --xml` 取文件 URL（缺失/已删除文件仍可从 WC 元数据读到 URL），再按该 URL 读取历史；返回 `repositoryPath`（`/trunk/...`）供修订 diff 使用。文件 URL 的历史页与工作副本历史共用同一份以 `(uuid, URL, start, limit)` 为键的缓存。
 - **Blame**：`blame --xml` 逐行返回 `entry` 的修订与作者；svn 1.14 不输出行文本，行内容由同一修订（缺省 `BASE`）的 `cat` 输出补齐。超过 5000 行标记 `truncated` 并丢弃其余行，避免大文件一次性灌入渲染器。二进制文件由 svn 自身报错。
 - **分支图谱**：标准布局下列出 `trunk`、`^/branches/*`、`^/tags/*`；每个非 trunk 节点用 `log --stop-on-copy` 取首个修订及其 `copyfrom-path`，生成 `copy` 边。`propget --xml -R svn:mergeinfo` 返回的路径按“仓库根后的第一段 / 前两段”映射回分支根（`/trunk/src` → `trunk`，`/branches/x/src` → `branches/x`），同一对 `(from, to)` 的修订区间聚合成一条 `merge` 边。非标准布局只返回当前节点。节点上限 200，copyfrom 探测并发上限 4。
+- **外部定义**：`propget --xml -R svn:externals -- .` 读取工作副本本地属性（包含未提交修改）；target 的绝对本地路径转成 workspace 相对路径。定义行支持 `-r N URL PATH`、`URL@PEG PATH`、`^/` 与 `//host/` 形式；只读展示，不写属性。
+- **锁定**：`svn status --xml` 的 `<lock>` 提供 owner/comment/created，直接并入改动列表；`lock` / `unlock` 进入同一写队列。他人锁默认解锁失败，`force` 才追加 `--force`。
+- **暂存架**：svn 1.14 已移除实验性的 `svn shelve`，因此用 `svn diff`（文本与属性）+ 未纳入版本控制文件的合成 patch 生成完整补丁，保存在 `wcRoot/.svn/escode-shelves/<name>.patch`，元数据在同名 `.json`。缺失文件先 `svn delete --force` 再 diff；暂存成功后 `revert --depth infinity` 并删除 scheduled add / unversioned 文件。二进制与 unversioned 目录拒绝暂存；应用使用 `svn patch`，冲突时保留 shelf 并返回 svn 输出。
 - **`canSwitch`**：工作副本根的 URL 正好是 `trunk` / `branches/*` / `tags/*` 的根时为 true；工作副本根是仓库根或非标准布局时不允许切换。
 - **合并**：只允许在 `canSwitch` 为 true 时执行，目标固定为 wcRoot 与 `.`；默认依赖 mergeinfo 合并源的全部可用修订，指定范围时按闭区间语义转换：单个修订执行 `-c N`，多修订执行 `-r start-1:end`（起始为 1 时下界取 1）。合并只修改工作副本，不创建修订、不自动提交；`--accept postpone` 让冲突进入现有冲突分组。`mergedFileCount` 取 merge 输出中的状态行数（与 update 同一计数规则）。
 
@@ -140,20 +150,23 @@ type SvnIssueCode =
 
 目录：`packages/services/src/svn/`。
 
-| 文件                                  | 职责                                                               |
-| ------------------------------------- | ------------------------------------------------------------------ |
-| `svn.ts`                              | `ISvnService` 接口与 descriptor                                    |
-| `svnService.ts`                       | 组装；工作副本信息、设置 svn 路径、生成提交信息                    |
-| `svnRuntime.ts`                       | 二进制解析与版本检查、执行（凭据参数、日志脱敏、错误归类）、写队列 |
-| `svnReads.ts`                         | info / status / 改动列表 / diff                                    |
-| `svnHistory.ts`                       | log（带不可变页缓存）/ remote status / 分支列表                    |
-| `svnWrites.ts`                        | commit / update / revert / resolve / switch / cleanup              |
-| `svnPaths.ts`                         | 路径参数、diff 拆分、未纳入版本控制文件统计与 patch 合成           |
-| `repo/svnXml.ts`、`repo/svnParse.ts`  | XML 解析与 info / status / log / list 解析，纯函数                 |
-| `repo/svnErrors.ts`                   | 错误码到 `SvnIssueCode` 的映射                                     |
-| `providers/svnCommandProvider.ts`     | 进程启动、超时、输出上限、终止升级、stdin 写入                     |
-| `providers/svnEnvironmentProvider.ts` | 二进制查找与版本探测（按手动路径缓存，未找到不缓存）               |
-| `../vcs/workspaceVcsService.ts`       | `IWorkspaceVcsService` 实现                                        |
+| 文件                                  | 职责                                                                  |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `svn.ts`                              | `ISvnService` 接口与 descriptor                                       |
+| `svnService.ts`                       | 组装；工作副本信息、设置 svn 路径、生成提交信息                       |
+| `svnRuntime.ts`                       | 二进制解析与版本检查、执行（凭据参数、日志脱敏、错误归类）、写队列    |
+| `svnReads.ts`                         | info / status / 改动列表 / diff                                       |
+| `svnHistory.ts`                       | log（带不可变页缓存）/ remote status / 分支列表                       |
+| `svnGraph.ts`                         | 分支拓扑（copyfrom + mergeinfo）                                      |
+| `svnExternals.ts`                     | `svn:externals` 只读解析                                              |
+| `svnShelf.ts`                         | 可移植暂存架（diff/patch、元数据、应用与删除）                        |
+| `svnWrites.ts`                        | commit / update / revert / resolve / switch / lock / unlock / cleanup |
+| `svnPaths.ts`                         | 路径参数、diff 拆分、未纳入版本控制文件统计与 patch 合成              |
+| `repo/svnXml.ts`、`repo/svnParse.ts`  | XML 解析与 info / status / log / list 解析，纯函数                    |
+| `repo/svnErrors.ts`                   | 错误码到 `SvnIssueCode` 的映射                                        |
+| `providers/svnCommandProvider.ts`     | 进程启动、超时、输出上限、终止升级、stdin 写入                        |
+| `providers/svnEnvironmentProvider.ts` | 二进制查找与版本探测（按手动路径缓存，未找到不缓存）                  |
+| `../vcs/workspaceVcsService.ts`       | `IWorkspaceVcsService` 实现                                           |
 
 **二进制查找**：设置中的 `svnBinaryPath` → 环境变量 `ESCODE_SVN_BINARY` → `PATH` 中的 `svn` → Windows TortoiseSVN 默认目录。版本低于 1.8 返回 `unsupported-version`。
 
@@ -177,6 +190,7 @@ type SvnIssueCode =
 | 写操作串行         | `SvnRuntime.enqueueWrite`（Host）                 | key 为 `workspaceIdentity?.trim() \|\| workspacePath`；读操作不排队       |
 | 勾选、展开等       | 各 UI 组件局部状态                                | 不回写服务端                                                              |
 | 凭据               | svn 自身缓存                                      | ESCode 只在单次命令内持有，不落盘、不写日志                               |
+| 暂存架             | `wcRoot/.svn/escode-shelves/` 下的 patch + JSON   | 每个 shelf 一个 `.patch` 与 `.json`；应用/删除经同一写队列                |
 
 ### 自动刷新
 
@@ -238,7 +252,7 @@ sequenceDiagram
 ## Rust Host
 
 - `workspace-vcs` channel 在 `apps/escode-host/crates/host-rpc/src/domains_workspace_vcs.rs` 实现，规则与 TS 一致，并登记到 `inventory_implemented.rs`。
-- `svn` channel 在 `domains_svn.rs`（方法表与参数解包）与 `host-services/src/svn/`（服务层）实现全部 18 个成员，并登记到 `inventory_implemented.rs`。服务层与 TS 同构：`runtime.rs` 负责二进制探测、命令执行、凭据与写队列，`reads.rs` / `history.rs` / `writes.rs` 负责读面、历史与写面，`xml.rs` + `parse.rs` 解析 svn XML，`errors.rs` 只按错误码归类。
+- `svn` channel 在 `domains_svn.rs`（方法表与参数解包）与 `host-services/src/svn/`（服务层）实现全部 25 个成员，并登记到 `inventory_implemented.rs`。服务层与 TS 同构：`runtime.rs` 负责二进制探测、命令执行、凭据与写队列，`reads.rs` / `history.rs` / `writes.rs` 负责读面、历史与写面，`xml.rs` + `parse.rs` 解析 svn XML，`errors.rs` 只按错误码归类。
 - `generateCommitMessage` 复用 Git 的 prompt 构造与输出校验（`escode-host-services::git::commit_message_prompt`），只替换输入收集。
 - 差分测试 `packages/desktop/test/rustHostSvn.test.ts`：用 `svnadmin create` 建仓库后 `svnadmin hotcopy` 复制两份（UUID 与修订号一致），TS 服务与 Rust Host 按同一脚本执行读面、提交、更新冲突与解决、切换、清理，归一化根路径与提交时间后全等；运行环境缺少 svn 时显式 skip。
 
@@ -270,6 +284,8 @@ sequenceDiagram
 | 合并           | 同上：干净合并与冲突合并、修订范围校验、mergeinfo 提交                                                                                                |
 | 文件历史/Blame | 同上：文件 URL 历史分页、缺失文件历史、Blame 行号/修订/作者与截断                                                                                     |
 | 分支图谱       | 同上：copyfrom 复制边、mergeinfo 合并边聚合、非标准布局与节点上限                                                                                     |
+| 外部定义/锁定  | 同上：externals 两种定义格式解析、lock/unlock 与 status 锁定状态                                                                                      |
+| 暂存架         | 同上：修改/删除/属性/新增文件暂存后恢复干净、应用还原、二进制与目录拒绝、shelf-not-found                                                              |
 | 写队列与凭据   | 同上（模拟命令）：同 key 写串行、不同 key 并行、读不排队；stdin 传密码与旧版本回退                                                                    |
 | VCS 判定       | `packages/services/test/workspaceVcsService.test.ts`；Rust `domains_workspace_vcs.rs` 单测                                                            |
 | Rust Host      | `packages/desktop/test/rustHostSvn.test.ts`：TS / Rust 差分；Rust `host-services/src/svn/svn_tests.rs` 解析、路径与错误归类单测                       |

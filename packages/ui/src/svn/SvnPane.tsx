@@ -11,18 +11,22 @@ import type {
 import {
   TID_SVN_COMMIT_BUTTON,
   TID_SVN_BRANCH_GRAPH_BUTTON,
+  TID_SVN_EXTERNALS_BUTTON,
   TID_SVN_MERGE_BUTTON,
   TID_SVN_PANE,
   TID_SVN_REFRESH_BUTTON,
+  TID_SVN_SHELVES_BUTTON,
   TID_SVN_UPDATE_BUTTON,
 } from "@escode/shared";
 import {
   AlertTriangleIcon,
+  ArchiveIcon,
   ChevronDownIcon,
   DownloadIcon,
   FileTextIcon,
   GitMergeIcon,
   HistoryIcon,
+  LinkIcon,
   NetworkIcon,
   RefreshCw,
   Undo2Icon,
@@ -43,8 +47,10 @@ import { SvnChangeRow } from "@/svn/SvnChangeRow.js";
 import { SvnBlameDialog } from "@/svn/SvnBlameDialog.js";
 import { SvnBranchGraphDialog } from "@/svn/SvnBranchGraphDialog.js";
 import { SvnCommitDialog } from "@/svn/SvnCommitDialog.js";
+import { SvnExternalsDialog } from "@/svn/SvnExternalsDialog.js";
 import { SvnHistoryDialog } from "@/svn/SvnHistoryDialog.js";
 import { SvnMergeDialog } from "@/svn/SvnMergeDialog.js";
+import { SvnShelvesDialog } from "@/svn/SvnShelvesDialog.js";
 import { SvnUnavailableState } from "@/svn/SvnUnavailableState.js";
 import { useSvnCredentialPrompt } from "@/svn/useSvnCredentialPrompt.js";
 import type { SvnWorkspaceController } from "@/svn/useSvnWorkspace.js";
@@ -115,6 +121,8 @@ export function SvnPane({
   const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
   const [blamePath, setBlamePath] = useState<string | null>(null);
   const [branchGraphOpen, setBranchGraphOpen] = useState(false);
+  const [externalsOpen, setExternalsOpen] = useState(false);
+  const [shelvesOpen, setShelvesOpen] = useState(false);
   const diffGenerationRef = useRef(0);
 
   const groups = useMemo(() => groupSvnChanges(state.changes), [state.changes]);
@@ -367,6 +375,41 @@ export function SvnPane({
     setBlamePath(change.path);
   }, []);
 
+  const handleLock = useCallback(
+    async (change: SvnFileChange) => {
+      const result = await runAction(`lock:${change.path}`, () =>
+        svnService!.lock({ ...request, paths: [change.path] }),
+      );
+      if (result?.ok) {
+        toast(intl.formatMessage({ id: "svn.lock.locked" }, { path: change.path }));
+      }
+    },
+    [intl, request, runAction, svnService],
+  );
+
+  const handleUnlock = useCallback(
+    async (change: SvnFileChange) => {
+      const confirmed = await confirm({
+        title: intl.formatMessage({ id: "svn.lock.confirmTitle" }, { path: change.path }),
+        description: intl.formatMessage(
+          { id: "svn.lock.confirmDescription" },
+          { owner: change.lock?.owner ?? "" },
+        ),
+        confirmLabel: intl.formatMessage({ id: "svn.lock.unlock" }),
+      });
+      if (!confirmed) {
+        return;
+      }
+      const result = await runAction(`unlock:${change.path}`, () =>
+        svnService!.unlock({ ...request, paths: [change.path], force: true }),
+      );
+      if (result?.ok) {
+        toast(intl.formatMessage({ id: "svn.lock.unlocked" }, { path: change.path }));
+      }
+    },
+    [confirm, intl, request, runAction, svnService],
+  );
+
   const resolveChangePath = useCallback((change: GitPaneFileChange) => change.path, []);
   const contextMenuLabels = useMemo(
     () => ({
@@ -497,6 +540,26 @@ export function SvnPane({
             type="button"
             variant="ghost"
             size="icon-lg"
+            data-testid={TID_SVN_EXTERNALS_BUTTON}
+            aria-label={intl.formatMessage({ id: "svn.action.externals" })}
+            onClick={() => setExternalsOpen(true)}
+          >
+            <LinkIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            data-testid={TID_SVN_SHELVES_BUTTON}
+            aria-label={intl.formatMessage({ id: "svn.action.shelves" })}
+            onClick={() => setShelvesOpen(true)}
+          >
+            <ArchiveIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
             data-testid={TID_SVN_REFRESH_BUTTON}
             aria-label={intl.formatMessage({ id: "git.action.refresh" })}
             disabled={state.loading}
@@ -593,6 +656,8 @@ export function SvnPane({
                           onResolve={handleResolveRow}
                           onShowFileHistory={handleShowFileHistory}
                           onShowBlame={handleShowBlame}
+                          onLock={(change) => void handleLock(change)}
+                          onUnlock={(change) => void handleUnlock(change)}
                           onOpenFile={handleOpenFile}
                           onCopyAbsolutePath={handleCopyAbsolutePath}
                           onCopyRelativePath={handleCopyRelativePath}
@@ -696,6 +761,19 @@ export function SvnPane({
         controller={controller}
         runWithCredentialRetry={runWithCredentialRetry}
         onOpenChange={setBranchGraphOpen}
+      />
+      <SvnExternalsDialog
+        open={externalsOpen}
+        controller={controller}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={setExternalsOpen}
+      />
+      <SvnShelvesDialog
+        open={shelvesOpen}
+        controller={controller}
+        selectedPaths={selectedPaths}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={setShelvesOpen}
       />
       <SvnMergeDialog
         open={mergeDialogOpen}

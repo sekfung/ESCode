@@ -318,6 +318,26 @@ fn parses_mergeinfo_targets() {
     assert_eq!(entries[0].mergeinfo, "/branches/feature:3-4");
 }
 
+#[test]
+fn parses_external_definitions() {
+    use super::externals::parse_external_line;
+
+    let revision = parse_external_line("-r 2 ^/trunk ext-a").expect("revision form");
+    assert_eq!(revision.url, "^/trunk");
+    assert_eq!(revision.name, "ext-a");
+    assert_eq!(revision.revision, Some(2));
+    assert_eq!(revision.peg_revision, None);
+
+    let peg = parse_external_line("https://host/repo/branches/x@3 ext/b").expect("peg form");
+    assert_eq!(peg.url, "https://host/repo/branches/x");
+    assert_eq!(peg.name, "ext/b");
+    assert_eq!(peg.peg_revision, Some(3));
+
+    let quoted = parse_external_line("^/trunk \"dir with space\"").expect("quoted path");
+    assert_eq!(quoted.name, "dir with space");
+    assert!(parse_external_line("^/trunk").is_none());
+}
+
 #[tokio::test]
 async fn builds_unversioned_patch_and_stats() {
     let dir = tempfile::tempdir().expect("tempdir");

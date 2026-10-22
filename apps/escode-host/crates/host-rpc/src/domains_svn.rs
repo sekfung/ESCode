@@ -116,6 +116,48 @@ pub fn svn_channel(
             }),
         ),
         (
+            "getExternals",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.get_externals(&params).await })
+            }),
+        ),
+        (
+            "lock",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.lock(&params).await })
+            }),
+        ),
+        (
+            "unlock",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.unlock(&params).await })
+            }),
+        ),
+        (
+            "listShelves",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.list_shelves(&params).await })
+            }),
+        ),
+        (
+            "shelve",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.shelve(&params).await })
+            }),
+        ),
+        (
+            "unshelve",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.unshelve(&params).await })
+            }),
+        ),
+        (
+            "deleteShelf",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.delete_shelf(&params).await })
+            }),
+        ),
+        (
             "commit",
             value_method(Arc::clone(&service), |service, params| {
                 Box::pin(async move { service.commit(&params).await })

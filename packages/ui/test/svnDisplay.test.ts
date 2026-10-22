@@ -4,6 +4,7 @@ import {
   buildSvnFileTreeDecorations,
   canShowSvnBlame,
   canShowSvnFileHistory,
+  canShowSvnLock,
   getSelectedSvnPaths,
   getSvnBranchLabel,
   getSvnCommitBlockReason,
@@ -132,6 +133,9 @@ describe("SVN 展示辅助", () => {
     expect(canShowSvnBlame(change("dir", "modified", { isDirectory: true }))).toBe(false);
     expect(canShowSvnBlame(change("a.txt", "deleted"))).toBe(false);
     expect(canShowSvnBlame(change("a.txt", "missing"))).toBe(false);
+    expect(canShowSvnLock(change("a.txt", "modified"))).toBe(true);
+    expect(canShowSvnLock(change("a.txt", "conflicted"))).toBe(false);
+    expect(canShowSvnLock(change("a.txt", "deleted"))).toBe(false);
   });
 
   it("合并源排除当前分支，非标准布局返回空列表", () => {

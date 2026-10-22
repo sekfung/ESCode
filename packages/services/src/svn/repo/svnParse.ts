@@ -3,6 +3,7 @@ import type {
   SvnChangedPathAction,
   SvnConflictKind,
   SvnItemStatus,
+  SvnLockInfo,
   SvnLogEntry,
 } from "@escode/shared";
 import { normalizeSvnPath } from "../config.js";
@@ -83,6 +84,8 @@ export interface SvnStatusEntry {
   item: string;
   props: string;
   treeConflicted: boolean;
+  /** 工作副本锁（`svn status --xml` 的 `<lock>`）。 */
+  lock?: SvnLockInfo;
   /** externals 定义下的条目属于其他工作副本，第一期只读展示。 */
   inExternal: boolean;
 }
@@ -93,11 +96,21 @@ export function parseSvnStatusXml(xml: string): SvnStatusEntry[] {
   for (const target of childrenOf(root, "target")) {
     for (const entry of childrenOf(target, "entry")) {
       const wcStatus = childOf(entry, "wc-status");
+      const lock = childOf(wcStatus, "lock");
       entries.push({
         path: normalizeSvnPath(entry.attrs.path ?? "."),
         item: wcStatus?.attrs.item ?? "normal",
         props: wcStatus?.attrs.props ?? "none",
         treeConflicted: wcStatus?.attrs["tree-conflicted"] === "true",
+        ...(lock
+          ? {
+              lock: {
+                owner: textOf(childOf(lock, "owner"))?.trim() ?? "",
+                comment: textOf(childOf(lock, "comment"))?.trim() ?? "",
+                created: textOf(childOf(lock, "created"))?.trim() ?? "",
+              },
+            }
+          : {}),
         inExternal: false,
       });
     }
@@ -171,28 +184,42 @@ export interface SvnListEntry {
   kind: "file" | "dir";
 }
 
-export interface SvnMergeinfoEntry {
-  /** 仓库内路径，以 / 开头。 */
+export interface SvnPropertyEntry {
+  /** target 的 path（本地绝对路径、仓库 URL 或仓库内路径）。 */
   path: string;
-  mergeinfo: string;
+  value: string;
 }
 
-/** 解析 `svn propget --xml -R svn:mergeinfo` 的 properties/target/property 结构。 */
-export function parseSvnMergeinfoXml(xml: string): SvnMergeinfoEntry[] {
+/** 解析 `svn propget --xml -R <property>` 的 properties/target/property 结构。 */
+export function parseSvnPropertiesXml(xml: string, propertyName: string): SvnPropertyEntry[] {
   const root = parseSvnXml(xml);
-  const entries: SvnMergeinfoEntry[] = [];
+  const entries: SvnPropertyEntry[] = [];
   for (const target of childrenOf(root, "target")) {
     const path = target.attrs.path;
     if (!path) {
       continue;
     }
     for (const property of childrenOf(target, "property")) {
-      if (property.attrs.name === "svn:mergeinfo") {
-        entries.push({ path, mergeinfo: textOf(property) ?? "" });
+      if (property.attrs.name === propertyName) {
+        entries.push({ path, value: textOf(property) ?? "" });
       }
     }
   }
   return entries;
+}
+
+export interface SvnMergeinfoEntry {
+  /** 仓库内路径，以 / 开头。 */
+  path: string;
+  mergeinfo: string;
+}
+
+/** 解析 `svn propget --xml -R svn:mergeinfo`。 */
+export function parseSvnMergeinfoXml(xml: string): SvnMergeinfoEntry[] {
+  return parseSvnPropertiesXml(xml, "svn:mergeinfo").map((entry) => ({
+    path: entry.path,
+    mergeinfo: entry.value,
+  }));
 }
 
 /** 解析 `svn blame --xml`；超过上限时只保留前 maxLines 行并标记 truncated。 */
