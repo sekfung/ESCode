@@ -28,12 +28,15 @@ export function SvnHistoryDialog({
   open,
   controller,
   branchLabel,
+  targetPath,
   runWithCredentialRetry,
   onOpenChange,
 }: {
   open: boolean;
   controller: SvnWorkspaceController;
   branchLabel: string | null;
+  /** 提供时查看该文件的仓库 URL 历史（spec：docs/svn/ui.md §12）。 */
+  targetPath?: string;
   runWithCredentialRetry: <T extends object>(
     operation: (credentials?: SvnCredentials) => Promise<SvnResult<T>>,
   ) => Promise<SvnResult<T>>;
@@ -67,12 +70,20 @@ export function SvnHistoryDialog({
       setLoading(true);
       setError(null);
       const result = await runWithCredentialRetry((credentials) =>
-        svnService.getLog({
-          ...request,
-          limit: PAGE_SIZE,
-          ...(startRevision !== undefined ? { startRevision } : {}),
-          ...(credentials ? { credentials } : {}),
-        }),
+        targetPath
+          ? svnService.getFileLog({
+              ...request,
+              path: targetPath,
+              limit: PAGE_SIZE,
+              ...(startRevision !== undefined ? { startRevision } : {}),
+              ...(credentials ? { credentials } : {}),
+            })
+          : svnService.getLog({
+              ...request,
+              limit: PAGE_SIZE,
+              ...(startRevision !== undefined ? { startRevision } : {}),
+              ...(credentials ? { credentials } : {}),
+            }),
       ).catch(
         (loadError: unknown): SvnResult<{ entries: SvnLogEntry[]; hasMore: boolean }> => ({
           ok: false,
@@ -103,7 +114,7 @@ export function SvnHistoryDialog({
         setSelectedRevision(result.entries[0]?.revision ?? null);
       }
     },
-    [intl, request, runWithCredentialRetry, svnService],
+    [intl, request, runWithCredentialRetry, svnService, targetPath],
   );
 
   useEffect(() => {
@@ -112,6 +123,7 @@ export function SvnHistoryDialog({
     }
     setEntries([]);
     setFilter("");
+    setSelectedRevision(null);
     setDiffPath(null);
     void loadPage();
   }, [loadPage, open]);

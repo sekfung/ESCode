@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -259,6 +267,71 @@ describe.skipIf(!svnAvailable)("SvnService（真实 svn）", () => {
       revision: first.entries[0]!.revision,
     });
     expect(diff.ok && diff.patch).toContain("+3");
+  });
+
+  it("单文件历史按文件 URL 分页，缺失文件仍可查看", async () => {
+    const service = createService();
+    for (const value of ["1", "2", "3"]) {
+      writeFileSync(join(fixture.wc, "a.txt"), `${value}\n`);
+      svn(fixture.wc, "commit", "-q", "-m", `edit a ${value}`);
+    }
+    // 另一个文件的历史不应混入。
+    writeFileSync(join(fixture.wc, "b.txt"), "b\n");
+    svn(fixture.wc, "add", "-q", "b.txt");
+    svn(fixture.wc, "commit", "-q", "-m", "add b");
+
+    const first = await service.getFileLog({ workspacePath: fixture.wc, path: "a.txt", limit: 2 });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.repositoryPath).toBe("/trunk/a.txt");
+    expect(first.entries.map((entry) => entry.message)).toEqual(["edit a 3", "edit a 2"]);
+    expect(first.hasMore).toBe(true);
+    const next = await service.getFileLog({
+      workspacePath: fixture.wc,
+      path: "a.txt",
+      limit: 2,
+      startRevision: first.entries[1]!.revision - 1,
+    });
+    expect(next.ok && next.entries.map((entry) => entry.message)).toEqual(["edit a 1", "init"]);
+
+    // 本地删除但未提交时仍能读到文件历史。
+    rmSync(join(fixture.wc, "a.txt"));
+    const missing = await service.getFileLog({ workspacePath: fixture.wc, path: "a.txt" });
+    expect(missing.ok && missing.entries[0]?.message).toBe("edit a 3");
+
+    writeFileSync(join(fixture.wc, "untracked.txt"), "x\n");
+    expect(
+      await service.getFileLog({ workspacePath: fixture.wc, path: "untracked.txt" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+  });
+
+  it("Blame 返回逐行修订、作者与内容", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.wc, "a.txt"), "alpha\nbeta\n");
+    svn(fixture.wc, "commit", "-q", "-m", "blame base");
+    const baseRevision = Number(svn(fixture.wc, "info", "--show-item", "revision", "a.txt").trim());
+    appendFileSync(join(fixture.wc, "a.txt"), "gamma\n");
+    svn(fixture.wc, "commit", "-q", "-m", "append gamma");
+
+    const blame = await service.getBlame({ workspacePath: fixture.wc, path: "a.txt" });
+    expect(blame.ok).toBe(true);
+    if (!blame.ok) return;
+    expect(blame.truncated).toBe(false);
+    expect(blame.lines.map((line) => line.content)).toEqual(["alpha", "beta", "gamma"]);
+    expect(blame.lines.map((line) => line.lineNumber)).toEqual([1, 2, 3]);
+    expect(blame.lines[0]!.revision).toBe(baseRevision);
+    expect(blame.lines[2]!.revision).toBeGreaterThan(baseRevision);
+    expect(blame.lines[0]!.author.length).toBeGreaterThan(0);
+
+    const atBase = await service.getBlame({
+      workspacePath: fixture.wc,
+      path: "a.txt",
+      revision: baseRevision,
+    });
+    expect(atBase.ok && atBase.lines.map((line) => line.content)).toEqual(["alpha", "beta"]);
+    expect(
+      await service.getBlame({ workspacePath: fixture.wc, path: "../escape.txt" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
   });
 
   it("列出分支并切换", async () => {

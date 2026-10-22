@@ -88,6 +88,7 @@ flowchart TD
 ### 3.3 文件行
 
 - 行首为勾选框与状态字母（M / A / D / R / ? / ! / C / X / ~），其后复用 `GitPaneChangeCard`：路径、`+/-`，展开后显示 inline diff。
+- 行尾提供“文件历史”和“Blame”图标按钮（spec：§12）；未纳入版本控制的文件不提供，目录不提供 Blame。
 - 右键菜单与 Git 一致：在文件管理器中显示、复制绝对 / 相对路径、在文件树中显示。还原通过勾选后的“还原所选”完成。
 - 第一期 diff 只展示文本差异，`Property changes on:` 属性段从 diff 中去掉（共享 diff 组件只解析文本 hunk）；只改属性的条目显示为 M。
 
@@ -197,6 +198,7 @@ flowchart TD
 | 还原                   | 还原                   | Revert                                |
 | 切换                   | 切换                   | Switch                                |
 | 合并                   | 合并                   | Merge                                 |
+| Blame                  | Blame                  | Blame                                 |
 | 标记已解决             | 标记已解决             | Mark as resolved                      |
 | 用我的                 | 用我的                 | Use mine                              |
 | 用他们的               | 用他们的               | Use theirs                            |
@@ -220,12 +222,19 @@ flowchart TD
 
 - 入口在 `SvnPane` 顶部操作；`canSwitch` 为 false（工作副本根不是分支根）时按钮禁用。
 - 源分支来自 `listBranches`，排除当前分支；非标准布局改为手动输入相对仓库根的路径。
-- 默认合并源的全部可用修订（`svn merge <root>/<source>@HEAD .`，依赖 mergeinfo 去重）；勾选“指定修订范围”后使用 `-r start:end`，两端必填、正整数且 start ≤ end。
+- 默认合并源的全部可用修订（`svn merge <root>/<source>@HEAD .`，依赖 mergeinfo 去重）；勾选“指定修订范围”后按闭区间转换：单修订用 `-c N`，多修订用 `-r start-1:end`；两端必填、正整数且 start ≤ end。
 - 执行期间按钮显示进度；成功后关闭弹窗、toast 显示合并文件数与冲突数，并刷新面板；有冲突时展开冲突分组。
 - 失败时保留弹窗与选择；`auth-required` 走凭据弹窗并重试一次；其他错误显示 svn 原始信息。
 - 合并本身不创建修订，也不自动提交。
 
-## 12. E2E 场景
+## 12. 单文件历史与 Blame
+
+- 文件历史的入口在改动行尾部；复用 `SvnHistoryDialog`，标题显示 `历史 · <path>`，分页、筛选、修订详情与 diff 行为与工作副本历史一致（§5）。实现上按该文件的仓库 URL 读取历史（`getFileLog`），因此能包含提交后尚未 update 的修订。
+- Blame 使用独立弹窗 `SvnBlameDialog`：标题显示路径，正文按行展示 `行号 · r修订 · 作者` 与内容；超过 5000 行截断并提示“已截断”。
+- 未纳入版本控制的文件不显示历史 / Blame；已计划添加（scheduled add）尚无仓库历史，也不显示入口；目录不显示 Blame；缺失或已删除文件只保留文件历史。
+- 读取失败时在弹窗内展示 svn 错误；认证失败走凭据弹窗并重试一次。
+
+## 13. E2E 场景
 
 用例文件：`packages/desktop/test/e2e/git/manual-review/svn-workflow-ui-flow.test.ts`（manual-review 待审，人工审阅通过后按 E2E 生命周期提升为正式用例）。运行环境需提供 svn / svnadmin（可用 `ESCODE_SVN_BINARY` / `ESCODE_SVNADMIN_BINARY` 指定），缺失时显式跳过。
 
@@ -233,3 +242,4 @@ flowchart TD
 2. **SVN-UI-02 更新冲突 → 用我的 → 提交**：另一个工作副本先提交同一行；本地修改后点击更新；断言出现冲突分组且提交按钮禁用；执行“用我的”并确认后冲突消失、文件内容为本地版本，再提交成功。
 3. **SVN-UI-03 切换分支**：夹具包含 `branches/feature`；通过 `SvnBranchSwitcher` 切换；断言工作副本 URL 为 `^/branches/feature`，入口显示 feature。
 4. **SVN-UI-04 合并分支**：在 `branches/feature` 提交一个新文件；切回 trunk 后通过 `SvnMergeDialog` 合并 feature；断言新文件出现在改动列表（自动 add），提交后服务器修订包含该文件与合并信息。
+5. **SVN-UI-05 文件历史与 Blame**：修改并提交文件后，从改动行打开文件历史，断言包含最新修订；打开 Blame，断言目标行显示提交该行的修订号与作者。

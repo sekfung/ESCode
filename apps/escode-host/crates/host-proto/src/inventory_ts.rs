@@ -41,7 +41,7 @@ pub const TS_SERVICE_CHANNELS: &[(&str, &[&str])] = &[
     ("skill-sync", &["checkRemoteUserSkillWriteAccess", "exportSkillsArchive", "importSkillsArchive", "listLocalUserSkillCandidates", "listRemoteUserSkillStatuses"]),
     ("skills", &["buildPromptContext", "copyToCommon", "deleteSkill", "list", "removeFromCommon", "setEnabled"]),
     ("subagents", &["createAgent", "deleteAgent", "getPrimaryUserAgentsDirectory", "list", "setBuiltInModelOverride", "setEnabled", "setPluginAgentModelOverride", "updateAgent"]),
-    ("svn", &["cleanup", "commit", "generateCommitMessage", "getChanges", "getDiff", "getLog", "getRemoteStatus", "getWorkingCopyInfo", "listBranches", "merge", "resolve", "revert", "setBinaryPath", "switchBranch", "update"]),
+    ("svn", &["cleanup", "commit", "generateCommitMessage", "getBlame", "getChanges", "getDiff", "getFileLog", "getLog", "getRemoteStatus", "getWorkingCopyInfo", "listBranches", "merge", "resolve", "revert", "setBinaryPath", "switchBranch", "update"]),
     ("system", &["info", "listIntegratedTerminalShells", "probeIntranet"]),
     ("terminal", &["create", "dispose", "onDynamicData", "onDynamicExit", "resize", "write"]),
     ("usage-stats", &["getAppUsageSnapshot"]),

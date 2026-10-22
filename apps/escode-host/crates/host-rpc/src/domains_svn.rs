@@ -86,6 +86,18 @@ pub fn svn_channel(
             }),
         ),
         (
+            "getFileLog",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.get_file_log(&params).await })
+            }),
+        ),
+        (
+            "getBlame",
+            value_method(Arc::clone(&service), |service, params| {
+                Box::pin(async move { service.get_blame(&params).await })
+            }),
+        ),
+        (
             "getRemoteStatus",
             value_method(Arc::clone(&service), |service, params| {
                 Box::pin(async move { service.get_remote_status(&params).await })

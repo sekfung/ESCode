@@ -64,6 +64,38 @@ pub struct ListEntry {
     pub kind: String,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct BlameLine {
+    pub line_number: i64,
+    pub revision: i64,
+    pub author: String,
+    pub content: String,
+}
+
+/// 解析 `svn blame --xml`；超过 max_lines 时只保留前 max_lines 行。
+pub fn parse_blame(xml: &str, max_lines: usize) -> (Vec<BlameLine>, bool) {
+    let root = parse(xml);
+    let mut lines: Vec<BlameLine> = Vec::new();
+    let mut truncated = false;
+    'outer: for target in children(root.as_ref(), "target") {
+        for entry in children(Some(target), "entry") {
+            if lines.len() >= max_lines {
+                truncated = true;
+                break 'outer;
+            }
+            let commit = child(Some(entry), "commit");
+            lines.push(BlameLine {
+                line_number: int_attr(Some(entry), "line-number")
+                    .unwrap_or((lines.len() + 1) as i64),
+                revision: int_attr(commit, "revision").unwrap_or(0),
+                author: trimmed_text(child(commit, "author")).unwrap_or_default(),
+                content: text(child(Some(entry), "token")).unwrap_or_default(),
+            });
+        }
+    }
+    (lines, truncated)
+}
+
 fn trimmed_text(node: Option<&XmlNode>) -> Option<String> {
     text(node).map(|value| value.trim().to_owned())
 }

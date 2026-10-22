@@ -6,11 +6,15 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
   TID_CONFIRM_DIALOG_CONFIRM,
+  TID_SVN_BLAME_BUTTON,
+  TID_SVN_BLAME_DIALOG,
   TID_SVN_BRANCH_SWITCHER,
   TID_SVN_COMMIT_BUTTON,
   TID_SVN_COMMIT_DIALOG,
   TID_SVN_COMMIT_MESSAGE_INPUT,
   TID_SVN_COMMIT_SUBMIT,
+  TID_SVN_FILE_HISTORY_BUTTON,
+  TID_SVN_HISTORY_DIALOG,
   TID_SVN_MERGE_BUTTON,
   TID_SVN_MERGE_DIALOG,
   TID_SVN_MERGE_SUBMIT,
@@ -35,11 +39,12 @@ import {
 } from "../../helpers/v4-conversation.js";
 
 /**
- * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §12）：
+ * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §13）：
  * - SVN-UI-01 修改 → 勾选 → 提交（含自动 add 未纳入版本控制的文件）
  * - SVN-UI-02 更新产生冲突 → 用我的 → 提交
  * - SVN-UI-03 切换分支
  * - SVN-UI-04 合并分支改动 → 提交（mergeinfo 写入服务器）
+ * - SVN-UI-05 文件历史与 Blame
  * 需要运行环境里有 svn / svnadmin（可用 ESCODE_SVN_BINARY / ESCODE_SVNADMIN_BINARY 指定）；
  * 缺失时显式跳过并输出原因。
  */
@@ -230,6 +235,26 @@ async function clickRowButton(path: string, labels: readonly string[]) {
         [...labels],
       )) as boolean,
     { timeout: 30000, timeoutMsg: `${path} 行内没有找到按钮 ${labels.join("/")}` },
+  );
+}
+
+async function clickRowTestId(path: string, testId: string) {
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute(
+        (target: string, id: string) => {
+          const row = document.querySelector(`[data-svn-change-path="${target}"]`);
+          const button = row?.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`);
+          if (!button || button.disabled) {
+            return false;
+          }
+          button.click();
+          return true;
+        },
+        path.replace(/\\/g, "/"),
+        testId,
+      )) as boolean,
+    { timeout: 30000, timeoutMsg: `${path} 行内没有可用的 ${testId}` },
   );
 }
 
@@ -424,5 +449,57 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     expect(await svn(DEFAULT_WORKSPACE, "propget", "svn:mergeinfo", ".")).toContain(
       "branches/feature",
     );
+  });
+
+  it("SVN-UI-05: 从改动行查看文件历史与 Blame", async function () {
+    this.timeout(TEST_TIMEOUT_MS);
+    await writeFile(join(DEFAULT_WORKSPACE, TRACKED_FILE), "line one\nblame target\n", "utf8");
+    await svn(DEFAULT_WORKSPACE, "commit", "-q", "-m", "test: blame target", TRACKED_FILE);
+    const revision = Number(
+      (await svn(DEFAULT_WORKSPACE, "info", "--show-item", "revision", TRACKED_FILE)).trim(),
+    );
+    // 保留本地改动，让文件出现在改动行以展示历史 / Blame 入口；Blame 读取 BASE。
+    await writeFile(
+      join(DEFAULT_WORKSPACE, TRACKED_FILE),
+      "line one\nblame target\nlocal edit\n",
+      "utf8",
+    );
+    await clickTestId(TID_SVN_REFRESH_BUTTON, "SVN 刷新按钮不可用");
+    await waitForChangeRow(TRACKED_FILE);
+
+    await clickRowTestId(TRACKED_FILE, TID_SVN_FILE_HISTORY_BUTTON);
+    await $(sel(TID_SVN_HISTORY_DIALOG)).waitForDisplayed({ timeout: 30000 });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (testId: string, text: string) =>
+            (
+              document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.innerText ?? ""
+            ).includes(text),
+          TID_SVN_HISTORY_DIALOG,
+          "test: blame target",
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "文件历史中没有显示最新提交" },
+    );
+    await browser.keys("Escape");
+    await $(sel(TID_SVN_HISTORY_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
+
+    await clickRowTestId(TRACKED_FILE, TID_SVN_BLAME_BUTTON);
+    await $(sel(TID_SVN_BLAME_DIALOG)).waitForDisplayed({ timeout: 30000 });
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          (testId: string, revisionLabel: string) => {
+            const text =
+              document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.innerText ?? "";
+            return text.includes(revisionLabel) && text.includes("blame target");
+          },
+          TID_SVN_BLAME_DIALOG,
+          `r${revision}`,
+        )) as boolean,
+      { timeout: 30000, timeoutMsg: "Blame 中没有显示目标行的修订号" },
+    );
+    await browser.keys("Escape");
+    await $(sel(TID_SVN_BLAME_DIALOG)).waitForDisplayed({ reverse: true, timeout: 15000 });
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  SvnBlameLine,
   SvnChangedPathAction,
   SvnConflictKind,
   SvnItemStatus,
@@ -168,6 +169,32 @@ export function parseSvnLogXml(xml: string): SvnLogEntry[] {
 export interface SvnListEntry {
   name: string;
   kind: "file" | "dir";
+}
+
+/** 解析 `svn blame --xml`；超过上限时只保留前 maxLines 行并标记 truncated。 */
+export function parseSvnBlameXml(
+  xml: string,
+  maxLines: number,
+): { lines: SvnBlameLine[]; truncated: boolean } {
+  const root = parseSvnXml(xml);
+  const lines: SvnBlameLine[] = [];
+  let truncated = false;
+  outer: for (const target of childrenOf(root, "target")) {
+    for (const entry of childrenOf(target, "entry")) {
+      if (lines.length >= maxLines) {
+        truncated = true;
+        break outer;
+      }
+      const commit = childOf(entry, "commit");
+      lines.push({
+        lineNumber: intAttr(entry, "line-number") ?? lines.length + 1,
+        revision: intAttr(commit, "revision") ?? 0,
+        author: textOf(childOf(commit, "author"))?.trim() ?? "",
+        content: textOf(childOf(entry, "token")) ?? "",
+      });
+    }
+  }
+  return { lines, truncated };
 }
 
 export function parseSvnListXml(xml: string): SvnListEntry[] {

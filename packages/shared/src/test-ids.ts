@@ -92,6 +92,12 @@ export const TID_SVN_MERGE_START = "svn-merge-start";
 export const TID_SVN_MERGE_END = "svn-merge-end";
 /** SVN 合并弹窗确认按钮 */
 export const TID_SVN_MERGE_SUBMIT = "svn-merge-submit";
+/** SVN 改动行的文件历史入口 */
+export const TID_SVN_FILE_HISTORY_BUTTON = "svn-file-history-button";
+/** SVN 改动行的 Blame 入口 */
+export const TID_SVN_BLAME_BUTTON = "svn-blame-button";
+/** SVN Blame 弹窗 */
+export const TID_SVN_BLAME_DIALOG = "svn-blame-dialog";
 /** Git 面板关闭按钮 */
 export const TID_GIT_CLOSE_BUTTON = "git-close-button";
 /** 顶部 Git 提交或推送主入口 */

@@ -109,6 +109,8 @@ type SvnIssueCode =
 | `getDiff({ path })`           | 读         | 已纳入版本控制：`diff --internal-diff --depth empty`；未纳入版本控制：服务端合成“全部新增” patch                                    |
 | `getDiff({ path, revision })` | 读（远端） | `diff --internal-diff -c <rev> ^/<path>@<rev>`                                                                                      |
 | `getLog`                      | 读（远端） | `log --xml -v --limit <n+1> -r <start\|HEAD>:1 <workspace URL>@<peg>`                                                               |
+| `getFileLog`                  | 读（远端） | `info --xml <path>` 取文件 URL，再 `log --xml -v --limit <n+1> -r <start\|HEAD>:1 <file URL>@<peg>`                                 |
+| `getBlame`                    | 读         | `blame --xml [-r <rev>] -- <path>`；解析每行修订、作者与内容，最多 5000 行                                                          |
 | `getRemoteStatus`             | 读（远端） | `status --xml -u -q`：统计过期条目数与 `against` 修订号                                                                             |
 | `listBranches`                | 读（远端） | `list --xml <root>`、`list --xml <root>/branches`                                                                                   |
 | `commit`                      | 写         | 未纳入版本控制项 `add --parents`，丢失项 `delete`，再 `commit --depth empty -F <tmp> --encoding UTF-8`                              |
@@ -127,6 +129,8 @@ type SvnIssueCode =
 - **提交范围**：`--depth empty` 精确提交勾选项，避免勾选目录（如只改了属性的 `.`）时连带提交整棵树；新加入的目录展开其子项一起提交。
 - **remote status 而不是比较修订号**：自己刚提交的修订不会被误报为“服务器有新修订”。
 - **历史读取 URL 而不是工作副本**：工作副本默认只显示到 BASE，提交后未更新时会漏掉新修订。
+- **单文件历史**：`getFileLog` 先对工作副本路径执行 `info --xml` 取文件 URL（缺失/已删除文件仍可从 WC 元数据读到 URL），再按该 URL 读取历史；返回 `repositoryPath`（`/trunk/...`）供修订 diff 使用。文件 URL 的历史页与工作副本历史共用同一份以 `(uuid, URL, start, limit)` 为键的缓存。
+- **Blame**：`blame --xml` 逐行返回 `entry`，只保留行号、修订、作者和 `token` 文本；超过 5000 行标记 `truncated` 并丢弃其余行，避免大文件一次性灌入渲染器。二进制文件由 svn 自身报错。
 - **`canSwitch`**：工作副本根的 URL 正好是 `trunk` / `branches/*` / `tags/*` 的根时为 true；工作副本根是仓库根或非标准布局时不允许切换。
 - **合并**：只允许在 `canSwitch` 为 true 时执行，目标固定为 wcRoot 与 `.`；默认依赖 mergeinfo 合并源的全部可用修订，指定范围时按闭区间语义转换：单个修订执行 `-c N`，多修订执行 `-r start-1:end`（起始为 1 时下界取 1）。合并只修改工作副本，不创建修订、不自动提交；`--accept postpone` 让冲突进入现有冲突分组。`mergedFileCount` 取 merge 输出中的状态行数（与 update 同一计数规则）。
 
@@ -232,7 +236,7 @@ sequenceDiagram
 ## Rust Host
 
 - `workspace-vcs` channel 在 `apps/escode-host/crates/host-rpc/src/domains_workspace_vcs.rs` 实现，规则与 TS 一致，并登记到 `inventory_implemented.rs`。
-- `svn` channel 在 `domains_svn.rs`（方法表与参数解包）与 `host-services/src/svn/`（服务层）实现全部 15 个成员，并登记到 `inventory_implemented.rs`。服务层与 TS 同构：`runtime.rs` 负责二进制探测、命令执行、凭据与写队列，`reads.rs` / `history.rs` / `writes.rs` 负责读面、历史与写面，`xml.rs` + `parse.rs` 解析 svn XML，`errors.rs` 只按错误码归类。
+- `svn` channel 在 `domains_svn.rs`（方法表与参数解包）与 `host-services/src/svn/`（服务层）实现全部 17 个成员，并登记到 `inventory_implemented.rs`。服务层与 TS 同构：`runtime.rs` 负责二进制探测、命令执行、凭据与写队列，`reads.rs` / `history.rs` / `writes.rs` 负责读面、历史与写面，`xml.rs` + `parse.rs` 解析 svn XML，`errors.rs` 只按错误码归类。
 - `generateCommitMessage` 复用 Git 的 prompt 构造与输出校验（`escode-host-services::git::commit_message_prompt`），只替换输入收集。
 - 差分测试 `packages/desktop/test/rustHostSvn.test.ts`：用 `svnadmin create` 建仓库后 `svnadmin hotcopy` 复制两份（UUID 与修订号一致），TS 服务与 Rust Host 按同一脚本执行读面、提交、更新冲突与解决、切换、清理，归一化根路径与提交时间后全等；运行环境缺少 svn 时显式 skip。
 
@@ -262,6 +266,7 @@ sequenceDiagram
 | 解析与归类单测 | `packages/services/test/svnParse.test.ts`                                                                                                             |
 | 服务集成测试   | `packages/services/test/svnService.test.ts`：`svnadmin create` + `file://` 夹具；缺少 svn 时 skip 并输出原因                                          |
 | 合并           | 同上：干净合并与冲突合并、修订范围校验、mergeinfo 提交                                                                                                |
+| 文件历史/Blame | 同上：文件 URL 历史分页、缺失文件历史、Blame 行号/修订/作者与截断                                                                                     |
 | 写队列与凭据   | 同上（模拟命令）：同 key 写串行、不同 key 并行、读不排队；stdin 传密码与旧版本回退                                                                    |
 | VCS 判定       | `packages/services/test/workspaceVcsService.test.ts`；Rust `domains_workspace_vcs.rs` 单测                                                            |
 | Rust Host      | `packages/desktop/test/rustHostSvn.test.ts`：TS / Rust 差分；Rust `host-services/src/svn/svn_tests.rs` 解析、路径与错误归类单测                       |

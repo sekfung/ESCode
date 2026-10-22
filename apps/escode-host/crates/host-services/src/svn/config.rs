@@ -25,6 +25,8 @@ pub const LOG_CACHE_MAX_ENTRIES: usize = 2_000;
 
 /// 统计行数时最多逐个 diff 的文件数；超过后不再统计。
 pub const LINE_STAT_MAX_FILES: usize = 200;
+/// Blame 最多返回的行数；超出后截断。
+pub const MAX_BLAME_LINES: usize = 5_000;
 
 const INTERACTIVE_ENV_VARS: [&str; 4] = ["SVN_EDITOR", "SVN_MERGE", "VISUAL", "EDITOR"];
 

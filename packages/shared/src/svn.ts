@@ -152,6 +152,42 @@ export interface SvnLogResult {
   hasMore: boolean;
 }
 
+export interface SvnFileLogRequest extends SvnRequest {
+  /** 相对 workspacePath 的已纳入版本控制路径。 */
+  path: string;
+  limit?: number;
+  /** 从该修订向前（更早）读取；缺省从 HEAD 开始。 */
+  startRevision?: number;
+  credentials?: SvnCredentials;
+}
+
+export interface SvnFileLogResult extends SvnLogResult {
+  /** 文件在仓库内的路径，以 / 开头；修订 diff 使用该路径。 */
+  repositoryPath: string;
+}
+
+export interface SvnBlameRequest extends SvnRequest {
+  /** 相对 workspacePath 的文件路径。 */
+  path: string;
+  /** 读取指定修订的逐行归属；缺省使用工作副本 BASE。 */
+  revision?: number;
+  credentials?: SvnCredentials;
+}
+
+export interface SvnBlameLine {
+  lineNumber: number;
+  revision: number;
+  author: string;
+  content: string;
+}
+
+export interface SvnBlameResult {
+  path: string;
+  lines: SvnBlameLine[];
+  /** 超过服务端行数上限时为 true。 */
+  truncated: boolean;
+}
+
 export interface SvnRemoteStatusRequest extends SvnRequest {
   credentials?: SvnCredentials;
 }

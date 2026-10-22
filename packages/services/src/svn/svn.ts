@@ -6,6 +6,10 @@ import type {
   SvnCommitResult,
   SvnDiffRequest,
   SvnDiffResult,
+  SvnBlameRequest,
+  SvnBlameResult,
+  SvnFileLogRequest,
+  SvnFileLogResult,
   SvnGenerateCommitMessageRequest,
   SvnGenerateCommitMessageResult,
   SvnLogRequest,
@@ -38,6 +42,8 @@ export interface ISvnService {
   getChanges(params: SvnRequest): Promise<SvnResult<SvnChangesResult>>;
   getDiff(params: SvnDiffRequest): Promise<SvnResult<SvnDiffResult>>;
   getLog(params: SvnLogRequest): Promise<SvnResult<SvnLogResult>>;
+  getFileLog(params: SvnFileLogRequest): Promise<SvnResult<SvnFileLogResult>>;
+  getBlame(params: SvnBlameRequest): Promise<SvnResult<SvnBlameResult>>;
   getRemoteStatus(params: SvnRemoteStatusRequest): Promise<SvnResult<SvnRemoteStatusResult>>;
   listBranches(params: SvnBranchListRequest): Promise<SvnResult<SvnBranchListResult>>;
   commit(params: SvnCommitRequest): Promise<SvnResult<SvnCommitResult>>;

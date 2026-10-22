@@ -236,6 +236,19 @@ const STEPS: Array<[string, Step]> = [
       }),
   ],
   ["changes after merge commit", (s, f) => s.getChanges({ workspacePath: f.wc })],
+  [
+    "file log tracked",
+    (s, f) => s.getFileLog({ workspacePath: f.wc, path: "tracked.md", limit: 2 }),
+  ],
+  ["file log merged", (s, f) => s.getFileLog({ workspacePath: f.wc, path: "merged.md", limit: 5 })],
+  ["file log unversioned", (s, f) => s.getFileLog({ workspacePath: f.wc, path: "ignored.log" })],
+  ["file log unsafe", (s, f) => s.getFileLog({ workspacePath: f.wc, path: "../x" })],
+  ["blame tracked", (s, f) => s.getBlame({ workspacePath: f.wc, path: "tracked.md" })],
+  [
+    "blame baseline",
+    (s, f) => s.getBlame({ workspacePath: f.wc, path: "tracked.md", revision: 2 }),
+  ],
+  ["blame unsafe", (s, f) => s.getBlame({ workspacePath: f.wc, path: "../x" })],
   ["cleanup", (s, f) => s.cleanup({ workspacePath: f.wc })],
 ];
 

@@ -1,5 +1,7 @@
 import { memo } from "react";
 import type { GitDiffResult, SvnFileChange, SvnResolveAccept } from "@escode/shared";
+import { TID_SVN_BLAME_BUTTON, TID_SVN_FILE_HISTORY_BUTTON } from "@escode/shared";
+import { FingerprintIcon, HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { Checkbox } from "@/components/ui/checkbox.js";
 import { cn } from "@/components/lib/utils.js";
@@ -8,7 +10,12 @@ import type { GitPaneFileChange } from "@/hooks/useGitRepository.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import type { CodePreviewSettings } from "@/store/index.js";
 import type { ResolvedTheme } from "@/useTheme.js";
-import { getSvnStatusLetter, isSvnChangeCommittable } from "@/svn/svnDisplay.js";
+import {
+  canShowSvnBlame,
+  canShowSvnFileHistory,
+  getSvnStatusLetter,
+  isSvnChangeCommittable,
+} from "@/svn/svnDisplay.js";
 
 export interface SvnChangeRowProps {
   change: SvnFileChange;
@@ -35,6 +42,8 @@ export interface SvnChangeRowProps {
   onCopyRelativePath: (change: GitPaneFileChange) => void;
   onRevealInFileManager: (change: GitPaneFileChange) => void;
   onRevealInFileTree?: (change: GitPaneFileChange) => void;
+  onShowFileHistory: (change: SvnFileChange) => void;
+  onShowBlame: (change: SvnFileChange) => void;
 }
 
 const STATUS_TONE: Partial<Record<SvnFileChange["status"], string>> = {
@@ -66,6 +75,8 @@ export const SvnChangeRow = memo(function SvnChangeRow({
   onCopyRelativePath,
   onRevealInFileManager,
   onRevealInFileTree,
+  onShowFileHistory,
+  onShowBlame,
 }: SvnChangeRowProps) {
   const { intl } = useESCodeIntl();
   const committable = isSvnChangeCommittable(change);
@@ -109,6 +120,36 @@ export const SvnChangeRow = memo(function SvnChangeRow({
             onRevealInFileManager={onRevealInFileManager}
             onRevealInFileTree={onRevealInFileTree}
           />
+        </div>
+        <div className="flex h-8 shrink-0 items-center gap-0.5 pr-2">
+          {canShowSvnFileHistory(change) ? (
+            <Button
+              type="button"
+              data-testid={TID_SVN_FILE_HISTORY_BUTTON}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={intl.formatMessage({ id: "svn.row.fileHistory" })}
+              title={intl.formatMessage({ id: "svn.row.fileHistory" })}
+              disabled={disabled}
+              onClick={() => onShowFileHistory(change)}
+            >
+              <HistoryIcon className="size-3.5" />
+            </Button>
+          ) : null}
+          {canShowSvnBlame(change) ? (
+            <Button
+              type="button"
+              data-testid={TID_SVN_BLAME_BUTTON}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={intl.formatMessage({ id: "svn.row.blame" })}
+              title={intl.formatMessage({ id: "svn.row.blame" })}
+              disabled={disabled}
+              onClick={() => onShowBlame(change)}
+            >
+              <FingerprintIcon className="size-3.5" />
+            </Button>
+          ) : null}
         </div>
       </div>
       {change.status === "conflicted" ? (

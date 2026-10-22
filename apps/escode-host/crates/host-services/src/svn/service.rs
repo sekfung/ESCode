@@ -60,6 +60,14 @@ impl SvnService {
         history::get_log(self, params).await
     }
 
+    pub async fn get_file_log(&self, params: &Value) -> Value {
+        history::get_file_log(self, params).await
+    }
+
+    pub async fn get_blame(&self, params: &Value) -> Value {
+        history::get_blame(self, params).await
+    }
+
     pub async fn get_remote_status(&self, params: &Value) -> Value {
         history::get_remote_status(self, params).await
     }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   GitDiffResult,
   SvnFailure,
+  SvnFileChange,
   SvnMergeResult,
   SvnResolveAccept,
   SvnResult,
@@ -37,6 +38,7 @@ import { useESCodeStore } from "@/store/StoreProvider.js";
 import { resolveTheme } from "@/useTheme.js";
 import { getWorkspaceFileRelativePath } from "@/workspace-file-tree/model.js";
 import { SvnChangeRow } from "@/svn/SvnChangeRow.js";
+import { SvnBlameDialog } from "@/svn/SvnBlameDialog.js";
 import { SvnCommitDialog } from "@/svn/SvnCommitDialog.js";
 import { SvnHistoryDialog } from "@/svn/SvnHistoryDialog.js";
 import { SvnMergeDialog } from "@/svn/SvnMergeDialog.js";
@@ -107,6 +109,8 @@ export function SvnPane({
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
+  const [blamePath, setBlamePath] = useState<string | null>(null);
   const diffGenerationRef = useRef(0);
 
   const groups = useMemo(() => groupSvnChanges(state.changes), [state.changes]);
@@ -351,6 +355,14 @@ export function SvnPane({
     }
   }, []);
 
+  const handleShowFileHistory = useCallback((change: SvnFileChange) => {
+    setFileHistoryPath(change.path);
+  }, []);
+
+  const handleShowBlame = useCallback((change: SvnFileChange) => {
+    setBlamePath(change.path);
+  }, []);
+
   const resolveChangePath = useCallback((change: GitPaneFileChange) => change.path, []);
   const contextMenuLabels = useMemo(
     () => ({
@@ -565,6 +577,8 @@ export function SvnPane({
                           onCheckedChange={handleCheckedChange}
                           onOpenChange={handleOpenChange}
                           onResolve={handleResolveRow}
+                          onShowFileHistory={handleShowFileHistory}
+                          onShowBlame={handleShowBlame}
                           onOpenFile={handleOpenFile}
                           onCopyAbsolutePath={handleCopyAbsolutePath}
                           onCopyRelativePath={handleCopyRelativePath}
@@ -639,6 +653,29 @@ export function SvnPane({
         branchLabel={branchLabel}
         runWithCredentialRetry={runWithCredentialRetry}
         onOpenChange={setHistoryOpen}
+      />
+      <SvnHistoryDialog
+        open={fileHistoryPath !== null}
+        controller={controller}
+        branchLabel={fileHistoryPath}
+        targetPath={fileHistoryPath ?? undefined}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={(next) => {
+          if (!next) {
+            setFileHistoryPath(null);
+          }
+        }}
+      />
+      <SvnBlameDialog
+        open={blamePath !== null}
+        path={blamePath ?? ""}
+        controller={controller}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={(next) => {
+          if (!next) {
+            setBlamePath(null);
+          }
+        }}
       />
       <SvnMergeDialog
         open={mergeDialogOpen}

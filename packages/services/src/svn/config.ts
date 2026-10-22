@@ -14,6 +14,8 @@ export const SVN_LOG_CACHE_MAX_ENTRIES = 2_000;
 /** 统计行数时最多逐个 diff 的文件数；超过后不再统计，避免大工作副本打开面板时卡住。 */
 export const SVN_LINE_STAT_MAX_FILES = 200;
 export const SVN_LINE_STAT_CONCURRENCY = 4;
+/** Blame 最多返回的行数；超出后截断，避免大文件一次灌入渲染器。 */
+export const MAX_SVN_BLAME_LINES = 5_000;
 
 function getWindowsTortoiseSvnCandidates(): string[] {
   return [

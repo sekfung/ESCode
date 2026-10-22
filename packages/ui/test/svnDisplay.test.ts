@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SvnFileChange } from "@escode/shared";
 import {
   buildSvnFileTreeDecorations,
+  canShowSvnBlame,
+  canShowSvnFileHistory,
   getSelectedSvnPaths,
   getSvnBranchLabel,
   getSvnCommitBlockReason,
@@ -117,6 +119,18 @@ describe("SVN 展示辅助", () => {
     expect(matchesSvnLogFilter(entry, "r42")).toBe(true);
     expect(matchesSvnLogFilter(entry, "bob")).toBe(false);
     expect(matchesSvnLogFilter(entry, "  ")).toBe(true);
+  });
+
+  it("文件历史与 Blame 入口按状态与类型收敛", () => {
+    expect(canShowSvnFileHistory(change("a.txt", "modified"))).toBe(true);
+    expect(canShowSvnFileHistory(change("a.txt", "deleted"))).toBe(true);
+    expect(canShowSvnFileHistory(change("a.txt", "missing"))).toBe(true);
+    expect(canShowSvnFileHistory(change("new.txt", "added"))).toBe(false);
+    expect(canShowSvnFileHistory(change("new.txt", "unversioned"))).toBe(false);
+    expect(canShowSvnBlame(change("a.txt", "modified"))).toBe(true);
+    expect(canShowSvnBlame(change("dir", "modified", { isDirectory: true }))).toBe(false);
+    expect(canShowSvnBlame(change("a.txt", "deleted"))).toBe(false);
+    expect(canShowSvnBlame(change("a.txt", "missing"))).toBe(false);
   });
 
   it("合并源排除当前分支，非标准布局返回空列表", () => {

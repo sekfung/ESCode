@@ -3,8 +3,8 @@
 use super::config::{compare_versions, extract_error_codes, normalize_svn_path, parse_version};
 use super::errors::{classify, summarize};
 use super::parse::{
-    count_diff_lines, count_updated_paths, item_status, parse_committed_revision, parse_info,
-    parse_list, parse_log, parse_status,
+    count_diff_lines, count_updated_paths, item_status, parse_blame, parse_committed_revision,
+    parse_info, parse_list, parse_log, parse_status,
 };
 use super::paths::{
     build_unversioned_patch, derive_branch_ref, is_safe_relative_path, local_target,
@@ -286,6 +286,24 @@ fn credential_flags_keep_passwords_out_of_argv() {
     let (args, stdin) = with_credentials(vec!["info".to_owned()], None, true);
     assert!(stdin.is_none());
     assert_eq!(args, vec!["info".to_owned()]);
+}
+
+#[test]
+fn parses_blame_lines_and_truncates() {
+    let xml = r#"<blame><target path="a.txt">
+<entry line-number="1"><commit revision="3"><author>alice</author></commit><token>alpha</token></entry>
+<entry line-number="2"><commit revision="3"><author>alice</author></commit><token>beta</token></entry>
+</target></blame>"#;
+    let (lines, truncated) = parse_blame(xml, 10);
+    assert!(!truncated);
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0].line_number, 1);
+    assert_eq!(lines[0].revision, 3);
+    assert_eq!(lines[0].author, "alice");
+    assert_eq!(lines[0].content, "alpha");
+    let (lines, truncated) = parse_blame(xml, 1);
+    assert!(truncated);
+    assert_eq!(lines.len(), 1);
 }
 
 #[tokio::test]

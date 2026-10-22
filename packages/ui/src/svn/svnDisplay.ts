@@ -64,6 +64,20 @@ export function isSvnChangeCommittable(change: SvnFileChange): boolean {
   return !["conflicted", "external", "obstructed"].includes(change.status);
 }
 
+/** 文件历史：已纳入版本控制且已在仓库中存在的路径（scheduled add / ignored 无历史）。 */
+export function canShowSvnFileHistory(change: SvnFileChange): boolean {
+  return !["unversioned", "added", "external", "obstructed"].includes(change.status);
+}
+
+/** Blame：历史可用的文件且当前修订确实存在（删除 / 丢失文件只有历史）。 */
+export function canShowSvnBlame(change: SvnFileChange): boolean {
+  return (
+    canShowSvnFileHistory(change) &&
+    !change.isDirectory &&
+    !["deleted", "missing"].includes(change.status)
+  );
+}
+
 /** 默认勾选：已纳入版本控制的可提交改动；未纳入版本控制的文件默认不勾选。 */
 export function isSvnChangeCheckedByDefault(change: SvnFileChange): boolean {
   return isSvnChangeCommittable(change) && change.status !== "unversioned";
