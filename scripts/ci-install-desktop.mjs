@@ -2,12 +2,18 @@
 // 「安装包真机演练」）。
 //   node scripts/ci-install-desktop.mjs <安装包目录>
 // - Windows：NSIS 静默安装（/S /D=…）；macOS：挂载 dmg 拷出 .app；Linux：apt 安装 deb。
-// - 启动检查：应用主进程起来后 20s 内不退出（Linux 用 xvfb-run），且该窗口内数据库启动终态为 ready。
+// - 启动检查：应用主进程起来后超时时间内不退出（Linux 用 xvfb-run），且数据库启动终态为 ready。
 //   在空临时目录下启动：runner 的 cwd 是仓库 checkout，会掩盖/诱发打包态与开发入口探测的耦合。
 // - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
 //   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 const source = resolve(process.argv[2] ?? "artifacts");
@@ -15,17 +21,21 @@ const temp = process.env.RUNNER_TEMP ?? resolve(".ci-install");
 const files = readdirSync(source);
 const pick = (suffix) => {
   const found = files.find((name) => name.endsWith(suffix));
-  if (!found) throw new Error(`No *${suffix} in ${source}: ${files.join(", ")}`);
+  if (!found)
+    throw new Error(`No *${suffix} in ${source}: ${files.join(", ")}`);
   return join(source, found);
 };
 const run = (command, args, options = {}) => {
   const result = spawnSync(command, args, { stdio: "inherit", ...options });
   if (result.status !== 0)
-    throw new Error(`${command} ${args.join(" ")} failed: ${result.status ?? result.signal}`);
+    throw new Error(
+      `${command} ${args.join(" ")} failed: ${result.status ?? result.signal}`,
+    );
 };
 const capture = (command, args) => {
   const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr}`);
+  if (result.status !== 0)
+    throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr}`);
   return result.stdout;
 };
 
@@ -46,7 +56,14 @@ if (process.platform === "win32") {
   const dmg = pick(".dmg");
   const mount = join(temp, "escode-dmg");
   mkdirSync(mount, { recursive: true });
-  run("hdiutil", ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, dmg]);
+  run("hdiutil", [
+    "attach",
+    "-nobrowse",
+    "-readonly",
+    "-mountpoint",
+    mount,
+    dmg,
+  ]);
   try {
     const bundle = readdirSync(mount).find((name) => name.endsWith(".app"));
     if (!bundle) throw new Error(`No .app in ${dmg}`);
@@ -54,7 +71,10 @@ if (process.platform === "win32") {
     run("ditto", [join(mount, bundle), target]);
     const macos = join(target, "Contents", "MacOS");
     const name = basename(bundle, ".app");
-    app = join(macos, existsSync(join(macos, name)) ? name : readdirSync(macos)[0]);
+    app = join(
+      macos,
+      existsSync(join(macos, name)) ? name : readdirSync(macos)[0],
+    );
     glm = join(target, "Contents", "Resources", "glm");
   } finally {
     run("hdiutil", ["detach", mount]);
@@ -66,7 +86,8 @@ if (process.platform === "win32") {
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
     .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
-  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
+  if (!entry)
+    throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
   glm = dirname(entry);
   const base = dirname(dirname(glm));
   app = join(base, pkg);
@@ -76,14 +97,19 @@ for (const path of [app, glm, join(glm, "zcode.cjs")]) {
 }
 console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
 
-// 启动检查：主进程 20s 内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
+// 启动检查：主进程在超时时间内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
 // Bugfix：之前只看进程存活，数据库启动失败（如 unsupported_runtime）时应用仍停在错误页不退出，作业照样通过。
 // 主进程把 "[database-startup] terminal { …, status: '<phase>', … }" 打到 stdout，这里据此判定终态。
-const DATABASE_TERMINAL_PATTERN = /\[database-startup\] terminal \{[^}]*?status: '([a-z_]+)'/;
+// Intel macOS runner 冷启动到 dom-ready 已需 13s，Host 随后才 spawn；20s 会误判，留足启动预算。
+const STARTUP_TIMEOUT_MS = 60_000;
+const DATABASE_TERMINAL_PATTERN =
+  /\[database-startup\] terminal \{[^}]*?status: '([a-z_]+)'/;
 const launchCwd = mkdtempSync(join(temp, "escode-launch-"));
 await new Promise((done, fail) => {
   const [command, args] =
-    process.platform === "linux" ? ["xvfb-run", ["-a", app, "--no-sandbox"]] : [app, []];
+    process.platform === "linux"
+      ? ["xvfb-run", ["-a", app, "--no-sandbox"]]
+      : [app, []];
   const child = spawn(command, args, {
     cwd: launchCwd,
     stdio: ["ignore", "pipe", "pipe"],
@@ -127,7 +153,11 @@ await new Promise((done, fail) => {
     databaseStatus = match[1];
     if (databaseStatus !== "ready") {
       stop();
-      finish(new Error(`Database startup did not become ready: status=${databaseStatus}`));
+      finish(
+        new Error(
+          `Database startup did not become ready: status=${databaseStatus}`,
+        ),
+      );
     }
   };
   child.stdout.on("data", onData(process.stdout));
@@ -139,12 +169,18 @@ await new Promise((done, fail) => {
   const timer = setTimeout(() => {
     stop();
     if (databaseStatus !== "ready") {
-      finish(new Error("Database startup reached no terminal state within 20s"));
+      finish(
+        new Error(
+          `Database startup reached no terminal state within ${STARTUP_TIMEOUT_MS / 1000}s`,
+        ),
+      );
       return;
     }
-    console.log("application stayed up for 20s with database startup ready");
+    console.log(
+      `application stayed up for ${STARTUP_TIMEOUT_MS / 1000}s with database startup ready`,
+    );
     finish();
-  }, 20_000);
+  }, STARTUP_TIMEOUT_MS);
 });
 
 if (process.env.GITHUB_ENV) {
