@@ -12,7 +12,9 @@ const MAX_RECENT_LOGS: usize = 5;
 
 /// 只做目录探测，不启动 svn / git。
 pub(super) async fn is_svn_workspace(cwd: &Path, cancel: &CancellationToken) -> bool {
-    let cwd = crate::realpath(cwd).await.unwrap_or_else(|_| cwd.to_path_buf());
+    let cwd = crate::realpath(cwd)
+        .await
+        .unwrap_or_else(|_| cwd.to_path_buf());
     let chain: Vec<&Path> = cwd.ancestors().collect();
     let (mut git_depth, mut svn_depth) = (None, None);
     for (index, dir) in chain.iter().enumerate() {
@@ -99,11 +101,19 @@ fn branch_label(relative: &str) -> String {
         if let Some(rest) = relative.strip_prefix(prefix) {
             let name = rest.split('/').next().unwrap_or_default();
             if !name.is_empty() {
-                return if tag { format!("tag: {name}") } else { name.into() };
+                return if tag {
+                    format!("tag: {name}")
+                } else {
+                    name.into()
+                };
             }
         }
     }
-    if relative.is_empty() { "/".into() } else { relative.into() }
+    if relative.is_empty() {
+        "/".into()
+    } else {
+        relative.into()
+    }
 }
 
 fn recent_logs(xml: &str) -> String {
@@ -120,10 +130,16 @@ fn recent_logs(xml: &str) -> String {
             .nth(1)
             .and_then(|tail| tail.split('"').next())
             .unwrap_or_default();
-        let author = xml_text(entry, "author").map(decode_xml).unwrap_or_default();
+        let author = xml_text(entry, "author")
+            .map(decode_xml)
+            .unwrap_or_default();
         let title = xml_text(entry, "msg")
             .map(decode_xml)
-            .and_then(|msg| msg.lines().find(|line| !line.trim().is_empty()).map(|line| line.trim().to_owned()))
+            .and_then(|msg| {
+                msg.lines()
+                    .find(|line| !line.trim().is_empty())
+                    .map(|line| line.trim().to_owned())
+            })
             .unwrap_or_default();
         lines.push(if author.is_empty() {
             format!("r{revision} {title}")

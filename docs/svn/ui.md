@@ -9,7 +9,7 @@
 ## 设计原则
 
 - 入口位置与 Git 一致，用户在两种工作副本间切换时位置不变。
-- 容器组件各自独立：`SvnPane`、`SvnStatusSectionContent`、`SvnBranchSwitcher`、`SvnCommitDialog`、`SvnHistoryDialog`（`packages/ui/src/svn/`）。
+- 容器组件各自独立：`SvnPane`、`SvnStatusSectionContent`、`SvnBranchSwitcher`、`SvnCommitDialog`、`SvnHistoryDialog`、`SvnMergeDialog`（`packages/ui/src/svn/`）。
 - 展示复用 Git：变更卡片与 diff 直接复用 `GitPaneChangeCard`，由 `svnDisplay.ts` 把 SVN 改动和 diff 映射成卡片输入；Git 组件本身不改。
 - 遵守 `DESIGN.md`，复用已有组件；兼顾桌面与 Web 布局、双主题与中英文。
 - 组件只通过 hooks 访问服务。
@@ -109,6 +109,7 @@ flowchart TD
 ### 3.6 顶部操作
 
 - **更新**：执行期间按钮显示进度且禁用；完成后 toast 显示“已更新到 r{n}，{k} 个文件变更”；产生冲突时 toast 显示冲突数并展开冲突分组。
+- **合并**：打开 `SvnMergeDialog`（§11）。工作副本根不是分支根时禁用。
 - **历史**：打开 `SvnHistoryDialog`。
 - 服务器有新修订时，修订号右侧显示“服务器 r{n}”，点击即更新。
 
@@ -118,7 +119,7 @@ flowchart TD
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | 未找到 svn                                  | 安装指引（Windows / macOS / Linux），并可在面板内直接填写 svn 路径（保存到 workspace 所在 Host 的设置） |
 | 版本低于 1.8                                | 显示当前版本与最低要求                                                                                  |
-| Rust Host                                   | “当前 Host 暂不支持 SVN”                                                                                |
+| 旧 Host（未实现 `svn` channel）             | “当前 Host 暂不支持 SVN”                                                                                |
 | 非工作副本（覆盖为 svn 但目录不是工作副本） | 说明 + 提示在“设置 → 通用 → 版本控制”修改类型                                                           |
 | 工作副本被锁定                              | 顶部警示条 + 清理按钮                                                                                   |
 | 工作副本过期（提交时）                      | 错误提示 + “更新”按钮                                                                                   |
@@ -195,6 +196,7 @@ flowchart TD
 | 更新                   | 更新                   | Update                                |
 | 还原                   | 还原                   | Revert                                |
 | 切换                   | 切换                   | Switch                                |
+| 合并                   | 合并                   | Merge                                 |
 | 标记已解决             | 标记已解决             | Mark as resolved                      |
 | 用我的                 | 用我的                 | Use mine                              |
 | 用他们的               | 用他们的               | Use theirs                            |
@@ -204,10 +206,30 @@ flowchart TD
 | 服务器有新修订         | 服务器有新修订 r{n}    | Server has new revision r{n}          |
 | 当前 Host 暂不支持 SVN | 当前 Host 暂不支持 SVN | SVN is not supported on this host yet |
 
-## 11. E2E 场景
+## 11. 合并弹窗：`SvnMergeDialog`
+
+```
+┌ 合并到当前分支 ─────────────────────────── [×] ┐
+│ 当前：trunk                                     │
+│ 源分支  [branches/feature          ▾]           │
+│ ☐ 指定修订范围   [起始 r] : [结束 r]            │
+│ 合并会修改工作副本，完成后请审阅并提交。          │
+│                          [取消] [合并到当前分支] │
+└─────────────────────────────────────────────────┘
+```
+
+- 入口在 `SvnPane` 顶部操作；`canSwitch` 为 false（工作副本根不是分支根）时按钮禁用。
+- 源分支来自 `listBranches`，排除当前分支；非标准布局改为手动输入相对仓库根的路径。
+- 默认合并源的全部可用修订（`svn merge <root>/<source>@HEAD .`，依赖 mergeinfo 去重）；勾选“指定修订范围”后使用 `-r start:end`，两端必填、正整数且 start ≤ end。
+- 执行期间按钮显示进度；成功后关闭弹窗、toast 显示合并文件数与冲突数，并刷新面板；有冲突时展开冲突分组。
+- 失败时保留弹窗与选择；`auth-required` 走凭据弹窗并重试一次；其他错误显示 svn 原始信息。
+- 合并本身不创建修订，也不自动提交。
+
+## 12. E2E 场景
 
 用例文件：`packages/desktop/test/e2e/git/manual-review/svn-workflow-ui-flow.test.ts`（manual-review 待审，人工审阅通过后按 E2E 生命周期提升为正式用例）。运行环境需提供 svn / svnadmin（可用 `ESCODE_SVN_BINARY` / `ESCODE_SVNADMIN_BINARY` 指定），缺失时显式跳过。
 
 1. **SVN-UI-01 修改 → 勾选 → 提交**：修改已纳入版本控制的文件并新建文件；在面板勾选新文件后提交；断言两者从面板消失，且服务器最新修订包含提交信息与新文件。
 2. **SVN-UI-02 更新冲突 → 用我的 → 提交**：另一个工作副本先提交同一行；本地修改后点击更新；断言出现冲突分组且提交按钮禁用；执行“用我的”并确认后冲突消失、文件内容为本地版本，再提交成功。
 3. **SVN-UI-03 切换分支**：夹具包含 `branches/feature`；通过 `SvnBranchSwitcher` 切换；断言工作副本 URL 为 `^/branches/feature`，入口显示 feature。
+4. **SVN-UI-04 合并分支**：在 `branches/feature` 提交一个新文件；切回 trunk 后通过 `SvnMergeDialog` 合并 feature；断言新文件出现在改动列表（自动 add），提交后服务器修订包含该文件与合并信息。

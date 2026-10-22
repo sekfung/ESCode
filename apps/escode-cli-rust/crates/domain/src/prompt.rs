@@ -305,7 +305,6 @@ mod conversation_quote_tests {
     }
 }
 
-
 #[cfg(test)]
 mod svn_prompt_tests {
     use super::{PromptSnapshot, SvnSnapshot, prefix};

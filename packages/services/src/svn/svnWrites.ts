@@ -5,6 +5,8 @@ import {
   getWorkspaceVcsKey,
   type SvnCommitRequest,
   type SvnCommitResult,
+  type SvnMergeRequest,
+  type SvnMergeResult,
   type SvnRequest,
   type SvnResolveRequest,
   type SvnResult,
@@ -237,6 +239,76 @@ export function createSvnWriter(runtime: SvnRuntime) {
           ...(after.ok && after.branch ? { branch: after.branch } : {}),
           conflictCount,
         };
+      });
+    },
+
+    async merge(params: SvnMergeRequest): Promise<SvnResult<SvnMergeResult>> {
+      const relativeSourcePath = params.relativeSourcePath
+        .replace(/^\^?\/+/, "")
+        .replace(/\/+$/, "");
+      if (
+        !relativeSourcePath ||
+        relativeSourcePath.split("/").includes("..") ||
+        /[\r\n]/.test(relativeSourcePath)
+      ) {
+        return svnFailure("invalid-request", "invalid branch path");
+      }
+      const hasStart = params.startRevision !== undefined;
+      const hasEnd = params.endRevision !== undefined;
+      if (hasStart !== hasEnd) {
+        return svnFailure("invalid-request", "revision range requires both start and end");
+      }
+      if (
+        hasStart &&
+        hasEnd &&
+        (!Number.isInteger(params.startRevision) ||
+          !Number.isInteger(params.endRevision) ||
+          params.startRevision! < 1 ||
+          params.endRevision! < 1 ||
+          params.startRevision! > params.endRevision!)
+      ) {
+        return svnFailure("invalid-request", "invalid revision range");
+      }
+      return await runtime.enqueueWrite(params, async () => {
+        const workspace = await readSvnWorkspaceInfo(runtime, params);
+        if (!workspace.ok) {
+          return workspace;
+        }
+        const { wcRoot, repositoryRoot } = workspace.info;
+        if (!wcRoot || !repositoryRoot || !workspace.canSwitch) {
+          return svnFailure("invalid-request", "working copy root is not a branch root");
+        }
+        const targetUrl = `${repositoryRoot}/${relativeSourcePath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/")}`;
+        // UI 的起止修订是闭区间；svn 的 -r 表示两个修订之间的差异，
+        // 因此区间要换成 start-1:end；单个修订用 -c 更直观（也避免 r0）。
+        const range =
+          hasStart && hasEnd
+            ? params.startRevision === params.endRevision
+              ? ["-c", String(params.startRevision)]
+              : ["-r", `${Math.max(1, params.startRevision! - 1)}:${params.endRevision}`]
+            : [];
+        const outcome = await runtime.run({
+          cwd: wcRoot,
+          args: ["merge", "--accept", "postpone", ...range, "--", `${targetUrl}@HEAD`, "."],
+          credentials: params.credentials,
+          timeoutMs: DEFAULT_SVN_LONG_WRITE_TIMEOUT_MS,
+        });
+        if (!outcome.ok) {
+          return outcome.failure;
+        }
+        const conflictCount = await countSvnConflicts(runtime, params.workspacePath);
+        const mergedFileCount = countSvnUpdatedPaths(outcome.result.stdout);
+        logger?.info(undefined, "svn 合并完成", {
+          workspaceKey: getWorkspaceVcsKey(params),
+          source: relativeSourcePath,
+          range: range[1],
+          mergedFileCount,
+          conflictCount,
+        });
+        return { ok: true, mergedFileCount, conflictCount };
       });
     },
 

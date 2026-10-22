@@ -5,12 +5,15 @@ import {
   getSelectedSvnPaths,
   getSvnBranchLabel,
   getSvnCommitBlockReason,
+  getSvnMergeSourceOptions,
   groupSvnChanges,
   matchesSvnLogFilter,
+  parseSvnMergeRange,
   reconcileSvnSelection,
   stripSvnPropertySections,
   summarizeSvnChanges,
   toSvnDiffCardModel,
+  validateSvnMergeRange,
 } from "../src/svn/svnDisplay.js";
 import { buildSvnAutoRefreshWatchPaths } from "../src/svn/useSvnWorkspace.js";
 
@@ -114,6 +117,34 @@ describe("SVN 展示辅助", () => {
     expect(matchesSvnLogFilter(entry, "r42")).toBe(true);
     expect(matchesSvnLogFilter(entry, "bob")).toBe(false);
     expect(matchesSvnLogFilter(entry, "  ")).toBe(true);
+  });
+
+  it("合并源排除当前分支，非标准布局返回空列表", () => {
+    const branches = {
+      layout: "standard" as const,
+      current: { kind: "trunk" as const, name: "trunk", relativePath: "trunk" },
+      branches: [
+        { kind: "trunk" as const, name: "trunk", relativePath: "trunk" },
+        { kind: "branch" as const, name: "feature", relativePath: "branches/feature" },
+      ],
+    };
+    expect(getSvnMergeSourceOptions(branches, branches.current)).toEqual([
+      { relativePath: "branches/feature", label: "feature" },
+    ]);
+    expect(getSvnMergeSourceOptions({ ...branches, layout: "non-standard" }, null)).toEqual([]);
+    expect(getSvnMergeSourceOptions(null, null)).toEqual([]);
+  });
+
+  it("合并修订范围要求两端正整数且 start ≤ end", () => {
+    expect(validateSvnMergeRange("4", "4")).toBeNull();
+    expect(validateSvnMergeRange("4", "6")).toBeNull();
+    expect(validateSvnMergeRange("", "6")).toBe("missing");
+    expect(validateSvnMergeRange("4", "")).toBe("missing");
+    expect(validateSvnMergeRange("0", "6")).toBe("invalid");
+    expect(validateSvnMergeRange("4.5", "6")).toBe("invalid");
+    expect(validateSvnMergeRange("6", "4")).toBe("invalid");
+    expect(parseSvnMergeRange("4", "6")).toEqual({ startRevision: 4, endRevision: 6 });
+    expect(parseSvnMergeRange("6", "4")).toBeNull();
   });
 
   it("文件树标记复用改动结果并标出忽略文件", () => {

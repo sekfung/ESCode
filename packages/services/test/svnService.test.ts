@@ -61,6 +61,7 @@ interface Fixture {
   repoUrl: string;
   wc: string;
   other: string;
+  branchWc: string;
 }
 
 function createFixture(): Fixture {
@@ -78,8 +79,15 @@ function createFixture(): Fixture {
   svn(wc, "commit", "-q", "-m", "init");
   svn(root, "copy", "-m", "branch", `${repoUrl}/trunk`, `${repoUrl}/branches/feature`);
   svn(root, "checkout", "-q", `${repoUrl}/trunk`, join(root, "other"));
+  svn(root, "checkout", "-q", `${repoUrl}/branches/feature`, join(root, "feature"));
   svn(wc, "update", "-q");
-  return { root, repoUrl, wc, other: join(root, "other") };
+  return {
+    root,
+    repoUrl,
+    wc,
+    other: join(root, "other"),
+    branchWc: join(root, "feature"),
+  };
 }
 
 function createService(settings: Partial<AppSettings> = {}) {
@@ -273,6 +281,113 @@ describe.skipIf(!svnAvailable)("SvnService（真实 svn）", () => {
     expect(
       await service.switchBranch({ workspacePath: fixture.wc, relativePath: "../etc" }),
     ).toMatchObject({ ok: false, issue: "invalid-request" });
+  });
+
+  it("合并分支改动，记录 mergeinfo 并可提交", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.branchWc, "feature.txt"), "from feature\n");
+    svn(fixture.branchWc, "add", "-q", "feature.txt");
+    svn(fixture.branchWc, "commit", "-q", "-m", "feat: branch file");
+
+    const merged = await service.merge({
+      workspacePath: fixture.wc,
+      relativeSourcePath: "branches/feature",
+    });
+    expect(merged.ok).toBe(true);
+    if (!merged.ok) return;
+    expect(merged.conflictCount).toBe(0);
+    expect(merged.mergedFileCount).toBeGreaterThanOrEqual(1);
+    expect(existsSync(join(fixture.wc, "feature.txt"))).toBe(true);
+    expect(readFileSync(join(fixture.wc, "feature.txt"), "utf-8")).toBe("from feature\n");
+
+    const changes = await service.getChanges({ workspacePath: fixture.wc });
+    const byPath = changes.ok
+      ? new Map(changes.changes.map((change) => [change.path, change]))
+      : new Map();
+    expect(byPath.get("feature.txt")).toMatchObject({ status: "added" });
+    expect(byPath.get(".")).toMatchObject({ status: "props-modified" });
+    expect(svn(fixture.wc, "propget", "svn:mergeinfo", ".")).toContain("branches/feature");
+
+    const commit = await service.commit({
+      workspacePath: fixture.wc,
+      paths: ["feature.txt", "."],
+      message: "test: merge feature",
+    });
+    expect(commit.ok).toBe(true);
+    const log = svn(fixture.wc, "log", "-v", "-l", "1", fixture.repoUrl);
+    expect(log).toContain("test: merge feature");
+    expect(log).toContain("feature.txt");
+  });
+
+  it("合并产生冲突后可解决并提交；非法源与修订范围被拒绝", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.branchWc, "a.txt"), "feature side\n");
+    svn(fixture.branchWc, "commit", "-q", "-m", "feat: branch edit");
+    writeFileSync(join(fixture.wc, "a.txt"), "trunk side\n");
+
+    const merged = await service.merge({
+      workspacePath: fixture.wc,
+      relativeSourcePath: "branches/feature",
+    });
+    expect(merged).toMatchObject({ ok: true, conflictCount: 1 });
+    const changes = await service.getChanges({ workspacePath: fixture.wc });
+    expect(changes.ok && changes.changes).toContainEqual(
+      expect.objectContaining({ path: "a.txt", status: "conflicted" }),
+    );
+
+    expect(
+      await service.resolve({ workspacePath: fixture.wc, path: "a.txt", accept: "mine-full" }),
+    ).toEqual({ ok: true });
+    expect(readFileSync(join(fixture.wc, "a.txt"), "utf-8")).toBe("trunk side\n");
+    expect(
+      await service.commit({
+        workspacePath: fixture.wc,
+        paths: ["a.txt", "."],
+        message: "fix: merge conflict",
+      }),
+    ).toMatchObject({ ok: true });
+
+    expect(
+      await service.merge({ workspacePath: fixture.wc, relativeSourcePath: "../etc" }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+    expect(
+      await service.merge({
+        workspacePath: fixture.wc,
+        relativeSourcePath: "branches/feature",
+        startRevision: 5,
+      }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+    expect(
+      await service.merge({
+        workspacePath: fixture.wc,
+        relativeSourcePath: "branches/feature",
+        startRevision: 6,
+        endRevision: 5,
+      }),
+    ).toMatchObject({ ok: false, issue: "invalid-request" });
+  });
+
+  it("指定修订范围时只应用该区间的改动", async () => {
+    const service = createService();
+    writeFileSync(join(fixture.branchWc, "one.txt"), "one\n");
+    svn(fixture.branchWc, "add", "-q", "one.txt");
+    svn(fixture.branchWc, "commit", "-q", "-m", "feat: one");
+    const firstRevision = Number(
+      svn(fixture.branchWc, "info", "--show-item", "last-changed-revision", "one.txt").trim(),
+    );
+    writeFileSync(join(fixture.branchWc, "two.txt"), "two\n");
+    svn(fixture.branchWc, "add", "-q", "two.txt");
+    svn(fixture.branchWc, "commit", "-q", "-m", "feat: two");
+
+    const merged = await service.merge({
+      workspacePath: fixture.wc,
+      relativeSourcePath: "branches/feature",
+      startRevision: firstRevision,
+      endRevision: firstRevision,
+    });
+    expect(merged).toMatchObject({ ok: true, conflictCount: 0 });
+    expect(existsSync(join(fixture.wc, "one.txt"))).toBe(true);
+    expect(existsSync(join(fixture.wc, "two.txt"))).toBe(false);
   });
 
   it("还原保留新增文件，锁定时报 working-copy-locked 并可清理", async () => {

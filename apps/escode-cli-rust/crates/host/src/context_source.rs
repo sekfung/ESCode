@@ -65,7 +65,10 @@ impl ContextPort for WorkspaceContext {
         let is_svn = super::context_svn::is_svn_workspace(&self.cwd, cancel).await;
         let vcs = async {
             if is_svn {
-                (None, Some(super::context_svn::snapshot(&self.cwd, cancel).await))
+                (
+                    None,
+                    Some(super::context_svn::snapshot(&self.cwd, cancel).await),
+                )
             } else {
                 (super::context_git::snapshot(&self.cwd, cancel).await, None)
             }

@@ -91,6 +91,7 @@ export function createSvnService(options: SvnServiceOptions = {}): ISvnService {
     revert: (params) => writer.revert(params),
     resolve: (params) => writer.resolve(params),
     switchBranch: (params) => writer.switchBranch(params),
+    merge: (params) => writer.merge(params),
     cleanup: (params) => writer.cleanup(params),
 
     async setBinaryPath(params) {

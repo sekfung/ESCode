@@ -221,6 +221,22 @@ export interface SvnSwitchResult {
   conflictCount: number;
 }
 
+export interface SvnMergeRequest extends SvnRequest {
+  /** 相对仓库根的源路径，例如 `trunk`、`branches/feature`。 */
+  relativeSourcePath: string;
+  /** 可选闭区间；startRevision 与 endRevision 必须同时提供且 start <= end。 */
+  startRevision?: number;
+  endRevision?: number;
+  credentials?: SvnCredentials;
+}
+
+export interface SvnMergeResult {
+  /** 合并输出中的变更文件状态行数（U / C / G 等）。 */
+  mergedFileCount: number;
+  /** 合并后工作副本中的冲突数（来自 status，而不是 merge 输出）。 */
+  conflictCount: number;
+}
+
 export interface SvnSetBinaryPathRequest {
   /** 空字符串表示清除手动路径、恢复自动查找。 */
   binaryPath: string;

@@ -40,20 +40,19 @@
 - 文件级冲突处理：用我的、用他们的、手动编辑后标记已解决；树冲突只读展示
 - 单线历史列表（工作副本根 URL），支持按作者 / 关键词筛选已加载范围，查看修订详情与 diff
 - 分支显示与切换（`svn switch`）
+- 分支合并（`svn merge`）：把 trunk / 其他分支的改动合并到当前工作副本，冲突复用现有冲突处理
 - 工作副本锁定提示与用户触发的清理
 - 认证失败时的凭据弹窗
 - 文件树 SVN 状态标记与忽略文件置灰
 - 会话状态面板的改动摘要；Review 中的“上一轮更改”来源继续可用
 - Agent 感知：system prompt 注入 SVN 快照；bash 策略识别 svn 只读子命令
-- 运行环境：Desktop、Web、远程 workspace（SSH / WSL / Docker）；Windows / macOS / Linux
+- 运行环境：Desktop、Web、远程 workspace（SSH / WSL / Docker）、Rust Host；Windows / macOS / Linux
 
 ### 第一期不包含（第二期按顺序推进）
 
-1. Rust Host 实现（第一期在 Rust Host 下明确提示“不支持”）
-2. merge
-3. 单文件历史与 blame
-4. 分支拓扑图谱（copyfrom 与 mergeinfo）
-5. externals、lock、shelve
+1. 单文件历史与 blame
+2. 分支拓扑图谱（copyfrom 与 mergeinfo）
+3. externals、lock、shelve
 
 ### 明确不做
 
@@ -144,8 +143,18 @@
 ### 场景 10：环境不满足
 
 - 未找到 svn 或版本低于 1.8：面板显示安装指引，不显示其他操作。
-- 在 Rust Host（`ESCODE_RUST_HOST=1`）下：VCS 检测仍识别为 `svn`，面板显示“当前 Host 暂不支持 SVN”。
+- Rust Host（`ESCODE_RUST_HOST=1`）与 TS Host 使用同一套 `svn` 服务语义；只有连接到未实现 `svn` channel 的旧 Host 时，面板才显示“当前 Host 暂不支持 SVN”。
 - 远程 workspace 的远端机器未安装 svn：同样显示安装指引，指引对应远端系统。
+
+### 场景 11：我想把其他分支的改动合并进来
+
+- SVN 面板顶部提供“合并”入口；工作副本根不是分支根时入口禁用，并说明原因。
+- 弹窗列出源分支（标准布局取 trunk 与 `^/branches` 下的分支，排除当前分支）；非标准布局提供手动输入相对仓库根的路径。
+- 默认合并源分支的全部可用修订（依赖 svn mergeinfo，已合并过的修订不会重复应用）；可勾选“指定修订范围”填写起止修订号。
+- 合并是写操作：执行 `svn merge --accept postpone`，完成后面板自动刷新；不自动提交。
+- 合并产生冲突时冲突分组置顶展开，提交按钮禁用，走场景 4 的冲突处理流程。
+- 成功后 toast 显示合并的文件数与冲突数；工作副本根不是分支根、修订范围非法、目标不合法时以 `invalid-request` 结束。
+- 认证失败与非交互命令语义与更新、切换一致（凭据弹窗重试一次）。
 
 ## 非功能要求
 
@@ -157,11 +166,13 @@
 
 ## 测试与验收
 
-- 服务层：用 `svnadmin create` 与 `file://` URL 在临时目录搭仓库，覆盖 status、diff、commit（含自动 add）、update、文本冲突与解决、switch、锁冲突与 cleanup、log 分页。
+- 服务层：用 `svnadmin create` 与 `file://` URL 在临时目录搭仓库，覆盖 status、diff、commit（含自动 add）、update、文本冲突与解决、switch、merge（含冲突与修订范围）、锁冲突与 cleanup、log 分页。
+- Rust Host：与 TS 服务在同一份仓库夹具上逐步差分（读面、提交、更新冲突与解决、切换、清理），归一化根路径与提交时间后全等。
 - 机器上没有 svn 时测试显式 skip 并输出原因；CI 需安装 svn。
 - UI：变更分组、勾选默认值、提交按钮禁用条件、分支名推导、术语文案。
 - E2E 至少覆盖：
   1. 修改文件 → 勾选 → 提交
   2. 更新产生冲突 → 解决 → 提交
   3. 切换分支
+  4. 合并分支改动 → 冲突或成功 → 提交
 - Agent：SVN 快照收集与截断；bash 策略对 svn 子命令的分类（TS 与 Rust CLI 各自覆盖）。

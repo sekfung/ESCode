@@ -1,8 +1,15 @@
 /* eslint-disable max-lines -- SVN 面板集中承载分组列表、diff 懒加载、勾选与工作副本操作；结构与 GitPane 对齐。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GitDiffResult, SvnFailure, SvnResolveAccept, SvnResult } from "@escode/shared";
+import type {
+  GitDiffResult,
+  SvnFailure,
+  SvnMergeResult,
+  SvnResolveAccept,
+  SvnResult,
+} from "@escode/shared";
 import {
   TID_SVN_COMMIT_BUTTON,
+  TID_SVN_MERGE_BUTTON,
   TID_SVN_PANE,
   TID_SVN_REFRESH_BUTTON,
   TID_SVN_UPDATE_BUTTON,
@@ -12,6 +19,7 @@ import {
   ChevronDownIcon,
   DownloadIcon,
   FileTextIcon,
+  GitMergeIcon,
   HistoryIcon,
   RefreshCw,
   Undo2Icon,
@@ -31,6 +39,7 @@ import { getWorkspaceFileRelativePath } from "@/workspace-file-tree/model.js";
 import { SvnChangeRow } from "@/svn/SvnChangeRow.js";
 import { SvnCommitDialog } from "@/svn/SvnCommitDialog.js";
 import { SvnHistoryDialog } from "@/svn/SvnHistoryDialog.js";
+import { SvnMergeDialog } from "@/svn/SvnMergeDialog.js";
 import { SvnUnavailableState } from "@/svn/SvnUnavailableState.js";
 import { useSvnCredentialPrompt } from "@/svn/useSvnCredentialPrompt.js";
 import type { SvnWorkspaceController } from "@/svn/useSvnWorkspace.js";
@@ -97,6 +106,7 @@ export function SvnPane({
   const [lockedFailure, setLockedFailure] = useState<SvnFailure | null>(null);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const diffGenerationRef = useRef(0);
 
   const groups = useMemo(() => groupSvnChanges(state.changes), [state.changes]);
@@ -331,6 +341,16 @@ export function SvnPane({
     }
   }, [intl, request, runAction, svnService]);
 
+  const handleMerged = useCallback((result: SvnMergeResult) => {
+    if (result.conflictCount > 0) {
+      setCollapsedGroups((previous) => {
+        const next = new Set(previous);
+        next.delete("conflicted");
+        return next;
+      });
+    }
+  }, []);
+
   const resolveChangePath = useCallback((change: GitPaneFileChange) => change.path, []);
   const contextMenuLabels = useMemo(
     () => ({
@@ -423,6 +443,20 @@ export function SvnPane({
               className={cn("size-3.5", pendingAction === "update" && "animate-pulse")}
             />
             {intl.formatMessage({ id: "svn.action.update" })}
+          </Button>
+          <Button
+            type="button"
+            data-testid={TID_SVN_MERGE_BUTTON}
+            variant="ghost"
+            size="lg"
+            disabled={busy || !info.canSwitch}
+            title={
+              info.canSwitch ? undefined : intl.formatMessage({ id: "svn.merge.cannotSwitch" })
+            }
+            onClick={() => setMergeDialogOpen(true)}
+          >
+            <GitMergeIcon className="size-3.5" />
+            {intl.formatMessage({ id: "svn.action.merge" })}
           </Button>
           <Button
             type="button"
@@ -605,6 +639,13 @@ export function SvnPane({
         branchLabel={branchLabel}
         runWithCredentialRetry={runWithCredentialRetry}
         onOpenChange={setHistoryOpen}
+      />
+      <SvnMergeDialog
+        open={mergeDialogOpen}
+        controller={controller}
+        runWithCredentialRetry={runWithCredentialRetry}
+        onOpenChange={setMergeDialogOpen}
+        onMerged={handleMerged}
       />
       {credentialDialog}
     </section>

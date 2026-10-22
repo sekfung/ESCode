@@ -264,7 +264,7 @@ pub fn channels_with(
     let mut list = vec![
         setting_channel(home.clone(), data_base_dir_for_setting),
         crate::domains_workspace_vcs::workspace_vcs_channel(home.clone()),
-        system_channel(home),
+        system_channel(home.clone()),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
         crate::domains_skill_sync::skill_sync_channel(&home_for_skill_sync),
         crate::domains_settings_sync::settings_sync_channel(&home_for_settings_sync),
@@ -276,6 +276,12 @@ pub fn channels_with(
         crate::domains_file_watcher::file_watcher_channel(),
         crate::domains_git::git_channel(
             git_service.clone(),
+            provider_service.clone(),
+            instances_for_simple.clone(),
+            Arc::clone(&options_for_simple),
+        ),
+        crate::domains_svn::svn_channel(
+            home,
             provider_service.clone(),
             instances_for_simple.clone(),
             Arc::clone(&options_for_simple),

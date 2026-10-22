@@ -78,6 +78,20 @@ export const TID_SVN_UPDATE_BUTTON = "svn-update-button";
 export const TID_SVN_COMMIT_BUTTON = "svn-commit-button";
 /** SVN 提交弹窗确认按钮 */
 export const TID_SVN_COMMIT_SUBMIT = "svn-commit-submit";
+/** SVN 合并入口按钮 */
+export const TID_SVN_MERGE_BUTTON = "svn-merge-button";
+/** SVN 合并弹窗 */
+export const TID_SVN_MERGE_DIALOG = "svn-merge-dialog";
+/** SVN 合并源分支选择器 */
+export const TID_SVN_MERGE_SOURCE = "svn-merge-source";
+/** SVN 合并指定修订范围开关 */
+export const TID_SVN_MERGE_RANGE = "svn-merge-range";
+/** SVN 合并起始修订输入框 */
+export const TID_SVN_MERGE_START = "svn-merge-start";
+/** SVN 合并结束修订输入框 */
+export const TID_SVN_MERGE_END = "svn-merge-end";
+/** SVN 合并弹窗确认按钮 */
+export const TID_SVN_MERGE_SUBMIT = "svn-merge-submit";
 /** Git 面板关闭按钮 */
 export const TID_GIT_CLOSE_BUTTON = "git-close-button";
 /** 顶部 Git 提交或推送主入口 */

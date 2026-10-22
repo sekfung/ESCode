@@ -10,6 +10,8 @@ import type {
   SvnGenerateCommitMessageResult,
   SvnLogRequest,
   SvnLogResult,
+  SvnMergeRequest,
+  SvnMergeResult,
   SvnRemoteStatusRequest,
   SvnRemoteStatusResult,
   SvnRequest,
@@ -43,6 +45,7 @@ export interface ISvnService {
   revert(params: SvnRevertRequest): Promise<SvnResult>;
   resolve(params: SvnResolveRequest): Promise<SvnResult>;
   switchBranch(params: SvnSwitchRequest): Promise<SvnResult<SvnSwitchResult>>;
+  merge(params: SvnMergeRequest): Promise<SvnResult<SvnMergeResult>>;
   cleanup(params: SvnRequest): Promise<SvnResult>;
   setBinaryPath(params: SvnSetBinaryPathRequest): Promise<void>;
   generateCommitMessage(

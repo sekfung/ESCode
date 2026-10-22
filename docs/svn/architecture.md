@@ -116,6 +116,7 @@ type SvnIssueCode =
 | `revert`                      | 写         | `revert --depth infinity`（不加 `--remove-added`，撤销 add 后文件保留在磁盘）                                                       |
 | `resolve`                     | 写         | `resolve --accept mine-full\|theirs-full\|working`                                                                                  |
 | `switchBranch`                | 写         | 在 wcRoot 执行 `switch --accept postpone <root>/<relativePath>@HEAD .`；仅 `canSwitch` 时允许                                       |
+| `merge`                       | 写         | 在 wcRoot 执行 `merge --accept postpone [-c N \| -r start-1:end] <root>/<relativeSourcePath>@HEAD .`；仅 `canSwitch` 时允许         |
 | `cleanup`                     | 写         | 在 wcRoot 执行 `cleanup`                                                                                                            |
 | `setBinaryPath`               | 设置       | 写入所在 Host 设置 `svnBinaryPath`                                                                                                  |
 | `generateCommitMessage`       | 读         | 读取所选路径的改动与 diff（最多 8 个），交给共享的提交信息生成器                                                                    |
@@ -127,6 +128,7 @@ type SvnIssueCode =
 - **remote status 而不是比较修订号**：自己刚提交的修订不会被误报为“服务器有新修订”。
 - **历史读取 URL 而不是工作副本**：工作副本默认只显示到 BASE，提交后未更新时会漏掉新修订。
 - **`canSwitch`**：工作副本根的 URL 正好是 `trunk` / `branches/*` / `tags/*` 的根时为 true；工作副本根是仓库根或非标准布局时不允许切换。
+- **合并**：只允许在 `canSwitch` 为 true 时执行，目标固定为 wcRoot 与 `.`；默认依赖 mergeinfo 合并源的全部可用修订，指定范围时按闭区间语义转换：单个修订执行 `-c N`，多修订执行 `-r start-1:end`（起始为 1 时下界取 1）。合并只修改工作副本，不创建修订、不自动提交；`--accept postpone` 让冲突进入现有冲突分组。`mergedFileCount` 取 merge 输出中的状态行数（与 update 同一计数规则）。
 
 ### Runtime 与 Provider
 
@@ -229,11 +231,10 @@ sequenceDiagram
 
 ## Rust Host
 
-第一期：
-
 - `workspace-vcs` channel 在 `apps/escode-host/crates/host-rpc/src/domains_workspace_vcs.rs` 实现，规则与 TS 一致，并登记到 `inventory_implemented.rs`。
-- `svn` channel 不注册，在服务清单（`inventory_ts.rs`，由 `scripts/generate-escode-host-service-inventory.mjs` 生成）中保持 Pending；UI 把调用失败呈现为“当前 Host 暂不支持 SVN”。
-- 第二期补齐实现，并新增与 `rustHostGit.test.ts` 同类的差分测试。
+- `svn` channel 在 `domains_svn.rs`（方法表与参数解包）与 `host-services/src/svn/`（服务层）实现全部 15 个成员，并登记到 `inventory_implemented.rs`。服务层与 TS 同构：`runtime.rs` 负责二进制探测、命令执行、凭据与写队列，`reads.rs` / `history.rs` / `writes.rs` 负责读面、历史与写面，`xml.rs` + `parse.rs` 解析 svn XML，`errors.rs` 只按错误码归类。
+- `generateCommitMessage` 复用 Git 的 prompt 构造与输出校验（`escode-host-services::git::commit_message_prompt`），只替换输入收集。
+- 差分测试 `packages/desktop/test/rustHostSvn.test.ts`：用 `svnadmin create` 建仓库后 `svnadmin hotcopy` 复制两份（UUID 与修订号一致），TS 服务与 Rust Host 按同一脚本执行读面、提交、更新冲突与解决、切换、清理，归一化根路径与提交时间后全等；运行环境缺少 svn 时显式 skip。
 
 ## Agent 集成
 
@@ -260,8 +261,10 @@ sequenceDiagram
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 解析与归类单测 | `packages/services/test/svnParse.test.ts`                                                                                                             |
 | 服务集成测试   | `packages/services/test/svnService.test.ts`：`svnadmin create` + `file://` 夹具；缺少 svn 时 skip 并输出原因                                          |
+| 合并           | 同上：干净合并与冲突合并、修订范围校验、mergeinfo 提交                                                                                                |
 | 写队列与凭据   | 同上（模拟命令）：同 key 写串行、不同 key 并行、读不排队；stdin 传密码与旧版本回退                                                                    |
 | VCS 判定       | `packages/services/test/workspaceVcsService.test.ts`；Rust `domains_workspace_vcs.rs` 单测                                                            |
+| Rust Host      | `packages/desktop/test/rustHostSvn.test.ts`：TS / Rust 差分；Rust `host-services/src/svn/svn_tests.rs` 解析、路径与错误归类单测                       |
 | UI 单测        | `packages/ui/test/svnDisplay.test.ts`：分组、勾选、提交禁用条件、diff 映射、文件树标记、监听路径                                                      |
 | E2E            | `packages/desktop/test/e2e/git/manual-review/svn-workflow-ui-flow.test.ts`（待人工审阅后提升）                                                        |
 | Agent          | TS `context-builder.test.ts`、`bash-permission.test.ts`、`adapters/tests/svn-snapshot.test.ts`；Rust `prompt.rs`、`context_svn.rs` 单测与只读语料对账 |

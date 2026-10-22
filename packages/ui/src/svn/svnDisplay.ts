@@ -1,5 +1,6 @@
 import type {
   GitDiffResult,
+  SvnBranchListResult,
   SvnBranchRef,
   SvnDiffResult,
   SvnFileChange,
@@ -150,6 +151,60 @@ export function getSvnBranchLabel(branch: SvnBranchRef | undefined): string | nu
     return `tag: ${branch.name}`;
   }
   return branch.name;
+}
+
+export interface SvnMergeSourceOption {
+  relativePath: string;
+  label: string;
+}
+
+/** 合并源：标准布局取 trunk 与 ^/branches，排除当前分支（spec：docs/svn/ui.md §11）。 */
+export function getSvnMergeSourceOptions(
+  branches: Pick<SvnBranchListResult, "layout" | "branches"> | null,
+  current: SvnBranchRef | null | undefined,
+): SvnMergeSourceOption[] {
+  if (!branches || branches.layout !== "standard") {
+    return [];
+  }
+  return branches.branches
+    .filter((branch) => branch.relativePath !== current?.relativePath)
+    .map((branch) => ({
+      relativePath: branch.relativePath,
+      label: getSvnBranchLabel(branch) ?? branch.relativePath,
+    }));
+}
+
+export type SvnMergeRangeError = "missing" | "invalid";
+
+/** 起止修订是闭区间；两端必填、正整数且 start ≤ end。 */
+export function validateSvnMergeRange(start: string, end: string): SvnMergeRangeError | null {
+  const rawStart = start.trim();
+  const rawEnd = end.trim();
+  if (!rawStart || !rawEnd) {
+    return "missing";
+  }
+  const startRevision = Number(rawStart);
+  const endRevision = Number(rawEnd);
+  if (
+    !Number.isInteger(startRevision) ||
+    !Number.isInteger(endRevision) ||
+    startRevision < 1 ||
+    endRevision < 1 ||
+    startRevision > endRevision
+  ) {
+    return "invalid";
+  }
+  return null;
+}
+
+export function parseSvnMergeRange(
+  start: string,
+  end: string,
+): { startRevision: number; endRevision: number } | null {
+  if (validateSvnMergeRange(start, end) !== null) {
+    return null;
+  }
+  return { startRevision: Number(start.trim()), endRevision: Number(end.trim()) };
 }
 
 export function getSvnIssueMessageId(issue: SvnIssueCode): string {

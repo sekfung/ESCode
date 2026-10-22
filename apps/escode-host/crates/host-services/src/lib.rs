@@ -34,6 +34,7 @@ pub mod settings_sync;
 pub mod skill_sync;
 pub mod skills;
 pub mod subagents;
+pub mod svn;
 pub mod system_probe;
 pub mod task_projection;
 pub mod tasks_index;

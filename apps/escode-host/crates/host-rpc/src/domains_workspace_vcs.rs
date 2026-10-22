@@ -3,8 +3,8 @@
 //! workspace VCS 类型（git / svn / none）的唯一判定入口：只做目录探测与覆盖值读写，
 //! 规则与 TS `createWorkspaceVcsService` 一致——最近的 `.git` / `.svn` 中更深者优先，
 //! 同层 Git 优先；覆盖值按身份 key（`workspaceIdentity?.trim() || workspacePath`）
-//! 存在设置 `workspaceVcsOverrides` 里。`svn` channel 在 Rust Host 第一期不实现，
-//! 由渲染器把调用失败呈现为“当前 Host 暂不支持 SVN”。
+//! 存在设置 `workspaceVcsOverrides` 里。`svn` channel 在 `domains_svn.rs` 实现，
+//! 与 `workspace-vcs` 共用同一套判定规则。
 
 use std::path::{Path, PathBuf};
 
@@ -200,7 +200,10 @@ mod tests {
         assert_eq!(info["root"], root.path().to_string_lossy().as_ref());
 
         std::fs::write(root.path().join("sub").join(".git"), "gitdir: x\n").expect("git file");
-        assert_eq!(describe(nested.to_str().expect("utf8"), "auto").await["kind"], "git");
+        assert_eq!(
+            describe(nested.to_str().expect("utf8"), "auto").await["kind"],
+            "git"
+        );
 
         std::fs::create_dir(root.path().join(".git")).expect("git dir");
         assert_eq!(
@@ -214,7 +217,10 @@ mod tests {
         let root = tempfile::tempdir().expect("tempdir");
         std::fs::create_dir(root.path().join(".git")).expect("git dir");
         let info = describe(root.path().to_str().expect("utf8"), "svn").await;
-        assert_eq!(info, json!({ "kind": "svn", "source": "override", "override": "svn" }));
+        assert_eq!(
+            info,
+            json!({ "kind": "svn", "source": "override", "override": "svn" })
+        );
     }
 
     #[test]
@@ -224,6 +230,9 @@ mod tests {
             "ssh://h/r"
         );
         assert_eq!(identity_key(&json!({ "workspacePath": "/w" })), "/w");
-        assert_eq!(read_override(&json!({ OVERRIDES_KEY: { "/w": "bogus" } }), "/w"), "auto");
+        assert_eq!(
+            read_override(&json!({ OVERRIDES_KEY: { "/w": "bogus" } }), "/w"),
+            "auto"
+        );
     }
 }

@@ -11,10 +11,15 @@ import {
   TID_SVN_COMMIT_DIALOG,
   TID_SVN_COMMIT_MESSAGE_INPUT,
   TID_SVN_COMMIT_SUBMIT,
+  TID_SVN_MERGE_BUTTON,
+  TID_SVN_MERGE_DIALOG,
+  TID_SVN_MERGE_SUBMIT,
   TID_SVN_PANE,
   TID_SVN_REFRESH_BUTTON,
   TID_SVN_STATUS_CHANGES,
   TID_SVN_UPDATE_BUTTON,
+  TID_V4_SESSION_PANE,
+  TID_V4_STOP,
 } from "@escode/shared";
 import { DEFAULT_WORKSPACE, clearAppData, waitForWorkspaceApp } from "../../helpers/desktop-app.js";
 import {
@@ -26,15 +31,15 @@ import { sel } from "../../helpers/selectors.js";
 import {
   prepareV4ConversationE2E,
   sendV4Prompt,
-  waitForV4Pane,
   waitForV4TimelineContaining,
 } from "../../helpers/v4-conversation.js";
 
 /**
- * SVN 第一期交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §11）：
+ * SVN 交互验收（spec：docs/svn/requirements.md「测试与验收」、docs/svn/ui.md §12）：
  * - SVN-UI-01 修改 → 勾选 → 提交（含自动 add 未纳入版本控制的文件）
  * - SVN-UI-02 更新产生冲突 → 用我的 → 提交
  * - SVN-UI-03 切换分支
+ * - SVN-UI-04 合并分支改动 → 提交（mergeinfo 写入服务器）
  * 需要运行环境里有 svn / svnadmin（可用 ESCODE_SVN_BINARY / ESCODE_SVNADMIN_BINARY 指定）；
  * 缺失时显式跳过并输出原因。
  */
@@ -42,6 +47,7 @@ const TEST_TIMEOUT_MS = 180000;
 const TID_CHAT_SUMMARY_PANEL = "chat-summary-panel";
 const TRACKED_FILE = join(".escode-e2e", "svn", "tracked.md");
 const NEW_FILE = join(".escode-e2e", "svn", "new.md");
+const MERGED_FILE = join(".escode-e2e", "svn", "merged.md");
 const execFileAsync = promisify(execFile);
 
 const svnBinary = process.env.ESCODE_SVN_BINARY?.trim() || "svn";
@@ -68,6 +74,7 @@ async function svnAvailable(): Promise<boolean> {
 interface SvnFixture {
   repoUrl: string;
   otherWc: string;
+  branchWc: string;
 }
 
 /** 在 DEFAULT_WORKSPACE 上建立 trunk 工作副本，并准备 branches/feature 与第二个工作副本。 */
@@ -89,7 +96,9 @@ async function prepareSvnFixture(): Promise<SvnFixture> {
   await svn(DEFAULT_WORKSPACE, "update", "-q");
   const otherWc = join(root, "other");
   await svn(root, "checkout", "-q", `${repoUrl}/trunk`, otherWc);
-  return { repoUrl, otherWc };
+  const branchWc = join(root, "feature");
+  await svn(root, "checkout", "-q", `${repoUrl}/branches/feature`, branchWc);
+  return { repoUrl, otherWc, branchWc };
 }
 
 async function createActiveTask() {
@@ -99,11 +108,24 @@ async function createActiveTask() {
   await sendV4Prompt(buildReadonlyToolPrompt(marker));
   await waitForV4TimelineContaining(marker);
   await waitForV4TimelineContaining(E2E_REPLY_TOKEN, 90000);
-  await waitForV4Pane(
-    (snapshot) =>
-      !snapshot.canStop && Boolean(snapshot.sessionId) && snapshot.sessionId !== "draft",
-    "SVN E2E 的真实 v4 session 没有完成",
-    90000,
+  // 任务落盘后 pane 可能以任务 tab 的 id 重新挂载；按前缀找任意 v4 pane，
+  // 只要求已存在且没有运行中的 stop 按钮，避免绑定固定的 workspace-main。
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute(
+        (panePrefix: string, stopTestId: string) => {
+          const panes = Array.from(
+            document.querySelectorAll<HTMLElement>(`[data-testid^="${panePrefix}"]`),
+          );
+          return (
+            panes.length > 0 &&
+            !panes.some((pane) => Boolean(pane.querySelector(`[data-testid="${stopTestId}"]`)))
+          );
+        },
+        TID_V4_SESSION_PANE,
+        TID_V4_STOP,
+      )) as boolean,
+    { timeout: 90000, timeoutMsg: "SVN E2E 的 v4 session 没有进入空闲状态" },
   );
   await $(sel(TID_CHAT_SUMMARY_PANEL)).waitForDisplayed({
     timeout: 30000,
@@ -247,6 +269,29 @@ async function commitFromPane(message: string) {
   });
 }
 
+async function switchBranchFromUi(label: string, expectedRelativeUrl: string) {
+  await clickTestId(TID_SVN_BRANCH_SWITCHER, "SVN 分支入口没有出现");
+  await browser.waitUntil(
+    async () =>
+      (await browser.execute((target: string) => {
+        const option = Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            "[data-radix-popper-content-wrapper] button",
+          ),
+        ).find((element) => element.innerText.trim() === target && !element.disabled);
+        option?.click();
+        return Boolean(option);
+      }, label)) as boolean,
+    { timeout: 30000, timeoutMsg: `分支列表中没有 ${label}` },
+  );
+  await browser.waitUntil(
+    async () =>
+      (await svn(DEFAULT_WORKSPACE, "info", "--show-item", "relative-url")).trim() ===
+      expectedRelativeUrl,
+    { timeout: 60000, timeoutMsg: `工作副本没有切换到 ${expectedRelativeUrl}` },
+  );
+}
+
 describe("SVN 工作流 UI manual-review E2E", () => {
   let fixture: SvnFixture | null = null;
 
@@ -335,12 +380,49 @@ describe("SVN 工作流 UI manual-review E2E", () => {
     );
     await browser.waitUntil(
       async () =>
-        ((await browser.execute(
-          (testId: string) =>
-            document.querySelector(`[data-testid="${testId}"]`)?.textContent ?? "",
-          TID_SVN_BRANCH_SWITCHER,
-        )) as string).includes("feature"),
+        (
+          (await browser.execute(
+            (testId: string) =>
+              document.querySelector(`[data-testid="${testId}"]`)?.textContent ?? "",
+            TID_SVN_BRANCH_SWITCHER,
+          )) as string
+        ).includes("feature"),
       { timeout: 30000, timeoutMsg: "分支入口没有显示 feature" },
+    );
+  });
+
+  it("SVN-UI-04: 通过合并弹窗把 feature 的改动合并到 trunk 并提交", async function () {
+    this.timeout(TEST_TIMEOUT_MS);
+    await switchBranchFromUi("trunk", "^/trunk");
+
+    // 在 feature 分支上提交一个新文件，作为合并来源。
+    await svn(fixture!.branchWc, "update", "-q");
+    await writeFile(join(fixture!.branchWc, MERGED_FILE), "merged from feature\n", "utf8");
+    await svn(fixture!.branchWc, "add", "-q", "--parents", MERGED_FILE);
+    await svn(fixture!.branchWc, "commit", "-q", "-m", "test: feature merge source");
+
+    await clickTestId(TID_SVN_MERGE_BUTTON, "SVN 合并按钮不可用");
+    await $(sel(TID_SVN_MERGE_DIALOG)).waitForDisplayed({ timeout: 15000 });
+    // 分支列表异步加载；加载完成且自动选中 feature 后确认按钮才可用。
+    await browser.waitUntil(async () => await $(sel(TID_SVN_MERGE_SUBMIT)).isEnabled(), {
+      timeout: 30000,
+      timeoutMsg: "合并弹窗的分支列表没有加载完成",
+    });
+    await clickTestId(TID_SVN_MERGE_SUBMIT, "SVN 合并确认按钮不可用");
+    await $(sel(TID_SVN_MERGE_DIALOG)).waitForDisplayed({
+      reverse: true,
+      timeout: 60000,
+      timeoutMsg: "SVN 合并弹窗没有在合并后关闭",
+    });
+    await waitForChangeRow(MERGED_FILE);
+
+    await commitFromPane("feat(svn): merge feature branch");
+    await waitForChangeRow(MERGED_FILE, false);
+    const log = await svn(DEFAULT_WORKSPACE, "log", "-v", "-l", "1", `${fixture!.repoUrl}/trunk`);
+    expect(log).toContain("feat(svn): merge feature branch");
+    expect(log).toContain("merged.md");
+    expect(await svn(DEFAULT_WORKSPACE, "propget", "svn:mergeinfo", ".")).toContain(
+      "branches/feature",
     );
   });
 });
