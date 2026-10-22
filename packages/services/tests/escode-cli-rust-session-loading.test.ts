@@ -3,8 +3,29 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { z } from "zod";
-import { fixture } from "./escode-cli-rust-fixture.js";
-import { sharedSnapshot } from "./escode-cli-rust-shared-fixture.js";
+import { fixture, type Harness } from "./escode-cli-rust-fixture.js";
+
+/**
+ * 订阅会话并等待首帧 snapshot。原共享上下文 fixture 随“会话分享”功能一起删除，
+ * 本用例只需要通用的会话快照读取，不再依赖分享语义。
+ */
+async function sharedSnapshot(
+  h: Harness,
+  id: string,
+  connectionId = "fixture-desktop",
+  clientMode = "desktop-continuous",
+) {
+  const before = h.messages.length;
+  const sub = await h.subscribe(`conversation/${id}`, connectionId, clientMode);
+  return (
+    await h.wait(
+      (m) =>
+        m.params?.subscriptionId === sub.ack.subscriptionId &&
+        m.params?.frame?.payload?.kind === "snapshot",
+      before,
+    )
+  ).params.frame.payload.snapshot;
+}
 
 test("Startup and index read metadata only, isolate unopened corrupt history and do not rewrite sessions", async () => {
   const f = await fixture();
