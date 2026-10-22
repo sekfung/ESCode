@@ -50,8 +50,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # rust-toolchain.toml 固定了 1.95.0，交叉目标必须装到同一工具链；
+      # 只写 @stable 会把 target 装到 stable，构建时仍用固定版本而报 "can't find crate for core"。
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.95.0
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
@@ -128,8 +131,9 @@ jobs:
             mac-x64) echo "RUST_TARGET=x86_64-apple-darwin" >> "$GITHUB_ENV" ;;
             linux-x64) echo "RUST_TARGET=x86_64-unknown-linux-gnu" >> "$GITHUB_ENV" ;;
           esac
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.95.0
           targets: ${{ env.RUST_TARGET }}
       - uses: Swatinem/rust-cache@v2
         with:
