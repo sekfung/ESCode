@@ -113,6 +113,9 @@ impl Engine {
                 let mut fields = status.clone();
                 if let Some(fields) = fields.as_object_mut() {
                     fields.remove("type");
+                    // `usage` 由 usage.delta 单独上报；model.request.status 的 strict schema
+                    // 不允许该键，透传会让消费端校验失败。
+                    fields.remove("usage");
                     fields.insert("status".into(), kind.into());
                 }
                 self.emit_fact(id, Some(turn), "model.request.status", fields);
