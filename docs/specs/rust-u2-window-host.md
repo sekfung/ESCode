@@ -112,7 +112,7 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
 
 该项仍是**产品边界**（远程 workspace 保留 per-window Node Host），不是 Rust 原生 remote parity；但边界行为已由上述可执行 E2E 验证。
 
-**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退 Node Host。依据是 CI run `39920171658`：win-x64、mac-arm64、mac-x64、linux-x64 四个 `installed` 作业的 “launch installed package with Rust Host” 步骤全部 success。
+**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退 Node Host。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
 
 ## 6. 验收（默认翻转前必须满足）
 
@@ -139,4 +139,5 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
   `ESCODE_RUST_HOST=1 ESCODE_INSTALLED_EXPECT_RUST_HOST=1 node scripts/ci-install-desktop.mjs --launch-only`
   启动同一个包，断言包内 `escode-host` 启动、renderer attach，且没有 utility Node 窗口 Host。
   CI run `39920171658` 四个平台的该步骤全部 success；随后已把 `ESCODE_RUST_HOST` 默认翻转为开启
-  （显式 `0`/`false` 回退 Node Host）。
+  （显式 `0`/`false` 回退 Node Host）。翻转后的 run `39932318894` 四平台 `installed` 全绿，
+  其中 `install and launch` 未设置 env，直接验证了默认 Rust Host 路径。
