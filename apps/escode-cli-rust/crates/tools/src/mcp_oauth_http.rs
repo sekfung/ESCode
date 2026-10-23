@@ -25,6 +25,7 @@ pub(super) async fn client(url: &str) -> Result<reqwest_mcp::Client> {
 }
 
 async fn get(url: &str, accept_json: bool) -> Result<reqwest_mcp::Response> {
+    escode_cli_net::capture::record("GET", url);
     let mut request = client(url)
         .await?
         .get(url)
@@ -161,6 +162,7 @@ pub(super) async fn register(
     if let Some(scope) = scope {
         body["scope"] = scope.into();
     }
+    escode_cli_net::capture::record("POST", &url);
     let response = client(&url)
         .await?
         .post(&url)
@@ -285,6 +287,7 @@ pub(super) async fn token_request(
         .unwrap_or_default()
         .to_owned();
     let secret = client_info["client_secret"].as_str().map(str::to_owned);
+    escode_cli_net::capture::record("POST", url.as_str());
     let mut request = client(url.as_str())
         .await?
         .post(url)

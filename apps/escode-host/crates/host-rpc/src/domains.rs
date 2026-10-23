@@ -161,9 +161,15 @@ pub fn channels_with(
         options.clone(),
         data_base_dir.clone(),
     );
+    let main_broker_slot: crate::runtime_requests::MainBrokerSlot =
+        Arc::new(std::sync::OnceLock::new());
+    if let Some(broker) = &main_broker {
+        let _ = main_broker_slot.set(Arc::clone(broker));
+    }
     instances.set_responder(crate::runtime_requests::responder(
         home.clone(),
         Arc::clone(&provider_headers),
+        main_broker_slot,
     ));
     // 任务域与 session 域共用同一套实例表/装配工厂（同一 workspace 只会有一个实例），
     // 并**共用同一份**索引句柄 / 任务目标注册表 / 草稿注册表：Host 是索引投影的唯一写者，

@@ -67,7 +67,16 @@ describe("detached Rust Host window attachment", () => {
     vi.clearAllMocks();
   });
 
-  it("posts the port with a synthetic ready state", async () => {
+  function rendererSnapshot(win: ReturnType<typeof fakeWindow>["win"]) {
+    const entry = vi
+      .mocked(ipcMain.on)
+      .mock.calls.find(([channel]) => channel === "escode:database-startup-control");
+    expect(entry).toBeDefined();
+    const handler = entry![1] as (event: unknown, raw: unknown) => void;
+    handler({ sender: win.webContents }, { action: "snapshot" });
+  }
+
+  it("waits for the renderer snapshot before posting the port", async () => {
     const { win } = fakeWindow();
     const { manager, attachment } = fakeManager();
     const result = await attachRustHostWindow({
@@ -79,7 +88,15 @@ describe("detached Rust Host window attachment", () => {
     expect(manager.attachLocalPort).toHaveBeenCalledWith(
       expect.any(Function),
       "desktop-continuous",
+      undefined,
     );
+    // Rust Host ready 可能早于 renderer 注册 message 监听；snapshot 前不能投递。
+    expect(win.webContents.postMessage).not.toHaveBeenCalled();
+    expect(win.webContents.send).not.toHaveBeenCalled();
+    expect(logTerminal).toHaveBeenCalledWith(expect.objectContaining({ phase: "ready" }));
+
+    rendererSnapshot(win);
+
     expect(win.webContents.postMessage).toHaveBeenCalledWith(
       expect.any(String),
       { databaseStartupId: result.startupId },
@@ -88,11 +105,26 @@ describe("detached Rust Host window attachment", () => {
     const state = win.webContents.send.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(state.startupId).toBe(result.startupId);
     expect(state.phase).toBe("ready");
-    expect(logTerminal).toHaveBeenCalledWith(expect.objectContaining({ phase: "ready" }));
     result.dispose();
   });
 
-  it("disposes only the attachment and reports a failed startup on loss", async () => {
+  it("posts the port only once across repeated renderer snapshots", async () => {
+    const { win } = fakeWindow();
+    const { manager } = fakeManager();
+    const result = await attachRustHostWindow({
+      win: win as never,
+      manager: manager as never,
+      logger: { info: vi.fn(), warn: vi.fn() },
+    });
+
+    rendererSnapshot(win);
+    rendererSnapshot(win);
+
+    expect(win.webContents.postMessage).toHaveBeenCalledTimes(1);
+    result.dispose();
+  });
+
+  it("keeps the attachment and reports a restarting startup on loss", async () => {
     const { win } = fakeWindow();
     const { manager, attachment, loseHost } = fakeManager();
     const result: RustWindowAttachment = await attachRustHostWindow({
@@ -101,10 +133,11 @@ describe("detached Rust Host window attachment", () => {
       logger: { info: vi.fn(), warn: vi.fn() },
     });
 
+    rendererSnapshot(win);
     loseHost();
-    const failed = win.webContents.send.mock.calls.at(-1)?.[1] as Record<string, unknown>;
-    expect(failed.phase).toBe("failed");
-    expect(failed.errorCode).toBe("transport_closed");
+    const restarting = win.webContents.send.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(restarting.phase).toBe("preparing_session_storage");
+    expect(restarting.databasePhase).toBe("checking");
     expect(attachment.dispose).not.toHaveBeenCalled();
 
     result.dispose();

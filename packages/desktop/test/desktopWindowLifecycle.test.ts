@@ -36,6 +36,7 @@ vi.mock("../src/main/armsBrowserPerfLoadNudge.js", () => ({
 
 import { handleDarwinWindowCloseRequest } from "../src/main/desktopDarwinCloseBehavior.js";
 import { createBrowserWindow } from "../src/main/desktopWindowChrome.js";
+import { ipcMain } from "electron";
 import {
   createWindow,
   handleDesktopWindowCloseRequest,
@@ -432,9 +433,27 @@ describe("desktopWindowLifecycle createWindow", () => {
     vi.mocked(createBrowserWindow).mockReturnValue(win as never);
     const spawnHostProcess = vi.fn();
     const attachment = { port: { id: "rust-port" }, dispose: vi.fn(), onLost: vi.fn() };
+    const startupListeners: Array<(state: Record<string, unknown>) => void> = [];
     const rustHostManager = {
       enabled: true,
-      attachLocalPort: vi.fn(async () => attachment),
+      onWorkspaceStartupState: (listener: (state: Record<string, unknown>) => void) => {
+        startupListeners.push(listener);
+        return () => undefined;
+      },
+      attachLocalPort: vi.fn(async (_create, _mode, prepare) => {
+        for (const listener of startupListeners) {
+          listener({
+            startupId: prepare.startupId,
+            windowId: prepare.windowId,
+            workspaceKey: prepare.workspace.path,
+            generation: 1,
+            state: { phase: "ready", sequence: 2 },
+          });
+        }
+        return attachment;
+      }),
+      sendControl: vi.fn(),
+      resetRestartBudget: vi.fn(),
     };
 
     createWindow({
@@ -452,6 +471,7 @@ describe("desktopWindowLifecycle createWindow", () => {
       disposeRemoteWorkspaceSessionsForWindow: vi.fn(),
       reattachRemoteWorkspaceSessionsForWindow: vi.fn(),
       agentSpawnFallbackCwd: "/Users/demo/.escode/workspace/default",
+      agentWarmupTargets: [{ workspacePath: "/w", workspaceIdentity: "id" }],
       deviceMid: "device-mid",
       runtimeProcessEnvFallbackPatch: {},
     });
@@ -462,7 +482,21 @@ describe("desktopWindowLifecycle createWindow", () => {
     expect(rustHostManager.attachLocalPort).toHaveBeenCalledWith(
       expect.any(Function),
       "desktop-continuous",
+      expect.objectContaining({
+        startupId: expect.any(String),
+        windowId: "local-48",
+        workspace: { path: "/w", identity: "id" },
+        runtimeEnvPatch: {},
+      }),
     );
+    // renderer 注册 message 监听后发送 snapshot，Main 才投递 state/port。
+    const snapshotHandler = vi
+      .mocked(ipcMain.on)
+      .mock.calls.filter(([channel]) => channel === "escode:database-startup-control")
+      .at(-1)?.[1] as ((event: unknown, raw: unknown) => void) | undefined;
+    expect(snapshotHandler).toBeDefined();
+    snapshotHandler!({ sender: webContents }, { action: "snapshot" });
+
     expect(webContents.postMessage).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ databaseStartupId: expect.any(String) }),

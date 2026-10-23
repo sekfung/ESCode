@@ -85,6 +85,7 @@ mod domains_workspace_vcs;
 pub mod forward;
 pub mod frame;
 mod host_command;
+pub mod host_events;
 pub mod http;
 mod plugin_params;
 mod plugin_result_schema;

@@ -9,8 +9,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use escode_host_control::main_broker::MainBroker;
 use escode_host_runtime::{HostError, HostRequest, HostResponder};
 use serde_json::{Map, Value, json};
+
+/// Main broker 在 `rpcListen` 之后才创建；responder 先装配，槽位后填。
+pub type MainBrokerSlot = Arc<std::sync::OnceLock<Arc<MainBroker>>>;
 
 /// TS `DEFAULT_ESCODE_MODEL_CONTEXT_BUDGET_STRATEGY`。
 const MODEL_CONTEXT_BUDGET_STRATEGY: &str = "preflight-v1";
@@ -19,11 +23,13 @@ const MODEL_CONTEXT_BUDGET_STRATEGY: &str = "preflight-v1";
 pub fn responder(
     home: PathBuf,
     provider_headers: Arc<crate::provider_headers::ProviderHeaders>,
+    main_broker: MainBrokerSlot,
 ) -> HostResponder {
     let home = Arc::new(home);
     Arc::new(move |request: HostRequest| {
         let home = Arc::clone(&home);
         let provider_headers = Arc::clone(&provider_headers);
+        let main_broker = Arc::clone(&main_broker);
         Box::pin(async move {
             match request.method.as_str() {
                 "session/requestRuntimePreferences" => {
@@ -32,9 +38,47 @@ pub fn responder(
                 "interaction/requestProviderRuntimeHeaders" => {
                     Ok(provider_headers.request(request.params).await)
                 }
+                "interaction/browserList" => Ok(json!({"browsers": []})),
+                "interaction/browserExecute" => {
+                    browser_execute(&main_broker, &request.params).await
+                }
                 other => Err(HostError::unsupported(other)),
             }
         })
+    })
+}
+
+async fn browser_execute(main_broker: &MainBrokerSlot, params: &Value) -> Result<Value, HostError> {
+    if params.get("requestId").and_then(Value::as_str).is_none()
+        || params.get("sessionId").and_then(Value::as_str).is_none()
+        || params.get("command").is_none()
+    {
+        return Err(HostError {
+            code: -32602,
+            message: "Invalid interaction/browserExecute params".to_owned(),
+        });
+    }
+    let Some(broker) = main_broker.get() else {
+        return Ok(browser_unavailable("browser control not available"));
+    };
+    match broker
+        .request("interaction/browserExecute", params.clone())
+        .await
+    {
+        Ok(result) => Ok(result),
+        Err(error) => Ok(browser_unavailable(&error)),
+    }
+}
+
+fn browser_unavailable(message: &str) -> Value {
+    json!({
+        "ok": false,
+        "error": {
+            "code": "backend_unavailable",
+            "message": message,
+            "sideEffect": "uncertain",
+        },
+        "elapsedMs": 0,
     })
 }
 
@@ -141,6 +185,48 @@ fn valid_shell(value: &Value) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use escode_host_control::{ControlMessage, ControlWriter};
+
+    #[tokio::test]
+    async fn browser_execute_forwards_to_main_request() {
+        let (writer, mut rx) = ControlWriter::channel(8);
+        let broker = MainBroker::new(writer);
+        let slot: MainBrokerSlot = Arc::new(std::sync::OnceLock::new());
+        let _ = slot.set(Arc::clone(&broker));
+        let responder = responder(
+            PathBuf::from("/tmp"),
+            crate::provider_headers::ProviderHeaders::new(),
+            slot,
+        );
+        let call = tokio::spawn(async move {
+            responder(HostRequest {
+                identity: "w".to_owned(),
+                workspace_path: "/w".to_owned(),
+                method: "interaction/browserExecute".to_owned(),
+                params: json!({
+                    "requestId": "r1",
+                    "sessionId": "s1",
+                    "command": {"method": "navigate"},
+                }),
+            })
+            .await
+        });
+        let Some(ControlMessage::MainRequest {
+            request_id,
+            method,
+            params,
+        }) = rx.recv().await
+        else {
+            panic!("expected mainRequest");
+        };
+        assert_eq!(method, "interaction/browserExecute");
+        assert_eq!(params["requestId"], "r1");
+        assert!(broker.resolve(&request_id, true, Some(json!({"ok": true})), None));
+        assert_eq!(
+            call.await.expect("task").expect("result"),
+            json!({"ok": true})
+        );
+    }
 
     #[test]
     fn defaults_follow_the_ts_resolver() {

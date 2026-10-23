@@ -7,6 +7,7 @@
 //! 键 = taskId（TS `taskEmitters` 同键）；监听者无界，Host 只发低频生命周期事件。
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
@@ -22,6 +23,7 @@ pub(crate) struct TaskEventHub {
     ready: Mutex<BTreeMap<String, Vec<mpsc::UnboundedSender<Value>>>>,
     terminal: Mutex<BTreeMap<String, Vec<mpsc::UnboundedSender<Value>>>>,
     errors: Mutex<Vec<mpsc::UnboundedSender<Value>>>,
+    running: AtomicU64,
 }
 
 impl TaskEventHub {
@@ -49,6 +51,11 @@ impl TaskEventHub {
 
     /// TS `turn.started` 的 Host 侧同构：命令已提交给运行时，登记本轮 inputId。
     pub(crate) fn run_started(&self, target: &TaskTarget, input_id: &str) {
+        let running = self.running.fetch_add(1, Ordering::SeqCst) + 1;
+        crate::host_events::emit(json!({
+            "type": "agent-running-task-count-changed",
+            "runningTaskCount": running,
+        }));
         send(
             &self.streams,
             &target.task_id,
@@ -71,6 +78,17 @@ impl TaskEventHub {
         input_id: Option<&str>,
         error: Option<&str>,
     ) {
+        let running = self.running.load(Ordering::SeqCst);
+        let running = self
+            .running
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                Some(value.saturating_sub(1))
+            })
+            .map_or(running, |previous| previous.saturating_sub(1));
+        crate::host_events::emit(json!({
+            "type": "agent-running-task-count-changed",
+            "runningTaskCount": running,
+        }));
         let trace_id = input_id.unwrap_or(task_id);
         let failed = error.is_some();
         let mut event = if let Some(error) = error {

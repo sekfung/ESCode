@@ -1661,6 +1661,11 @@ export function createLocalServices(options: {
   // services 集合建好后在 return 前统一登记进 sharedSqliteRepos 侧表
   const sqliteReposToClose: Array<{ close(): void }> = [];
   const services = new ServiceCollection()
+    // 修复：78d487f0 删除营销链路时把相邻的 file/media-preview 注册一并删掉了。
+    // 缺少 `file` 会让远程 stdio server 不暴露该 channel（SSH 目录选择报
+    // "Unknown channel: file"），本地媒体预览也无注册实例。
+    .register(IFileService, fileService)
+    .register(IMediaPreviewService, mediaPreviewService)
     .register(IGitService, gitService)
     .register(IGitCheckpointService, gitCheckpointService)
     .register(ISvnService, svnService)

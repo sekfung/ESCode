@@ -13,6 +13,14 @@ export function createControlChannel(
     onLogBatch?: (batch: RustHostLogBatch) => void;
     onAuthorizeRequest?: (request: { requestId: string; path: string }) => void;
     onMainRequest?: (request: { requestId: string; method: string; params: unknown }) => void;
+    onHostEvent?: (event: unknown) => void;
+    onWorkspaceStartupState?: (state: {
+      startupId: string;
+      windowId: string;
+      workspaceKey: string;
+      generation: number;
+      state: unknown;
+    }) => void;
   },
 ) {
   let buffer = "";
@@ -44,6 +52,28 @@ export function createControlChannel(
         const { requestId, method, params } = message;
         if (typeof requestId === "string" && typeof method === "string") {
           handlers.onMainRequest?.({ requestId, method, params });
+        }
+        continue;
+      }
+      if (message.kind === "hostEvent") {
+        handlers.onHostEvent?.(message.event);
+        continue;
+      }
+      if (message.kind === "workspaceStartupState") {
+        const { startupId, windowId, workspaceKey, generation, state } = message;
+        if (
+          typeof startupId === "string" &&
+          typeof windowId === "string" &&
+          typeof workspaceKey === "string" &&
+          typeof generation === "number"
+        ) {
+          handlers.onWorkspaceStartupState?.({
+            startupId,
+            windowId,
+            workspaceKey,
+            generation,
+            state,
+          });
         }
         continue;
       }

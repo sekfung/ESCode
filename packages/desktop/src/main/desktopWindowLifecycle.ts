@@ -1,5 +1,6 @@
 import { getDatabaseStartupPortPayload } from "./databaseStartupRelay.js";
-import { attachRustHostWindow, type RustWindowAttachment } from "./desktopRustHostWindow.js";
+import { disposeRustHostWindow } from "./desktopRustHostWindow.js";
+import { attachRustWindowHostForDomReady } from "./desktopWindowRustHost.js";
 import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, Menu, MessageChannelMain } from "electron";
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
@@ -122,7 +123,6 @@ export function createWindow(options: {
   registerMainApplicationWindow(wcId);
   let domReadyGeneration = 0;
   let cancelRuntimeProcessEnvWait: (() => void) | null = null;
-  let rustAttachment: RustWindowAttachment | undefined;
   win.webContents.on("dom-ready", async () => {
     cancelRuntimeProcessEnvWait?.();
     cancelRuntimeProcessEnvWait = null;
@@ -136,13 +136,21 @@ export function createWindow(options: {
 
     // H2.3：Rust Host 模式下窗口只是一个 attachment；reload/close 都不停 Host。
     if (options.rustHostManager?.enabled) {
-      rustAttachment?.dispose();
-      rustAttachment = undefined;
+      disposeRustHostWindow(wcId);
       try {
-        const attachment = await attachRustHostWindow({
+        const attachment = await attachRustWindowHostForDomReady({
           win,
+          label,
           manager: options.rustHostManager,
           logger: options.logger,
+          ...(options.agentWarmupTargets ? { agentWarmupTargets: options.agentWarmupTargets } : {}),
+          ...(options.runtimeProcessEnvPatchPromise
+            ? { runtimeProcessEnvPatchPromise: options.runtimeProcessEnvPatchPromise }
+            : {}),
+          runtimeProcessEnvFallbackPatch: options.runtimeProcessEnvFallbackPatch,
+          ...(options.runtimeProcessEnvWaitTimeoutMs
+            ? { runtimeProcessEnvWaitTimeoutMs: options.runtimeProcessEnvWaitTimeoutMs }
+            : {}),
           onLost: () => {
             options.logger.warn(`[createWindow] Rust Host attachment lost (${label})`);
           },
@@ -151,7 +159,6 @@ export function createWindow(options: {
           attachment.dispose();
           return;
         }
-        rustAttachment = attachment;
         options.onHostProcessReady?.(wcId);
         options.syncAutoUpdaterStateToWindow(win);
         options.syncReadyUpdateToWindow(win);
@@ -294,8 +301,7 @@ export function createWindow(options: {
     unregisterMainApplicationWindow(wcId);
     cancelRuntimeProcessEnvWait?.();
     cancelRuntimeProcessEnvWait = null;
-    rustAttachment?.dispose();
-    rustAttachment = undefined;
+    disposeRustHostWindow(wcId);
     options.logger.info(`[createWindow] window closed, killing host process (${label})`);
     const child = options.windowHostProcessMap.get(wcId);
     if (child) {

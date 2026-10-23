@@ -87,6 +87,8 @@ pub(crate) struct InstanceState {
     requests: AtomicU64,
     /// ready/closed 的状态通知（等待方不再 20 ms 轮询；见 `instance_ready.rs`）。
     ready: watch::Sender<ready::ReadyState>,
+    /// 最近一次 `startup/storageState` 的完整 params（checking/ready/failed 及 migration 事实）。
+    startup: watch::Sender<Option<Value>>,
     /// 读端已关闭：此后的 `call` 立即失败。
     closed: AtomicBool,
     writer: tokio::sync::Mutex<link::RuntimeWriter>,
@@ -225,6 +227,7 @@ impl Instance {
             early: std::sync::Mutex::new(Some((Vec::new(), false))),
             requests: AtomicU64::new(1),
             ready: watch::channel(ready::ReadyState::Pending).0,
+            startup: watch::channel(None).0,
             closed: AtomicBool::new(false),
             writer: tokio::sync::Mutex::new(writer),
             link_lifecycle: tokio::sync::Mutex::new(lifecycle),

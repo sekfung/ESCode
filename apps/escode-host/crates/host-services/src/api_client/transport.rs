@@ -47,6 +47,7 @@ impl Transport for NetTransport {
         ))
         .await
         .map_err(|_| "network client unavailable".to_owned())?;
+        escode_cli_net::capture::record("GET", request.url.as_str());
         let mut builder = client.get(request.url);
         for (name, value) in &request.headers {
             builder = builder.header(name, value);

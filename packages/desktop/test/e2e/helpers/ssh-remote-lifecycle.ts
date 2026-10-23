@@ -449,7 +449,8 @@ export async function prepareSSHLifecycle(caseMarker: string): Promise<{
   const config = readSSHRuntimeConfig(caseMarker);
   await prepareV4ConversationE2E({ skipProvider: true });
   const initialHosts = await readHostProcesses();
-  expect(initialHosts).toHaveLength(1);
+  if (process.env.ESCODE_RUST_HOST === "1") expect(initialHosts.length).toBeGreaterThanOrEqual(1);
+  else expect(initialHosts).toHaveLength(1);
   const provider = await createSSHLifecycleProvider(config, caseMarker);
   return { config, initialHosts, provider };
 }

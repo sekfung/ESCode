@@ -883,6 +883,16 @@ export default {
       to: `tools/${toolId}`,
       filter: ["**/*"],
     })),
+    ...(existsSync(`bundled-tools/${targetPlatform.key}/escode-host`)
+      ? [
+          {
+            // App 级 Rust Host（H2.3）：安装包内 resources/escode-host/escode-host。
+            from: `bundled-tools/${targetPlatform.key}/escode-host`,
+            to: "escode-host",
+            filter: ["**/*"],
+          },
+        ]
+      : []),
   ],
   // postinstall 会先优先复用 node-pty 自带的 Windows 预编译产物，其他平台再按需 electron-rebuild。
   // 打包阶段统一复用安装时准备好的原生文件，避免 electron-builder 再触发一轮不受控的本地编译。

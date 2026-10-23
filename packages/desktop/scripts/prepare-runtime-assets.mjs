@@ -34,9 +34,11 @@ const shouldPrepareMacosWindowBounds = target.os === "darwin";
 // Rust runtime 默认随包（默认 runtime 已切到 Rust，见 docs/specs/rust-packaging.md）；ESCODE_BUNDLE_RUST_AGENT=0 可关闭，
 // 此时安装包只含 Node runtime，桌面端自动用 Node。
 const shouldPrepareRustAgent = process.env.ESCODE_BUNDLE_RUST_AGENT !== "0";
+const shouldPrepareRustHost = process.env.ESCODE_BUNDLE_RUST_HOST !== "0";
 const localRuntimeScripts = [
   "prepare:agent-bundle",
   ...(shouldPrepareRustAgent ? ["prepare:rust-agent"] : []),
+  ...(shouldPrepareRustHost ? ["prepare:rust-host"] : []),
   ...(shouldPrepareWindowsCuaHelper ? ["prepare:windows-cua-helper"] : []),
   ...(nativeSearchReleasePlan.enabled ? ["prepare:native-search"] : []),
   ...(shouldPrepareWindowsBrowserImportHelper ? ["prepare:browser-import-helper"] : []),

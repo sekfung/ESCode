@@ -4,7 +4,6 @@ import type { ChromiumProcessRolePids } from "./resourceManagerProcessRoles.js";
 import os from "node:os";
 import { join } from "node:path";
 import {
-  formatESCodeAgentProcessName,
   formatESCodeGpuProcessName,
   formatESCodeHostProcessName,
   formatESCodeMainProcessName,
@@ -16,7 +15,9 @@ import {
   type ESCodeProvider,
 } from "@escode/shared";
 import { logger } from "./logger.js";
+import { collectUnsampledAgentProcesses } from "./resourceManagerAgentRows.js";
 import { configureNetworkCaptureHost, observeNetworkWindow } from "./resourceManagerNetwork.js";
+import { collectExternalHostProcesses, externalHostRows } from "./resourceManagerExternalHosts.js";
 import { normalizeElectronCpuToMachinePercent } from "./electronCpuNormalization.js";
 import { buildAuxiliaryRendererName } from "./resourceManagerProcessNames.js";
 import {
@@ -408,6 +409,10 @@ function collectElectronProcesses(): ResourceUsageProcess[] {
       baseProcess(child.pid, formatESCodeHostProcessName(label), "host", cpuPercent, memoryBytes),
     );
   }
+  // Rust Host 不在 Electron app metrics 中；用采样行兜底（pid 去重在下游完成）。
+  for (const host of externalHostRows()) {
+    push(baseProcess(host.pid, formatESCodeHostProcessName(host.label), "host", 0, 0));
+  }
 
   for (const m of metrics) {
     if (assigned.has(m.pid)) continue;
@@ -429,35 +434,13 @@ function collectElectronProcesses(): ResourceUsageProcess[] {
 }
 
 async function collectHostProcesses(signal?: AbortSignal): Promise<HostResourceUsageProcess[]> {
-  const results = await Promise.all(
-    [...hostProcesses].map(([label, child]) =>
+  const results = await Promise.all([
+    ...[...hostProcesses].map(([label, child]) =>
       child.pid != null ? requestHostResourceUsage(label, child, undefined, signal) : [],
     ),
-  );
+    collectExternalHostProcesses(signal),
+  ]);
   return results.flat();
-}
-
-/** Agent 注册表兜底：Host 还没回报的 Agent 也要出现在列表里（指标未采到） */
-function collectUnsampledAgentProcesses(sampledPids: Set<number>): ResourceUsageProcess[] {
-  const rows: ResourceUsageProcess[] = [];
-  for (const processes of hostAgentProcesses.values()) {
-    for (const agent of [...processes.values()].sort(
-      (left, right) => left.startedAt - right.startedAt,
-    )) {
-      if (sampledPids.has(agent.pid)) continue;
-      rows.push({
-        pid: agent.pid,
-        name: formatESCodeAgentProcessName(agent.provider, agent.workspacePath),
-        category: "base",
-        groupKey: "cli",
-        groupLabel: "cli",
-        cpuPercent: 0,
-        memoryBytes: 0,
-        sampled: false,
-      });
-    }
-  }
-  return rows;
 }
 
 const systemCpuMeter = createSystemCpuMeter();
@@ -470,14 +453,18 @@ export async function buildResourceUsageSnapshot(
   const hostRows = options.includeHosts === false ? [] : await collectHostProcesses(options.signal);
 
   const electronPids = new Set(electronProcesses.map((row) => row.pid));
+  const seenPids = new Set(electronPids);
   const processes: ResourceUsageProcess[] = [...electronProcesses];
   for (const row of hostRows) {
     // Host 子树里会再次看到 Host 自身之外的 Electron 进程吗？不会（它们都是 main 的子进程），
     // 但 pid 复用等极端情况下仍按 Electron 指标优先。
-    if (electronPids.has(row.pid)) continue;
+    if (seenPids.has(row.pid)) continue;
+    seenPids.add(row.pid);
     processes.push({ ...row, sampled: true });
   }
-  processes.push(...collectUnsampledAgentProcesses(new Set(processes.map((row) => row.pid))));
+  processes.push(
+    ...collectUnsampledAgentProcesses(hostAgentProcesses, new Set(processes.map((row) => row.pid))),
+  );
 
   const appTotals = processes.reduce(
     (total, row) => ({

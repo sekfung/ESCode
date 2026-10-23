@@ -97,6 +97,7 @@ impl JsonGet for HttpGet {
         ))
         .await
         .map_err(|_| "network client unavailable".to_owned())?;
+        escode_cli_net::capture::record("GET", url.as_str());
         let mut response = client
             .get(url.clone())
             .send()

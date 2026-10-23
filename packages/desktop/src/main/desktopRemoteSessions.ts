@@ -92,6 +92,11 @@ export function createRemoteWorkspaceSessionManager(options: {
     error: (...args: unknown[]) => void;
   };
   windowHostProcessMap: Map<number, ElectronUtilityProcess>;
+  /**
+   * H2.3：本地窗口由 Rust Host 承载时，远程 workspace 仍需要 per-window Node Host。
+   * 首次 Connect/Bind 时懒创建并写回 `windowHostProcessMap`（显式所有权，不静默回退）。
+   */
+  ensureWindowHost?: (win: BrowserWindow) => Promise<ElectronUtilityProcess>;
   resolveRemoteAssetDirs: () => RemoteAssetDirs;
   resolveWslTarget?: (
     target: Extract<RemoteTarget, { kind: "wsl" }>,
@@ -117,7 +122,20 @@ export function createRemoteWorkspaceSessionManager(options: {
     return `${webContentsId}\0${requestId}`;
   }
 
-  function getWindowHost(win: BrowserWindow): ElectronUtilityProcess {
+  async function getWindowHost(win: BrowserWindow): Promise<ElectronUtilityProcess> {
+    let child = options.windowHostProcessMap.get(win.webContents.id);
+    if ((!child || child.pid == null) && options.ensureWindowHost) {
+      child = await options.ensureWindowHost(win);
+      options.windowHostProcessMap.set(win.webContents.id, child);
+    }
+    if (!child || child.pid == null) {
+      throw new Error(`未找到窗口 Local Host，windowId=${win.webContents.id}`);
+    }
+    ensureHostListener(child, win.webContents.id);
+    return child;
+  }
+
+  function getWindowHostSync(win: BrowserWindow): ElectronUtilityProcess {
     const child = options.windowHostProcessMap.get(win.webContents.id);
     if (!child || child.pid == null) {
       throw new Error(`未找到窗口 Local Host，windowId=${win.webContents.id}`);
@@ -186,7 +204,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     if (win.isDestroyed() || win.webContents.isDestroyed()) {
       throw new Error("窗口已关闭，无法 attachment 远程 workspace");
     }
-    const child = getWindowHost(win);
+    const child = await getWindowHost(win);
     const descriptor = route.descriptor;
     if (!descriptor.workspacePath || !descriptor.workspaceIdentity) {
       throw new Error(
@@ -593,7 +611,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     if (appShutdownStarted) {
       throw new Error("应用正在退出，无法创建远程工作区连接");
     }
-    const child = getWindowHost(win);
+    const child = await getWindowHost(win);
     const resolvedTarget =
       target.kind === "wsl" && options.resolveWslTarget
         ? await options.resolveWslTarget(target)
@@ -801,7 +819,7 @@ export function createRemoteWorkspaceSessionManager(options: {
         code: "REMOTE_WORKSPACE_IDENTITY_MISMATCH" as const,
       });
     }
-    const process = getWindowHost(win);
+    const process = getWindowHostSync(win);
     const { port1, port2 } = createMessageChannel();
     process.postMessage(
       {

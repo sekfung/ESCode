@@ -132,6 +132,7 @@ escode-host-surface.workspace = true
 escode-host-rpc.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-core-api.workspace = true
+escode-cli-net.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

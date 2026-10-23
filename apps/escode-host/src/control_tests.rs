@@ -48,6 +48,29 @@ fn runtime_env_from_main_reaches_the_instance_snapshot() {
 }
 
 #[test]
+fn window_patch_overrides_host_env_and_identity_wins() {
+    let base = BTreeMap::from([
+        ("PATH".to_owned(), "/usr/bin:/bin".to_owned()),
+        (
+            "ESCODE_WORKSPACE_IDENTITY".to_owned(),
+            "from-main".to_owned(),
+        ),
+    ]);
+    let patch = BTreeMap::from([
+        ("PATH".to_owned(), "/window/bin:/usr/bin:/bin".to_owned()),
+        ("ESCODE_WINDOW_PATCH".to_owned(), "1".to_owned()),
+    ]);
+    let options = runtime_options_with_patch(&workspace(Some("id")), &base, Some(&patch));
+    assert_eq!(options.env["PATH"], "/window/bin:/usr/bin:/bin");
+    assert_eq!(options.env["ESCODE_WINDOW_PATCH"], "1");
+    assert_eq!(options.env["ESCODE_WORKSPACE_IDENTITY"], "id");
+
+    let without_patch = runtime_options_with_patch(&workspace(Some("id")), &base, None);
+    assert_eq!(without_patch.env["PATH"], "/usr/bin:/bin");
+    assert!(!without_patch.env.contains_key("ESCODE_WINDOW_PATCH"));
+}
+
+#[test]
 fn legacy_entry_adds_only_the_workspace_identity() {
     let options = runtime_options(&workspace(Some("id")));
     assert_eq!(options.legacy_import, LegacyImport::Implicit);

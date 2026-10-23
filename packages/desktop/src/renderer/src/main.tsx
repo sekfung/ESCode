@@ -158,6 +158,88 @@ const appRoot =
   windowKind === "update-status" ? null : createRoot(document.getElementById("root")!);
 const sendStartupControl = (control: DatabaseStartupControl) =>
   window.postMessage({ type: InternalChannels.DatabaseStartupControl, control }, "*");
+
+// Main 在窗口 attach 完成后才注册 snapshot 监听，而该注册可能晚于本次模块执行；
+// 单次 snapshot 丢失会让页面永久停在 loading（Rust Host ready 越快越容易命中）。
+// 业务根接管前按固定间隔重试，确保 Main 的首次投递窗口与 renderer 监听就绪解耦。
+let startupSnapshotTimer: ReturnType<typeof setTimeout> | undefined;
+const STARTUP_SNAPSHOT_RETRY_MS = 250;
+const STARTUP_SNAPSHOT_MAX_ATTEMPTS = 120;
+let startupSnapshotAttempts = 0;
+function requestStartupSnapshot(): void {
+  if (appInitialized) return;
+  sendStartupControl({ action: "snapshot" });
+  if (startupSnapshotAttempts >= STARTUP_SNAPSHOT_MAX_ATTEMPTS) return;
+  startupSnapshotAttempts += 1;
+  startupSnapshotTimer = setTimeout(requestStartupSnapshot, STARTUP_SNAPSHOT_RETRY_MS);
+}
+function stopStartupSnapshotRetry(): void {
+  if (startupSnapshotTimer) clearTimeout(startupSnapshotTimer);
+  startupSnapshotTimer = undefined;
+}
+
+let hostRecoveryOverlay: HTMLDivElement | null = null;
+function hideHostRecoveryOverlay(): void {
+  hostRecoveryOverlay?.remove();
+  hostRecoveryOverlay = null;
+}
+/** Host 重启/放弃时的最小恢复页；ready 后 reload 以重建已断开的服务连接。 */
+function showHostRecoveryOverlay(phase: "restarting" | "failed", errorCode?: string): void {
+  if (!hostRecoveryOverlay) {
+    const overlay = document.createElement("div");
+    overlay.id = "escode-host-recovery";
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.72);color:#f8fafc;font:14px/1.6 system-ui,sans-serif;padding:24px";
+    const panel = document.createElement("div");
+    panel.style.cssText =
+      "max-width:480px;width:100%;border:1px solid rgba(148,163,184,.35);border-radius:12px;background:#0f172a;padding:24px";
+    panel.dataset.role = "content";
+    overlay.append(panel);
+    document.body.append(overlay);
+    hostRecoveryOverlay = overlay;
+  }
+  const zh = initialLocale === "zh-CN";
+  const panel = hostRecoveryOverlay.querySelector('[data-role="content"]') as HTMLElement;
+  panel.replaceChildren();
+  const title = document.createElement("div");
+  title.style.cssText = "font-size:16px;font-weight:600;margin-bottom:8px";
+  title.textContent =
+    phase === "failed"
+      ? zh
+        ? "Host 未能重启"
+        : "Host could not restart"
+      : zh
+        ? "正在重启 Host…"
+        : "Restarting Host…";
+  const body = document.createElement("div");
+  body.style.cssText = "color:#cbd5e1;margin-bottom:16px";
+  body.textContent =
+    phase === "failed"
+      ? (errorCode ?? "transport_closed")
+      : zh
+        ? "本地服务暂时不可用，恢复后会自动重新连接。"
+        : "Local services are temporarily unavailable. The window will reconnect automatically.";
+  panel.append(title, body);
+  if (phase === "failed") {
+    const retry = document.createElement("button");
+    retry.textContent = zh ? "重试" : "Retry";
+    retry.style.cssText =
+      "margin-right:8px;border:0;border-radius:8px;padding:8px 14px;background:#2563eb;color:white;cursor:pointer";
+    retry.onclick = () => {
+      sendStartupControl({
+        action: "retry",
+        attemptId: databaseStartupAdmission.state?.attemptId ?? "",
+      });
+      showHostRecoveryOverlay("restarting");
+    };
+    const exit = document.createElement("button");
+    exit.textContent = zh ? "退出" : "Exit";
+    exit.style.cssText =
+      "border:1px solid rgba(148,163,184,.5);border-radius:8px;padding:8px 14px;background:transparent;color:#f8fafc;cursor:pointer";
+    exit.onclick = () => sendStartupControl({ action: "exit" });
+    panel.append(retry, exit);
+  }
+}
 function renderDatabaseStartup(): void {
   appRoot?.render(
     <AppErrorBoundary isDesktop isMacDesktop={isMacDesktop} isWindowsDesktop={isWindowsDesktop}>
@@ -257,8 +339,25 @@ function StartupReadyNotifier() {
 function handleServicePortMessage(event: MessageEvent): void {
   if (event.source === window && event.data?.type === InternalChannels.DatabaseStartupState) {
     const result = databaseStartupStateSchema.safeParse(event.data.state);
-    if (!result.success || appInitialized) return;
+    if (!result.success) return;
     const next = result.data;
+    if (appInitialized) {
+      // Host 重启/放弃：业务根已挂载，不能走首次启动 admission；显示恢复页并在 ready 后重建连接。
+      if (next.phase === "preparing_session_storage") {
+        showHostRecoveryOverlay("restarting");
+        return;
+      }
+      if (next.phase === "failed") {
+        showHostRecoveryOverlay("failed", next.errorCode);
+        return;
+      }
+      if (next.phase === "ready" && hostRecoveryOverlay) {
+        hideHostRecoveryOverlay();
+        window.location.reload();
+        return;
+      }
+      return;
+    }
     if (!databaseStartupAdmission.acceptState(next)) return;
     if (firstStartupStateTimer) clearTimeout(firstStartupStateTimer);
     renderDatabaseStartup();
@@ -298,6 +397,7 @@ function handleServicePortMessage(event: MessageEvent): void {
 
 function initializeBusinessRoot(port: MessagePort): void {
   appInitialized = true;
+  stopStartupSnapshotRetry();
   const services = connectViaMessagePort(port);
   baseServicesForRemoteSessions = services;
   registerBaseWorkspaceServices(services);
@@ -338,7 +438,7 @@ function initializeBusinessRoot(port: MessagePort): void {
 window.addEventListener("message", handleServicePortMessage);
 if (windowKind !== "update-status") {
   renderDatabaseStartup();
-  sendStartupControl({ action: "snapshot" });
+  requestStartupSnapshot();
 }
 
 if (windowKind === "update-status") {

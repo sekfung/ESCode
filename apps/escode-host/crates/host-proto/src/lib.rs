@@ -242,6 +242,34 @@ mod contract_drift {
             ControlMessage::SettingsValue {
                 settings: serde_json::Value::Null,
             },
+            ControlMessage::HostEvent {
+                event: serde_json::Value::Null,
+            },
+            ControlMessage::WorkspacePrepare {
+                startup_id: String::new(),
+                window_id: String::new(),
+                workspace: Default::default(),
+                runtime_env_patch: None,
+            },
+            ControlMessage::WorkspaceStartupRetry {
+                startup_id: String::new(),
+                window_id: String::new(),
+                workspace: Default::default(),
+            },
+            ControlMessage::WorkspaceStartupState {
+                startup_id: String::new(),
+                window_id: String::new(),
+                workspace_key: String::new(),
+                generation: 0,
+                state: serde_json::Value::Null,
+            },
+            ControlMessage::ResourceUsageSnapshotRequest {
+                request_id: String::new(),
+            },
+            ControlMessage::ResourceUsageSnapshotCancel {
+                request_id: String::new(),
+            },
+            ControlMessage::NetworkCapture { capture_id: None },
         ];
         // settings 域的消息在清单里单独分通道登记，这里只看 control 通道。
         let settings_kinds: std::collections::BTreeSet<&str> =

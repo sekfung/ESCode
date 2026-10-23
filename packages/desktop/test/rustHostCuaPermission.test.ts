@@ -3,8 +3,8 @@ import { existsSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { ChannelClient, Emitter, SocketProtocol, VSBuffer } from "@escode/rpc";
-import { connectViaProtocol } from "@escode/client";
+import { ChannelClient, MessagePortProtocol } from "@escode/rpc";
+import { connectViaMessagePort } from "@escode/client";
 import {
   bridgeRustHostPort,
   startRustHost,
@@ -46,7 +46,7 @@ describe("rust host cua-permission channel", () => {
 
       const [rendererPort, mainPort] = createPortPair();
       const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
-      const services = connectViaProtocol(new SocketProtocol(wrapPort(rendererPort)));
+      const services = connectViaMessagePort(asMessagePort(rendererPort));
 
       await expect(
         services.cuaPermissionService.getStatus("/w", "id", {
@@ -87,7 +87,7 @@ describe("rust host cua-permission channel", () => {
       });
       const [rendererPort, mainPort] = createPortPair();
       const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
-      const client = new ChannelClient(new SocketProtocol(wrapPort(rendererPort)));
+      const client = new ChannelClient(new MessagePortProtocol(asMessagePort(rendererPort)));
       await expect(client.getChannel("cua-permission").call("getStatus", "/w")).rejects.toThrow(
         /mainServices/,
       );
@@ -119,28 +119,24 @@ function createPortPair(): [HostPortLike, HostPortLike] {
   return [portA, portB];
 }
 
-function wrapPort(port: HostPortLike) {
-  const onData = new Emitter<VSBuffer>();
-  const onClose = new Emitter<void>();
-  const onEnd = new Emitter<void>();
+/** Renderer 侧是 `MessagePortProtocol`（无帧）；桥接层负责 SocketProtocol 帧转换。 */
+function asMessagePort(port: HostPortLike) {
+  const listeners: Array<(event: { data: unknown }) => void> = [];
   port.on("message", (event: { data?: unknown } | unknown) => {
-    onData.fire(VSBuffer.wrap(toBytes(extract(event))));
+    for (const listener of listeners) listener({ data: extract(event) });
   });
   port.start?.();
   return {
-    onData: onData.event,
-    onClose: onClose.event,
-    onEnd: onEnd.event,
-    write(buffer: VSBuffer) {
-      port.postMessage(buffer.buffer);
+    addEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      listeners.push(listener);
     },
-    end() {
-      port.close();
+    removeEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      const index = listeners.indexOf(listener);
+      if (index >= 0) listeners.splice(index, 1);
     },
-    drain: async () => undefined,
-    dispose() {
-      port.close();
-    },
+    postMessage: (value: unknown) => port.postMessage(value),
+    start: () => undefined,
+    close: () => port.close?.(),
   } as never;
 }
 
@@ -148,13 +144,4 @@ function extract(event: { data?: unknown } | unknown): unknown {
   return event && typeof event === "object" && "data" in event
     ? (event as { data?: unknown }).data
     : event;
-}
-
-function toBytes(value: unknown): Uint8Array {
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  if (Buffer.isBuffer(value)) return new Uint8Array(value);
-  throw new Error(`unexpected port payload: ${typeof value}`);
 }

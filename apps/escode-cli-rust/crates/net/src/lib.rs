@@ -11,6 +11,8 @@
 //! 系统证书读取含阻塞 IO：客户端构建一律经受管阻塞线程（`Spawner::current().spawn_blocking`），
 //! 不阻塞 stdio actor 的启动与取消。
 
+pub mod capture;
+
 use std::time::Duration;
 
 use anyhow::Result;

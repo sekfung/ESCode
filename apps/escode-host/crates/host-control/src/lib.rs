@@ -132,6 +132,40 @@ pub enum ControlMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+    /// Host→Main：Main 本地的 Host 事实（资源采样、网络捕获、agent 生命周期、CUA 状态）。
+    /// `event.type` 复用共享 `HostResponseTypes` 标签，Main 用现有 schema 校验。
+    HostEvent { event: serde_json::Value },
+    /// Main→Host：为一个窗口准备 workspace 实例（真实 storageState 与窗口级 env patch）。
+    WorkspacePrepare {
+        startup_id: String,
+        window_id: String,
+        workspace: WorkspaceDescriptor,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        runtime_env_patch: Option<std::collections::BTreeMap<String, String>>,
+    },
+    /// Main→Host：重试一次 workspace 启动（关掉现有实例，下一次 get 重新开）。
+    WorkspaceStartupRetry {
+        startup_id: String,
+        window_id: String,
+        workspace: WorkspaceDescriptor,
+    },
+    /// Host→Main：实例的真实 `startup/storageState`（含 migration 事实）。
+    WorkspaceStartupState {
+        startup_id: String,
+        window_id: String,
+        workspace_key: String,
+        generation: u64,
+        state: serde_json::Value,
+    },
+    /// Main→Host：资源管理器请求一次 host 进程采样。
+    ResourceUsageSnapshotRequest { request_id: String },
+    /// Main→Host：取消进行中的采样。
+    ResourceUsageSnapshotCancel { request_id: String },
+    /// Main→Host：开启/停止网络捕获（`None` = 停止）。
+    NetworkCapture {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        capture_id: Option<String>,
+    },
 }
 
 impl ControlMessage {
@@ -160,6 +194,13 @@ impl ControlMessage {
             Self::LocalMediaPreviewAuthorized { .. } => "localMediaPreviewAuthorized",
             Self::MainRequest { .. } => "mainRequest",
             Self::MainResponse { .. } => "mainResponse",
+            Self::HostEvent { .. } => "hostEvent",
+            Self::WorkspacePrepare { .. } => "workspacePrepare",
+            Self::WorkspaceStartupRetry { .. } => "workspaceStartupRetry",
+            Self::WorkspaceStartupState { .. } => "workspaceStartupState",
+            Self::ResourceUsageSnapshotRequest { .. } => "resourceUsageSnapshotRequest",
+            Self::ResourceUsageSnapshotCancel { .. } => "resourceUsageSnapshotCancel",
+            Self::NetworkCapture { .. } => "networkCapture",
         }
     }
 }

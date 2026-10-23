@@ -16,6 +16,11 @@ pub(super) enum ReadyState {
 }
 
 impl InstanceState {
+    /// 记录完整的 `startup/storageState` params（供 WorkspacePrepare 订阅真实启动门）。
+    pub(super) fn mark_startup(&self, params: serde_json::Value) {
+        self.startup.send_replace(Some(params));
+    }
+
     /// 帧泵收到 ready 帧：只在仍为 `Pending` 时转为 `Ready`（`Closed` 不可逆）。
     pub(super) fn mark_ready(&self) {
         self.ready.send_if_modified(|state| {
@@ -35,6 +40,16 @@ impl InstanceState {
 }
 
 impl Instance {
+    /// 当前（或最近一次）`startup/storageState` 的完整 params。
+    pub fn startup_state(&self) -> Option<serde_json::Value> {
+        self.state.startup.borrow().clone()
+    }
+
+    /// 订阅 `startup/storageState`；首个值即当前快照。
+    pub fn subscribe_startup(&self) -> tokio::sync::watch::Receiver<Option<serde_json::Value>> {
+        self.state.startup.subscribe()
+    }
+
     /// 等运行时报到（`startup/storageState` phase=ready）；实例退出即提前返回 false。
     pub async fn wait_ready(&self, timeout: Duration) -> bool {
         let deadline = tokio::time::Instant::now() + timeout;

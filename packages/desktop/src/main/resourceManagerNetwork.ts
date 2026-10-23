@@ -12,6 +12,21 @@ let ownerId: number | null = null;
 let currentHosts: (() => Iterable<UtilityProcess>) | null = null;
 let disposers: Array<() => void> = [];
 
+const externalNetworkSenders = new Set<(captureId: string | null) => void>();
+
+/** 非 Electron utility Host（Rust Host）的捕获开关；返回注销函数。 */
+export function registerExternalNetworkCaptureHost(
+  send: (captureId: string | null) => void,
+): () => void {
+  externalNetworkSenders.add(send);
+  if (captureId) send(captureId);
+  return () => externalNetworkSenders.delete(send);
+}
+
+function notifyExternalHosts(): void {
+  for (const send of externalNetworkSenders) send(captureId);
+}
+
 export function configureNetworkCaptureHost(child: UtilityProcess): void {
   if (!captureId) return;
   sendControl(child);
@@ -67,6 +82,7 @@ export function startResourceManagerNetwork(
     );
   }
   for (const host of hosts()) configureNetworkCaptureHost(host);
+  notifyExternalHosts();
 }
 
 export function stopResourceManagerNetwork(hosts: Iterable<UtilityProcess>): void {
@@ -79,6 +95,7 @@ export function stopResourceManagerNetwork(hosts: Iterable<UtilityProcess>): voi
   disposers = [];
   buffer.stop();
   for (const host of hosts) sendControl(host);
+  notifyExternalHosts();
 }
 
 export function observeNetworkWindow(
@@ -116,5 +133,6 @@ export function registerResourceManagerNetworkIpc(): void {
     buffer.start(captureId);
     nodeCapture.setCaptureId(captureId);
     for (const host of currentHosts?.() ?? []) configureNetworkCaptureHost(host);
+    notifyExternalHosts();
   });
 }

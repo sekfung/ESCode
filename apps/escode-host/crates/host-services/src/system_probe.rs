@@ -220,6 +220,7 @@ async fn service_probe(
     )
     .await
     .map_err(|error| format!("{error:#}"))?;
+    escode_cli_net::capture::record("GET", url);
     let mut request = client.get(url);
     if let Some(token) = token {
         request = request.header("x-zcode-intranet-token", token);

@@ -36,8 +36,10 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     const identity = buildRemoteWorkspaceIdentity(workspacePath, target);
 
     await prepareV4ConversationE2E({ skipProvider: true });
+    const rustMode = process.env.ESCODE_RUST_HOST === "1";
     const initialHosts = await readHostProcesses();
-    expect(initialHosts).toHaveLength(1);
+    if (rustMode) expect(initialHosts.length).toBeGreaterThanOrEqual(1);
+    else expect(initialHosts).toHaveLength(1);
 
     await openSSHRemoteDialog(CASE_MARKER);
     const invalidPassword = `${config.password}-e2e-invalid`;
@@ -50,7 +52,15 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     expect(errorText).not.toContain(config.password);
     expect(errorText).not.toContain(invalidPassword);
     expect((await readRemoteTabSnapshot(identity)).remoteSessionId).toBeNull();
-    expect(await readHostProcesses()).toEqual(initialHosts);
+    if (rustMode) {
+      // 首次远程尝试仍会懒创建 per-window Node Host；认证失败只丢弃 logical session，
+      // Host 作为窗口级资源保留给后续连接复用，不随失败销毁。
+      const hostsAfterFailure = await readHostProcesses();
+      expect(hostsAfterFailure).toEqual(expect.arrayContaining(initialHosts));
+      expect(hostsAfterFailure.length).toBe(initialHosts.length + 1);
+    } else {
+      expect(await readHostProcesses()).toEqual(initialHosts);
+    }
 
     await closeSSHDialogAfterFailure();
     await openSSHRemoteDialog(CASE_MARKER);
@@ -68,7 +78,14 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     expect(tab.remoteKind).toBe("ssh");
     expect(tab.remoteHost).toBe(config.host);
     expect(tab.secretPersistedInTab).toBe(false);
-    expect(await readHostProcesses()).toEqual(initialHosts);
+    const hostsAfterConnect = await readHostProcesses();
+    if (rustMode) {
+      // 本地窗口是 Rust Host；远程连接额外懒创建一个 per-window Node Host。
+      expect(hostsAfterConnect.length).toBe(initialHosts.length + 1);
+      expect(hostsAfterConnect).toEqual(expect.arrayContaining(initialHosts));
+    } else {
+      expect(hostsAfterConnect).toEqual(initialHosts);
+    }
   });
 });
 

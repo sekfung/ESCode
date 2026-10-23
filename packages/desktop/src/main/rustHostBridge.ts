@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { WebSocket, type RawData } from "ws";
+import { ProtocolMessageType } from "@escode/rpc";
 
 // dev 开关：`ESCODE_RUST_HOST=1` 时窗口的本地 Host 通路由 Electron utility process
 // 切到 Rust Host（docs/specs/rust-u2-host-skeleton.md §6）。切换点是 Main 的
@@ -33,6 +34,7 @@ export type RustHostStartErrorCode =
 import { answerAuthorize, answerMainRequest } from "./rustHostControlReplies.js";
 
 import { createControlChannel } from "./rustHostControlChannel.js";
+import { logger } from "./logger.js";
 export type RustHostStartStage = "hostReady" | "rpcListening";
 
 /** 带分类的 Rust Host 启动错误（调用方按 `code` 决定呈现，不解析文案）。 */
@@ -79,6 +81,8 @@ export interface RustHostHandle {
   readonly secret: string;
   /** 收口：先关控制通道（Host 收口实例与传输面），再必要时杀进程。 */
   stop(): Promise<void>;
+  /** 发一条控制消息（workspace prepare / 采样 / 网络捕获等）；顺序即写入顺序。 */
+  send(message: Record<string, unknown>): void;
 }
 
 /** `ESCODE_RUST_HOST` 是否为真（`1`/`true`；`0`/`false`/空一律关闭）。 */
@@ -127,6 +131,16 @@ export interface StartRustHostOptions {
    * Host 经控制通道发 `mainRequest`；缺省 = 旧 Main，相关 channel 回显式缺口。
    */
   onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
+  /** Host 本地的 Host 事实（资源采样、网络捕获、agent 生命周期、CUA 状态）。 */
+  onHostEvent?: (event: unknown) => void;
+  /** 实例真实 `startup/storageState`（WorkspacePrepare 后逐条上报）。 */
+  onWorkspaceStartupState?: (state: {
+    startupId: string;
+    windowId: string;
+    workspaceKey: string;
+    generation: number;
+    state: unknown;
+  }) => void;
 }
 
 /** Host 侧一条日志批次（`ControlMessage::LogBatch`）。 */
@@ -197,6 +211,8 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
     onMainRequest: options.onMainRequest
       ? (request) => answerMainRequest(child, request, options.onMainRequest!)
       : undefined,
+    onHostEvent: options.onHostEvent,
+    onWorkspaceStartupState: options.onWorkspaceStartupState,
   });
   const timeoutMs = options.timeoutMs ?? 10_000;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -260,6 +276,10 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
         if (exit) listener(exit);
         else exitListeners.push(listener);
       },
+      send(message) {
+        if (exit) return;
+        child.stdin.write(`${JSON.stringify(message)}\n`);
+      },
       async stop() {
         if (exit) return;
         child.stdin.end();
@@ -319,9 +339,41 @@ export function bridgeRustHostPort(
   port: HostPortLike,
   clientMode: RustHostClientMode,
 ): () => void {
+  // Rust Host 的 RPC WebSocket 使用 `@escode/rpc` 的 SocketProtocol 帧
+  // （13 字节头：type/id/ack/length），而窗口 MessagePort 使用无帧的
+  // MessagePortProtocol。这里必须转帧；直接字节透传会让 renderer 把帧头
+  // 当成消息内容，ChannelClient 永远收不到 Initialize。
+  const PROTOCOL_HEADER_SIZE = 13;
   const queue: Buffer[] = [];
+  let inbound = Buffer.alloc(0);
   let closed = false;
   let socket: WebSocket | null = null;
+
+  const frameForSocket = (payload: Buffer): Buffer => {
+    const frame = Buffer.allocUnsafe(PROTOCOL_HEADER_SIZE + payload.length);
+    frame.writeUInt8(ProtocolMessageType.Regular, 0);
+    frame.writeUInt32BE(0, 1);
+    frame.writeUInt32BE(0, 5);
+    frame.writeUInt32BE(payload.length, 9);
+    payload.copy(frame, PROTOCOL_HEADER_SIZE);
+    return frame;
+  };
+
+  const deliverSocketChunk = (chunk: Buffer): void => {
+    inbound = inbound.length === 0 ? chunk : Buffer.concat([inbound, chunk]);
+    while (inbound.length >= PROTOCOL_HEADER_SIZE) {
+      const type = inbound.readUInt8(0);
+      const length = inbound.readUInt32BE(9);
+      const total = PROTOCOL_HEADER_SIZE + length;
+      // body 未到齐时不能提前消费 header（与 SocketProtocol.readMessages 同语义）。
+      if (inbound.length < total) return;
+      const payload = inbound.subarray(PROTOCOL_HEADER_SIZE, total);
+      inbound = inbound.subarray(total);
+      if (type === ProtocolMessageType.Regular) {
+        port.postMessage(length === 0 ? Buffer.alloc(0) : Buffer.from(payload));
+      }
+    }
+  };
 
   const teardown = () => {
     closed = true;
@@ -335,8 +387,9 @@ export function bridgeRustHostPort(
   port.on("message", (event: { data?: unknown } | unknown) => {
     if (closed) return;
     const payload = toBuffer(extractPortData(event));
-    if (socket?.readyState === WebSocket.OPEN) socket.send(payload);
-    else queue.push(payload);
+    const frame = frameForSocket(payload);
+    if (socket?.readyState === WebSocket.OPEN) socket.send(frame);
+    else queue.push(frame);
   });
   port.start?.();
   void issueRustHostCapability(handle)
@@ -349,19 +402,42 @@ export function bridgeRustHostPort(
       socket = opened;
       opened.binaryType = "nodebuffer";
       opened.on("open", () => {
+        logger.info(`[rust-host] attachment websocket open (${path})`);
         while (queue.length > 0) {
           const next = queue.shift();
           if (next) opened.send(next);
         }
       });
+      opened.on("unexpected-response", (_request, response) => {
+        logger.warn(
+          `[rust-host] attachment websocket rejected (HTTP ${String(response.statusCode)})`,
+        );
+        teardown();
+      });
       opened.on("message", (data: RawData) => {
         if (closed) return;
-        port.postMessage(toBuffer(data));
+        deliverSocketChunk(toBuffer(data));
       });
-      opened.on("close", teardown);
-      opened.on("error", teardown);
+      opened.on("close", (code: number, reason: Buffer) => {
+        if (!closed) {
+          logger.warn(
+            `[rust-host] attachment websocket closed (${String(code)}) ${reason.toString()}`,
+          );
+        }
+        teardown();
+      });
+      opened.on("error", (error: Error) => {
+        logger.warn("[rust-host] attachment websocket failed", error.message);
+        teardown();
+      });
     })
-    .catch(teardown);
+    .catch((error: unknown) => {
+      logger.warn(
+        "[rust-host] attachment capability failed",
+        error instanceof Error ? error.message : error,
+      );
+      teardown();
+    });
   return teardown;
 }
 

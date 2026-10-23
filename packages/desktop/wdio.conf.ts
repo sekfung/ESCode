@@ -2978,6 +2978,10 @@ export const config: WebdriverIO.Config = {
     ESCODE_E2E_DEFER_APP_DATA_CLEANUP: "1",
     ESCODE_E2E_RUN_ID: E2E_RUN_ID,
     ESCODE_ENV: "test",
+    ...(process.env.ESCODE_RUST_HOST ? { ESCODE_RUST_HOST: process.env.ESCODE_RUST_HOST } : {}),
+    ...(process.env.ESCODE_RUST_HOST_BINARY
+      ? { ESCODE_RUST_HOST_BINARY: process.env.ESCODE_RUST_HOST_BINARY }
+      : {}),
     ...requestSecurityEndpointEnv(e2eProviderPresetName, upstreamE2EHttpMode),
     ...(process.env.ESCODE_TELEMETRY_PARITY_CAPTURE_PATH?.trim()
       ? {

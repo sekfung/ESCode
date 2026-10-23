@@ -18,16 +18,37 @@ export interface EnsureSshRemoteReleaseAssetsOptions {
 }
 
 // 与 scripts/prepare-prebuilds.mjs 的 remotePlatforms 保持一致：manifest-<platform>.json 是
-// prepare 流程的最后一步产出，四份齐全即代表该版本 release 完整（平台清单变更需同步这里）。
-const REMOTE_RELEASE_PLATFORMS = [
+// prepare 流程的最后一步产出，齐全即代表该版本 release 完整。E2E 只跑当前平台时可用
+// ESCODE_REMOTE_ASSET_PLATFORMS 限定，避免为不参与本次运行的三平台准备产物。
+const ALL_REMOTE_RELEASE_PLATFORMS = [
   "linux-arm64",
   "linux-x64",
   "darwin-arm64",
   "darwin-x64",
 ] as const;
 
+function resolveReleasePlatforms(): readonly string[] {
+  const raw =
+    process.env.ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS?.trim() ||
+    process.env.ESCODE_REMOTE_ASSET_PLATFORMS?.trim();
+  if (!raw) return ALL_REMOTE_RELEASE_PLATFORMS;
+  const requested = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const unsupported = requested.filter(
+    (entry) => !ALL_REMOTE_RELEASE_PLATFORMS.includes(entry as never),
+  );
+  if (requested.length === 0 || unsupported.length > 0) {
+    throw new Error(
+      `[e2e] ESCODE_REMOTE_ASSET_PLATFORMS 含不支持的平台: ${unsupported.join(", ") || "<empty>"}`,
+    );
+  }
+  return [...new Set(requested)];
+}
+
 function resolveReleaseManifestPaths(releaseDir: string): string[] {
-  return REMOTE_RELEASE_PLATFORMS.map((platform) => join(releaseDir, `manifest-${platform}.json`));
+  return resolveReleasePlatforms().map((platform) => join(releaseDir, `manifest-${platform}.json`));
 }
 
 function isRemoteReleaseComplete(releaseDir: string, exists: (path: string) => boolean): boolean {

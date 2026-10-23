@@ -49,6 +49,25 @@ export function requestHostResourceUsage(
   timeoutMs: number = HOST_SNAPSHOT_TIMEOUT_MS,
   signal?: AbortSignal,
 ): Promise<HostResourceUsageProcess[]> {
+  return requestFrom(label, (message) => child.postMessage(message), timeoutMs, signal);
+}
+
+/** 非 Electron utility Host（Rust Host）：发送函数由调用方提供。 */
+export function requestExternalHostResourceUsage(
+  label: string,
+  send: (message: { type: string; requestId: string }) => void,
+  timeoutMs: number = HOST_SNAPSHOT_TIMEOUT_MS,
+  signal?: AbortSignal,
+): Promise<HostResourceUsageProcess[]> {
+  return requestFrom(label, send, timeoutMs, signal);
+}
+
+function requestFrom(
+  label: string,
+  send: (message: { type: string; requestId: string }) => void,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<HostResourceUsageProcess[]> {
   if (signal?.aborted) return Promise.resolve([]);
   // 展示等待超时后仍复用同一轮采样；不能按 UI 节拍不断向慢 Host 追加请求。
   if (requestIdByHost.has(label)) return Promise.resolve(lastHostResults.get(label) ?? []);
@@ -67,7 +86,7 @@ export function requestHostResourceUsage(
       finish();
       lastHostResults.delete(label);
       try {
-        child.postMessage({ type: HostMessageTypes.ResourceUsageSnapshotCancel, requestId });
+        send({ type: HostMessageTypes.ResourceUsageSnapshotCancel, requestId });
       } catch {
         /* Host 已退出，无需继续取消。 */
       }
@@ -84,7 +103,7 @@ export function requestHostResourceUsage(
     });
     signal?.addEventListener("abort", cancel, { once: true });
     try {
-      child.postMessage({ type: HostMessageTypes.ResourceUsageSnapshotRequest, requestId });
+      send({ type: HostMessageTypes.ResourceUsageSnapshotRequest, requestId });
     } catch {
       finish();
       resolve(lastHostResults.get(label) ?? []);

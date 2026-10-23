@@ -104,8 +104,15 @@ impl ControlLoop {
         };
         escode_host_control::logging::release_sink();
         drop(writer);
-        if let Some(pump) = self.pump.take() {
-            let _ = pump.await;
+        if let Some(mut pump) = self.pump.take() {
+            // 后台 HostEvent/捕获任务的 writer 克隆可能在收口后才退出；它们不是控制队列的所有者。
+            // 给泵一个短暂排空窗口，超时直接 abort，避免进程因通道未关闭而永不退出。
+            if tokio::time::timeout(std::time::Duration::from_secs(2), &mut pump)
+                .await
+                .is_err()
+            {
+                pump.abort();
+            }
         }
     }
 
@@ -191,11 +198,28 @@ pub fn runtime_options_with(
     workspace: &WorkspaceDescriptor,
     runtime_env: &BTreeMap<String, String>,
 ) -> RuntimeOptions {
+    runtime_options_with_patch(workspace, runtime_env, None)
+}
+
+/// 同 [`runtime_options_with`]，再叠加窗口级 login-shell patch（`WorkspacePrepare`）：
+/// 优先级 `runtimeEnv` < `runtime_env_patch` < `ESCODE_WORKSPACE_IDENTITY`。
+pub fn runtime_options_with_patch(
+    workspace: &WorkspaceDescriptor,
+    runtime_env: &BTreeMap<String, String>,
+    runtime_env_patch: Option<&BTreeMap<String, String>>,
+) -> RuntimeOptions {
     let home = escode_cli_core_api::env::var_os("HOME")
         .or_else(|| escode_cli_core_api::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .unwrap_or_default();
     let mut env = runtime_env.clone();
+    if let Some(patch) = runtime_env_patch {
+        env.extend(
+            patch
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+    }
     if let Some(identity) = &workspace.identity {
         env.insert("ESCODE_WORKSPACE_IDENTITY".to_owned(), identity.clone());
     }

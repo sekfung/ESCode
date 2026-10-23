@@ -3,8 +3,8 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { Emitter, SocketProtocol, VSBuffer, ChannelClient } from "@escode/rpc";
-import { connectViaProtocol } from "@escode/client";
+import { ChannelClient, MessagePortProtocol } from "@escode/rpc";
+import { connectViaMessagePort } from "@escode/client";
 import {
   bridgeRustHostPort,
   isRustHostEnabled,
@@ -56,7 +56,7 @@ describe("rust host dev switch", () => {
       const [rendererPort, mainPort] = createPortPair();
       const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
 
-      const services = connectViaProtocol(new SocketProtocol(wrapPort(rendererPort)));
+      const services = connectViaMessagePort(asMessagePort(rendererPort));
       // 交付模式由连接路径决定：continuous 桥 → hello 报 desktop-continuous。
       expect((await services.escodeAgentService.helloConversationV4()).clientMode).toBe(
         "desktop-continuous",
@@ -75,7 +75,7 @@ describe("rust host dev switch", () => {
       // 未迁移 channel：显式缺口（Renderer 不挂起）。
       const [secondRenderer, secondMain] = createPortPair();
       const secondTeardown = bridgeRustHostPort(handle, secondMain, "web-remote-replayable");
-      const client = new ChannelClient(new SocketProtocol(wrapPort(secondRenderer)));
+      const client = new ChannelClient(new MessagePortProtocol(asMessagePort(secondRenderer)));
       await expect(client.getChannel("workspace").call("query", {})).rejects.toThrow(
         /does not implement channel `workspace` yet/,
       );
@@ -135,9 +135,7 @@ describe("rust host manager (dev switch)", () => {
           const [port1, port2] = createPortPair();
           return { port1, port2 };
         }, "web-remote-replayable");
-        const services = connectViaProtocol(
-          new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
-        );
+        const services = connectViaMessagePort(asMessagePort(attachment.port as HostPortLike));
         // 远程 workspace共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
         const hello = await services.escodeAgentService.helloConversationV4();
         expect(hello.clientMode).toBe("web-remote-replayable");
@@ -162,7 +160,7 @@ describe("rust host manager (dev switch)", () => {
   it("resolves the packaged and dev binary paths", () => {
     const name = process.platform === "win32" ? "escode-host.exe" : "escode-host";
     expect(defaultRustHostBinary("/opt/escode/resources/app", true)).toBe(
-      join("/opt/escode/resources/app", name),
+      join("/opt/escode/resources", "escode-host", name),
     );
     expect(defaultRustHostBinary("/repo/packages/desktop", false)).toContain(
       join("apps", "escode-host", "target", "debug", name),
@@ -198,30 +196,27 @@ function createPortPair(): [HostPortLike, HostPortLike] {
   return [portA, portB];
 }
 
-/** 把 Node MessagePort 包成 `@escode/rpc` 的 `ISocket`（与 renderer 的 MessagePort 适配同形：
- *  收到的是必须包成 `VSBuffer` 的字节，写出同样以字节投递到端口）。 */
-function wrapPort(port: HostPortLike) {
-  const onData = new Emitter<VSBuffer>();
-  const onClose = new Emitter<void>();
-  const onEnd = new Emitter<void>();
+/**
+ * Renderer 侧是 `MessagePortProtocol`（无帧）；桥接层负责与 Rust Host 的
+ * SocketProtocol 13 字节帧互转，所以这里不能再套一层 SocketProtocol。
+ */
+function asMessagePort(port: HostPortLike) {
+  const listeners: Array<(event: { data: unknown }) => void> = [];
   port.on("message", (event: { data?: unknown } | unknown) => {
-    onData.fire(VSBuffer.wrap(toBytes(extract(event))));
+    for (const listener of listeners) listener({ data: extract(event) });
   });
   port.start?.();
   return {
-    onData: onData.event,
-    onClose: onClose.event,
-    onEnd: onEnd.event,
-    write(buffer: VSBuffer) {
-      port.postMessage(buffer.buffer);
+    addEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      listeners.push(listener);
     },
-    end() {
-      port.close();
+    removeEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      const index = listeners.indexOf(listener);
+      if (index >= 0) listeners.splice(index, 1);
     },
-    drain: async () => undefined,
-    dispose() {
-      port.close();
-    },
+    postMessage: (value: unknown) => port.postMessage(value),
+    start: () => undefined,
+    close: () => port.close?.(),
   } as never;
 }
 
@@ -229,13 +224,4 @@ function extract(event: { data?: unknown } | unknown): unknown {
   return event && typeof event === "object" && "data" in event
     ? (event as { data?: unknown }).data
     : event;
-}
-
-function toBytes(value: unknown): Uint8Array {
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  if (Buffer.isBuffer(value)) return new Uint8Array(value);
-  throw new Error(`unexpected port payload: ${typeof value}`);
 }

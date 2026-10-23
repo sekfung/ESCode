@@ -9,7 +9,8 @@ on:
   push:
     tags: ["v*"]
     # workflow_dispatch 要求工作流已在默认分支；合入前用分支推送验证发布链路。
-    branches: ["feat/**"]
+    # dev 也纳入：默认翻转门槛（安装包 Rust Host 启动）需要在合入默认分支前真实跑一次。
+    branches: ["feat/**", "dev"]
     paths:
       - .github/workflows/release.yml
       - packages/desktop/scripts/**
@@ -226,6 +227,14 @@ jobs:
           path: installer
       - name: install and launch
         run: node scripts/ci-install-desktop.mjs installer
+      # 默认翻转门槛（rust-u2-window-host.md §6）：用同一个真实安装包再以 Rust Host 启动，
+      # 断言包内 escode-host 真的启动并挂上 renderer，且不再创建 utility Node 窗口 Host。
+      - name: launch installed package with Rust Host
+        shell: bash
+        env:
+          ESCODE_RUST_HOST: "1"
+          ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
+        run: node scripts/ci-install-desktop.mjs --launch-only
       - name: Node → Rust → Node rollback rehearsal on the installed package
         shell: bash
         env:

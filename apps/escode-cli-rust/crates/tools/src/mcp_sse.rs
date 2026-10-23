@@ -99,6 +99,7 @@ impl rmcp::transport::Transport<RoleClient> for Transport {
         let auth = self.auth.clone();
         async move {
             let post = || {
+                escode_cli_net::capture::record("POST", endpoint.as_ref());
                 client
                     .post(endpoint.as_ref())
                     .headers(headers.clone())

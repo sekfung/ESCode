@@ -158,7 +158,7 @@ CI（2026-10-14 已接入 `rust-runtime-ci.yml`）：checks 作业加 `pnpm chec
 
 dev 开关（`ESCODE_RUST_HOST=1`，2026-10-14 落地；2026-10-22 窗口 attachment 落地）：Main 懒启动一个 App 级 Rust Host（`rustHostManager.ts`：single-flight 启动、退出时收口；失败抛带分类的 `RustHostStartError`，调用方不回退、错误上抛，意外退出受限自动重启——2026-10-18 M2 订正，见 `rust-u2-host-resilience.md` §3/§4），窗口经 `desktopRustHostWindow.ts` 直接 attach 到 Host（`MessageChannelMain` + synthetic `DatabaseStartupState`），reload/close 只解绑 attachment，见 `rust-u2-window-host.md`。握手消息 `rpcListen` 由 Main 提交两个根：`home`（设置域根，Node `os.homedir()` 语义）与 `dataBaseDir`（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir，供会话工作区派生）——Host 不读进程 env 推断业务事实。测试：`packages/desktop/test/rustHostBridge.test.ts`、`rustHostCuaPermission.test.ts`、`desktopRustHostWindow.test.ts`、`desktopWindowLifecycle.test.ts`。
 
-未落地（u2a 余项）：**默认开关翻转与 H2.3 的完整 parity**——远程 workspace、资源管理器 host 采样/进程行、网络捕获、Agent 进程事件、CUA 操作状态、browser-use 执行、真实数据库启动门、每窗口 runtime env 仍依赖 Node Host 的 `parentPort` 协议。逐项清单与验收见 `rust-u2-window-host.md` §5/§6；在这些缺口清零前 `ESCODE_RUST_HOST` 保持默认关。
+H2.3 parity（2026-10-23）：`rust-u2-window-host.md` §5 的 1–10 已闭合——远程 workspace 走显式 per-window Node Host（不静默回退）、资源采样/网络捕获/Agent 事件/CUA 状态/browser-use 经 HostEvent/MainRequest、真实 storageState 启动门、窗口级 env patch、恢复页与打包。`ESCODE_RUST_HOST` 仍默认关，待安装包与三平台 E2E 验收后翻转。
 
 TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与 `escode-cli-host`，本工作区不重复实现（已验证可跨 workspace path 依赖）。
 

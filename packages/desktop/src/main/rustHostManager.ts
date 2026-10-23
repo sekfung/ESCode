@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   bridgeRustHostPort,
   type RustHostClientMode,
@@ -107,7 +107,32 @@ export interface RustHostManager {
   attachLocalPort(
     createChannel: () => { port1: unknown; port2: unknown },
     clientMode: RustHostClientMode,
+    prepare?: {
+      startupId: string;
+      windowId: string;
+      workspace: {
+        path: string;
+        identity?: string;
+        dataDir?: string;
+        config?: string;
+      };
+      runtimeEnvPatch?: Record<string, string>;
+    },
   ): Promise<RustHostAttachment>;
+  /** 发一条控制消息（workspace retry / 采样 / 网络捕获）。 */
+  sendControl(message: Record<string, unknown>): void;
+  /** Host 本地的 Host 事实（资源采样、网络捕获、agent 生命周期、CUA 状态）。 */
+  onHostEvent(listener: (event: unknown) => void): () => void;
+  /** 实例真实 `startup/storageState`。 */
+  onWorkspaceStartupState(
+    listener: (state: {
+      startupId: string;
+      windowId: string;
+      workspaceKey: string;
+      generation: number;
+      state: unknown;
+    }) => void,
+  ): () => void;
   /** 当前是否已有 Host 进程在跑（诊断/测试）。 */
   isRunning(): boolean;
   /** 当前状态（诊断/测试）。 */
@@ -153,6 +178,16 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   /** Main 主动收口：此后的退出不算意外（spec §3.1 唯一判据）。 */
   let stopping = false;
   const listeners = new Set<(state: RustHostManagerState) => void>();
+  const hostEventListeners = new Set<(event: unknown) => void>();
+  const workspaceStartupListeners = new Set<
+    (state: {
+      startupId: string;
+      windowId: string;
+      workspaceKey: string;
+      generation: number;
+      state: unknown;
+    }) => void
+  >();
   const attachments = new Set<LiveAttachment>();
 
   function setState(next: RustHostManagerState) {
@@ -173,7 +208,13 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
             authorizeLocalMediaPreviewPath: options.authorizeLocalMediaPreviewPath,
           }
         : {}),
-      ...(options.onMainRequest ? { onMainRequest: options.onMainRequest } : {}),
+      onMainRequest: options.onMainRequest,
+      onHostEvent: (event) => {
+        for (const listener of Array.from(hostEventListeners)) listener(event);
+      },
+      onWorkspaceStartupState: (state) => {
+        for (const listener of Array.from(workspaceStartupListeners)) listener(state);
+      },
       // Host 的结构化日志（`logBatch` 控制帧）进同一条 Main 日志出口；scope 作为来源标签。
       onLogBatch: (batch) => {
         for (const line of batch.lines) {
@@ -283,8 +324,17 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   return {
     enabled,
     ensureStarted,
-    async attachLocalPort(createChannel, clientMode) {
+    async attachLocalPort(createChannel, clientMode, prepare) {
       const started = await ensureStarted();
+      if (prepare) {
+        started.send({
+          kind: "workspacePrepare",
+          startupId: prepare.startupId,
+          windowId: prepare.windowId,
+          workspace: prepare.workspace,
+          ...(prepare.runtimeEnvPatch ? { runtimeEnvPatch: prepare.runtimeEnvPatch } : {}),
+        });
+      }
       const channel = createChannel() as {
         port1: {
           on?: HostPortLikeOn;
@@ -331,6 +381,17 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
       };
     },
     isRunning: () => handle !== undefined,
+    sendControl(message) {
+      handle?.send(message);
+    },
+    onHostEvent(listener) {
+      hostEventListeners.add(listener);
+      return () => hostEventListeners.delete(listener);
+    },
+    onWorkspaceStartupState(listener) {
+      workspaceStartupListeners.add(listener);
+      return () => workspaceStartupListeners.delete(listener);
+    },
     state: () => current,
     onStateChange(listener) {
       listeners.add(listener);
@@ -367,7 +428,8 @@ export function defaultRustHostBinary(
   const override = env.ESCODE_RUST_HOST_BINARY?.trim();
   if (override) return override;
   const name = process.platform === "win32" ? "escode-host.exe" : "escode-host";
-  if (packaged) return join(appPath, name);
+  // 安装包：appPath 是 resources/app.asar；extraResources 落在 resources/escode-host/<binary>。
+  if (packaged) return join(dirname(appPath), "escode-host", name);
   return join(appPath, "..", "..", "apps", "escode-host", "target", "debug", name);
 }
 

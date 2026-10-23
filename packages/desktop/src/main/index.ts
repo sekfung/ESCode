@@ -72,6 +72,7 @@ import {
   shouldEnableE2ETestBridge,
   type UpdateStatePayload,
   HostMessageTypes,
+  HostResponseTypes,
 } from "@escode/shared";
 import { logger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
@@ -184,13 +185,30 @@ import { createRemoteWorkspaceSessionManager } from "./desktopRemoteSessions.js"
 import { resolveCanonicalWslTarget } from "./desktopWslTargetResolver.js";
 import {
   listRegisteredHostAgentProcessIds,
+  registerHostAgentProcess,
   setBrowserUseGuestWebContentsIdsProvider,
+  unregisterHostAgentProcess,
 } from "./resourceManagerWindow.js";
+import {
+  registerExternalHostProcess,
+  unregisterExternalHostProcess,
+} from "./resourceManagerExternalHosts.js";
+import {
+  forgetHostResourceUsage,
+  resolveHostResourceUsageResult,
+} from "./resourceManagerHostSampling.js";
+import { ingestHostNetworkCapture } from "./resourceManagerNetwork.js";
 import { createRustHostManager, defaultRustHostBinary } from "./rustHostManager.js";
+import { isRustHostEnabled } from "./rustHostBridge.js";
 import {
   disposeDesktopCuaPermissionService,
   handleCuaPermissionMainRequest,
 } from "./desktopCuaPermissionService.js";
+import {
+  failRustHostWindows,
+  markRustHostWindowsRestarting,
+  reattachRustHostWindows,
+} from "./desktopRustHostWindow.js";
 import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import { registerRemoteIpcHandlers } from "./desktopMainIpcRemote.js";
@@ -242,6 +260,59 @@ async function handleRustHostMainRequest(request: {
     case "gen-ui.prepareSandbox":
     case "plugin-ui-bridge.prepareSandbox":
       return registerSandboxFromHost(request.params);
+    case "interaction/browserExecute": {
+      const params = (request.params ?? {}) as Record<string, unknown>;
+      if (
+        typeof params.requestId !== "string" ||
+        typeof params.sessionId !== "string" ||
+        params.command === undefined
+      ) {
+        throw new Error("Invalid interaction/browserExecute params");
+      }
+      const win =
+        BrowserWindow.getFocusedWindow() ?? getApplicationWindowsExcludingCuaIndicator()[0];
+      if (!win || win.isDestroyed()) {
+        return {
+          ok: false,
+          error: {
+            code: "backend_unavailable",
+            message: "browser control not available",
+            sideEffect: "none",
+          },
+          elapsedMs: 0,
+        };
+      }
+      return runBrowserCommandOnView({
+        win,
+        requestId: params.requestId,
+        sessionId: params.sessionId,
+        command: params.command,
+        ...(typeof params.browserId === "string" ? { browserId: params.browserId } : {}),
+        ...(typeof params.browserGeneration === "number"
+          ? { browserGeneration: params.browserGeneration }
+          : {}),
+        ...(typeof params.turnId === "string" ? { turnId: params.turnId } : {}),
+        ...(typeof params.workspaceKey === "string" ? { workspaceKey: params.workspaceKey } : {}),
+        ...(typeof params.workspacePath === "string"
+          ? { workspacePath: params.workspacePath }
+          : {}),
+        ...(typeof params.workspaceIdentity === "string"
+          ? { workspaceIdentity: params.workspaceIdentity }
+          : {}),
+        ...(typeof params.remoteSessionId === "string"
+          ? { remoteSessionId: params.remoteSessionId }
+          : {}),
+        ...(params.clientMode === "desktop-continuous" ||
+        params.clientMode === "web-remote-replayable"
+          ? { clientMode: params.clientMode }
+          : {}),
+        ...(params.sessionContext === "live" || params.sessionContext === "cached"
+          ? { sessionContext: params.sessionContext }
+          : {}),
+      });
+    }
+    case "interaction/browserList":
+      return { browsers: [] };
     default:
       throw new Error(`Unsupported Rust Host main service method: ${request.method}`);
   }
@@ -621,6 +692,10 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
+/** H2.3：Rust Host 承载本地窗口时，远程 workspace 的 per-window Node Host（显式所有权）。 */
+const remoteWindowHostProcessMap = new Map<number, ElectronUtilityProcess>();
+/** 远程-only Node Host 的 `InitLocal` 完成信号；连接必须在服务就绪后下发。 */
+const remoteWindowHostReady = new WeakMap<ElectronUtilityProcess, Promise<void>>();
 const cuaPipFocusRouter = createCuaPipFocusRouter({
   send: (windowId, event) => {
     windowHostProcessMap.get(windowId)?.postMessage({
@@ -630,6 +705,11 @@ const cuaPipFocusRouter = createCuaPipFocusRouter({
   },
 });
 const hostRunningTaskCountMap = new Map<ElectronUtilityProcess, number>();
+/** Rust Host 的运行中会话数（App 级单 Host）。 */
+let rustHostRunningTaskCount = 0;
+let rustHostPid: number | undefined;
+/** CUA 指示器的 source 身份（Rust Host 生命周期内稳定）。 */
+const rustHostSource = {};
 const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
   platform: process.platform,
   getLocale: () => currentApplicationLocale,
@@ -732,9 +812,117 @@ app.on("browser-window-created", (_event, win) => {
   win.once("closed", () => cuaPipFocusRouter.removeWindow(windowKey));
 });
 
+/**
+ * H2.3：远程 workspace 仍由 per-window Node Host 承载（SSH/WSL/Docker 的 TS 后端没有 Rust 等价物）。
+ * 首次 Connect/Bind 时懒创建；本地 renderer 端口不创建（`attachInitialServicePort:false`），
+ * 只服务远程 `ScopedServicePort`。所有权在日志与资源管理器中可见。
+ */
+async function ensureRemoteWindowHost(win: BrowserWindow): Promise<ElectronUtilityProcess> {
+  const windowId = win.webContents.id;
+  const existing = remoteWindowHostProcessMap.get(windowId);
+  if (existing) {
+    await remoteWindowHostReady.get(existing);
+    return existing;
+  }
+  const label = `remote-${windowId}`;
+  logger.info(
+    `[createWindow] remote workspace host: node (${label}); local window host is Rust Host`,
+  );
+  const child = spawnHostProcess(
+    win,
+    label,
+    {
+      type: HostMessageTypes.InitLocal,
+      deviceMid,
+      agentSpawnFallbackCwd: getConversationWorkspaceDir(),
+      runtimeProcessEnvPatch: {},
+      escodeBuiltinProviderConfigFilePath: resolveESCodeBuiltinProviderConfigFilePath(),
+    },
+    {
+      hostProcessLocalEnv,
+      desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
+      logger,
+      broadcastHub,
+      taskRealtimeBus,
+      windowHostProcessMap: remoteWindowHostProcessMap,
+      hostRunningTaskCountMap,
+      onCuaOperationStateChanged: (source, event) =>
+        windowsCuaOperationIndicator.handleState(source, event),
+      onCuaOperationStateSourceExited: (source) => windowsCuaOperationIndicator.clearSource(source),
+      onCronRunResult: forwardCronRunResult,
+      onCronSchedulerWakeRequested: wakeCronScheduler,
+      authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
+      registerPluginSandbox: (input) => {
+        const host = getPluginSandboxHost();
+        if (!host) throw new Error("Plugin UI sandbox host is not installed.");
+        const { requestId: _requestId, ...registerInput } = input as { requestId?: string };
+        return host.registerFromHost(registerInput as Parameters<typeof host.registerFromHost>[0]);
+      },
+      handleBrowserExecuteRequest: ({ win: browserWin, ...request }) =>
+        runBrowserCommandOnView({ win: browserWin, ...request }),
+    },
+    { attachInitialServicePort: false, bindDatabaseStartup: false },
+  );
+  const ready = waitForRemoteHostServicesReady(child, label);
+  remoteWindowHostReady.set(child, ready);
+  remoteWindowHostProcessMap.set(windowId, child);
+  try {
+    await ready;
+  } catch (error) {
+    // 服务未就绪时不能下发 ConnectRemoteWorkspace；清掉半成品 Host，允许下次重试。
+    remoteWindowHostProcessMap.delete(windowId);
+    disposeHostProcess(child, `${label}:init-failed`, disposingHostProcessTimers, logger);
+    throw error;
+  }
+  return child;
+}
+
+/**
+ * 远程-only Node Host 的 InitLocal 是异步的（DB 启动后才创建 services）。
+ * 若立刻下发 ConnectRemoteWorkspace，Host 会以 "Local Host services are not initialized." 失败。
+ * 以 Host 自己发布的 `databaseStartupState.ready` 作为唯一就绪事实，不做超时轮询兜底。
+ */
+function waitForRemoteHostServicesReady(
+  child: ElectronUtilityProcess,
+  label: string,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`${label}: Host services did not become ready within 30s`));
+    }, 30_000);
+    const cleanup = () => {
+      clearTimeout(timeout);
+      child.removeListener("message", onMessage);
+      child.removeListener("exit", onExit);
+    };
+    const onMessage = (message: unknown) => {
+      if (!message || typeof message !== "object") return;
+      const record = message as { type?: unknown; state?: { phase?: unknown } };
+      if (record.type !== HostResponseTypes.DatabaseStartupState) return;
+      if (record.state?.phase === "ready") {
+        cleanup();
+        resolve();
+      } else if (record.state?.phase === "failed") {
+        cleanup();
+        reject(new Error(`${label}: Host services failed to initialize`));
+      }
+    };
+    const onExit = () => {
+      cleanup();
+      reject(new Error(`${label}: Host exited before services were ready`));
+    };
+    child.on("message", onMessage);
+    child.once("exit", onExit);
+  });
+}
+
 const remoteSessionManager = createRemoteWorkspaceSessionManager({
   logger,
-  windowHostProcessMap,
+  // Rust 模式下远程 Node Host 写独立 map，避免混入本地窗口的 `windowHostProcessMap`
+  // （后者被 cron 派发、窗口 reload/close 与 app quit 当作本地 Host 处理）。
+  windowHostProcessMap: isRustHostEnabled() ? remoteWindowHostProcessMap : windowHostProcessMap,
+  ...(isRustHostEnabled() ? { ensureWindowHost: ensureRemoteWindowHost } : {}),
   resolveRemoteAssetDirs: () =>
     resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
   resolveWslTarget: resolveCanonicalWslTarget,
@@ -760,7 +948,7 @@ const rustHostManager = createRustHostManager({
       appConfigDir: getAppConfigDir(),
       appVersion: ESCODE_VERSION || app.getVersion(),
       escodeEnv: ESCODE_ENV,
-      endpointBaseOrigin: resolveESCodeEndpointEnvBaseOrigin(hostProcessLocalEnv),
+      endpointBaseOrigin: resolveESCodeEndpointOrigin(hostProcessLocalEnv),
     }),
   }),
   // 本地媒体预览：授权注册表属于 Main，Rust Host 经控制通道请求（rust-u2-attachments.md §5）。
@@ -768,6 +956,88 @@ const rustHostManager = createRustHostManager({
   // CUA Helper 与 sandbox 注册属于 Main；Host 经控制通道转发。
   onMainRequest: handleRustHostMainRequest,
   log: logger,
+});
+
+/** Rust Host 的 HostEvent → 与 Node Host 相同的 Main 消费者。 */
+function handleRustHostHostEvent(event: unknown): void {
+  if (!event || typeof event !== "object") return;
+  const record = event as Record<string, unknown>;
+  switch (record.type) {
+    case HostResponseTypes.ResourceUsageSnapshotResult:
+      resolveHostResourceUsageResult("rust-host", record as never);
+      return;
+    case HostResponseTypes.NetworkCaptureBatch:
+      ingestHostNetworkCapture(record.batch as never, rustHostPid ?? 0);
+      return;
+    case HostResponseTypes.AgentProcessSpawned:
+      if (typeof record.pid === "number") {
+        registerHostAgentProcess("rust-host", {
+          pid: record.pid,
+          provider: record.provider as never,
+          workspacePath: String(record.workspacePath ?? ""),
+          command: String(record.command ?? ""),
+          args: Array.isArray(record.args) ? record.args.map(String) : [],
+          startedAt: typeof record.startedAt === "number" ? record.startedAt : Date.now(),
+        });
+      }
+      return;
+    case HostResponseTypes.AgentProcessExited:
+      if (typeof record.pid === "number") unregisterHostAgentProcess("rust-host", record.pid);
+      return;
+    case HostResponseTypes.AgentRunningTaskCountChanged:
+      rustHostRunningTaskCount =
+        typeof record.runningTaskCount === "number" ? record.runningTaskCount : 0;
+      return;
+    case HostResponseTypes.CuaOperationState:
+      windowsCuaOperationIndicator.handleState(rustHostSource, record as never);
+      return;
+    default:
+      return;
+  }
+}
+rustHostManager.onHostEvent(handleRustHostHostEvent);
+let rustHostRestarting = false;
+rustHostManager.onStateChange((state) => {
+  if (state.state === "running") {
+    const wasRestarting = rustHostRestarting;
+    rustHostRestarting = false;
+    rustHostPid = state.pid;
+    if (state.pid !== undefined) {
+      registerExternalHostProcess({
+        label: "rust-host",
+        pid: state.pid,
+        requestResourceUsage: (requestId) =>
+          rustHostManager.sendControl({ kind: "resourceUsageSnapshotRequest", requestId }),
+        cancelResourceUsage: (requestId) =>
+          rustHostManager.sendControl({ kind: "resourceUsageSnapshotCancel", requestId }),
+        setNetworkCapture: (captureId) =>
+          rustHostManager.sendControl({ kind: "networkCapture", captureId }),
+      });
+    }
+    if (wasRestarting) void reattachRustHostWindows();
+    return;
+  }
+  if (state.state === "restarting") {
+    rustHostRestarting = true;
+    markRustHostWindowsRestarting();
+    rustHostPid = undefined;
+    rustHostRunningTaskCount = 0;
+    unregisterExternalHostProcess("rust-host");
+    forgetHostResourceUsage("rust-host");
+    windowsCuaOperationIndicator.clearSource(rustHostSource);
+    return;
+  }
+  if (state.state === "failed") {
+    rustHostRestarting = false;
+    failRustHostWindows("transport_closed");
+  }
+  if (state.state === "failed" || state.state === "idle") {
+    rustHostPid = undefined;
+    rustHostRunningTaskCount = 0;
+    unregisterExternalHostProcess("rust-host");
+    forgetHostResourceUsage("rust-host");
+    windowsCuaOperationIndicator.clearSource(rustHostSource);
+  }
 });
 const deviceMid = ensureDesktopDeviceMidSync();
 // 帮助配置是公开读取，不能复用下面附带账号鉴权的灰度响应缓存。
@@ -977,7 +1247,11 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   cronScheduler = null;
 
   const hostProcesses = [
-    ...new Set([...windowHostProcessMap.values(), ...listDisposingHostProcesses()]),
+    ...new Set([
+      ...windowHostProcessMap.values(),
+      ...remoteWindowHostProcessMap.values(),
+      ...listDisposingHostProcesses(),
+    ]),
   ];
   logger.info(
     `[app-quit] waiting for host process cleanup (${reason}), kind=${activeAppShutdownKind}, hosts=${hostProcesses.length}, forceKillDelayMs=${activeAppShutdownPolicy.forceKillDelayMs}, waitTimeoutMs=${activeAppShutdownPolicy.waitTimeoutMs}`,
@@ -1070,7 +1344,10 @@ function exitPreparedApp(reason: string): never | void {
 }
 
 function getRunningAgentSessionCount() {
-  return [...hostRunningTaskCountMap.values()].reduce((total, count) => total + count, 0);
+  return (
+    [...hostRunningTaskCountMap.values()].reduce((total, count) => total + count, 0) +
+    rustHostRunningTaskCount
+  );
 }
 
 function delay(ms: number): Promise<void> {
@@ -1707,8 +1984,13 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
     syncAutoUpdaterStateToWindow,
     syncReadyUpdateToWindow,
     syncPostUpdateReleaseNotesToWindow,
-    disposeRemoteWorkspaceSessionsForWindow:
-      remoteSessionManager.disposeRemoteWorkspaceSessionsForWindow,
+    disposeRemoteWorkspaceSessionsForWindow: (windowId, reason) => {
+      remoteSessionManager.disposeRemoteWorkspaceSessionsForWindow(windowId, reason);
+      const child = remoteWindowHostProcessMap.get(windowId);
+      if (!child) return;
+      remoteWindowHostProcessMap.delete(windowId);
+      disposeHostProcess(child, `remote-${windowId}:${reason}`, disposingHostProcessTimers, logger);
+    },
     reattachRemoteWorkspaceSessionsForWindow:
       remoteSessionManager.reattachRemoteWorkspaceSessionsForWindow,
     bootstrap: {
@@ -2281,7 +2563,22 @@ app.on("before-quit", (event) => {
       for (const win of remainingWindows) {
         win.once("closed", exitAfterLastWindowClosed);
       }
+      // 该路径已 markForceQuit 且 host/agent 回收完成；ChromeDriver 的 Browser.close
+      // 可能让 app.quit() 进入等待窗口关闭的同步阶段，窗口不再触发 closed。
+      // 显式销毁剩余窗口，让退出不依赖 Electron 对重入 quit 的处理。
+      for (const win of remainingWindows) {
+        if (!win.isDestroyed()) win.destroy();
+      }
+      exitAfterLastWindowClosed();
       app.quit();
+      // 兜底：若仍有窗口未被同步销毁，短暂等待后完成 prepared 退出。
+      const quitFallback = setTimeout(() => {
+        if (exitRequested) return;
+        exitRequested = true;
+        logger.warn("[app-quit] prepared quit did not close windows; exiting app");
+        exitPreparedApp("prepared-quit-fallback");
+      }, 3_000);
+      quitFallback.unref?.();
     });
   }
 });

@@ -87,6 +87,41 @@ pub const CONTROL_METHODS: &[Method] = &[
         method: "stopped",
         state: State::Implemented,
     },
+    Method {
+        channel: "control",
+        method: "hostEvent",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "workspacePrepare",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "workspaceStartupRetry",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "workspaceStartupState",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "resourceUsageSnapshotRequest",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "resourceUsageSnapshotCancel",
+        state: State::Implemented,
+    },
+    Method {
+        channel: "control",
+        method: "networkCapture",
+        state: State::Implemented,
+    },
 ];
 
 /// 契约清单全量视图（control + 服务域）：契约对账与能力清单的唯一来源。

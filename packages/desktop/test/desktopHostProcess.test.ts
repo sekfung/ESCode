@@ -37,7 +37,7 @@ vi.mock("electron", () => ({
     getAllWindows: vi.fn(() => []),
   },
   MessageChannelMain: class {
-    port1 = {};
+    port1 = { close: vi.fn() };
     port2 = {};
   },
   utilityProcess: {
@@ -67,6 +67,33 @@ describe("desktopHostProcess loadWindow", () => {
 
     expect(window.loadURL).not.toHaveBeenCalled();
     expect(window.loadFile).toHaveBeenCalledOnce();
+  });
+});
+
+describe("desktopHostProcess remote-only Host init", () => {
+  it("passes a base port to InitLocal without delivering it to the renderer", () => {
+    const child = new MockUtilityProcess();
+    electronMock.fork.mockReturnValue(child);
+    const webContents = { id: 11, postMessage: vi.fn() };
+    spawnHostProcess(
+      { id: 7, webContents } as never,
+      "remote-7",
+      { type: HostMessageTypes.InitLocal, workspacePath: "/repo" },
+      {
+        hostProcessLocalEnv: {},
+        logger: { info: vi.fn(), warn: vi.fn() },
+        broadcastHub: { register: vi.fn(), unregister: vi.fn() } as never,
+        windowHostProcessMap: new Map(),
+        hostRunningTaskCountMap: new Map(),
+      },
+      { attachInitialServicePort: false, bindDatabaseStartup: false },
+    );
+
+    // Host 的 InitLocal 缺 MessagePort 会直接 return，远程连接随后报服务未初始化。
+    const [message, ports] = child.postMessage.mock.calls[0]!;
+    expect(message.databaseStartupId).toEqual(expect.any(String));
+    expect(ports).toHaveLength(1);
+    expect(webContents.postMessage).not.toHaveBeenCalled();
   });
 });
 

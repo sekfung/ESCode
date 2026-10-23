@@ -95,6 +95,8 @@ export interface SpawnHostProcessOptions {
   onPortReady?: (port: MessagePortMain) => void;
   /** 共享 SSH/WSL Host 初始化时不创建特殊的首个 workspace RPC port。 */
   attachInitialServicePort?: boolean;
+  /** 远程-only Node Host 不绑定本地窗口的数据库启动门（本地窗口由 Rust Host 负责）。 */
+  bindDatabaseStartup?: boolean;
 }
 
 const exitedHostProcesses = new WeakSet<ElectronUtilityProcess>();
@@ -275,7 +277,11 @@ export function spawnHostProcess(
     hostLogRelay.onStdout(data.toString());
   });
 
-  const databaseStartupRelay = bindDatabaseStartupRelay(win, child, hostId);
+  const databaseStartupId = hostId;
+  const databaseStartupRelay =
+    options?.bindDatabaseStartup === false
+      ? undefined
+      : bindDatabaseStartupRelay(win, child, databaseStartupId);
   child.on("message", (message: unknown) => {
     const result = hostResponseMessageSchema.safeParse(message);
     if (!result.success) {
@@ -283,7 +289,7 @@ export function spawnHostProcess(
     }
 
     if (result.data.type === HostResponseTypes.DatabaseStartupState) {
-      databaseStartupRelay.receive(result.data.state);
+      databaseStartupRelay?.receive(result.data.state);
       return;
     }
 
@@ -491,14 +497,21 @@ export function spawnHostProcess(
   const hostInitMessage: HostInitMessage = shouldAttachRealtimeHost
     ? {
         ...initMessage,
-        databaseStartupId: databaseStartupRelay.startupId,
+        databaseStartupId: databaseStartupId,
         hostId,
         deliveryKind: options?.taskRealtime?.deliveryKind,
       }
-    : { ...initMessage, databaseStartupId: databaseStartupRelay.startupId };
+    : { ...initMessage, databaseStartupId: databaseStartupId };
 
   if (options?.attachInitialServicePort === false) {
-    child.postMessage(hostInitMessage);
+    // 远程-only Node Host（本地窗口由 Rust Host 负责）不向 renderer 交付 base port，
+    // 但 Host 的 InitLocal 必须先拿到 MessagePort 才会初始化本地服务；缺 port 会直接
+    // return，之后远程连接调用服务就报 "Local Host services are not initialized."。
+    // 这里仍建立 base channel，把 Host 侧交给 InitLocal，Main 侧立即关闭：
+    // host 端会跳过 base attachment，只保留按需的 scoped attachment。
+    const { port1, port2 } = new MessageChannelMain();
+    child.postMessage(hostInitMessage, [port2]);
+    port1.close();
   } else {
     const { port1, port2 } = new MessageChannelMain();
     child.postMessage(hostInitMessage, [port2]);
@@ -510,7 +523,7 @@ export function spawnHostProcess(
         options?.internalChannel ?? InternalChannels.ServicePort,
         options?.internalChannel === InternalChannels.ScopedServicePort
           ? (options.internalPayload ?? null)
-          : { databaseStartupId: databaseStartupRelay.startupId },
+          : { databaseStartupId: databaseStartupId },
         [port1],
       );
     }

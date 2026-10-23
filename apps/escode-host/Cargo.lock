@@ -684,6 +684,8 @@ dependencies = [
  "reqwest 0.12.28",
  "reqwest 0.13.5",
  "rustls",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
@@ -817,6 +819,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "escode-cli-core-api",
+ "escode-cli-net",
  "escode-cli-rust",
  "escode-host-control",
  "escode-host-rpc",

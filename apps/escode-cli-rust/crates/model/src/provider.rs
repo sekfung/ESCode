@@ -142,6 +142,7 @@ impl HttpModel {
                 );
             }
         }
+        escode_cli_net::capture::record("POST", &self.url);
         let response = tokio::select! {
                 result=request.send()=>result.map_err(|e| model_failure::network(&e))?,
             _=deadline(after(idle_ms))=>return Err(ModelFailure::new("stream_idle_timeout",true)),

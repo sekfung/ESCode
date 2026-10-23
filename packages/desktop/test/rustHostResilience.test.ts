@@ -4,8 +4,7 @@ import { mkdtemp } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Emitter, SocketProtocol, VSBuffer } from "@escode/rpc";
-import { connectViaProtocol } from "@escode/client";
+import { connectViaMessagePort } from "@escode/client";
 import {
   RustHostStartError,
   startRustHost,
@@ -223,9 +222,7 @@ async function attachAndRead(manager: RustHostManager) {
     const [port1, port2] = createPortPair();
     return { port1, port2 };
   }, "web-remote-replayable");
-  const services = connectViaProtocol(
-    new SocketProtocol(wrapPort(attachment.port as HostPortLike)),
-  );
+  const services = connectViaMessagePort(asMessagePort(attachment.port as HostPortLike));
   const settings = (await services.settingService.get()) as Record<string, unknown>;
   expect(settings).toBeTypeOf("object");
   return attachment;
@@ -281,6 +278,30 @@ describe.skipIf(!existsSync(hostBinary))("rust host process crash", () => {
     // 重建：新 attachment 接到新 Host，真实客户端可用。
     const rebuilt = await attachAndRead(manager);
     rebuilt.dispose();
+  });
+
+  it("serves multiple window attachments from one Host process", { timeout: 60_000 }, async () => {
+    manager = createRustHostManager({
+      binary: hostBinary,
+      home: await tempHome("escode-rust-host-multi-attachment-"),
+      enabled: true,
+    });
+    // 两个窗口的 attachment 共用同一个 Host：两次真实客户端调用都成功。
+    const first = await attachAndRead(manager);
+    const second = await attachAndRead(manager);
+    const handle = await manager.ensureStarted();
+    expect(handle.pid).toEqual(expect.any(Number));
+    expect(manager.state().state).toBe("running");
+
+    const firstLost = new Promise<unknown>((done) => first.onLost(done));
+    const secondLost = new Promise<unknown>((done) => second.onLost(done));
+    await killHost(handle);
+
+    // Host 退出时两个 attachment 都必须收到丢失通知，由各自窗口重建。
+    expect(await firstLost).toMatchObject({ reason: "host-exited" });
+    expect(await secondLost).toMatchObject({ reason: "host-exited" });
+    first.dispose();
+    second.dispose();
   });
 
   it(
@@ -392,37 +413,27 @@ function createPortPair(): [HostPortLike, HostPortLike] {
   return [portA, portB];
 }
 
-function wrapPort(port: HostPortLike) {
-  const onData = new Emitter<VSBuffer>();
-  const onClose = new Emitter<void>();
-  const onEnd = new Emitter<void>();
+/** Renderer 侧是 MessagePortProtocol（无帧）；桥接层负责 SocketProtocol 帧转换。 */
+function asMessagePort(port: HostPortLike) {
+  const listeners: Array<(event: { data: unknown }) => void> = [];
   port.on("message", (event: { data?: unknown } | unknown) => {
     const data =
       event && typeof event === "object" && "data" in event
         ? (event as { data?: unknown }).data
         : event;
-    const bytes =
-      data instanceof ArrayBuffer
-        ? new Uint8Array(data)
-        : ArrayBuffer.isView(data)
-          ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-          : new Uint8Array(0);
-    onData.fire(VSBuffer.wrap(bytes));
+    for (const listener of listeners) listener({ data });
   });
   port.start?.();
   return {
-    onData: onData.event,
-    onClose: onClose.event,
-    onEnd: onEnd.event,
-    write(buffer: VSBuffer) {
-      port.postMessage(buffer.buffer);
+    addEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      listeners.push(listener);
     },
-    end() {
-      port.close?.();
+    removeEventListener: (_type: "message", listener: (event: { data: unknown }) => void) => {
+      const index = listeners.indexOf(listener);
+      if (index >= 0) listeners.splice(index, 1);
     },
-    drain: async () => undefined,
-    dispose() {
-      port.close?.();
-    },
+    postMessage: (value: unknown) => port.postMessage(value),
+    start: () => undefined,
+    close: () => port.close?.(),
   } as never;
 }

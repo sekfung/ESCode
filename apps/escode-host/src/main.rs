@@ -11,13 +11,23 @@
 
 mod control;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
-use escode_host_control::{ControlError, ControlErrorCode, ControlMessage};
-use escode_host_runtime::{Instances, Link};
+use escode_host_control::{
+    ControlError, ControlErrorCode, ControlMessage, ControlWriter, WorkspaceDescriptor,
+};
+use escode_host_runtime::{Instance, Instances, Link};
+use serde_json::{Value, json};
 
 use crate::control::ControlLoop;
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_millis() as u64)
+}
 
 /// 协议版本（Main 握手用；不匹配时 Main 应回退 Node Host）。
 const PROTOCOL_VERSION: u32 = 1;
@@ -74,6 +84,62 @@ fn link_from_env() -> Link {
     Link::Child { binary }
 }
 
+/// 为一个 workspace 建/复用实例；窗口级 env patch 只在该实例首次创建时生效。
+async fn prepare_workspace(
+    instances: &Instances,
+    identity: &str,
+    workspace: &WorkspaceDescriptor,
+    runtime_env: &BTreeMap<String, String>,
+    patches: &Arc<Mutex<HashMap<String, BTreeMap<String, String>>>>,
+) -> Result<Arc<Instance>> {
+    let patch = patches
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(identity)
+        .cloned();
+    instances
+        .get(identity, || {
+            control::runtime_options_with_patch(workspace, runtime_env, patch.as_ref())
+        })
+        .await
+}
+
+/// 把实例的真实 `startup/storageState` 逐条转给 Main，直到 ready/failed 或实例关闭。
+fn forward_startup(
+    writer: ControlWriter,
+    instance: Arc<Instance>,
+    startup_id: String,
+    window_id: String,
+    workspace_key: String,
+) {
+    let generation = instance.generation;
+    let mut startup = instance.subscribe_startup();
+    tokio::spawn(async move {
+        loop {
+            let snapshot = startup.borrow_and_update().clone();
+            if let Some(state) = snapshot {
+                let phase = state["phase"].as_str().unwrap_or_default();
+                let terminal = phase == "ready" || phase == "failed";
+                let sent = writer
+                    .control(ControlMessage::WorkspaceStartupState {
+                        startup_id: startup_id.clone(),
+                        window_id: window_id.clone(),
+                        workspace_key: workspace_key.clone(),
+                        generation,
+                        state,
+                    })
+                    .await;
+                if sent.is_err() || terminal {
+                    return;
+                }
+            }
+            if startup.changed().await.is_err() {
+                return;
+            }
+        }
+    });
+}
+
 /// 控制循环：attach/detach/请求转发/关闭。
 async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> {
     // window → 实例身份（attachment 路由由 Host 拥有）。
@@ -89,8 +155,192 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
     // Main 专属服务 broker（cua-permission / sandbox 注册）。
     let mut main_broker: Option<std::sync::Arc<escode_host_control::main_broker::MainBroker>> =
         None;
+    // `rpcListen.runtimeEnv` 的 Host 级快照；WorkspacePrepare 的窗口级 patch 按 identity 覆盖。
+    let mut host_runtime_env: BTreeMap<String, String> = BTreeMap::new();
+    let patches: Arc<Mutex<HashMap<String, BTreeMap<String, String>>>> = Arc::default();
+    let sink_writer = control.writer_handle();
+    escode_host_rpc::host_events::set_sink(Arc::new(move |event| {
+        let writer = sink_writer.clone();
+        tokio::spawn(async move {
+            let _ = writer.control(ControlMessage::HostEvent { event }).await;
+        });
+    }));
+    // 实例生命周期 → Main 的 agent 进程事件 + CUA 操作状态。
+    let events_writer = control.writer_handle();
+    let lifecycle_instances = instances.clone();
+    let mut lifecycle = instances.lifecycle();
+    tokio::spawn(async move {
+        while let Some(event) = lifecycle.recv().await {
+            match event.state {
+                escode_host_runtime::RuntimeState::Available => {
+                    if let Some(pid) = event.process_id {
+                        let _ = events_writer
+                            .control(ControlMessage::HostEvent {
+                                event: json!({
+                                    "type": "agent-process-spawned",
+                                    "pid": pid,
+                                    "provider": Value::Null,
+                                    "workspacePath": event.workspace_path,
+                                    "command": "escode-cli-rust",
+                                    "args": ["app-server", "--stdio"],
+                                    "startedAt": now_ms(),
+                                    "runtimeGeneration": event.generation,
+                                    "runtimeInstanceId": event.runtime_identity,
+                                }),
+                            })
+                            .await;
+                    }
+                    if let Some(instance) = lifecycle_instances.live(&event.identity) {
+                        let writer = events_writer.clone();
+                        let path = instance.workspace_path().to_owned();
+                        let identity = instance.workspace_identity().map(str::to_owned);
+                        tokio::spawn(async move {
+                            let mut frames = instance.subscribe().await;
+                            while let Some(line) = frames.recv().await {
+                                let Ok(message) = serde_json::from_str::<Value>(&line) else {
+                                    continue;
+                                };
+                                if message["method"] != "computer-use/operation-event" {
+                                    continue;
+                                }
+                                let params = &message["params"];
+                                let kind = params["kind"].as_str().unwrap_or_default();
+                                let active = kind == "tool-started";
+                                if !active && !matches!(kind, "turn-completed" | "turn-failed") {
+                                    continue;
+                                }
+                                let mut value = json!({
+                                    "type": "cua-operation-state",
+                                    "active": active,
+                                    "sessionId": params["sessionId"],
+                                    "turnId": params["turnId"],
+                                    "workspacePath": path,
+                                });
+                                if let Some(identity) = &identity {
+                                    value["workspaceIdentity"] = Value::from(identity.clone());
+                                }
+                                let _ = writer
+                                    .control(ControlMessage::HostEvent { event: value })
+                                    .await;
+                            }
+                        });
+                    }
+                }
+                escode_host_runtime::RuntimeState::Unavailable => {
+                    if let Some(pid) = event.process_id {
+                        let _ = events_writer
+                            .control(ControlMessage::HostEvent {
+                                event: json!({
+                                    "type": "agent-process-exited",
+                                    "pid": pid,
+                                    "runtimeGeneration": event.generation,
+                                    "runtimeInstanceId": event.runtime_identity,
+                                }),
+                            })
+                            .await;
+                    }
+                }
+            }
+        }
+    });
+    let capture_writer = control.writer_handle();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            let Some(event) = escode_cli_net::capture::flush() else {
+                continue;
+            };
+            if capture_writer
+                .control(ControlMessage::HostEvent { event })
+                .await
+                .is_err()
+            {
+                return;
+            }
+        }
+    });
     while let Some(message) = control.recv().await {
         match message {
+            ControlMessage::WorkspacePrepare {
+                startup_id,
+                window_id,
+                workspace,
+                runtime_env_patch,
+            } => {
+                let identity = control::identity_of(&workspace);
+                if let Some(patch) = runtime_env_patch {
+                    patches
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .insert(identity.clone(), patch);
+                }
+                match prepare_workspace(
+                    instances,
+                    &identity,
+                    &workspace,
+                    &host_runtime_env,
+                    &patches,
+                )
+                .await
+                {
+                    Ok(instance) => {
+                        forward_startup(
+                            control.writer_handle(),
+                            instance,
+                            startup_id,
+                            window_id,
+                            identity,
+                        );
+                    }
+                    Err(error) => {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!("{error:#}"),
+                                },
+                            })
+                            .await?;
+                    }
+                }
+            }
+            ControlMessage::WorkspaceStartupRetry {
+                startup_id,
+                window_id,
+                workspace,
+            } => {
+                let identity = control::identity_of(&workspace);
+                let _ = instances.close(&identity).await;
+                match prepare_workspace(
+                    instances,
+                    &identity,
+                    &workspace,
+                    &host_runtime_env,
+                    &patches,
+                )
+                .await
+                {
+                    Ok(instance) => {
+                        forward_startup(
+                            control.writer_handle(),
+                            instance,
+                            startup_id,
+                            window_id,
+                            identity,
+                        );
+                    }
+                    Err(error) => {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!("{error:#}"),
+                                },
+                            })
+                            .await?;
+                    }
+                }
+            }
             ControlMessage::WindowAttach {
                 window_id,
                 client_id: _,
@@ -192,6 +442,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
                 let runtime_env = runtime_env.unwrap_or_default();
+                host_runtime_env = runtime_env.clone();
                 // provider 配置文件路径：Main 合成的运行时环境里的两个约定变量（A16b 的 P1 部分）。
                 let provider_files = escode_host_services::provider::ProviderFiles::from_env(
                     |name| runtime_env.get(name).map(String::as_str),
@@ -219,9 +470,20 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                         Some(std::path::Path::new(&home)),
                     ),
                 ));
+                let env_for_options = runtime_env.clone();
+                let patches_for_options = Arc::clone(&patches);
                 let options: escode_host_surface::OptionsFactory =
                     std::sync::Arc::new(move |workspace| {
-                        control::runtime_options_with(workspace, &runtime_env)
+                        let patch = patches_for_options
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .get(&control::identity_of(workspace))
+                            .cloned();
+                        control::runtime_options_with_patch(
+                            workspace,
+                            &env_for_options,
+                            patch.as_ref(),
+                        )
                     });
                 let channels = escode_host_rpc::domains::channels_with(
                     std::path::PathBuf::from(home),
@@ -259,8 +521,21 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 let addr: std::net::SocketAddr = bind
                     .parse()
                     .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
+                let env_for_options = host_runtime_env.clone();
+                let patches_for_options = Arc::clone(&patches);
                 let options: escode_host_surface::OptionsFactory =
-                    std::sync::Arc::new(control::runtime_options);
+                    std::sync::Arc::new(move |workspace| {
+                        let patch = patches_for_options
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .get(&control::identity_of(workspace))
+                            .cloned();
+                        control::runtime_options_with_patch(
+                            workspace,
+                            &env_for_options,
+                            patch.as_ref(),
+                        )
+                    });
                 match escode_host_surface::Surface::start(addr, instances.clone(), options).await {
                     Ok(surface) => {
                         control
@@ -381,6 +656,14 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 // 残余任务/进程在宽限内没收回：非零退出，Main 记录并（阶段 3）回退。
                 return Ok(if residual.is_empty() { 0 } else { 2 });
             }
+            ControlMessage::ResourceUsageSnapshotRequest { request_id } => {
+                let event = escode_host_services::process_sampler::snapshot_event(&request_id);
+                control.send(ControlMessage::HostEvent { event }).await?;
+            }
+            ControlMessage::ResourceUsageSnapshotCancel { request_id: _ } => {}
+            ControlMessage::NetworkCapture { capture_id } => {
+                escode_cli_net::capture::set_capture_id(capture_id);
+            }
             // Host→Main 的消息不应出现在入站方向；忽略以免回环。
             ControlMessage::HostReady { .. }
             | ControlMessage::WindowAttached { .. }
@@ -393,6 +676,8 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             | ControlMessage::SurfaceListening { .. }
             | ControlMessage::RpcListening { .. }
             | ControlMessage::LocalMediaPreviewAuthorize { .. }
+            | ControlMessage::HostEvent { .. }
+            | ControlMessage::WorkspaceStartupState { .. }
             | ControlMessage::MainRequest { .. } => {}
         }
     }

@@ -42,6 +42,7 @@ impl Transport for HttpTransport {
             escode_cli_host::net_config::NetworkScope::Workspace,
         )
         .await?;
+        escode_cli_net::capture::record("GET", url.as_str());
         let request = client
             .get(url.as_str())
             .header("User-Agent", rules::USER_AGENT)
