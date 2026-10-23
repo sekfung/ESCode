@@ -100,7 +100,9 @@ console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
 // Bugfix：之前只看进程存活，数据库启动失败（如 unsupported_runtime）时应用仍停在错误页不退出，作业照样通过。
 // 主进程把 "[database-startup] terminal { …, status: '<phase>', … }" 打到 stdout，这里据此判定终态。
 // Intel macOS runner 冷启动到 dom-ready 已需 13s，Host 随后才 spawn；20s 会误判，留足启动预算。
-const STARTUP_TIMEOUT_MS = 60_000;
+// Windows 首次启动 Node utility Host（原生 SQLite/杀软扫描）比 Rust 路径慢；给足预算。
+const STARTUP_TIMEOUT_MS = process.platform === "win32" ? 90_000 : 60_000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const DATABASE_TERMINAL_PATTERN = /\[database-startup\] terminal \{[^}]*?status: '([a-z_]+)'/;
 const RUST_HOST_STARTED_PATTERN = /\[rust-host\] started at \d+\.\d+\.\d+\.\d+:\d+ \(pid \d+\)/;
 // 默认翻转前的安装包验收：包内 Rust Host 必须真实启动并挂上 renderer，且不能再出现
@@ -146,8 +148,10 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
     let output = "";
     let databaseStatus;
     let settled = false;
-    const stop = () => {
-      child.removeAllListeners("exit");
+    let stopped = false;
+    const stop = async () => {
+      if (stopped) return;
+      stopped = true;
       if (process.platform === "win32") {
         spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
       } else {
@@ -160,13 +164,19 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
           child.kill("SIGKILL");
         }
       }
+      // Windows 上单实例锁/子 Host 的句柄释放晚于 taskkill 返回；不等待会让下一次
+      // drill 启动拿不到锁，表现为数据库 startup 永远没有终态。
+      if (child.exitCode === null && child.signalCode === null) {
+        await Promise.race([new Promise((resolve) => child.once("exit", resolve)), sleep(5_000)]);
+      }
       child.stdout.destroy();
       child.stderr.destroy();
     };
-    const finish = (error) => {
+    const finish = async (error) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      await stop();
       if (error) fail(error);
       else done();
     };
@@ -185,16 +195,16 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
     };
     child.stdout.on("data", onData(process.stdout));
     child.stderr.on("data", onData(process.stderr));
-    child.once("error", finish);
+    child.once("error", (error) => void finish(error));
     child.once("exit", (code, signal) => {
-      finish(new Error(`Application exited during startup: ${signal ?? code}`));
+      void finish(new Error(`Application exited during startup: ${signal ?? code}`));
     });
     const timer = setTimeout(() => {
-      stop();
       if (databaseStatus !== "ready") {
-        finish(
+        void finish(
           new Error(
-            `Database startup reached no terminal state within ${STARTUP_TIMEOUT_MS / 1000}s`,
+            `Database startup reached no terminal state within ${STARTUP_TIMEOUT_MS / 1000}s; ` +
+              `exit=${String(child.exitCode)} signal=${String(child.signalCode)}; tail=${output.slice(-2000)}`,
           ),
         );
         return;
@@ -211,10 +221,10 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
           console.log("packaged Node utility window Host started (expected in fallback mode)");
         }
       } catch (error) {
-        finish(error);
+        void finish(error);
         return;
       }
-      finish();
+      void finish();
     }, STARTUP_TIMEOUT_MS);
   });
 }
@@ -223,6 +233,8 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
 // 启动前写入冻结设置夹具，切换后逐次校验文件未被任一 Host 破坏（未知键与已有值仍在）。
 const hostSwitchDrill = process.argv.includes("--host-switch-drill");
 if (hostSwitchDrill) {
+  // 上一步（Rust Host 启动检查）刚结束；Windows 上单实例锁/子 Host 句柄释放需要时间。
+  await sleep(3_000);
   const drillHome = mkdtempSync(join(temp, "escode-drill-home-"));
   const drillCwd = mkdtempSync(join(temp, "escode-drill-cwd-"));
   const settingsDir = join(drillHome, ".escode", "v2");
@@ -243,6 +255,8 @@ if (hostSwitchDrill) {
         `Host switch drill corrupted settings after ${mode} (locale=${after.locale})`,
       );
     }
+    // 下一次启动前等旧实例彻底退出，避免 Windows 单实例锁/DB owner 锁串扰。
+    await sleep(2_000);
   }
   console.log("host switch and rollback drill passed: node → rust → node, settings preserved");
 } else {

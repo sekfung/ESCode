@@ -1,0 +1,37 @@
+# 临时诊断：用 run 40002774280 的 Windows 安装包验证 Host 切换演练的进程清理修复。
+# 验证通过后删除本文件；正式四平台证据仍由 release.yml 的 installed 矩阵产生。
+name: installed win diagnostic
+
+on:
+  push:
+    branches: ["feat/host-switch-drill-evidence"]
+    paths:
+      - .github/workflows/installed-win-diagnostic.yml
+      - scripts/ci-install-desktop.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows:
+    name: installed (win-x64) diagnostic
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      ESCODE_ENV: production
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: download windows installer artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 40002774280 -n desktop-win-x64 -D installer
+      - name: install and launch
+        shell: bash
+        run: node scripts/ci-install-desktop.mjs installer
+      - name: host switch drill
+        shell: bash
+        run: node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill
