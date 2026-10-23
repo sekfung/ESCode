@@ -14,8 +14,12 @@
       "skillRootCount": 1,
       "commandRootCount": 1,
       "skillCount": 2,
-      "declaredMcpServerNames": ["alpha_mcp"],
-      "mcpServerNames": ["plugin:alpha:alpha_mcp"],
+      "declaredMcpServerNames": [
+        "alpha_mcp"
+      ],
+      "mcpServerNames": [
+        "plugin:alpha:alpha_mcp"
+      ],
       "components": [
         {
           "kind": "agent",
@@ -119,8 +123,12 @@
       "skillRootCount": 1,
       "commandRootCount": 0,
       "skillCount": 1,
-      "declaredMcpServerNames": ["usb"],
-      "mcpServerNames": ["plugin:usb:usb"],
+      "declaredMcpServerNames": [
+        "usb"
+      ],
+      "mcpServerNames": [
+        "plugin:usb:usb"
+      ],
       "components": [
         {
           "kind": "skill",
@@ -195,7 +203,9 @@
       "skillRootCount": 0,
       "commandRootCount": 0,
       "skillCount": 0,
-      "declaredMcpServerNames": ["android-emulator"],
+      "declaredMcpServerNames": [
+        "android-emulator"
+      ],
       "mcpServerNames": [],
       "components": [
         {
@@ -408,7 +418,9 @@
       "skillRootCount": 0,
       "commandRootCount": 0,
       "skillCount": 0,
-      "declaredMcpServerNames": ["image_search"],
+      "declaredMcpServerNames": [
+        "image_search"
+      ],
       "mcpServerNames": [],
       "components": [
         {
@@ -433,7 +445,9 @@
       "skillRootCount": 0,
       "commandRootCount": 0,
       "skillCount": 0,
-      "declaredMcpServerNames": ["ios-simulator"],
+      "declaredMcpServerNames": [
+        "ios-simulator"
+      ],
       "mcpServerNames": [],
       "components": [
         {
@@ -624,34 +638,6 @@
       ]
     },
     {
-      "id": "rea@zcode-plugins-official",
-      "name": "rea",
-      "enabled": false,
-      "source": "official",
-      "marketplace": "zcode-plugins-official",
-      "description": "Reverse engineer binaries, applications and runtime behavior with REA through one MCP server.",
-      "version": "0.1.0",
-      "author": "morluto",
-      "authorUrl": "https://github.com/morluto/rea",
-      "homepage": "https://github.com/morluto/rea",
-      "skillRootCount": 0,
-      "commandRootCount": 0,
-      "skillCount": 0,
-      "declaredMcpServerNames": [],
-      "mcpServerNames": [],
-      "components": [
-        {
-          "kind": "skill",
-          "items": [
-            {
-              "name": "reverse-engineer-anything",
-              "description": "Reverse engineer native, managed, Electron/JavaScript, packaged, firmware, and browser targets with REA. Use shipped-artifact or requested runtime evidence to explain features, compare versions, decompile code, or guide a reconstruction. Skip REA for ordinary source-repository architecture analysis."
-            }
-          ]
-        }
-      ]
-    },
-    {
       "id": "ghost@some-market",
       "name": "ghost",
       "enabled": true,
@@ -665,7 +651,7 @@
       "components": []
     }
   ],
-  "listedTotal": 21,
+  "listedTotal": 20,
   "missingRequired": [],
   "schemaErrors": []
 }

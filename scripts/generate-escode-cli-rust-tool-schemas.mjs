@@ -302,7 +302,11 @@ for (const [file, data] of [
     },
   ],
 ]) {
-  const directory = file.startsWith("../domain/") ? "domain" : "tools";
+  const directory = file.startsWith("../domain/")
+    ? "domain"
+    : file === "plugin_defaults.json"
+      ? "plugins"
+      : "tools";
   const name = file.replace("../domain/", "");
   const path = new URL(`../apps/escode-cli-rust/crates/${directory}/src/${name}`, import.meta.url);
   const formatted = await format(path.pathname, `${JSON.stringify(data, null, 2)}\n`);

@@ -87,9 +87,9 @@ const assets = {
 };
 
 const outputs = [
-  ["../apps/escode-cli-rust/crates/tools/src/official_plugins.json", assets],
+  ["../apps/escode-cli-rust/crates/plugins/src/official_plugins.json", assets],
   [
-    "../apps/escode-cli-rust/crates/tools/tests/fixtures/official_plugin_sort.json",
+    "../apps/escode-cli-rust/crates/plugins/tests/fixtures/official_plugin_sort.json",
     { samples, sorted },
   ],
 ];

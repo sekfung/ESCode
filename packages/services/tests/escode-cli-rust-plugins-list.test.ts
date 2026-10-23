@@ -119,7 +119,11 @@ async function observe(kind: Runtime) {
       { workspace: { workspacePath: f.cwd, workspaceKey: f.cwd } },
       z.any(),
     )) as any;
-    const plugins = result.plugins as any[];
+    // rea 是可选随包插件：本地 bundle 有、CI 的 agent bundle 未必有；它不属于本用例
+    // 要验证的发现字段，过滤掉以保证 golden 跨环境稳定。
+    const plugins = (result.plugins as any[]).filter(
+      (plugin) => plugin.id !== "rea@zcode-plugins-official",
+    );
     const observation = {
       plugins: plugins.map((plugin) =>
         Object.fromEntries(FIELDS.map((field) => [field, plugin[field]])),

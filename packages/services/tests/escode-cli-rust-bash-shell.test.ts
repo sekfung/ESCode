@@ -58,8 +58,14 @@ async function observe(kind: "node" | "rust") {
           registry: true,
           respond,
           mode: "yolo",
+          env: { LANG: "C", LC_ALL: "C", LC_MESSAGES: "C" },
         })
-      : await fixture({ registry: true, respond, mode: "yolo" });
+      : await fixture({
+          registry: true,
+          respond,
+          mode: "yolo",
+          env: { LANG: "C", LC_ALL: "C", LC_MESSAGES: "C" },
+        });
   try {
     await configureRegistry(f, false);
     // fixture 的 HOME 为 f.root（见 escode-cli-rust-fixture.ts）。

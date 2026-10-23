@@ -23,10 +23,20 @@ const suite = basename(process.env.ESCODE_GOLDEN_SUITE ?? process.argv[1] ?? "un
   .replace(/\.test$/, "");
 
 /** 去掉 undefined 键（JSON 冻结会丢它们；两侧同法归一后再比较）。 */
-export function canonical<T>(value: T): T {
+export function canonical<T>(value: T, parentKey?: string): T {
   if (typeof value === "string") {
-    // 冻结的提示词含录制当天的 currentDate；跨天重跑时两侧同法归一。
-    return value.replace(/Today's date is \d{4}-\d{2}-\d{2}\./g, "Today's date is <DATE>.") as T;
+    // 冻结观察里的环境事实：录制当天日期、内核版本、shell 错误前缀。跨机器重跑时同法归一。
+    return (
+      value
+        .replace(/Today's date is \d{4}-\d{2}-\d{2}\./g, "Today's date is <DATE>.")
+        .replace(/^(- OS Version: ).*$/gm, "$1<os>")
+        // bash 的局部化错误文案（中文/英文）在 golden 与 CI 间不稳定；归一为同一占位。
+        .replace(
+          /(?:\/bin\/)?bash: (?:第 \d+ 行：|line \d+:)?\s*cd: missing-dir: .*/g,
+          "<shell>: cd: missing-dir: <error>",
+        )
+        .replace(/(?:\/bin\/)?bash: line \d+:/g, "<shell>:") as T
+    );
   }
   // JSON 把数组里的 undefined 写成 null；两侧同法归一（对象键仍按旧语义丢弃 undefined）。
   if (Array.isArray(value))
@@ -35,7 +45,12 @@ export function canonical<T>(value: T): T {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([, item]) => item !== undefined)
-        .map(([key, item]) => [key, canonical(item)]),
+        .map(([key, item]) => {
+          // CPU 派生的并发上限随 runner 核数变化；Node/Rust 两侧同法归一为占位符。
+          if (key === "concurrencyCeiling" || key === "ceiling") return [key, "<concurrency>"];
+          if (parentKey === "concurrency" && key === "cap") return [key, "<concurrency>"];
+          return [key, canonical(item, key)];
+        }),
     ) as T;
   }
   return value;
