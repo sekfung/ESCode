@@ -5,6 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：AmendWorkflow。CreateWorkflow 结算后，用修订脚本修订同一个 run：
 // 修订本会话的 run 免确认（workflowOwner 规则）→ 新 run 后台启动 → 结算 → 完成通知续跑。两侧模型面一致。
@@ -129,8 +130,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust amend a settled workflow run the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.amendResult, /background/i);
   assert.match(node.notification, /&quot;revised&quot;: true/);

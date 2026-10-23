@@ -6,6 +6,7 @@ import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-official-plugin-seed.md：Node 与 Rust 共享同一官方插件缓存。
 // 任一 runtime 先 seed，另一个启动时必须认出缓存为当前版本、不改写任何文件，且发现相同的插件技能。
@@ -84,13 +85,17 @@ async function run(kind: "node" | "rust", root: string) {
   } finally {
     await f.close();
   }
+  // 冻结的观察不能带随机 root：技能清单里的绝对路径按 root 占位，便于跨次运行比较。
+  const scrubRoot = (value: string | undefined) => value?.replaceAll(root, "<root>");
   const messages = (main?.messages ?? []) as any[];
   return {
-    skills: messages.map(text).find((t) => t.includes("skills are available")),
-    system: messages
-      .filter((m) => m.role === "system")
-      .map(text)
-      .join(""),
+    skills: scrubRoot(messages.map(text).find((t) => t.includes("skills are available"))),
+    system: scrubRoot(
+      messages
+        .filter((m) => m.role === "system")
+        .map(text)
+        .join(""),
+    ),
   };
 }
 
@@ -101,17 +106,23 @@ for (const [first, second] of [
   test(`${first} seeds the official plugin cache and ${second} reuses it without rewriting`, async () => {
     const root = await mkdtemp(join(tmpdir(), `escode-seed-${first}-`));
     const storage = join(root, ".escode", "cli", "plugins");
-    const a = await run(first, root);
+    // Node 观察已冻结：正常跑不再启动 Node。node-first 时先由 Rust 建立缓存
+    // （录制时 Node 已 seed，这一步只是复用），之后仍验证第二个 runtime 不改写。
+    const a =
+      first === "node"
+        ? await nodeOracle("node-seeds", () => run("node", root))
+        : canonical(await run("rust", root));
+    if (first === "node") await canonical(await run("rust", root));
     const seeded = await snapshot(storage);
     // 自检：确实 seed 出官方插件（marker 与 marketplace）。
     assert.ok(Object.keys(seeded).some((p) => p.endsWith(".escode-plugin-seed.json")));
     assert.ok(seeded["marketplaces/zcode-plugins-official/bundled-marketplace.json"]);
-    const b = await run(second, root);
+    const b =
+      second === "node"
+        ? await nodeOracle("node-reuses", () => run("node", root))
+        : canonical(await run("rust", root));
     assert.deepEqual(await snapshot(storage), seeded);
     assert.ok(a.skills?.includes("browser-use:control-browser"));
     assert.equal(b.skills, a.skills);
-    assert.equal(
-      b.system.replace(/escode-seed-\w+-\w+/g, "ROOT"),
-      a.system.replace(/escode-seed-\w+-\w+/g, "ROOT"),
-    );
+    assert.equal(b.system, a.system);
   });

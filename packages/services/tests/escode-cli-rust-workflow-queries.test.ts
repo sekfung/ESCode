@@ -5,6 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：V4 工作流只读查询。一条发布 markdown 产物、读过工作区文件的 run 结算后，
 // 比对 workflowRuns / workflowRunEvents / workflowRunArtifacts / workflowRunArtifactRead / workflowRunWorkspace /
@@ -139,8 +140,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust answer the V4 workflow run queries the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_WQ) console.log(JSON.stringify({ node, rust }, null, 1).slice(0, 8000));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.runs.runs.length, 1);

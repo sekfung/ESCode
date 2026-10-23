@@ -8,11 +8,50 @@ import { execFile } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end, waitForFile, type Harness } from "./escode-cli-rust-fixture.js";
 import { responses, anthropic } from "./escode-cli-rust-protocol-fixture.js";
-import { NodeContextSourceAdapter } from "../../../apps/escode-cli/packages/adapters/src/context/index.js";
-import { ContextBuilder } from "../../../apps/escode-cli/packages/core/src/context/builder.js";
-import { resolveEffectiveBashShellSelection } from "../../../apps/escode-cli/packages/adapters/src/exec/bash-shell-provider.js";
-import { wrapSystemReminderForSource } from "../../../apps/escode-cli/packages/core/src/system-reminder/source.js";
-import type { Model } from "../../../apps/escode-cli/packages/contracts/src/index.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+
+const contextAdapterModule = "../../../apps/escode-cli/packages/adapters/src/context/index.js";
+const contextBuilderModule = "../../../apps/escode-cli/packages/core/src/context/builder.js";
+const shellSelectionModule =
+  "../../../apps/escode-cli/packages/adapters/src/exec/bash-shell-provider.js";
+const systemReminderModule = "../../../apps/escode-cli/packages/core/src/system-reminder/source.js";
+
+// 冻结观察里的临时目录、平台、Shell 与内核版本按机器归一化，保证 golden 可跨机器回放。
+function normalizeContextText(text: string, root: string, cwd: string): string {
+  return (
+    text
+      .split(cwd)
+      .join("<CWD>")
+      .split(root)
+      .join("<ROOT>")
+      .replace(/^(- (?:Platform|Shell|OS Version): ).*$/gm, "$1<VARYING>")
+      // git 提交哈希取决于提交时间，录制与回放必然不同。
+      .replace(/^[0-9a-f]{7,40}(?= )/gm, "<COMMIT>")
+  );
+}
+async function buildTsContext(input: {
+  env: Record<string, string>;
+  cwd: string;
+  surface?: "desktop" | "terminal";
+}) {
+  const { NodeContextSourceAdapter } = await import(contextAdapterModule);
+  const { ContextBuilder } = await import(contextBuilderModule);
+  const { resolveEffectiveBashShellSelection } = await import(shellSelectionModule);
+  const shellDisplayName = resolveEffectiveBashShellSelection({
+    platform: process.platform,
+    env: process.env,
+  }).selection.display.name;
+  const snapshot = await new NodeContextSourceAdapter({ env: input.env }).resolveContextSources({
+    workingDirectory: input.cwd,
+    effectiveShellDisplayName: shellDisplayName,
+    userInstructions: { workingDirectory: input.cwd },
+  });
+  return new ContextBuilder({
+    ...snapshot,
+    model: { providerId: "fixture", modelId: "core-model" } as any,
+    presentationSurface: input.surface === "desktop" ? "escode_desktop" : "terminal",
+  }).build();
+}
 
 async function send(h: Harness, id: string, text: string) {
   const after = h.messages.length;
@@ -29,11 +68,6 @@ const systemText = (messages: any[]) =>
 const afterSystem = (messages: any[], index: number) =>
   messages.filter((m) => m.role !== "system")[index];
 const environment = (text: string) => text.slice(text.indexOf("# Environment"));
-// 提示词里的 Shell 名称取 TS 会话 shell 选择的显示名（与 Rust 子进程同一环境）。
-const shellDisplayName = resolveEffectiveBashShellSelection({
-  platform: process.platform,
-  env: process.env,
-}).selection.display.name;
 
 test("cold request uses the current presentation surface with the retained environment snapshot", async () => {
   const options: Parameters<typeof fixture>[0] = { surface: "desktop" };
@@ -92,35 +126,50 @@ test("native desktop and terminal request prefixes match the current TS ContextB
           "WORKSPACE_RULE <system-reminder>nested</system-reminder>\n",
         );
         const cwd = f.cwd;
-        const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
-          workingDirectory: cwd,
-          effectiveShellDisplayName: shellDisplayName,
-          userInstructions: { workingDirectory: cwd },
+        // TS ContextBuilder 的完整系统消息与上下文前缀冻结为观察（路径按临时根归一化）。
+        const expected = await nodeOracle(`prefix.${surface}.${apiType}`, async () => {
+          const { wrapSystemReminderForSource } = await import(systemReminderModule);
+          const built = await buildTsContext({ env, cwd, surface });
+          return {
+            systemMessages: built.systemMessages.map((m: { content: string }) =>
+              normalizeContextText(m.content, f.root, cwd),
+            ),
+            contextPrefix: normalizeContextText(
+              wrapSystemReminderForSource("context_prefix", built.metaUserAttachments[0]!.content),
+              f.root,
+              cwd,
+            ),
+          };
         });
-        const expected = new ContextBuilder({
-          ...snapshot,
-          model: { providerId: "fixture", modelId: "core-model" } as Model,
-          presentationSurface: surface === "desktop" ? "escode_desktop" : "terminal",
-        }).build();
         const h = f.start("remote://synthetic-owner");
         const id = await h.create();
         await h.subscribe(`conversation/${id}`);
         await send(h, id, "hello");
         const request = f.requests[0]!;
         const messages = apiType === "openai-responses" ? request.input : request.messages;
-        assert.deepEqual(
-          apiType === "anthropic-messages"
+        const actualSystem = canonical(
+          (apiType === "anthropic-messages"
             ? request.system.map((m: any) => m.text)
-            : messages.filter((m: any) => m.role === "system").map((m: any) => m.content),
+            : messages.filter((m: any) => m.role === "system").map((m: any) => m.content)
+          ).map((text: string) => normalizeContextText(text, f.root, cwd)),
+        );
+        assert.deepEqual(
+          actualSystem,
           apiType === "openai-chat-completions"
-            ? [expected.systemMessages.map((m) => m.content).join("")]
-            : expected.systemMessages.map((m) => m.content),
+            ? [expected.systemMessages.join("")]
+            : expected.systemMessages,
         );
         assert.equal(
-          apiType === "anthropic-messages"
-            ? messages[0].content[0].text
-            : afterSystem(messages, 0).content,
-          wrapSystemReminderForSource("context_prefix", expected.metaUserAttachments[0]!.content),
+          canonical(
+            normalizeContextText(
+              apiType === "anthropic-messages"
+                ? messages[0].content[0].text
+                : afterSystem(messages, 0).content,
+              f.root,
+              cwd,
+            ),
+          ),
+          expected.contextPrefix,
         );
         // v3.15.1：agent 目录以 agent_listing_delta 提醒位于上下文前缀与本轮输入正文之间（与 Node 一致）。
         assert.match(
@@ -169,23 +218,24 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
     ]);
     // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
     const cwd = f.cwd;
-    const snapshot = await new NodeContextSourceAdapter({ env }).resolveContextSources({
-      workingDirectory: cwd,
-      effectiveShellDisplayName: shellDisplayName,
-      userInstructions: { workingDirectory: cwd },
+    const expected = await nodeOracle("gitSnapshot", async () => {
+      const built = await buildTsContext({ env, cwd });
+      return built.systemMessages
+        .map((m: { content: string }) => normalizeContextText(m.content, f.root, cwd))
+        .join("");
     });
-    const expected = new ContextBuilder({
-      ...snapshot,
-      model: { providerId: "fixture", modelId: "core-model" } as Model,
-    }).build();
     const h = f.start();
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
     await send(h, id, "first");
     const first = f.requests[0]!.messages;
     assert.deepEqual(
-      first.filter((m: any) => m.role === "system").map((m: any) => m.content),
-      [expected.systemMessages.map((m) => m.content).join("")],
+      canonical(
+        first
+          .filter((m: any) => m.role === "system")
+          .map((m: any) => normalizeContextText(m.content, f.root, cwd)),
+      ),
+      [expected],
     );
     assert.match(systemText(first), /Main branch \(you will usually use this for PRs\): develop/);
     assert.match(systemText(first), /Current branch: main/);
@@ -241,18 +291,22 @@ test("instruction sources match TS nearest-file, Git boundary and bounded UTF-8 
     );
     // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
     const cwd = f.cwd;
-    const expected = await new NodeContextSourceAdapter({ env }).resolveContextSources({
-      workingDirectory: cwd,
-      userInstructions: { workingDirectory: cwd },
+    const expected = await nodeOracle("instructions", async () => {
+      const { wrapSystemReminderForSource } = await import(systemReminderModule);
+      const built = await buildTsContext({ env, cwd });
+      return normalizeContextText(
+        wrapSystemReminderForSource("context_prefix", built.metaUserAttachments[0]!.content),
+        f.root,
+        cwd,
+      );
     });
     const h = f.start();
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
     await send(h, id, "before child Git boundary");
-    const built = new ContextBuilder({ ...expected }).build();
     assert.equal(
-      afterSystem(f.requests[0]!.messages, 0).content,
-      wrapSystemReminderForSource("context_prefix", built.metaUserAttachments[0]!.content),
+      canonical(normalizeContextText(afterSystem(f.requests[0]!.messages, 0).content, f.root, cwd)),
+      expected,
     );
     assert.match(
       afterSystem(f.requests[0]!.messages, 0).content,

@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-permission-modes.md「工具能力表」：`permission.allowedTools` / `disallowedTools`
 // 来自 `~/.escode/cli/config.json`（与 --allowed-tools/--disallowed-tools 同源）。Node 用它做
@@ -83,8 +84,10 @@ async function observe(kind: Runtime, permission: Record<string, unknown>, mode:
 }
 
 test("Node and Rust both hard-deny a tool listed in permission.disallowedTools", async () => {
-  const node = await observe("node", { disallowedTools: ["Write"] }, "build");
-  const rust = await observe("rust", { disallowedTools: ["Write"] }, "build");
+  const node = await nodeOracle("disallowed-build", () =>
+    observe("node", { disallowedTools: ["Write"] }, "build"),
+  );
+  const rust = canonical(await observe("rust", { disallowedTools: ["Write"] }, "build"));
   assert.deepEqual(rust, node);
   assert.equal(node.status, "cancelled");
   assert.equal(node.prompts, 0, "硬禁用不得退化成弹窗");
@@ -93,8 +96,10 @@ test("Node and Rust both hard-deny a tool listed in permission.disallowedTools",
 });
 
 test("Node and Rust both pre-approve a tool listed in permission.allowedTools", async () => {
-  const node = await observe("node", { allowedTools: ["Write"] }, "build");
-  const rust = await observe("rust", { allowedTools: ["Write"] }, "build");
+  const node = await nodeOracle("allowed-build", () =>
+    observe("node", { allowedTools: ["Write"] }, "build"),
+  );
+  const rust = canonical(await observe("rust", { allowedTools: ["Write"] }, "build"));
   assert.deepEqual(rust, node);
   assert.equal(node.status, "success");
   assert.equal(node.prompts, 0);
@@ -102,8 +107,10 @@ test("Node and Rust both pre-approve a tool listed in permission.allowedTools", 
 });
 
 test("yolo still bypasses permission.disallowedTools on both runtimes", async () => {
-  const node = await observe("node", { disallowedTools: ["Write"] }, "yolo");
-  const rust = await observe("rust", { disallowedTools: ["Write"] }, "yolo");
+  const node = await nodeOracle("disallowed-yolo", () =>
+    observe("node", { disallowedTools: ["Write"] }, "yolo"),
+  );
+  const rust = canonical(await observe("rust", { disallowedTools: ["Write"] }, "yolo"));
   assert.deepEqual(rust, node);
   assert.equal(node.status, "success");
   assert.equal(node.file, "written");

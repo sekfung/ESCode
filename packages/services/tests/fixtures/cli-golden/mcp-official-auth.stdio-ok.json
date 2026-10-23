@@ -1,0 +1,79 @@
+{
+  "status": "connected",
+  "messages": [
+    {
+      "method": "server/discover",
+      "meta": {
+        "ok": true,
+        "headers": {
+          "Authorization": "Bearer identity-jwt",
+          "X-Bigmodel-Authorization": "Bearer plan-jwt",
+          "Bigmodel-Target-Type": "PERSONAL"
+        }
+      }
+    },
+    {
+      "method": "initialize",
+      "meta": {
+        "ok": true,
+        "headers": {
+          "Authorization": "Bearer identity-jwt",
+          "X-Bigmodel-Authorization": "Bearer plan-jwt",
+          "Bigmodel-Target-Type": "PERSONAL"
+        }
+      }
+    },
+    {
+      "method": "notifications/initialized",
+      "meta": {
+        "ok": true,
+        "headers": {
+          "Authorization": "Bearer identity-jwt",
+          "X-Bigmodel-Authorization": "Bearer plan-jwt",
+          "Bigmodel-Target-Type": "PERSONAL"
+        }
+      }
+    },
+    {
+      "method": "tools/list",
+      "meta": {
+        "ok": true,
+        "headers": {
+          "Authorization": "Bearer identity-jwt",
+          "X-Bigmodel-Authorization": "Bearer plan-jwt",
+          "Bigmodel-Target-Type": "PERSONAL"
+        }
+      }
+    }
+  ],
+  "hostRequests": [
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    }
+  ]
+}

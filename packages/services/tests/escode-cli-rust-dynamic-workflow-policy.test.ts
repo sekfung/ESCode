@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 1 期：动态工作流灰度门。
 // `workspace/updateDynamicWorkflowPolicy` 的回显与灰度关闭时的工具面在 Node 与 Rust 上一致；
@@ -75,8 +76,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("dynamic workflow policy and tool surface match Node", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：两侧回显各自的入参，且灰度关闭时下架全部工作流工具。
   assert.equal(node.enabled.enabled, true);
   assert.equal(node.disabled.enabled, false);

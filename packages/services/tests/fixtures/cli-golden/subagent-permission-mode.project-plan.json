@@ -1,0 +1,9 @@
+{
+  "writeRows": ["success"],
+  "childToolResult": "File created successfully at: child.txt (file state is current in your context — no need to Read it back)",
+  "parentToolResults": [
+    "child done\nagentId: agent_UUID (use SendMessage with to: 'agent_UUID' to continue this agent)\n<usage>subagent_tokens: 28\ntool_uses: 1\nduration_ms: N</usage>"
+  ],
+  "file": "written",
+  "schemaErrors": []
+}

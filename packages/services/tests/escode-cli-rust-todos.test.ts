@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  TodoWriteInputSchema,
-  TodoReadInputSchema,
-} from "../../../apps/escode-cli/packages/contracts/src/tools/todo.js";
-import {
-  todoReadToolEntry,
-  todoWriteToolEntry,
-} from "../../../apps/escode-cli/packages/core/src/tool/handlers/todo.js";
-import type { ToolExecutionContext } from "../../../apps/escode-cli/packages/core/src/tool/types.js";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+
+const todoContractsModule = "../../../apps/escode-cli/packages/contracts/src/tools/todo.js";
+const todoHandlerModule = "../../../apps/escode-cli/packages/core/src/tool/handlers/todo.js";
+const runtimeRemindersModule =
+  "../../../apps/escode-cli/packages/core/src/runtime/helpers/runtime-reminders.js";
 
 async function snapshot(
   h: Harness,
@@ -75,24 +72,29 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
   ];
   const f = await todoFixture(values);
   try {
-    let todos: unknown[] = [];
-    const context = {
-      sessionId: "fixture",
-      sessionStore: {
-        readTodos: async () => structuredClone(todos),
-        updateTodos: async (input: { todos: unknown[] }) => {
-          todos = structuredClone(input.todos);
+    // TS handler 的有序输出（共享同一 session store 语义）冻结为观察。
+    const expected = await nodeOracle("handlers", async () => {
+      const { todoReadToolEntry, todoWriteToolEntry } = await import(todoHandlerModule);
+      let todos: unknown[] = [];
+      const context = {
+        sessionId: "fixture",
+        sessionStore: {
+          readTodos: async () => structuredClone(todos),
+          updateTodos: async (input: { todos: unknown[] }) => {
+            todos = structuredClone(input.todos);
+          },
         },
-      },
-    } as unknown as ToolExecutionContext;
-    const expected = [];
-    for (const [name, input] of values)
-      expected.push(
-        await (name === "TodoRead" ? todoReadToolEntry : todoWriteToolEntry).handler(
-          input,
-          context,
-        ),
-      );
+      } as any;
+      const out: unknown[] = [];
+      for (const [name, input] of values)
+        out.push(
+          await (name === "TodoRead" ? todoReadToolEntry : todoWriteToolEntry).handler(
+            input,
+            context,
+          ),
+        );
+      return out;
+    });
     const h = f.start();
     const id = await h.create();
     await h.subscribe(`conversation/${id}`);
@@ -100,10 +102,7 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
     await h.command(h.envelope("sendText", id, { text: "write" }));
     await h.completed(id);
     const results = f.requests[1]!.messages.filter((m: any) => m.role === "tool");
-    assert.deepEqual(
-      results.map((m: any) => JSON.parse(m.content)),
-      expected,
-    );
+    assert.deepEqual(canonical(results.map((m: any) => JSON.parse(m.content))), expected);
     assert.deepEqual(
       results.map((m: any) => m.tool_call_id),
       values.map((_, i) => `todo-${i}`),
@@ -126,18 +125,23 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
       { sessionId: id },
       escodeSessionStateSnapshotSchema,
     );
-    assert.deepEqual(legacy.todos, second);
+    assert.deepEqual(canonical(legacy.todos), second);
     const other = await h.create();
     await h.subscribe(`conversation/${other}`);
     await h.command(h.envelope("sendText", other, { text: "read" }));
     await h.completed(other);
-    assert.deepEqual(JSON.parse(f.requests.at(-1)!.messages.at(-1).content), { todos: [] });
+    assert.deepEqual(canonical(JSON.parse(f.requests.at(-1)!.messages.at(-1).content)), {
+      todos: [],
+    });
     await h.close();
     const cold = f.start();
     assert.deepEqual((await snapshot(cold, id)).plan, snap.plan);
     await cold.command(cold.envelope("sendText", id, { text: "read" }));
     await cold.completed(id);
-    assert.deepEqual(JSON.parse(f.requests.at(-1)!.messages.at(-1).content), { todos: second });
+    assert.deepEqual(
+      canonical(JSON.parse(f.requests.at(-1)!.messages.at(-1).content)),
+      canonical({ todos: second }),
+    );
     await cold.close();
   } finally {
     await f.close();
@@ -145,6 +149,10 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
 });
 
 test("Rust Todo reminder follows TS ten-turn cadence across restart without visible user rows", async () => {
+  const reminder = await nodeOracle("reminder", async () => {
+    const { buildTodoReminderBody } = await import(runtimeRemindersModule);
+    return `<system-reminder>\n${buildTodoReminderBody([])}\n</system-reminder>`;
+  });
   const f = await fixture({
     respond(_req, res) {
       res.writeHead(200, { "content-type": "text/event-stream" });
@@ -177,16 +185,7 @@ test("Rust Todo reminder follows TS ten-turn cadence across restart without visi
     assert.equal(reminders(19).length, 1);
     assert.equal(reminders(20).length, 2);
     assert.equal(reminders(21).length, 2);
-    const { buildTodoReminderBody } = await import(
-      new URL(
-        "../../../apps/escode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts",
-        import.meta.url,
-      ).href
-    );
-    assert.equal(
-      reminders(10)[0].content,
-      `<system-reminder>\n${buildTodoReminderBody([])}\n</system-reminder>`,
-    );
+    assert.equal(reminders(10)[0].content, reminder);
     assert(!JSON.stringify(f.requests).includes("_escode_source"));
     assert.equal((await h.rows(id)).rows.filter((r) => r.kind === "userInput").length, 22);
     await h.close();
@@ -215,7 +214,7 @@ test("Rust Todo truncates model output on UTF-8 boundaries while retaining full 
     );
     assert.match(results[1].content, /Tool output truncated by resultBudget/);
     assert(!results[1].content.includes("�"));
-    assert.deepEqual(JSON.parse(results[2].content), { todos: large });
+    assert.deepEqual(canonical(JSON.parse(results[2].content)), { todos: large });
     const snap = await snapshot(h, id);
     assert.equal(snap.plan.items[0].content, large[0]!.content);
     await h.close();
@@ -236,11 +235,19 @@ test("Rust Todo validates TS strict inputs, retains state on failure and clears 
     ["TodoWrite", { todos: [todo("x", "pending", "invalid")] }],
     ["TodoWrite", { todos: [], unknown: 1 }],
   ];
-  for (const [name, input] of invalid)
-    assert.equal(
-      (name === "TodoRead" ? TodoReadInputSchema : TodoWriteInputSchema).safeParse(input).success,
-      false,
-    );
+  // TS 严格入参校验结论与规范化结果冻结为观察。
+  const validation = await nodeOracle("validation", async () => {
+    const { TodoReadInputSchema, TodoWriteInputSchema } = await import(todoContractsModule);
+    return {
+      invalid: invalid.map(
+        ([name, input]) =>
+          (name === "TodoRead" ? TodoReadInputSchema : TodoWriteInputSchema).safeParse(input)
+            .success,
+      ),
+      normalized: TodoWriteInputSchema.parse({ todos: valid }).todos,
+    };
+  });
+  for (const [index] of invalid.entries()) assert.equal(validation.invalid[index], false);
   const values: [string, unknown][] = [
     ["TodoWrite", { todos: valid }],
     ...invalid,
@@ -261,11 +268,8 @@ test("Rust Todo validates TS strict inputs, retains state on failure and clears 
       ["success", ...invalid.map(() => "error"), "success", "success", "success"],
     );
     const results = f.requests[1]!.messages.filter((m: any) => m.role === "tool");
-    assert.deepEqual(
-      JSON.parse(results.at(-3).content).todos,
-      TodoWriteInputSchema.parse({ todos: valid }).todos,
-    );
-    assert.deepEqual(JSON.parse(results.at(-1).content), { todos: [] });
+    assert.deepEqual(canonical(JSON.parse(results.at(-3).content).todos), validation.normalized);
+    assert.deepEqual(canonical(JSON.parse(results.at(-1).content)), { todos: [] });
     assert.equal((await snapshot(h, id)).plan, null);
     await h.close();
     const cold = f.start();
@@ -299,7 +303,7 @@ test("Rust Todo survives manual compaction, session close and cold history witho
     await cold.command(cold.envelope("sendText", id, { text: "read" }));
     await cold.completed(id);
     const request = f.requests.at(-1)!;
-    assert.deepEqual(JSON.parse(request.messages.at(-1).content), { todos });
+    assert.deepEqual(canonical(JSON.parse(request.messages.at(-1).content)), { todos });
     assert(
       request.messages.some(
         (m: any) => typeof m.content === "string" && m.content.includes("COMPACT_SUMMARY"),

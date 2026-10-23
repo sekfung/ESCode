@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-session-loading.md：App 的 `session/resume`（TS `resumeSession` +
 // `activateSessionForResume`）是任务列表/会话恢复的入口。Rust 之前没有该方法，App 会拿到
@@ -131,8 +132,8 @@ function project(snapshot: any) {
 }
 
 test("Node and Rust resume a session the same way (cold and warm)", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.warm, node.warm);
   assert.deepEqual(rust.cold, node.cold);
   assert.deepEqual(rust.schemaErrors, []);

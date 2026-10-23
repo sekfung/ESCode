@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { escodeMcpListResultSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-browser-use.md 第 1 期：Browser Use 启用且 node-repl-host 存在时注册内置 node_repl，
 // 经 Host 提供的插件启动器运行同一个真实宿主；两侧的设置页状态、会话工具定义与一次 js 调用结果一致。
@@ -83,8 +84,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("node_repl is registered and runs JavaScript the same way as Node", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 设置页 mcp/list 不列出内置 node_repl；会话里可用并执行。
   assert.equal(node.status, undefined);
   assert.equal(node.toolResult, "42");
@@ -194,8 +195,8 @@ async function observeBrowser(kind: "node" | "rust") {
 }
 
 test("node_repl browser calls go through the runtime broker to the Host the same way as Node", async () => {
-  const node = await observeBrowser("node");
-  const rust = await observeBrowser("rust");
+  const node = await nodeOracle("observeBrowser", () => observeBrowser("node"));
+  const rust = await canonical(await observeBrowser("rust"));
   assert.match(String(node.toolResult), /iab-1/);
   // v3.15.1 起 node_repl 与 runtime 共享连接记忆，两侧都在轮尾发 turnEnded，请求序列逐项一致。
   assert.deepEqual(rust, node);
@@ -333,8 +334,10 @@ test("node_repl tool cards and the browser turn-end screenshot match Node", asyn
         r.toolCallId === "c1" ? "c1" : String(r.toolCallId).replace(/[0-9a-f-]{36}$/u, "<uuid>"),
     })),
   });
-  const node = shape(await observeTurnScreenshot("node"));
-  const rust = shape(await observeTurnScreenshot("rust"));
+  const node = shape(
+    await nodeOracle("observeTurnScreenshot", () => observeTurnScreenshot("node")),
+  );
+  const rust = shape(await canonical(await observeTurnScreenshot("rust")));
   assert.deepEqual(node.commands, [
     "newTab",
     "navigate",
@@ -386,8 +389,8 @@ async function observeAmbient(kind: "node" | "rust") {
 }
 
 test("browser ambient context wraps the model-visible input the same way as Node", async () => {
-  const node = await observeAmbient("node");
-  const rust = await observeAmbient("rust");
+  const node = await nodeOracle("observeAmbient", () => observeAmbient("node"));
+  const rust = await canonical(await observeAmbient("rust"));
   assert.match(String(node.userText), /in-app-browser-context/);
   assert.equal(node.rowText, "what is on this page?");
   assert.deepEqual(rust, node);

@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // 模型失败分类映射（docs/specs/rust-dynamic-workflow.md）：actor 的模型请求返回配额业务码 1308，TS driver 按
 // inspectWorkflowModelFailure 把 run 停为 stopped(provider, quota)。比对 run 状态键、CreateWorkflow 结果与通知。
@@ -135,9 +136,9 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust stop a workflow run on a provider quota failure the same way", async () => {
-  const node = await observe("node");
+  const node = await nodeOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
-  const rust = await observe("rust");
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.notEqual(node.status, "completed");
   for (const key of Object.keys(node)) {

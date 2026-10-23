@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-selection.md「已知差异」：TS 子代理继承父会话已解析的 shell 选择
 // （subagent.ts 把父的 bashShellSelection/envInfo.shell 传给 child），不再以自己的 sessionId
@@ -107,8 +108,8 @@ test(
   "subagents inherit the parent shell selection without their own preference request",
   { skip: process.platform !== "win32" },
   async () => {
-    const node = await observe("node");
-    const rust = await observe("rust");
+    const node = await nodeOracle("observe", () => observe("node"));
+    const rust = await canonical(await observe("rust"));
     assert.deepEqual(rust, node);
     assert.match(String(node.childBash), /Microsoft Windows/);
     assert.ok(

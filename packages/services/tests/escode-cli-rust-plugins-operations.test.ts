@@ -9,6 +9,7 @@ import yazl from "yazl";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5：plugins/update（按 id / 市场 / 全部重装）与
 // plugins/cancelOperation（未知 id；进行中的安装被取消）。慢下载期间 plugins/list 仍能应答（不阻塞其它请求）。
@@ -177,8 +178,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust update plugins and answer cancelOperation the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   const { inFlight, ...shared } = rust;
   assert.deepEqual(shared, node);
   assert.deepEqual(node.schemaErrors, []);

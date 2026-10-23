@@ -3,6 +3,7 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // TaskOutput 读后台 Bash：运行中非阻塞读（not_ready）与阻塞读到终态（success + exit code + 输出）。模型看到的是
 // TS formatTaskOutputModelContent 的 XML 块（task id / 输出路径抹掉）。
@@ -82,8 +83,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust read a background Bash task with TaskOutput the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_TO) console.log(JSON.stringify({ node, rust }, null, 1));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.settled, /<retrieval_status>success<\/retrieval_status>/);

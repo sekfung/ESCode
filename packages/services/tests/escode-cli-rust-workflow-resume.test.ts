@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：停止与恢复。actor 的第一次模型请求挂住时，用户让主代理 TaskStop 这条 run →
 // ResumeWorkflowRun → actor 会话重水化（resumeFromStore）后重跑未完结的 ask → submit_result → 结算。比对 TaskStop /
@@ -195,8 +196,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust stop and resume a workflow run with a live actor the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.stopNotice, /stopped/i);
   assert.match(node.finalNotice, /&quot;total&quot;: 3/);

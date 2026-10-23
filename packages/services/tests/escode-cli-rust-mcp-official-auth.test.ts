@@ -9,6 +9,7 @@ import { escodeMcpListResultSchema } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { tools } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-official-auth.md 第 2 期：插件声明 escode_official 的 http MCP，经 Host 反向请求取身份头。
 // Node 与 Rust 在同一 loopback fixture（dev trusted origin）上比较 Host 请求、服务端收到的头与最终状态。
@@ -170,8 +171,8 @@ async function observe(kind: Kind, mode: Mode) {
 
 for (const mode of ["ok", "rejected", "untrusted"] as const)
   test(`official MCP (${mode}) identity headers, retries and status match Node`, async () => {
-    const node = await observe("node", mode);
-    const rust = await observe("rust", mode);
+    const node = await nodeOracle(`http-${mode}`, () => observe("node", mode));
+    const rust = canonical(await observe("rust", mode));
     if (mode === "ok") assert.equal(node.status?.status, "connected");
     if (mode === "untrusted") assert.deepEqual(node.server, []);
     assert.deepEqual(rust, node);
@@ -262,8 +263,8 @@ for (const [label, reply] of [
   ["plan required", { ok: false, reason: "official_auth_plan_required" }],
 ] as const)
   test(`official stdio MCP (${label}) _meta identity payload matches Node`, async () => {
-    const node = await observeStdio("node", reply);
-    const rust = await observeStdio("rust", reply);
+    const node = await nodeOracle(`stdio-${label}`, () => observeStdio("node", reply));
+    const rust = canonical(await observeStdio("rust", reply));
     assert.equal(node.status, "connected");
     assert.ok(node.messages.some((m: any) => m.meta !== null));
     assert.deepEqual(rust, node);

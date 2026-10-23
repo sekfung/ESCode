@@ -1,0 +1,803 @@
+{
+  "_readme": "rustHostRpc.test.ts 的 TS oracle 冻结（Phase 3 golden freeze）。由真实 createFileService/TaskIndexRepo 生成一次；删除 TS 后测试只加载本资产。",
+  "readdir": {
+    "visible": [
+      {
+        "name": "áz",
+        "path": "$CORPUS/áz",
+        "type": "directory",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "Zenith",
+        "path": "$CORPUS/Zenith",
+        "type": "directory",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "_x.txt",
+        "path": "$CORPUS/_x.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "1.txt",
+        "path": "$CORPUS/1.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "10.txt",
+        "path": "$CORPUS/10.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "2.txt",
+        "path": "$CORPUS/2.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a 1",
+        "path": "$CORPUS/a 1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a_1",
+        "path": "$CORPUS/a_1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a-1",
+        "path": "$CORPUS/a-1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a.1",
+        "path": "$CORPUS/a.1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a.txt",
+        "path": "$CORPUS/a.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "A.txt",
+        "path": "$CORPUS/A.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "dangling-link",
+        "path": "$CORPUS/dangling-link",
+        "type": "file",
+        "isSymbolicLink": true
+      },
+      {
+        "name": "dir_b",
+        "path": "$CORPUS/dir_b",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "dirA",
+        "path": "$CORPUS/dirA",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "é.txt",
+        "path": "$CORPUS/é.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "file.TXT",
+        "path": "$CORPUS/file.TXT",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "FILE.txt",
+        "path": "$CORPUS/FILE.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "file(1).txt",
+        "path": "$CORPUS/file(1).txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "link-to-dir",
+        "path": "$CORPUS/link-to-dir",
+        "type": "file",
+        "isSymbolicLink": true
+      },
+      {
+        "name": "README.md",
+        "path": "$CORPUS/README.md",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "Z",
+        "path": "$CORPUS/Z",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "z.txt",
+        "path": "$CORPUS/z.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      }
+    ],
+    "hidden": [
+      {
+        "name": "áz",
+        "path": "$CORPUS/áz",
+        "type": "directory",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "Zenith",
+        "path": "$CORPUS/Zenith",
+        "type": "directory",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "_x.txt",
+        "path": "$CORPUS/_x.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": ".hidden",
+        "path": "$CORPUS/.hidden",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "1.txt",
+        "path": "$CORPUS/1.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "10.txt",
+        "path": "$CORPUS/10.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "2.txt",
+        "path": "$CORPUS/2.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a 1",
+        "path": "$CORPUS/a 1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a_1",
+        "path": "$CORPUS/a_1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a-1",
+        "path": "$CORPUS/a-1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a.1",
+        "path": "$CORPUS/a.1",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "a.txt",
+        "path": "$CORPUS/a.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "A.txt",
+        "path": "$CORPUS/A.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "dangling-link",
+        "path": "$CORPUS/dangling-link",
+        "type": "file",
+        "isSymbolicLink": true
+      },
+      {
+        "name": "dir_b",
+        "path": "$CORPUS/dir_b",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "dirA",
+        "path": "$CORPUS/dirA",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "é.txt",
+        "path": "$CORPUS/é.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "file.TXT",
+        "path": "$CORPUS/file.TXT",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "FILE.txt",
+        "path": "$CORPUS/FILE.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "file(1).txt",
+        "path": "$CORPUS/file(1).txt",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "link-to-dir",
+        "path": "$CORPUS/link-to-dir",
+        "type": "file",
+        "isSymbolicLink": true
+      },
+      {
+        "name": "README.md",
+        "path": "$CORPUS/README.md",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "Z",
+        "path": "$CORPUS/Z",
+        "type": "file",
+        "isSymbolicLink": false
+      },
+      {
+        "name": "z.txt",
+        "path": "$CORPUS/z.txt",
+        "type": "file",
+        "isSymbolicLink": false
+      }
+    ]
+  },
+  "tasks": {
+    "metas": {
+      "task_min": {
+        "taskId": "task_min",
+        "traceId": "escode-task_min",
+        "title": "最小任务",
+        "workspacePath": "/w",
+        "createdAt": 100,
+        "updatedAt": 200,
+        "mode": "build",
+        "titleOverridden": false
+      },
+      "task_full": {
+        "taskId": "task_full",
+        "traceId": "escode-task_full",
+        "title": "完整任务",
+        "workspacePath": "/w",
+        "createdAt": 300,
+        "updatedAt": 400,
+        "mode": "plan",
+        "model": "glm-4",
+        "provider": "glm",
+        "cronAutomationId": "cron_1",
+        "unreadAt": 450,
+        "status": "running",
+        "titleOverridden": false
+      }
+    },
+    "lists": {
+      "timeline": [
+        {
+          "taskId": "task_q6",
+          "traceId": "escode-task_q6",
+          "title": "标题 task_q6",
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 700,
+          "mode": "build",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_q1",
+          "traceId": "escode-task_q1",
+          "title": "标题 task_q1",
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 500,
+          "mode": "build",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_full",
+          "traceId": "escode-task_full",
+          "title": "完整任务",
+          "workspacePath": "/w",
+          "createdAt": 300,
+          "updatedAt": 400,
+          "mode": "plan",
+          "model": "glm-4",
+          "provider": "glm",
+          "cronAutomationId": "cron_1",
+          "unreadAt": 450,
+          "status": "running",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_q2",
+          "traceId": "escode-task_q2",
+          "title": "标题 task_q2",
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 400,
+          "mode": "build",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_l1",
+          "traceId": "escode-task_l1",
+          "title": "列表一",
+          "titleOverridden": false,
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 20,
+          "mode": "build",
+          "provider": "glm"
+        }
+      ],
+      "pinned": [
+        {
+          "taskId": "task_q3",
+          "traceId": "escode-task_q3",
+          "title": "标题 task_q3",
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 300,
+          "mode": "build",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_l2",
+          "traceId": "escode-task_l2",
+          "title": "列表二",
+          "titleOverridden": false,
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 20,
+          "mode": "build",
+          "provider": "glm"
+        }
+      ],
+      "archived": [
+        {
+          "taskId": "task_q4",
+          "traceId": "escode-task_q4",
+          "title": "标题 task_q4",
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 200,
+          "mode": "build",
+          "titleOverridden": false
+        },
+        {
+          "taskId": "task_l4",
+          "traceId": "escode-task_l4",
+          "title": "置顶归档",
+          "titleOverridden": false,
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 20,
+          "mode": "build",
+          "provider": "glm"
+        },
+        {
+          "taskId": "task_l3",
+          "traceId": "escode-task_l3",
+          "title": "归档",
+          "titleOverridden": false,
+          "workspacePath": "/w",
+          "createdAt": 10,
+          "updatedAt": 20,
+          "mode": "build",
+          "provider": "glm"
+        }
+      ],
+      "deletedIds": []
+    },
+    "taskLists": [
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "updated"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q6",
+              "traceId": "escode-task_q6",
+              "title": "标题 task_q6",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 700,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_q1",
+              "traceId": "escode-task_q1",
+              "title": "标题 task_q1",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 500,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_full",
+              "traceId": "escode-task_full",
+              "title": "完整任务",
+              "workspacePath": "/w",
+              "createdAt": 300,
+              "updatedAt": 400,
+              "mode": "plan",
+              "model": "glm-4",
+              "provider": "glm",
+              "cronAutomationId": "cron_1",
+              "unreadAt": 450,
+              "status": "running",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_q2",
+              "traceId": "escode-task_q2",
+              "title": "标题 task_q2",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 400,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_l1",
+              "traceId": "escode-task_l1",
+              "title": "列表一",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 20,
+              "mode": "build",
+              "provider": "glm",
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 5,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "pinned",
+          "sortBy": "updated"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q3",
+              "traceId": "escode-task_q3",
+              "title": "标题 task_q3",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 300,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_l2",
+              "traceId": "escode-task_l2",
+              "title": "列表二",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 20,
+              "mode": "build",
+              "provider": "glm",
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 2,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "archived",
+          "sortBy": "updated"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q4",
+              "traceId": "escode-task_q4",
+              "title": "标题 task_q4",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 200,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_l4",
+              "traceId": "escode-task_l4",
+              "title": "置顶归档",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 20,
+              "mode": "build",
+              "provider": "glm",
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_l3",
+              "traceId": "escode-task_l3",
+              "title": "归档",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 20,
+              "mode": "build",
+              "provider": "glm",
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 3,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "created",
+          "limit": 2
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_full",
+              "traceId": "escode-task_full",
+              "title": "完整任务",
+              "workspacePath": "/w",
+              "createdAt": 300,
+              "updatedAt": 400,
+              "mode": "plan",
+              "model": "glm-4",
+              "provider": "glm",
+              "cronAutomationId": "cron_1",
+              "unreadAt": 450,
+              "status": "running",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_q6",
+              "traceId": "escode-task_q6",
+              "title": "标题 task_q6",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 700,
+              "mode": "build",
+              "titleOverridden": false,
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 5,
+          "hasMore": true
+        }
+      },
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "updated",
+          "search": "迁移"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q6",
+              "traceId": "escode-task_q6",
+              "title": "标题 task_q6",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 700,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
+              "searchSnippets": [
+                "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束"
+              ],
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_q2",
+              "traceId": "escode-task_q2",
+              "title": "标题 task_q2",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 400,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "评审 Rust Host 的迁移",
+              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 2,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "updated",
+          "search": "评审"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q2",
+              "traceId": "escode-task_q2",
+              "title": "标题 task_q2",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 400,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "评审 Rust Host 的迁移",
+              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 1,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "updated",
+          "search": "迁移"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q6",
+              "traceId": "escode-task_q6",
+              "title": "标题 task_q6",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 700,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
+              "searchSnippets": [
+                "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束"
+              ],
+              "workspacePurpose": "project"
+            },
+            {
+              "taskId": "task_q2",
+              "traceId": "escode-task_q2",
+              "title": "标题 task_q2",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 400,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "评审 Rust Host 的迁移",
+              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 2,
+          "hasMore": false
+        }
+      },
+      {
+        "query": {
+          "kind": "timeline",
+          "sortBy": "updated",
+          "search": "🙂"
+        },
+        "result": {
+          "items": [
+            {
+              "taskId": "task_q6",
+              "traceId": "escode-task_q6",
+              "title": "标题 task_q6",
+              "workspacePath": "/w",
+              "createdAt": 10,
+              "updatedAt": 700,
+              "mode": "build",
+              "titleOverridden": false,
+              "searchSnippet": "...移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
+              "searchSnippets": ["...移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束"],
+              "workspacePurpose": "project"
+            }
+          ],
+          "total": 1,
+          "hasMore": false
+        }
+      }
+    ],
+    "grouped": {
+      "groups": [
+        {
+          "id": "group_diff",
+          "title": "差分组",
+          "color": "blue",
+          "createdAt": 10,
+          "updatedAt": 20
+        }
+      ],
+      "members": [
+        {
+          "groupId": "group_diff",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "task_q1",
+          "sortOrder": 7,
+          "addedAt": 30
+        }
+      ],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "group_diff",
+          "sortOrder": 1
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "task_q2",
+          "sortOrder": 2
+        }
+      ]
+    }
+  }
+}

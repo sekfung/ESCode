@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 3 期：`plugins/overview`。
 // 比对整份结果（marketplaces / availablePlugins / installedPlugins / restorableBuiltins /
@@ -190,8 +191,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust return the same plugins overview", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.known, node.known);
   assert.deepEqual(rust.result.marketplaces, node.result.marketplaces);
   assert.deepEqual(rust.result.availablePlugins, node.result.availablePlugins);

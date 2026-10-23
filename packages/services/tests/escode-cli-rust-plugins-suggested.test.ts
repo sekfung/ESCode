@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5b：plugins/resolveSuggestedReference。非官方 / 非法 id 直接
 // unavailable；本地已有（内置官方插件）返回 ready/disabled；否则先发 plugins/operationProgress refreshing，
@@ -131,8 +132,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust resolve suggested plugin references the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

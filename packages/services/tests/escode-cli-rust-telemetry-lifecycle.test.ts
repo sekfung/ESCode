@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { conversationTelemetryFactSchema } from "@escode/shared/escode-protocol-v4";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `v4/telemetry/event` 的权限与子代理生命周期：build 模式下 Write 需要确认（requested → resolved），随后一个前台
 // 子代理（spawned → stopped）。比对父会话这两类事实与 Rust 事实的 schema 合法性。
@@ -107,8 +108,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust emit the same permission and subagent lifecycle telemetry", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.invalid, []);
   assert.deepEqual(rust.invalid, []);
   assert.ok(node.lifecycle.length >= 3);

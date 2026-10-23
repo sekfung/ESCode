@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-hooks.md H1：PermissionRequest hooks 与确认窗竞速。build 模式下两条写文件的 Bash 都要确认：第一条被 hook
 // 拒绝，第二条被 hook 放行（用户不作答）。比对模型可见的工具结果、hook 收到的 stdin、`hookInvocation` 行与确认窗出现过。
@@ -152,8 +153,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust race PermissionRequest hooks against the dialog the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(String(node.blocked), /blocked by policy/);
   assert.equal(node.asked, true);

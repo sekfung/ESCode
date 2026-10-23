@@ -1,0 +1,98 @@
+{
+  "uninstallInstalled": {
+    "removedPlugin": {
+      "id": "tool@acme",
+      "name": "tool",
+      "marketplace": "acme",
+      "version": "1.0.0",
+      "enabled": false,
+      "scope": "user",
+      "installPath": "<root>/.escode/cli/plugins/cache/acme/tool/1.0.0",
+      "installedAt": "2026-01-01T00:00:00.000Z"
+    },
+    "diagnostics": []
+  },
+  "afterInstalled": {
+    "installed": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"keep@acme\",\n      \"name\": \"keep\",\n      \"marketplace\": \"acme\",\n      \"version\": \"2.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/keep/2.0.0\",\n      \"installedAt\": \"2026-01-02T00:00:00.000Z\",\n      \"scope\": \"user\",\n      \"extra\": {\n        \"kept\": true\n      }\n    }\n  ]\n}\n",
+    "user": "{\n  \"plugins\": {\n    \"enabledPlugins\": {\n      \"browser-use@zcode-plugins-official\": true\n    },\n    \"options\": {},\n    \"suppressedBuiltins\": []\n  }\n}\n",
+    "toolCache": false,
+    "toolData": false,
+    "builtinData": true
+  },
+  "uninstallBuiltin": {
+    "removedPlugin": {
+      "id": "browser-use@zcode-plugins-official",
+      "name": "browser-use",
+      "marketplace": "zcode-plugins-official",
+      "version": "0.5.1",
+      "enabled": false,
+      "scope": "user",
+      "installPath": "<root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1",
+      "installedAt": "<now>"
+    },
+    "diagnostics": []
+  },
+  "afterBuiltin": {
+    "installed": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"keep@acme\",\n      \"name\": \"keep\",\n      \"marketplace\": \"acme\",\n      \"version\": \"2.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/keep/2.0.0\",\n      \"installedAt\": \"2026-01-02T00:00:00.000Z\",\n      \"scope\": \"user\",\n      \"extra\": {\n        \"kept\": true\n      }\n    }\n  ]\n}\n",
+    "user": "{\n  \"plugins\": {\n    \"enabledPlugins\": {},\n    \"options\": {},\n    \"suppressedBuiltins\": [\n      \"browser-use@zcode-plugins-official\"\n    ]\n  }\n}\n",
+    "toolCache": false,
+    "toolData": false,
+    "builtinData": false
+  },
+  "builtinCacheKept": true,
+  "listAfterUninstall": [
+    "android-emulator@zcode-plugins-official",
+    "computer-use@zcode-plugins-official",
+    "documents@zcode-plugins-official",
+    "escode-guide@zcode-plugins-official",
+    "image-search@zcode-plugins-official",
+    "ios-simulator@zcode-plugins-official",
+    "node-repl-host@zcode-plugins-official",
+    "pdf@zcode-plugins-official",
+    "plugin-creator@zcode-plugins-official",
+    "presentations@zcode-plugins-official",
+    "rea@zcode-plugins-official",
+    "restore-legacy-sessions@zcode-plugins-official",
+    "serial@zcode-plugins-official",
+    "skill-creator@zcode-plugins-official",
+    "spreadsheets@zcode-plugins-official",
+    "usb@zcode-plugins-official",
+    "visualize@zcode-plugins-official"
+  ],
+  "uninstallUnknown": {
+    "diagnostics": []
+  },
+  "uninstallMissingSelector": true,
+  "restore": {
+    "pluginId": "browser-use@zcode-plugins-official",
+    "diagnostics": []
+  },
+  "afterRestore": {
+    "installed": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"keep@acme\",\n      \"name\": \"keep\",\n      \"marketplace\": \"acme\",\n      \"version\": \"2.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/keep/2.0.0\",\n      \"installedAt\": \"2026-01-02T00:00:00.000Z\",\n      \"scope\": \"user\",\n      \"extra\": {\n        \"kept\": true\n      }\n    }\n  ]\n}\n",
+    "user": "{\n  \"plugins\": {\n    \"enabledPlugins\": {},\n    \"options\": {},\n    \"suppressedBuiltins\": []\n  }\n}\n",
+    "toolCache": false,
+    "toolData": false,
+    "builtinData": false
+  },
+  "listAfterRestore": [
+    "android-emulator@zcode-plugins-official",
+    "browser-use@zcode-plugins-official",
+    "computer-use@zcode-plugins-official",
+    "documents@zcode-plugins-official",
+    "escode-guide@zcode-plugins-official",
+    "image-search@zcode-plugins-official",
+    "ios-simulator@zcode-plugins-official",
+    "node-repl-host@zcode-plugins-official",
+    "pdf@zcode-plugins-official",
+    "plugin-creator@zcode-plugins-official",
+    "presentations@zcode-plugins-official",
+    "rea@zcode-plugins-official",
+    "restore-legacy-sessions@zcode-plugins-official",
+    "serial@zcode-plugins-official",
+    "skill-creator@zcode-plugins-official",
+    "spreadsheets@zcode-plugins-official",
+    "usb@zcode-plugins-official",
+    "visualize@zcode-plugins-official"
+  ],
+  "schemaErrors": []
+}

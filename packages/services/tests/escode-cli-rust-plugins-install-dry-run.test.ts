@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5b：plugins/install dryRun 只校验不落盘——已知市场按单插件校验，
 // 用户配置声明但未落盘的市场按声明源校验（id 一致、条目存在），声明与已知记录源冲突时报改指诊断。
@@ -126,8 +127,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust validate plugin installs in dryRun the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W1a：plugins/uninstall（市场安装 / 内置 / 不存在）与
 // plugins/restoreBuiltin。比对协议返回、installed_plugins.json 与用户配置的字节、缓存与数据目录是否保留。
@@ -157,8 +158,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust uninstall and restore plugins the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

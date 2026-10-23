@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md：发现层诊断（TS discoverNodePluginsSync 的 loader 部分）。
 // 坏插件只出诊断、不拖垮整个列表；manifest 缺 version 时按 "0.0.0" 输出。
@@ -109,8 +110,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust report the same plugin discovery diagnostics", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.plugins, node.plugins);
   assert.deepEqual(rust.diagnostics, node.diagnostics);
   assert.deepEqual(node.schemaErrors, []);

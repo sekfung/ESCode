@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：升级问答。actor 调 `escalate` 停驻 → 父会话收到 run 中通知（后台结果轮）
 // → 主代理用 ResolveWorkflowQuestion 作答 → actor 的 escalate 结果就是答案，接着 submit_result → run 结算通知。
@@ -142,8 +143,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust route a workflow escalation through the parent the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.escalationNotice, /Which directory should I report\?/);
   assert.match(node.actorEscalateResult, /Report src\./);

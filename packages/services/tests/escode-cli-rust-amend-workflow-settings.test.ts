@@ -5,13 +5,15 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { resolveWorkflowDefaultConcurrency } from "../../../apps/escode-cli/packages/bootstrap/src/app/workflow-default-concurrency.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // 默认并发直接问实现（bootstrap/app/workflow-default-concurrency.ts 是唯一实现，
 // docs/dynamic-workflow/concurrency.md）：`max(4, min(16, availableParallelism() − 2))`。
 // 这里曾抄公式且地板仍是 1：3 核的 macOS runner 上默认并发其实是 4，就地调到 1 是有效 retune，
 // 抄来的公式却判 unchanged，macOS CI 必红。地板为 4 时 CAN_RETUNE 恒真，else 分支只作防御保留。
-const CAN_RETUNE = resolveWorkflowDefaultConcurrency() > 1;
+// 默认并发地板是 4（workflow-default-concurrency.ts），因此 retune 用例始终可跑；
+// 这里不再 import TS 实现，避免测试在删除 TS 后失效。
+const CAN_RETUNE = true;
 const SETTINGS_ROWS = CAN_RETUNE ? 4 : 2;
 
 // docs/specs/rust-v4-command-gaps.md「amendWorkflowRunSettings」：run 卡 / 详情页「配置」的「应用」在
@@ -220,8 +222,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust amend workflow run settings from the GUI the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：确认 Node 侧真的走到了修订与就地调并发，避免两侧同样为空也判等。
   assert.equal(node.unchanged.reasonCode, "fault.command.workflowRunSettingsRejected.unchanged");

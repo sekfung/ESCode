@@ -2,11 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { access, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
-import type { MessageId, PartId, ProjectId, SessionId, WorkspaceId } from "@escode/contracts";
 import { fixture } from "./escode-cli-rust-fixture.js";
+import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 
 const SESSIONS = 120;
@@ -18,75 +16,11 @@ test("Rust imports a large TS history once, stays idempotent and preserves large
   const f = await fixture({ legacy: true });
   try {
     const tsDb = join(f.root, "ts.sqlite");
-    const store = createSqliteSessionStore({ dbPath: tsDb });
     const largeFile = join(f.root, "large.bin");
     const largeBytes = Buffer.alloc(LARGE_BYTES, 7);
     await writeFile(largeFile, largeBytes);
-
-    for (let s = 0; s < SESSIONS; s += 1) {
-      const id = `scale-${s}` as SessionId;
-      const withLarge = s === 0;
-      await store.createSession({
-        id,
-        projectID: "p" as ProjectId,
-        workspaceID: f.cwd as WorkspaceId,
-        directory: f.cwd,
-        slug: id,
-        title: `scale ${s}`,
-        version: "fixture",
-      });
-      await store.saveSessionEntry({
-        id: `${id}-model`,
-        sessionID: id,
-        type: "runtime/model_selection",
-        time: { created: 1, updated: 1 },
-        data: { providerId: "fixture", modelId: "core-model", options: { reasoningLevel: "none" } },
-      });
-      await store.saveSessionEntry({
-        id: `${id}-mode`,
-        sessionID: id,
-        type: "runtime/execution_state",
-        time: { created: 1, updated: 1 },
-        data: { mode: "yolo", planEnabled: false },
-      });
-      for (let m = 0; m < MESSAGES_PER_SESSION; m += 1) {
-        const messageID = `${id}-m${m}` as MessageId;
-        await store.saveMessage({
-          id: messageID,
-          sessionID: id,
-          role: m % 2 === 0 ? "user" : "assistant",
-          time: { created: m + 1 },
-          agent: "main",
-        } as Parameters<typeof store.saveMessage>[0]);
-        await store.savePart({
-          id: `${id}-p${m}` as PartId,
-          sessionID: id,
-          messageID,
-          type: "text",
-          text: `history ${s}/${m} ${"x".repeat(200)}`,
-        });
-      }
-      if (withLarge) {
-        const messageID = `${id}-large` as MessageId;
-        await store.saveMessage({
-          id: messageID,
-          sessionID: id,
-          role: "user",
-          time: { created: 999 },
-          agent: "main",
-        });
-        await store.savePart({
-          id: `${id}-large-part` as PartId,
-          sessionID: id,
-          messageID,
-          type: "file",
-          mime: "application/octet-stream",
-          filename: "large.bin",
-          url: pathToFileURL(largeFile).href,
-        });
-      }
-    }
-    store.close();
+    // 大库由真实 TS store 一次性生成后冻结为仓内种子；正常跑只复制。
+    await copyLegacySeed("migration.scale", tsDb, { workspace: f.cwd, root: f.root });
 
     const first = f.start();
     const started = Date.now();

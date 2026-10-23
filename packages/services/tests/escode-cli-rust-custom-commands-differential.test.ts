@@ -7,6 +7,7 @@ import { escodeWorkspacePresentationSchema } from "@escode/shared";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-custom-commands.md：同一 workspace 下 Node 与 Rust 的 slash 命令目录、
 // 展开后模型收到的提示词（含参数与 shell 展开）、userInput 行与标题一致；失败展开的对外表现一致。
@@ -140,8 +141,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust expand custom slash commands the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：Node 目录含自定义与插件命令，展开含 shell 输出。
   assert.ok(node.catalog.some((c: any) => c.name === "review"));
   assert.ok(node.turns[0].model.includes("shell-ok"), JSON.stringify(node.turns[0]));

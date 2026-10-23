@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5b：plugins/describe。已安装插件读安装目录；未安装候选
 // 解析源后枚举组件（agents / commands / skills 的 frontmatter，hooks 事件名，MCP 服务名）与展示元数据。
@@ -182,8 +183,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust describe plugins the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

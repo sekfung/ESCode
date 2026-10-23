@@ -1,0 +1,412 @@
+{
+  "good": {
+    "ok": true,
+    "diagnostics": [],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "risky": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: lspServers",
+        "severity": "warning",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: settings",
+        "severity": "warning",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_variable_missing",
+        "message": "Required plugin userConfig has no default and must be configured: token",
+        "severity": "warning",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "MCPB/DXT plugin bundles are recognized but not supported in this runtime",
+        "severity": "warning",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_invalid",
+        "message": "Plugin MCP config must be an object",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "Unsupported MCP transport: ws",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "sse MCP server requires url",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_variable_missing",
+        "message": "Missing environment variable: API_KEY",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_variable_missing",
+        "message": "Plugin variable requires a runtime session context: ESCODE_SESSION_ID",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_variable_missing",
+        "message": "Sensitive plugin user_config value cannot be used in this field: token",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "Unsupported MCP OAuth type: magic",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "MCP server badAuth: unsupported auth type: other",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "MCP server officialSse: escode_official auth requires type \"http\" or \"stdio\", got \"sse\"",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      },
+      {
+        "code": "plugin_mcp_server_disabled",
+        "message": "MCP server reserved: static headers must not contain reserved header(s): authorization",
+        "severity": "error",
+        "pluginId": "risky@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "escape": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_component_path_invalid",
+        "message": "Plugin mcpServers path escapes plugin root: ../../outside.json",
+        "severity": "error",
+        "pluginId": "escape@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "mismatch": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_manifest_invalid",
+        "message": "Plugin manifest name 'other-name' does not match marketplace entry 'mismatch'",
+        "severity": "error",
+        "pluginId": "mismatch@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "badname": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_manifest_invalid",
+        "message": "Invalid plugin name: Bad Name",
+        "severity": "error",
+        "pluginId": "badname@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "bare": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_manifest_not_found",
+        "message": "Plugin manifest not found: bare@acme",
+        "severity": "error",
+        "pluginId": "bare@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "loose": {
+    "ok": true,
+    "diagnostics": [
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: outputStyles",
+        "severity": "warning",
+        "pluginId": "loose@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "needy": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_dependency_missing",
+        "message": "Dependency not found: ghost@acme required by needy@acme",
+        "severity": "error",
+        "pluginId": "needy@acme"
+      },
+      {
+        "code": "plugin_manifest_invalid",
+        "message": "Plugin manifest name 'good' does not match marketplace entry 'needy'",
+        "severity": "error",
+        "pluginId": "needy@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "nosource": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin source is not supported for nosource@acme",
+        "severity": "error",
+        "pluginId": "nosource@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "pipsrc": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "Plugin source is recognized but not supported in this runtime: pip",
+        "severity": "error",
+        "pluginId": "pipsrc@acme"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "ghost": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_not_found",
+        "message": "Plugin not found: ghost@acme",
+        "severity": "error"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "unknownMarket": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace not found: nowhere",
+        "severity": "error"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "sourceExternal": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: channels",
+        "severity": "warning",
+        "pluginId": "local@ext"
+      },
+      {
+        "code": "plugin_validation_deferred",
+        "message": "Remote plugin source validation is deferred until install or single-plugin validate: acme/remote",
+        "severity": "warning",
+        "pluginId": "remote@ext"
+      },
+      {
+        "code": "plugin_validation_deferred",
+        "message": "Remote plugin source validation is deferred until install or single-plugin validate: https://example.invalid/r.git",
+        "severity": "warning",
+        "pluginId": "giturl@ext"
+      },
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin zip source sha256 is required",
+        "severity": "error",
+        "pluginId": "zipnosha@ext"
+      },
+      {
+        "code": "plugin_validation_deferred",
+        "message": "Remote plugin source validation is deferred until install or single-plugin validate: https://x/a.zip",
+        "severity": "warning",
+        "pluginId": "zipnosha@ext"
+      },
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "Plugin URL source type is not supported: ftp",
+        "severity": "error",
+        "pluginId": "ftp@ext"
+      },
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "Plugin source is recognized but not supported in this runtime: url:ftp",
+        "severity": "error",
+        "pluginId": "ftp@ext"
+      },
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "Plugin source is recognized but not supported in V1 install: npm",
+        "severity": "warning",
+        "pluginId": "npmsrc@ext"
+      },
+      {
+        "code": "plugin_marketplace_source_unsupported",
+        "message": "Plugin source is recognized but not supported in this runtime: npm",
+        "severity": "error",
+        "pluginId": "npmsrc@ext"
+      },
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Unsupported or missing plugin source: ./missing",
+        "severity": "error",
+        "pluginId": "nodir@ext"
+      },
+      {
+        "code": "plugin_dependency_cross_marketplace",
+        "message": "Cross-marketplace dependency is blocked: nope@elsewhere required by deps@ext",
+        "severity": "error",
+        "pluginId": "deps@ext"
+      },
+      {
+        "code": "plugin_manifest_invalid",
+        "message": "Plugin manifest name 'local' does not match marketplace entry 'deps'",
+        "severity": "error",
+        "pluginId": "deps@ext"
+      },
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: channels",
+        "severity": "warning",
+        "pluginId": "deps@ext"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "sourceEmpty": {
+    "ok": true,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace has no plugins: empty",
+        "severity": "warning"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "sourceMissing": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace source path does not exist: <root>/markets/nope",
+        "severity": "error"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "sourceInvalid": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Unsupported marketplace source: not a source",
+        "severity": "error"
+      }
+    ],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "nothing": {
+    "ok": true,
+    "diagnostics": [],
+    "compatibility": {
+      "runnable": ["skills", "commands", "hooks", "mcpServers", "userConfig"],
+      "diagnosticOnly": ["agents", "lspServers", "outputStyles", "channels", "settings"],
+      "unsupported": ["mcpb", "dxt", "npm", "hostPattern", "pathPattern"]
+    }
+  },
+  "schemaErrors": []
+}

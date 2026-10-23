@@ -1,0 +1,118 @@
+{
+  "name": "plugin:official-fixture:search",
+  "status": {
+    "status": "connected",
+    "failureKind": null,
+    "serverRequestId": null,
+    "toolCount": 1
+  },
+  "hostRequests": [
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    },
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    },
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    },
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    },
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    }
+  ],
+  "server": [
+    {
+      "http": "POST",
+      "method": "server/discover",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    },
+    {
+      "http": "POST",
+      "method": "initialize",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    },
+    {
+      "http": "POST",
+      "method": "notifications/initialized",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    },
+    {
+      "http": "GET",
+      "method": null,
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    },
+    {
+      "http": "POST",
+      "method": "tools/list",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 2/3 期：SaveWorkflow。技能门、入参校验、编译诊断（不弹窗不落盘）、
 // 干净脚本的确认（alwaysAsk、无「总是允许」）与落盘、覆盖判定、script_path 读草稿（丢掉元数据块）。
@@ -139,8 +140,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust save workflows the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

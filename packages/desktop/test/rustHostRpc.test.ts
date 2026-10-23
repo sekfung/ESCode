@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SocketProtocol, ChannelClient } from "@escode/rpc";
@@ -13,10 +13,12 @@ import {
   wrapNodeWebSocket,
 } from "./rustHostTestSupport.js";
 import { appSettingsSchema } from "@escode/shared";
-import { createFileService } from "@escode/services/node";
-import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
-// 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 Repo 作 oracle。
-import { TaskIndexRepo } from "../../services/src/session/taskIndexRepo.js";
+
+// Phase 3 golden freeze：readdir 与 tasks-index 的 TS 观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/）。测试不再实例化 createFileService/TaskIndexRepo，
+// 删除 TS 实现后仍能独立重验。
+const goldenFile = new URL("./fixtures/golden/rustHostRpc.oracle.json", import.meta.url);
+const goldenTasksDb = new URL("./fixtures/golden/rustHostRpc.tasks.sqlite", import.meta.url);
 
 // docs/specs/rust-u2-host-skeleton.md §3.4 的「TS 接线」证明：**真实 `@escode/client`**
 // 经 `@escode/rpc` 协议连 Rust Host 的 RPC 面（WebSocket），调用 `settingService` 成功，
@@ -39,6 +41,9 @@ describe("rust host rpc surface", () => {
         // Main 让 Host 开 RPC 面（设置根目录与应用数据根由 Main 指定；dataBaseDir 故意与 home 不同，
         // 用来证明会话工作区取 Main 提交的值，而不是 Host 进程 HOME 派生）。
         const dataBaseDir = join(root, "data-base");
+        // 冻结的 TS tasks-index 库：Rust Host 直接读同一文件，不再在测试内跑 TS Repo 造数。
+        await mkdir(join(dataBaseDir, ".escode", "v2"), { recursive: true });
+        await copyFile(goldenTasksDb, join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"));
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
@@ -201,191 +206,67 @@ describe("rust host rpc surface", () => {
         await symlink(join(corpus, "dirA"), join(corpus, "link-to-dir"));
         await symlink(join(corpus, "missing-target"), join(corpus, "dangling-link"));
 
+        const golden = JSON.parse(await readFile(goldenFile, "utf8")) as {
+          readdir: {
+            visible: Array<{ name: string; path: string; type: string; isSymbolicLink: boolean }>;
+            hidden: Array<{ name: string; path: string; type: string; isSymbolicLink: boolean }>;
+          };
+          tasks: {
+            metas: Record<string, unknown>;
+            lists: {
+              timeline: unknown[];
+              pinned: Array<{ taskId: string }>;
+              archived: unknown[];
+              deletedIds: string[];
+            };
+            taskLists: Array<{ query: unknown; result: unknown }>;
+            grouped: unknown;
+          };
+        };
+        const withCorpusPath = (
+          entries: Array<{ name: string; path: string; type: string; isSymbolicLink: boolean }>,
+        ) => entries.map((entry) => ({ ...entry, path: join(corpus, entry.name) }));
+
         const rustEntries = await services.fileService.readdir({ path: corpus });
-        const tsEntries = await createFileService().readdir({ path: corpus });
-        expect(rustEntries).toEqual(tsEntries);
+        expect(rustEntries).toEqual(withCorpusPath(golden.readdir.visible));
         expect(rustEntries.some((entry) => entry.name === ".hidden")).toBe(false);
         await expect(
           services.fileService.readdir({ path: corpus, includeHidden: true }),
-        ).resolves.toEqual(
-          await createFileService().readdir({ path: corpus, includeHidden: true }),
-        );
+        ).resolves.toEqual(withCorpusPath(golden.readdir.hidden));
         // 目录组在前（含指向目录的软链），组内 localeCompare；孤立/悬空软链归文件。
         const types = rustEntries.map((entry) => `${entry.name}:${entry.type}`).slice(0, 4);
         expect(types.some((row) => row.endsWith(":directory"))).toBe(true);
 
-        // tasks-index（优先序 5）：TS 用真实 Repo 写、Rust Host 用真实客户端读，逐字段比对。
-        // 库路径 `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（TS `getTasksIndexDatabasePath`）。
-        await prepareTasksIndexStorage(
-          join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"),
-          () => {},
-        );
-        const repo = new TaskIndexRepo(join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"));
-        await repo.ensureReady();
-        const seeded = [
-          {
-            taskId: "task_min",
-            traceId: "escode-task_min",
-            title: "最小任务",
-            workspacePath: "/w",
-            createdAt: 100,
-            updatedAt: 200,
-            mode: "build" as const,
-          },
-          {
-            taskId: "task_full",
-            traceId: "escode-task_full",
-            title: "完整任务",
-            workspacePath: "/w",
-            workspaceIdentity: "/w",
-            createdAt: 300,
-            updatedAt: 400,
-            mode: "plan" as const,
-            model: "glm-4",
-            provider: "glm" as const,
-            cronAutomationId: "cron_1",
-            unreadAt: 450,
-            status: "running" as const,
-          },
-        ];
-        for (const meta of seeded) {
-          await repo.seedTaskMetaIfMissing(meta as never);
-        }
-        for (const meta of seeded) {
-          const rustMeta = await services.escodeTaskService.getTaskMeta({
-            workspacePath: "/w",
-            taskId: meta.taskId,
-          });
-          const tsMeta = await repo.getTaskMeta({ workspacePath: "/w", taskId: meta.taskId });
-          expect(rustMeta).toEqual(tsMeta);
+        // tasks-index（优先序 5）：Rust Host 读冻结库，逐字段对冻结观察。
+        for (const [taskId, expectedMeta] of Object.entries(golden.tasks.metas)) {
+          await expect(
+            services.escodeTaskService.getTaskMeta({ workspacePath: "/w", taskId }),
+          ).resolves.toEqual(expectedMeta);
         }
         // 缺失任务：TS 回 null，Rust 侧为 undefined（RPC 无值语义）。
         await expect(
           services.escodeTaskService.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" }),
         ).resolves.toBeUndefined();
-        expect(await repo.getTaskMeta({ workspacePath: "/w", taskId: "task_absent" })).toBeNull();
-        // 列表分区：与真实 Repo 的 `listTaskMetas` 同一过滤组合逐字段比对（provider=glm、
-        // pinned/archived 组合；悬空列 provider 为空的行被 glm 过滤排除，与 TS 同）。
-        const glm = "glm" as never;
-        const listFixtures = [
-          { taskId: "task_l1", provider: glm, title: "列表一", pinned: false, archived: false },
-          { taskId: "task_l2", provider: glm, title: "列表二", pinned: true, archived: false },
-          { taskId: "task_l3", provider: glm, title: "归档", pinned: false, archived: true },
-          { taskId: "task_l4", provider: glm, title: "置顶归档", pinned: true, archived: true },
-        ];
-        for (const fixture of listFixtures) {
-          await repo.seedTaskMetaIfMissing({
-            taskId: fixture.taskId,
-            traceId: `escode-${fixture.taskId}`,
-            title: fixture.title,
-            workspacePath: "/w",
-            createdAt: 10,
-            updatedAt: 20,
-            mode: "build",
-            provider: glm,
-          } as never);
-          await repo.syncTaskMeta({
-            meta: {
-              taskId: fixture.taskId,
-              traceId: `escode-${fixture.taskId}`,
-              title: fixture.title,
-              workspacePath: "/w",
-              createdAt: 10,
-              updatedAt: 20,
-              mode: "build",
-              provider: glm,
-            },
-            pinned: fixture.pinned,
-            archived: fixture.archived,
-          } as never);
-        }
-        const tsList = (extra: Record<string, unknown>) =>
-          repo.listTaskMetas({ workspacePath: "/w", provider: glm, ...extra } as never);
-        expect(
-          await services.escodeTaskService.listTasks({ workspacePath: "/w" } as never),
-        ).toEqual(await tsList({ pinned: false, archived: false }));
-        expect(
-          await services.escodeTaskService.listPinnedTasks({ workspacePath: "/w" } as never),
-        ).toEqual(await tsList({ pinned: true, archived: false }));
-        expect(
-          await services.escodeTaskService.listArchivedTasks({ workspacePath: "/w" } as never),
-        ).toEqual(await tsList({ archived: true }));
-        expect(await services.escodeTaskService.listPinnedTaskIds()).toEqual(
-          (await tsList({ pinned: true, archived: false })).map((meta) => meta.taskId),
+        // 列表分区：冻结的 `listTaskMetas` 过滤结果（provider=glm、pinned/archived 组合）。
+        await expect(
+          services.escodeTaskService.listTasks({ workspacePath: "/w" } as never),
+        ).resolves.toEqual(golden.tasks.lists.timeline);
+        await expect(
+          services.escodeTaskService.listPinnedTasks({ workspacePath: "/w" } as never),
+        ).resolves.toEqual(golden.tasks.lists.pinned);
+        await expect(
+          services.escodeTaskService.listArchivedTasks({ workspacePath: "/w" } as never),
+        ).resolves.toEqual(golden.tasks.lists.archived);
+        await expect(services.escodeTaskService.listPinnedTaskIds()).resolves.toEqual(
+          golden.tasks.lists.pinned.map((meta) => meta.taskId),
         );
-        expect(
-          await services.escodeTaskService.listDeletedTaskIds({ workspacePath: "/w" } as never),
-        ).toEqual(await repo.listDeletedTaskIds({ workspacePath: "/w", provider: glm } as never));
+        await expect(
+          services.escodeTaskService.listDeletedTaskIds({ workspacePath: "/w" } as never),
+        ).resolves.toEqual(golden.tasks.lists.deletedIds);
 
-        // listTaskList（全文搜索 + 分区 + 分页）与分组结构：与真实 Repo 逐字段比对。
-        // 搜索文本列由 SQL 直接写（TS 读路径同源，写路径属 S2）。
-        const sqlitePath = join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite");
-        const raw = new (await import("node:sqlite")).DatabaseSync(sqlitePath);
-        for (const [taskId, provider, pinned, archived, updatedAt, searchable] of [
-          ["task_q1", "glm", 0, 0, 500, "部署脚本与回滚说明"],
-          ["task_q2", "glm", 0, 0, 400, "评审 Rust Host 的迁移"],
-          ["task_q3", "glm", 1, 0, 300, "置顶：迁移检查清单"],
-          ["task_q4", "glm", 0, 1, 200, "已归档内容"],
-          ["task_q5", "claude", 0, 0, 600, "历史导入不应出现"],
-          // 星平面字符（UTF-16 代理对）与多命中：摘要窗口必须按码元切，与 JS slice 同。
-          [
-            "task_q6",
-            "glm",
-            0,
-            0,
-            700,
-            "✅ 部署完成后核对迁移清单：迁移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
-          ],
-        ] as const) {
-          raw
-            .prepare(
-              `INSERT INTO tasks (workspace_key, workspace_path, task_id, title, mode, provider,
-               created_at, updated_at, pinned, archived, deleted, searchable_text, meta_json)
-             VALUES ('/w', '/w', ?, ?, 'build', ?, 10, ?, ?, ?, 0, ?, ?)`,
-            )
-            .run(
-              taskId,
-              `标题 ${taskId}`,
-              provider,
-              updatedAt,
-              pinned,
-              archived,
-              searchable,
-              JSON.stringify({
-                taskId,
-                traceId: `escode-${taskId}`,
-                title: `标题 ${taskId}`,
-                workspacePath: "/w",
-                createdAt: 10,
-                updatedAt,
-                mode: "build",
-              }),
-            );
-        }
-        raw
-          .prepare(
-            `INSERT INTO task_groups (group_id, title, color, created_at, updated_at)
-           VALUES ('group_diff', '差分组', 'blue', 10, 20)`,
-          )
-          .run();
-        raw
-          .prepare(
-            `INSERT INTO task_group_members
-             (group_id, workspace_key, workspace_path, workspace_identity, task_id, sort_order,
-              added_at, created_at, updated_at)
-           VALUES ('group_diff', '/w', '/w', NULL, 'task_q1', 7, 30, 30, 30)`,
-          )
-          .run();
-        raw
-          .prepare(
-            `INSERT INTO task_group_view_node_orders (node_type, node_key, sort_order, created_at, updated_at)
-           VALUES ('group', 'group_diff', 1, 1, 1), ('task', '["/w","task_q2"]', 2, 1, 1)`,
-          )
-          .run();
-        raw.close();
-
+        // listTaskList（全文搜索 + 分区 + 分页）与分组结构：对冻结的 Repo 观察逐字段比较。
         const scopes = [{ workspacePath: "/w", workspacePurpose: "project" }];
-        for (const query of [
+        const queries = [
           { kind: "timeline", sortBy: "updated" },
           { kind: "pinned", sortBy: "updated" },
           { kind: "archived", sortBy: "updated" },
@@ -395,30 +276,19 @@ describe("rust host rpc surface", () => {
           // 多命中 + 代理对文本：窗口半径/去重/上限与 JS 逐字符对齐。
           { kind: "timeline", sortBy: "updated", search: "迁移" },
           { kind: "timeline", sortBy: "updated", search: "🙂" },
-        ] as const) {
+        ] as const;
+        for (const [index, query] of queries.entries()) {
           const rustList = await services.escodeTaskService.listTaskList({
             workspaceScopes: scopes,
             ...query,
           } as never);
-          const tsList = await repo.queryTaskList({
-            workspaceScopes: scopes,
-            ...query,
-            provider: "glm",
-          } as never);
-          expect(rustList, JSON.stringify(query)).toEqual(tsList);
+          expect(rustList, JSON.stringify(query)).toEqual(golden.tasks.taskLists[index].result);
         }
-        expect(
-          await services.escodeTaskService.listGroupedTaskViewStructure({
+        await expect(
+          services.escodeTaskService.listGroupedTaskViewStructure({
             workspaceScopes: scopes,
           } as never),
-        ).toEqual(await repo.queryGroupedTaskViewStructure({ workspaceScopes: scopes } as never));
-
-        // 未迁移方法：显式缺口（列出已实现的方法）。readSessionDebug 已迁移，
-        // 这里改用仍为 Pending 的 readSessionEvents。
-        await expect(
-          services.escodeAgentService.readSessionEvents({ sessionId: "missing" } as never),
-        ).rejects.toThrow(/does not implement `escode-agent\.readSessionEvents` yet/);
-        repo.close();
+        ).resolves.toEqual(golden.tasks.grouped);
 
         // 会话工作区：`<dataBaseDir>/.escode/workspace/default`（TS `getConversationWorkspaceDir()`），
         // 首建 created=true，再调 created=false。

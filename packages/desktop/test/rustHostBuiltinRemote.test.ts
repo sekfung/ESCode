@@ -6,22 +6,30 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
-  ESCodeBuiltinRemoteSynchronizer,
-  NodeESCodeBuiltinProviderConfigSource,
-  downloadESCodeBuiltinRelease,
   resolveESCodeBuiltinCachePaths,
   resolveESCodeBuiltinClientPlatform,
 } from "@escode/provider-node";
-import { createProviderRuntime } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-providers.md §12（P5b）：本地 HTTP 桩作 Endpoint，Rust Host 与真实 TS 同步器对同一桩刷新，
-// 请求形状与控制文件一致；设置里切换 `escodeEndpointOrigin` 后 Host 的视图随之切到新 Endpoint 的缓存。
+// Phase 3 golden freeze：TS Synchronizer 的请求路径、控制文件收口与 Endpoint 切换后的
+// settings 视图已冻结（packages/desktop/test/fixtures/golden/rustHostBuiltinRemote.oracle.json）。
+// 测试不再实例化 TS Synchronizer / ProviderRuntime，删除 TS 实现后仍能独立重验 Rust Host。
+const goldenFile = new URL("./fixtures/golden/rustHostBuiltinRemote.oracle.json", import.meta.url);
+
+// docs/specs/rust-u2-providers.md §12（P5b）：本地 HTTP 桩作 Endpoint，Rust Host 对桩刷新，
+// 请求形状与控制文件对齐冻结观察；设置里切换 `escodeEndpointOrigin` 后 Host 的视图随之切到新 Endpoint 的缓存。
 
 const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
 const APP_VERSION = "1.2.3";
 
 type Release = { schemaVersion: 1; revision: number; config: Record<string, any> };
+
+interface BuiltinRemoteGolden {
+  refreshResult: string;
+  requestPath: string;
+  control: Record<string, unknown>;
+  viewAfterSwitch: Record<string, unknown>;
+}
 
 async function startStub(): Promise<{ origin: string; urls: string[]; server: Server }> {
   const urls: string[] = [];
@@ -51,7 +59,7 @@ async function waitFor(predicate: () => boolean | Promise<boolean>, what: string
 
 describe("rust host providers P5b", () => {
   it.skipIf(!existsSync(hostBinary) || !existsSync(BUILTIN_SOURCE))(
-    "refreshes like the TS synchronizer and follows the settings endpoint override",
+    "refreshes like the frozen TS synchronizer and follows the settings endpoint override",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-remote-")));
       const bundledText = await readFile(BUILTIN_SOURCE, "utf8");
@@ -61,7 +69,6 @@ describe("rust host providers P5b", () => {
       const personal = join(base, "provider_config.json");
       const home = join(base, "home");
       const rustRoot = join(base, "rust-cache");
-      const tsRoot = join(base, "ts-cache");
       const platform = resolveESCodeBuiltinClientPlatform();
       const pathsOf = (root: string, origin: string) =>
         resolveESCodeBuiltinCachePaths({
@@ -70,8 +77,16 @@ describe("rust host providers P5b", () => {
           appVersion: APP_VERSION,
           escodeEndpointOrigin: origin,
         });
+      // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT，平台段写成 $PLATFORM；
+      // 替换成本次运行的工作根与当前平台后逐字段比较。
+      const golden = JSON.parse(
+        (await readFile(goldenFile, "utf8"))
+          .split("$FIXTURE_ROOT")
+          .join(base)
+          .split("$PLATFORM")
+          .join(platform),
+      ) as BuiltinRemoteGolden;
       const stubA = await startStub();
-      const stubTs = await startStub();
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -97,37 +112,11 @@ describe("rust host providers P5b", () => {
         await waitFor(() => existsSync(rustControl), "Rust Host's refresh control file");
         await waitFor(() => stubA.urls.length >= 1, "Rust Host's client-config request");
 
-        // TS 同步器对另一份缓存、另一个桩做同样的一次刷新。
-        const tsPaths = pathsOf(tsRoot, stubTs.origin);
-        const tsSource = new NodeESCodeBuiltinProviderConfigSource({
-          bundledFilePath: builtin,
-          activeFilePath: tsPaths.activeFilePath,
-          watch: false,
-        });
-        const tsSync = new ESCodeBuiltinRemoteSynchronizer({
-          source: tsSource,
-          controlFilePath: tsPaths.controlFilePath,
-          resolveEndpointKey: () => stubTs.origin,
-          fetchRelease: (endpointOrigin, signal) =>
-            downloadESCodeBuiltinRelease({
-              endpointOrigin,
-              appVersion: APP_VERSION,
-              platform,
-              signal,
-              request: (url, init) => fetch(url, init),
-            }),
-        });
-        expect(await tsSync.refresh()).toBe("missing");
-        tsSync.dispose();
-        tsSource.dispose();
+        // 请求形状：对冻结的 TS 同步器观察（同一路径与 query）。
+        expect(stubA.urls[0]).toBe(golden.requestPath);
+        expect(golden.refreshResult).toBe("missing");
 
-        // 请求形状：同一路径与 query（桩的 origin 不同，只比较 path+query）。
-        expect(stubA.urls[0]).toBe(stubTs.urls[0]);
-        expect(stubA.urls[0]).toBe(
-          `/api/v1/client/configs?app_version=${APP_VERSION}&platform=${platform}`,
-        );
-
-        // 控制文件：字段一致，时间字段只校验语义（成功收口 = 无租约、一小时后才可再刷）。
+        // 控制文件：字段与冻结观察一致，时间字段只校验语义（成功收口 = 无租约、一小时后才可再刷）。
         const normalize = (control: Record<string, any>, origin: string) => {
           expect(control.nextEligibleAt).toBeGreaterThan(Date.now() + 3_000_000);
           return {
@@ -137,10 +126,7 @@ describe("rust host providers P5b", () => {
           };
         };
         const rustControlFile = JSON.parse(await readFile(rustControl, "utf8"));
-        const tsControlFile = JSON.parse(await readFile(tsPaths.controlFilePath, "utf8"));
-        expect(normalize(rustControlFile, stubA.origin)).toEqual(
-          normalize(tsControlFile, stubTs.origin),
-        );
+        expect(normalize(rustControlFile, stubA.origin)).toEqual(golden.control);
         expect(rustControlFile).toMatchObject({ schemaVersion: 1, leaseUntil: 0, failureCount: 0 });
         expect(rustControlFile.leaseId).toBeUndefined();
 
@@ -157,41 +143,17 @@ describe("rust host providers P5b", () => {
         await mkdir(dirname(settingsFile), { recursive: true });
         await writeFile(settingsFile, JSON.stringify({ escodeEndpointOrigin: originB }));
 
-        const tsSeededRoot = join(base, "ts-cache-b");
-        const tsActiveB = pathsOf(tsSeededRoot, originB).activeFilePath;
-        await mkdir(dirname(tsActiveB), { recursive: true });
-        await writeFile(tsActiveB, JSON.stringify(seeded));
-        const runtime = createProviderRuntime({
-          escodeBuiltinFilePath: builtin,
-          escodeBuiltinEnvironment: {
-            environmentConfigRoot: tsSeededRoot,
-            platform,
-            appVersion: APP_VERSION,
-            resolveEndpointOrigin: () => originB,
-            fetchRelease: async () => null,
-            watch: false,
-          },
-          personalFilePath: personal,
-          watch: false,
-          personalPollingIntervalMs: false,
-        });
-        try {
-          const expected = await runtime.providerSettings.getView();
-          const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
-          let actual = before;
-          await waitFor(async () => {
-            actual = await services.providerSettingsService.getView();
-            return actual.revision > before.revision;
-          }, "the view to follow the endpoint override");
-          expect(strip(actual)).toEqual(strip(JSON.parse(JSON.stringify(expected))));
-          expect(strip(actual)).not.toEqual(strip(before));
-        } finally {
-          runtime.dispose();
-        }
+        const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
+        let actual = before;
+        await waitFor(async () => {
+          actual = await services.providerSettingsService.getView();
+          return actual.revision > before.revision;
+        }, "the view to follow the endpoint override");
+        expect(strip(actual)).toEqual(golden.viewAfterSwitch);
+        expect(strip(actual)).not.toEqual(strip(before));
       } finally {
         await host.stop();
         stubA.server.close();
-        stubTs.server.close();
         await rm(base, { recursive: true, force: true });
       }
     },

@@ -35,6 +35,7 @@ escode-cli-domain.workspace = true
 escode-cli-host.workspace = true
 escode-cli-net.workspace = true
 escode-cli-protocol.workspace = true
+escode-cli-plugins.workspace = true
 zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2"] }
 
 [target.'cfg(unix)'.dependencies]

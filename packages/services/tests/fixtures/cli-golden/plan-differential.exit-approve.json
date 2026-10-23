@@ -1,0 +1,51 @@
+{
+  "independentPlanState": true,
+  "interactionKind": "userInput",
+  "payload": {
+    "kind": "userInput",
+    "prompt": "Tool ExitPlanMode requires user interaction",
+    "freeText": true,
+    "schema": {
+      "interaction": "plan_approval",
+      "toolName": "ExitPlanMode"
+    },
+    "questions": [
+      {
+        "question": "Tool ExitPlanMode requires user interaction",
+        "header": "Plan",
+        "options": [
+          {
+            "value": "approve",
+            "label": "Approve",
+            "description": "Exit plan mode and start implementation."
+          }
+        ]
+      }
+    ]
+  },
+  "order": [
+    ["reminder:full", "user:plan it"],
+    [
+      "reminder:full",
+      "user:plan it",
+      "tool:User has approved your plan. You can now",
+      "reminder:exit"
+    ]
+  ],
+  "firstRequestReminders": [
+    "<system-reminder>\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (i"
+  ],
+  "laterRequestReminders": [
+    [
+      "<system-reminder>\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (i",
+      "<system-reminder>\n## Exited Plan Mode\n\nYou have exited plan mode. You can now make edits, run tools, and take actions.\n</system-reminder>"
+    ]
+  ],
+  "toolResult": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable.\n\n## Approved Plan:\n1. Read the code\n2. Change it",
+  "lastUserText": "<system-reminder>\n## Exited Plan Mode\n\nYou have exited plan mode. You can now make edits, run tools, and take actions.\n</system-reminder>",
+  "requestCount": 2,
+  "planRowStatus": "success",
+  "finalPlanEnabled": false,
+  "planFile": "1. Read the code\n2. Change it",
+  "schemaErrors": []
+}

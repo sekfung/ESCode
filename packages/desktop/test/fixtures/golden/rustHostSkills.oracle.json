@@ -1,0 +1,1255 @@
+{
+  "_readme": "rustHostSkills.test.ts 的 TS createSkillsService 观察冻结（Phase 3 golden freeze）。夹具根归一化为 $FIXTURE_ROOT，skill id 路径哈希归一化为 <hash>；files 为每步变更后的目录树（排除 skills-audit.log）。",
+  "names": [
+    "alpha",
+    "beta",
+    "delta",
+    "emptyname",
+    "epsilon",
+    "gamma",
+    "iskill",
+    "linked",
+    "nofront",
+    "otherskill",
+    "pdfskill",
+    "pskill",
+    "sys",
+    "zeta"
+  ],
+  "lists": [
+    {
+      "workspace": "ws",
+      "result": {
+        "skills": [
+          {
+            "id": "glm:workspace:alpha:<hash>",
+            "name": "alpha",
+            "description": "Alpha skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+            "scope": "workspace",
+            "enabled": true,
+            "metadata": {
+              "slug": "s",
+              "version": "1",
+              "publishedAt": 5
+            }
+          },
+          {
+            "id": "glm:workspace:beta:<hash>",
+            "name": "beta",
+            "description": "Beta in a group",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:user:delta:<hash>",
+            "name": "delta",
+            "description": "User delta",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:emptyname:<hash>",
+            "name": "emptyname",
+            "description": "d",
+            "body": "body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:user:epsilon:<hash>",
+            "name": "epsilon",
+            "description": "User epsilon",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:gamma:<hash>",
+            "name": "gamma",
+            "description": "From agents",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:plugin:iskill:<hash>",
+            "name": "iskill",
+            "description": "Installed",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "inst",
+            "pluginId": "inst@market"
+          },
+          {
+            "id": "glm:user:linked:<hash>",
+            "name": "linked",
+            "description": "Symlinked skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/linked-target/lsk/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/lsk/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:nofront:<hash>",
+            "name": "nofront",
+            "description": "",
+            "body": "Just text, no frontmatter",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:plugin:otherskill:<hash>",
+            "name": "otherskill",
+            "description": "Default disabled",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "other",
+            "pluginId": "other@zcode-plugins-official"
+          },
+          {
+            "id": "glm:plugin:pdfskill:<hash>",
+            "name": "pdfskill",
+            "description": "Default enabled",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "pdf",
+            "pluginId": "pdf@zcode-plugins-official"
+          },
+          {
+            "id": "glm:plugin:pskill:<hash>",
+            "name": "pskill",
+            "description": "Plugin skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "plug",
+            "pluginId": "plug@inline"
+          },
+          {
+            "id": "glm:workspace:sys:<hash>",
+            "name": "sys",
+            "description": "allowed dot dir",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:zeta:<hash>",
+            "name": "zeta",
+            "description": "Zeta",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          }
+        ],
+        "capability": {
+          "userScopeAvailable": true
+        },
+        "diagnostics": [
+          {
+            "code": "skill_description_too_long",
+            "severity": "error",
+            "message": "Skill description is too long (>1024): toolong",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/toolong/SKILL.md",
+            "skillName": "toolong"
+          }
+        ]
+      }
+    },
+    {
+      "workspace": "sub",
+      "result": {
+        "skills": [
+          {
+            "id": "glm:workspace:alpha:<hash>",
+            "name": "alpha",
+            "description": "Alpha skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+            "scope": "workspace",
+            "enabled": true,
+            "metadata": {
+              "slug": "s",
+              "version": "1",
+              "publishedAt": 5
+            }
+          },
+          {
+            "id": "glm:workspace:beta:<hash>",
+            "name": "beta",
+            "description": "Beta in a group",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:user:delta:<hash>",
+            "name": "delta",
+            "description": "User delta",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:emptyname:<hash>",
+            "name": "emptyname",
+            "description": "d",
+            "body": "body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:user:epsilon:<hash>",
+            "name": "epsilon",
+            "description": "User epsilon",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:gamma:<hash>",
+            "name": "gamma",
+            "description": "From agents",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:plugin:iskill:<hash>",
+            "name": "iskill",
+            "description": "Installed",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "inst",
+            "pluginId": "inst@market"
+          },
+          {
+            "id": "glm:user:linked:<hash>",
+            "name": "linked",
+            "description": "Symlinked skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/linked-target/lsk/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/lsk/SKILL.md",
+            "scope": "user",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:nofront:<hash>",
+            "name": "nofront",
+            "description": "",
+            "body": "Just text, no frontmatter",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:plugin:otherskill:<hash>",
+            "name": "otherskill",
+            "description": "Default disabled",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "other",
+            "pluginId": "other@zcode-plugins-official"
+          },
+          {
+            "id": "glm:plugin:pdfskill:<hash>",
+            "name": "pdfskill",
+            "description": "Default enabled",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "pdf",
+            "pluginId": "pdf@zcode-plugins-official"
+          },
+          {
+            "id": "glm:plugin:pskill:<hash>",
+            "name": "pskill",
+            "description": "Plugin skill",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+            "scope": "plugin",
+            "enabled": true,
+            "pluginName": "plug",
+            "pluginId": "plug@inline"
+          },
+          {
+            "id": "glm:workspace:sys:<hash>",
+            "name": "sys",
+            "description": "allowed dot dir",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          },
+          {
+            "id": "glm:workspace:zeta:<hash>",
+            "name": "zeta",
+            "description": "Zeta",
+            "body": "Body",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+            "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+            "scope": "workspace",
+            "enabled": true
+          }
+        ],
+        "capability": {
+          "userScopeAvailable": true
+        },
+        "diagnostics": [
+          {
+            "code": "skill_description_too_long",
+            "severity": "error",
+            "message": "Skill description is too long (>1024): toolong",
+            "path": "$FIXTURE_ROOT/ws/.escode/skills/toolong/SKILL.md",
+            "skillName": "toolong"
+          }
+        ]
+      }
+    }
+  ],
+  "steps": [
+    {
+      "label": "disable alpha",
+      "result": {
+        "ok": true
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "list after disable",
+      "result": {
+        "ok": true,
+        "value": {
+          "skills": [
+            {
+              "id": "glm:workspace:alpha:<hash>",
+              "name": "alpha",
+              "description": "Alpha skill",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+              "scope": "workspace",
+              "enabled": false,
+              "metadata": {
+                "slug": "s",
+                "version": "1",
+                "publishedAt": 5
+              }
+            },
+            {
+              "id": "glm:workspace:beta:<hash>",
+              "name": "beta",
+              "description": "Beta in a group",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:user:delta:<hash>",
+              "name": "delta",
+              "description": "User delta",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+              "scope": "user",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:emptyname:<hash>",
+              "name": "emptyname",
+              "description": "d",
+              "body": "body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:user:epsilon:<hash>",
+              "name": "epsilon",
+              "description": "User epsilon",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+              "scope": "user",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:gamma:<hash>",
+              "name": "gamma",
+              "description": "From agents",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:plugin:iskill:<hash>",
+              "name": "iskill",
+              "description": "Installed",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "inst",
+              "pluginId": "inst@market"
+            },
+            {
+              "id": "glm:user:linked:<hash>",
+              "name": "linked",
+              "description": "Symlinked skill",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/linked-target/lsk/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/lsk/SKILL.md",
+              "scope": "user",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:nofront:<hash>",
+              "name": "nofront",
+              "description": "",
+              "body": "Just text, no frontmatter",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:plugin:otherskill:<hash>",
+              "name": "otherskill",
+              "description": "Default disabled",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "other",
+              "pluginId": "other@zcode-plugins-official"
+            },
+            {
+              "id": "glm:plugin:pdfskill:<hash>",
+              "name": "pdfskill",
+              "description": "Default enabled",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "pdf",
+              "pluginId": "pdf@zcode-plugins-official"
+            },
+            {
+              "id": "glm:plugin:pskill:<hash>",
+              "name": "pskill",
+              "description": "Plugin skill",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "plug",
+              "pluginId": "plug@inline"
+            },
+            {
+              "id": "glm:workspace:sys:<hash>",
+              "name": "sys",
+              "description": "allowed dot dir",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:zeta:<hash>",
+              "name": "zeta",
+              "description": "Zeta",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            }
+          ],
+          "capability": {
+            "userScopeAvailable": true
+          },
+          "diagnostics": [
+            {
+              "code": "skill_description_too_long",
+              "severity": "error",
+              "message": "Skill description is too long (>1024): toolong",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/toolong/SKILL.md",
+              "skillName": "toolong"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "disable gamma",
+      "result": {
+        "ok": true
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md\": {\n      \"enable\": false\n    },\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "re-enable alpha",
+      "result": {
+        "ok": true
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "unknown skill",
+      "result": {
+        "ok": false,
+        "message": "Skill not found: glm:workspace:nope:<hash>"
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "prompt context",
+      "result": {
+        "ok": true,
+        "value": {
+          "prompt": "please use $beta and $gamma, not $alpha-nope\n\n<available_skills>\n<activated_skill name=\"beta\" path=\"$FIXTURE_ROOT/ws/.escode/skills/group/beta/SKILL.md\">\nBody\n</activated_skill>\n</available_skills>",
+          "activatedSkillNames": ["beta"]
+        }
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "prompt context with no match",
+      "result": {
+        "ok": true,
+        "value": {
+          "prompt": "$nothing here",
+          "activatedSkillNames": []
+        }
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n"
+      }
+    },
+    {
+      "label": "copy workspace skill to common",
+      "result": {
+        "ok": true,
+        "value": {
+          "newPath": "$FIXTURE_ROOT/ws/sub/.escode/skills/gamma/SKILL.md"
+        }
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "copy again conflicts",
+      "result": {
+        "ok": false,
+        "message": "通用目录已存在同名技能: gamma"
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "remove from common rejects non-common",
+      "result": {
+        "ok": false,
+        "message": "该技能不在通用目录中"
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "remove from common",
+      "result": {
+        "ok": false,
+        "message": "该技能不在通用目录中"
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "delete plugin skill rejected",
+      "result": {
+        "ok": false,
+        "message": "插件提供的技能不可单独删除，请卸载对应插件"
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/home/.escode/skills/lsk": "<symlink>",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "delete symlinked user skill",
+      "result": {
+        "ok": true
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/group/beta/SKILL.md": "---\nname: beta\ndescription: Beta in a group\n---\nBody\n",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "delete workspace skill",
+      "result": {
+        "ok": true
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    },
+    {
+      "label": "final list",
+      "result": {
+        "ok": true,
+        "value": {
+          "skills": [
+            {
+              "id": "glm:workspace:alpha:<hash>",
+              "name": "alpha",
+              "description": "Alpha skill",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/alpha/SKILL.md",
+              "scope": "workspace",
+              "enabled": true,
+              "metadata": {
+                "slug": "s",
+                "version": "1",
+                "publishedAt": 5
+              }
+            },
+            {
+              "id": "glm:user:delta:<hash>",
+              "name": "delta",
+              "description": "User delta",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/skills/delta/SKILL.md",
+              "scope": "user",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:emptyname:<hash>",
+              "name": "emptyname",
+              "description": "d",
+              "body": "body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/emptyname/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:user:epsilon:<hash>",
+              "name": "epsilon",
+              "description": "User epsilon",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.agents/skills/epsilon/SKILL.md",
+              "scope": "user",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:gamma:<hash>",
+              "name": "gamma",
+              "description": "From agents",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md",
+              "scope": "workspace",
+              "enabled": false
+            },
+            {
+              "id": "glm:workspace:gamma:<hash>",
+              "name": "gamma",
+              "description": "From agents",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/sub/.escode/skills/gamma/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/sub/.escode/skills/gamma/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:plugin:iskill:<hash>",
+              "name": "iskill",
+              "description": "Installed",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/installed/skills/iskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "inst",
+              "pluginId": "inst@market"
+            },
+            {
+              "id": "glm:workspace:nofront:<hash>",
+              "name": "nofront",
+              "description": "",
+              "body": "Just text, no frontmatter",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/nofront/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:plugin:otherskill:<hash>",
+              "name": "otherskill",
+              "description": "Default disabled",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "other",
+              "pluginId": "other@zcode-plugins-official"
+            },
+            {
+              "id": "glm:plugin:pdfskill:<hash>",
+              "name": "pdfskill",
+              "description": "Default enabled",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "pdf",
+              "pluginId": "pdf@zcode-plugins-official"
+            },
+            {
+              "id": "glm:plugin:pskill:<hash>",
+              "name": "pskill",
+              "description": "Plugin skill",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/plug/skills/pskill/SKILL.md",
+              "scope": "plugin",
+              "enabled": true,
+              "pluginName": "plug",
+              "pluginId": "plug@inline"
+            },
+            {
+              "id": "glm:workspace:sys:<hash>",
+              "name": "sys",
+              "description": "allowed dot dir",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/.system/sys/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            },
+            {
+              "id": "glm:workspace:zeta:<hash>",
+              "name": "zeta",
+              "description": "Zeta",
+              "body": "Body",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+              "sourcePath": "$FIXTURE_ROOT/ws/.escode/skills/zeta/SKILL.md",
+              "scope": "workspace",
+              "enabled": true
+            }
+          ],
+          "capability": {
+            "userScopeAvailable": true
+          },
+          "diagnostics": [
+            {
+              "code": "skill_description_too_long",
+              "severity": "error",
+              "message": "Skill description is too long (>1024): toolong",
+              "path": "$FIXTURE_ROOT/ws/.escode/skills/toolong/SKILL.md",
+              "skillName": "toolong"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/escape/SKILL.md": "---\nname: escaped\ndescription: must not load\n---\nBody\n",
+        "/home/.agents/skills/delta/SKILL.md": "---\nname: delta\ndescription: Covered by escode\n---\nBody\n",
+        "/home/.agents/skills/epsilon/SKILL.md": "---\nname: epsilon\ndescription: User epsilon\n---\nBody\n",
+        "/home/.agents/skills/renamed-dir/SKILL.md": "---\nname: Delta\ndescription: Covered by name key\n---\nBody\n",
+        "/home/.escode/cli/config.json": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/.zcode-plugin/plugin.json": "{\"name\":\"other\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/other/1.0/skills/otherskill/SKILL.md": "---\nname: otherskill\ndescription: Default disabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/.zcode-plugin/plugin.json": "{\"name\":\"pdf\"}",
+        "/home/.escode/cli/plugins/cache/zcode-plugins-official/pdf/1.0/skills/pdfskill/SKILL.md": "---\nname: pdfskill\ndescription: Default enabled\n---\nBody\n",
+        "/home/.escode/cli/plugins/installed_plugins.json": "{\"plugins\":[{\"id\":\"inst@market\",\"marketplace\":\"market\",\"installPath\":\"$FIXTURE_ROOT/installed\"},{\"id\":\"\",\"marketplace\":\"m\",\"installPath\":\"/x\"}]}",
+        "/home/.escode/skills/delta/SKILL.md": "---\nname: delta\ndescription: User delta\n---\nBody\n",
+        "/installed/.claude-plugin/plugin.json": "{\"name\":\"inst\",\"skills\":[\"skills\",\"../escape\",\"/abs\"]}",
+        "/installed/skills/iskill/SKILL.md": "---\nname: iskill\ndescription: Installed\n---\nBody\n",
+        "/linked-target/lsk/SKILL.md": "---\nname: linked\ndescription: Symlinked skill\n---\nBody\n",
+        "/plug/.escode-plugin/plugin.json": "{\"name\":\"plug\",\"skills\":\"skills\"}",
+        "/plug/skills/pskill/SKILL.md": "---\nname: pskill\ndescription: Plugin skill\n---\nBody\n",
+        "/ws/.agents/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n",
+        "/ws/.escode/skills/.hidden/SKILL.md": "---\nname: hidden\ndescription: dot dir\n---\nBody\n",
+        "/ws/.escode/skills/.system/sys/SKILL.md": "---\nname: sys\ndescription: allowed dot dir\n---\nBody\n",
+        "/ws/.escode/skills/alpha/SKILL.md": "---\nname: alpha\ndescription: Alpha skill\n---\nBody\n",
+        "/ws/.escode/skills/alpha/_meta.json": "{\"slug\":\" s \",\"version\":\"1\",\"publishedAt\":5,\"junk\":1}",
+        "/ws/.escode/skills/emptyname/SKILL.md": "---\nname:\ndescription: d\n---\nbody",
+        "/ws/.escode/skills/node_modules/x/SKILL.md": "---\nname: excluded\ndescription: never listed\n---\nBody\n",
+        "/ws/.escode/skills/nofront/SKILL.md": "Just text, no frontmatter",
+        "/ws/.escode/skills/toolong/SKILL.md": "---\nname: toolong\ndescription: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n---\nBody\n",
+        "/ws/.escode/skills/zeta/SKILL.md": "---\nname: zeta\ndescription: Zeta\n---\nBody\n",
+        "/ws/sub/.escode/skills/gamma/SKILL.md": "---\nname: gamma\ndescription: From agents\n---\nBody\n"
+      }
+    }
+  ],
+  "configText": "{\n  \"keep\": \"me\",\n  \"plugins\": {\n    \"dirs\": [\n      \"$FIXTURE_ROOT/plug\"\n    ],\n    \"enabledPlugins\": {\n      \"other@zcode-plugins-official\": true,\n      \"inst@market\": true\n    }\n  },\n  \"skills\": {\n    \"$FIXTURE_ROOT/ws/.agents/skills/gamma/SKILL.md\": {\n      \"enable\": false\n    }\n  }\n}\n"
+}

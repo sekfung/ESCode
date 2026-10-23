@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-hooks.md H1：会话级 hooks。第一轮：SessionStart 与 UserPromptSubmit 追加上下文，Stop 第一次要求续跑；
 // 第二轮：UserPromptSubmit 阻止继续（不请求模型）。比对模型请求、hook stdin、`hookInvocation` 行、阻断错误与轮次收口。
@@ -153,9 +154,9 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust run session-level hooks the same way", async () => {
-  const node = await observe("node");
+  const node = await nodeOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
-  const rust = await observe("rust");
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.requests, 3);
   for (const key of Object.keys(node)) {

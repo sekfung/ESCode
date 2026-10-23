@@ -1,0 +1,115 @@
+{
+  "_readme": "rustHostClientConfig.test.ts 的 TS createClientConfigService 观察冻结（Phase 3 golden freeze）。临时根归一化为 $FIXTURE_ROOT，HTTP 桩 origin 归一化为 $STUB_ORIGIN；来源头运行时值使用占位符，测试运行时替换。",
+  "outcomes": {
+    "messy envelope": {
+      "ok": true,
+      "value": {
+        "pluginStoreOrder": {
+          "code": {
+            "categoryOrder": ["b", "a"],
+            "pluginOrder": {
+              "m": ["x", "y"]
+            }
+          }
+        },
+        "zsrcUrl": "https://zsrc.example.com/path"
+      }
+    },
+    "no options": {
+      "ok": true,
+      "value": {
+        "pluginStoreOrder": {
+          "code": {
+            "categoryOrder": ["b", "a"],
+            "pluginOrder": {
+              "m": ["x", "y"]
+            }
+          }
+        },
+        "zsrcUrl": "https://zsrc.example.com/path"
+      }
+    },
+    "unknown option keys": {
+      "ok": true,
+      "value": {
+        "pluginStoreOrder": {
+          "code": {
+            "categoryOrder": ["b", "a"],
+            "pluginOrder": {
+              "m": ["x", "y"]
+            }
+          }
+        },
+        "zsrcUrl": "https://zsrc.example.com/path"
+      }
+    },
+    "http 503": {
+      "ok": false,
+      "name": "Error",
+      "message": "Public client config HTTP 503"
+    },
+    "invalid envelope": {
+      "ok": false,
+      "name": "Error",
+      "message": "Invalid public client config response"
+    },
+    "bad json": {
+      "ok": false,
+      "name": "SyntaxError",
+      "message": "<syntax-error>"
+    },
+    "recovers after failures": {
+      "ok": true,
+      "value": {
+        "pluginStoreOrder": null,
+        "zsrcUrl": null
+      }
+    }
+  },
+  "invalidOptions": [
+    {
+      "bad": null,
+      "ok": false,
+      "name": "ZodError"
+    },
+    {
+      "bad": "yes",
+      "ok": false,
+      "name": "ZodError"
+    },
+    {
+      "bad": {
+        "forceRefresh": "yes"
+      },
+      "ok": false,
+      "name": "ZodError"
+    },
+    {
+      "bad": {
+        "forceRefresh": null
+      },
+      "ok": false,
+      "name": "ZodError"
+    },
+    {
+      "bad": [],
+      "ok": false,
+      "name": "ZodError"
+    }
+  ],
+  "request": {
+    "count": 1,
+    "url": "/api/v1/client/configs?app_version=$APP_VERSION&platform=$PLATFORM",
+    "headers": {
+      "user-agent": "ESCode/$APP_VERSION",
+      "x-title": "ESCode@electron",
+      "x-zcode-app-version": "$APP_VERSION",
+      "x-platform": "$PLATFORM",
+      "x-release-channel": "$RELEASE_CHANNEL",
+      "x-client-language": "$CLIENT_LANGUAGE",
+      "x-client-timezone": "$CLIENT_TIMEZONE",
+      "x-os-category": "$OS_CATEGORY",
+      "x-os-version": "$OS_VERSION"
+    }
+  }
+}

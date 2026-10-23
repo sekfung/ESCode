@@ -7,6 +7,7 @@ import type {
   ProviderFamilyConnectionSelectionSettings,
 } from "@escode/shared";
 import {
+  appSettingsKnownKeys,
   appSettingsPatchSchema,
   appSettingsSchema,
   formatLogPrefix,
@@ -205,7 +206,13 @@ async function writeSettings(
   maybeThrowInjectedFsFault({ operation: "writeFile", path: settingsFile });
   const raw = await readLegacyAccountConnectionSettingsFile(settingsFile);
   const rollbackFields = retainLegacyAccountConnectionFields(raw);
-  const persisted = { ...rollbackFields, ...settings };
+  // Host 切换演练（docs/specs/rust-release-rollback.md）：Rust Host 的 settings 写面是
+  // 顶层合并，未知键必须保留。TS 侧此前用 schema 解析结果整体覆盖，Node→Rust→Node
+  // 会静默丢掉未知键；这里同样以原始文件为底，已解析字段覆盖其上。
+  const unknownFields = Object.fromEntries(
+    Object.entries(raw).filter(([key]) => !appSettingsKnownKeys.has(key)),
+  );
+  const persisted = { ...rollbackFields, ...unknownFields, ...settings };
   // 旧 Team 尚待 OAuth 补组织时，schema 的默认 {} 不是用户的新选择。
   // 普通偏好保存必须保留新字段缺席；只有迁移提交或用户显式选连接才结束旧导入。
   if (!commitAccountSelection && readIncompleteLegacyTeamConnections(raw).length > 0) {

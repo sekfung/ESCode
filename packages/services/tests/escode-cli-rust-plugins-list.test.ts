@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 1 期：`plugins/list` 的发现层与清单字段。
 // 第 1 期不输出 components / userConfig / configuredOptions / optionSources / hookDetails /
@@ -143,8 +144,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust list plugins with the same discovery fields", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);
   // 自检：enabled / 被关闭 / 只声明未安装 三种行都在。

@@ -657,6 +657,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "escode-cli-plugins"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "escode-cli-core-api",
+ "escode-cli-domain",
+ "escode-cli-host",
+ "escode-cli-net",
+ "escode-cli-protocol",
+ "futures-util",
+ "globset",
+ "ignore",
+ "libc",
+ "regex",
+ "reqwest 0.12.28",
+ "reqwest 0.13.5",
+ "rmcp",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sse-stream",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "url",
+ "uuid",
+ "windows-sys 0.61.2",
+ "zip",
+]
+
+[[package]]
 name = "escode-cli-protocol"
 version = "0.1.0"
 dependencies = [
@@ -730,6 +765,7 @@ dependencies = [
  "escode-cli-domain",
  "escode-cli-host",
  "escode-cli-net",
+ "escode-cli-plugins",
  "escode-cli-protocol",
  "futures-util",
  "globset",

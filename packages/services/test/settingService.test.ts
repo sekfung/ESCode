@@ -695,6 +695,33 @@ describe("settingService", () => {
     );
   });
 
+  it("保留未知顶层键，同时仍能删除已知字段", async () => {
+    const home = makeTempHome();
+    const settingsDir = join(home, ".escode", "v2");
+    const settingsFile = join(settingsDir, "setting.json");
+    mkdirSync(settingsDir, { recursive: true });
+    writeFileSync(
+      settingsFile,
+      JSON.stringify({
+        locale: "zh-CN",
+        unknownFromNode: { kept: true },
+        escodeEndpointOrigin: "https://zcode.z.ai",
+      }),
+    );
+    const service = await createSettingServiceInHome(home);
+
+    await service.update({ locale: "en-US" });
+    const afterUpdate = JSON.parse(readFileSync(settingsFile, "utf-8"));
+    expect(afterUpdate.locale).toBe("en-US");
+    expect(afterUpdate.unknownFromNode).toEqual({ kept: true });
+
+    // 已知字段的清空仍必须落盘删除，不能被“保留未知键”的合并逻辑留下。
+    await service.update({ escodeEndpointOrigin: "" });
+    const afterClear = JSON.parse(readFileSync(settingsFile, "utf-8"));
+    expect(afterClear).not.toHaveProperty("escodeEndpointOrigin");
+    expect(afterClear.unknownFromNode).toEqual({ kept: true });
+  });
+
   it("忽略损坏的 ESCode endpoint override，保留其它 settings", async () => {
     const home = makeTempHome();
     const settingsDir = join(home, ".escode", "v2");

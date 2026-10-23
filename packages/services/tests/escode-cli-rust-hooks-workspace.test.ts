@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-hooks.md H2：工作区（项目）hooks 的软门禁与审核。项目配置声明 UserPromptSubmit hook：首轮待信任
 // （不执行，`workspaceHookAdmission` 提示条出现）；requestWorkspaceHookReview 打开审核交互，respondWorkspaceHookReview
@@ -166,9 +167,9 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust gate and review workspace hooks the same way", async () => {
-  const node = await observe("node");
+  const node = await nodeOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
-  const rust = await observe("rust");
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.pending?.pendingCount, 1);
   assert.deepEqual(node.contexts, [0, 1]);
@@ -220,7 +221,7 @@ test("Node and Rust answer a stale workspace hook trust grant the same way", asy
       await f.close();
     }
   };
-  const node = await grant("node");
+  const node = await nodeOracle("grant", () => grant("node"));
   assert.equal((node as any).accepted, false);
-  assert.deepEqual(await grant("rust"), node);
+  assert.deepEqual(await canonical(await grant("rust")), node);
 });

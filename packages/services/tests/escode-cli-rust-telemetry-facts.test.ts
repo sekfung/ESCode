@@ -5,6 +5,7 @@ import type { ServerResponse } from "node:http";
 import { conversationTelemetryFactSchema } from "@escode/shared/escode-protocol-v4";
 import { fixture, event, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `v4/telemetry/event`（TS ConversationTelemetryFactNormalizer）：桌面埋点消费的实时会话事实。一个带工具调用的回合里，
 // 两侧发出的事实序列（种类、阶段、计数类字段）一致，且 Rust 的每条事实都通过 shared 的 strict schema。
@@ -98,8 +99,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust emit the same live conversation telemetry facts", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.invalid, []);
   assert.deepEqual(rust.invalid, []);
   assert.ok(node.shape.length > 0);

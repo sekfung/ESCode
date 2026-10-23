@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 2 期：`plugins/setEnabled`。
 // 断言两侧：返回值（基于写入前元数据 + enabled 覆盖 + enabledSource）、落盘配置文件的**字节**
@@ -145,8 +146,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust toggle plugins with the same result and on-disk config", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);
   // 自检：写入前停用的 beta → 返回 enabled:true，但计数仍是写入前的 0（与 TS 相同）。

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 3 期：`plugins/referenceCatalog(WithCategory)`。
 // workspace 权威现算；session 权威冻结身份（之后 setEnabled 不影响该会话的目录），展示字段取市场 listing。
@@ -182,8 +183,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust build the same plugin reference catalog", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.workspaceCatalog, node.workspaceCatalog);
   assert.deepEqual(rust.withCategory, node.withCategory);
   assert.deepEqual(rust.sessionBefore, node.sessionBefore);

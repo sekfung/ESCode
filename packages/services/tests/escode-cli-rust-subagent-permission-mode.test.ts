@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-permission-modes.md「子代理的执行模式」：用户级/插件 profile 的
 // `permissionMode: auto|plan` 覆盖继承值；项目级来源在解析时剥离（仓库内容不能提权）。
@@ -125,8 +125,10 @@ async function observe(kind: Runtime, source: "user" | "project", permissionMode
 
 for (const permissionMode of ["plan", "auto"] as const) {
   test(`Node and Rust apply a user agent profile with permissionMode: ${permissionMode}`, async () => {
-    const node = await observe("node", "user", permissionMode);
-    const rust = await observe("rust", "user", permissionMode);
+    const node = await nodeOracle(`user-${permissionMode}`, () =>
+      observe("node", "user", permissionMode),
+    );
+    const rust = canonical(await observe("rust", "user", permissionMode));
     assert.deepEqual(rust, node);
     // 语义锚点：拒绝必须来自权限判定，而不是「工具没跑」。
     assert.deepEqual(node.writeRows, ["cancelled"]);
@@ -141,8 +143,8 @@ for (const permissionMode of ["plan", "auto"] as const) {
 }
 
 test("Node and Rust strip permissionMode declared by a project agent profile", async () => {
-  const node = await observe("node", "project", "plan");
-  const rust = await observe("rust", "project", "plan");
+  const node = await nodeOracle("project-plan", () => observe("node", "project", "plan"));
+  const rust = canonical(await observe("rust", "project", "plan"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.writeRows, ["success"]);
   assert.equal(node.file, "written");

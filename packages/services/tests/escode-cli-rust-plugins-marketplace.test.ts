@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W4：plugins/marketplace/add|remove|update 与安装时按需拉取。
 // 只用本地源（目录 / .json 文件 / 回环 URL / 本地 git 仓库声明），不刷新官方 CDN 市场。
@@ -256,8 +257,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust manage plugin marketplaces the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

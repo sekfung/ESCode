@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 6 期：灰度为开时 ListModels 的模型面、行级 display 与
 // 目录事实（当前档、档位表、上下文窗）在 Node 与 Rust 上一致。
@@ -77,8 +78,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("ListModels matches Node for a configured registry", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：两行目录、档位表在场、会话模型标 current、上下文窗在场。
   assert.match(node.tool ?? "", /^<models count="2">/);
   assert.match(

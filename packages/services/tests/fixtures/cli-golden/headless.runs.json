@@ -1,0 +1,235 @@
+{
+  "text": {
+    "code": 0,
+    "stdout": "echo: hi there\n",
+    "stderr": ""
+  },
+  "json": [
+    {
+      "args": "-p plain json --output-format json",
+      "code": 0,
+      "output": {
+        "keys": ["sessionId", "traceId", "turnId", "response", "usage", "eventCount", "projection"],
+        "response": "echo: plain json",
+        "usage": {
+          "source": "provider",
+          "modelRequestCount": 1,
+          "inputTokens": 10,
+          "outputTokens": 4,
+          "totalTokens": 14,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "webFetchRequests": 0,
+          "webSearchRequests": 0
+        },
+        "projectionKeys": [
+          "status",
+          "turnCount",
+          "totalTokenCount",
+          "contextUsed",
+          "contextWindow"
+        ],
+        "projection": {
+          "status": "idle",
+          "turnCount": 1,
+          "totalTokenCount": 14,
+          "contextUsed": "number",
+          "contextWindow": 200000
+        },
+        "sessionIdShape": true
+      }
+    },
+    {
+      "args": "-p please read it --json",
+      "code": 0,
+      "output": {
+        "keys": ["sessionId", "traceId", "turnId", "response", "usage", "eventCount", "projection"],
+        "response": "after tool: 1\thello from file",
+        "usage": {
+          "source": "provider",
+          "modelRequestCount": 2,
+          "inputTokens": 20,
+          "outputTokens": 8,
+          "totalTokens": 28,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "webFetchRequests": 0,
+          "webSearchRequests": 0
+        },
+        "projectionKeys": [
+          "status",
+          "turnCount",
+          "totalTokenCount",
+          "contextUsed",
+          "contextWindow"
+        ],
+        "projection": {
+          "status": "idle",
+          "turnCount": 1,
+          "totalTokenCount": 28,
+          "contextUsed": "number",
+          "contextWindow": 200000
+        },
+        "sessionIdShape": true
+      }
+    },
+    {
+      "args": "-p please write it --mode build --output-format json",
+      "code": 0,
+      "output": {
+        "keys": ["sessionId", "traceId", "turnId", "response", "usage", "eventCount", "projection"],
+        "response": "after tool: No permission client configured for Writ",
+        "usage": {
+          "source": "provider",
+          "modelRequestCount": 2,
+          "inputTokens": 20,
+          "outputTokens": 8,
+          "totalTokens": 28,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "webFetchRequests": 0,
+          "webSearchRequests": 0
+        },
+        "projectionKeys": [
+          "status",
+          "turnCount",
+          "totalTokenCount",
+          "contextUsed",
+          "contextWindow"
+        ],
+        "projection": {
+          "status": "idle",
+          "turnCount": 1,
+          "totalTokenCount": 28,
+          "contextUsed": "number",
+          "contextWindow": 200000
+        },
+        "sessionIdShape": true
+      }
+    },
+    {
+      "args": "-p please write it --output-format json",
+      "code": 0,
+      "output": {
+        "keys": ["sessionId", "traceId", "turnId", "response", "usage", "eventCount", "projection"],
+        "response": "after tool: File created successfully at: b.txt (fil",
+        "usage": {
+          "source": "provider",
+          "modelRequestCount": 2,
+          "inputTokens": 20,
+          "outputTokens": 8,
+          "totalTokens": 28,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "webFetchRequests": 0,
+          "webSearchRequests": 0
+        },
+        "projectionKeys": [
+          "status",
+          "turnCount",
+          "totalTokenCount",
+          "contextUsed",
+          "contextWindow"
+        ],
+        "projection": {
+          "status": "idle",
+          "turnCount": 1,
+          "totalTokenCount": 28,
+          "contextUsed": "number",
+          "contextWindow": 200000
+        },
+        "sessionIdShape": true
+      }
+    },
+    {
+      "args": "-p again -c --output-format json",
+      "code": 0,
+      "output": {
+        "keys": ["sessionId", "traceId", "turnId", "response", "usage", "eventCount", "projection"],
+        "response": "echo: again",
+        "usage": {
+          "source": "provider",
+          "modelRequestCount": 1,
+          "inputTokens": 10,
+          "outputTokens": 4,
+          "totalTokens": 14,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "webFetchRequests": 0,
+          "webSearchRequests": 0
+        },
+        "projectionKeys": [
+          "status",
+          "turnCount",
+          "totalTokenCount",
+          "contextUsed",
+          "contextWindow"
+        ],
+        "projection": {
+          "status": "idle",
+          "turnCount": 1,
+          "totalTokenCount": 14,
+          "contextUsed": "number",
+          "contextWindow": 200000
+        },
+        "sessionIdShape": true
+      }
+    }
+  ],
+  "continuationSame": true,
+  "errors": [
+    {
+      "args": "-p ",
+      "code": 1,
+      "stderrFirst": "--prompt requires non-empty text.",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --output-format xml",
+      "code": 1,
+      "stderrFirst": "--output-format must be one of text, json, stream-json (received: xml).",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --mode bad",
+      "code": 1,
+      "stderrFirst": "Unsupported --mode value: bad. Supported modes: build, edit, plan, yolo, guarded.",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --resume a -c",
+      "code": 1,
+      "stderrFirst": "--resume and --continue cannot be used together.",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --locale fr",
+      "code": 1,
+      "stderrFirst": "Unsupported --locale value: fr. Supported locales: en-US, zh-CN, auto.",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --bogus",
+      "code": 1,
+      "stderrFirst": "Unknown option '--bogus'. To specify a positional argument starting with a '-', place it at the end of the command after '--', as in '-- \"--bogus\"",
+      "stdout": ""
+    },
+    {
+      "args": "-p x --disallowed-tools",
+      "code": 1,
+      "stderrFirst": "--disallowed-tools requires at least one tool.",
+      "stdout": ""
+    },
+    {
+      "args": "-p",
+      "code": 1,
+      "stderrFirst": "Option '-p' argument is ambiguous.",
+      "stdout": ""
+    }
+  ]
+}

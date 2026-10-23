@@ -1,0 +1,28 @@
+{
+  "tool": "<models count=\"2\">\npersonal:fixture/model-a — Fixture; levels: low,high (default high) [current]\npersonal:fixture/model-b — Fixture; levels: low,high (default high)\n</models>",
+  "display": {
+    "kind": "list_models",
+    "current": "personal:fixture/model-a",
+    "models": [
+      {
+        "id": "personal:fixture/model-a",
+        "providerId": "personal:fixture",
+        "modelId": "model-a",
+        "providerLabel": "Fixture",
+        "reasoningLevels": ["low", "high"],
+        "defaultReasoningLevel": "high",
+        "contextWindow": 131072
+      },
+      {
+        "id": "personal:fixture/model-b",
+        "providerId": "personal:fixture",
+        "modelId": "model-b",
+        "providerLabel": "Fixture",
+        "reasoningLevels": ["low", "high"],
+        "defaultReasoningLevel": "high",
+        "contextWindow": 131072
+      }
+    ]
+  },
+  "status": "success"
+}

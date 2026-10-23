@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
-import { AttachmentUploadRegistry } from "../../../apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/attachment-upload-registry.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 import {
   v4AttachmentBeginResultSchema,
   v4AttachmentChunkResultSchema,
@@ -43,47 +43,71 @@ async function upload(h: Harness, id: string, bytes: Buffer, extra = {}) {
 
 test("Rust attachment transactions match the TS registry for retry, conflicts, gaps, integrity and connection isolation", async () => {
   const f = await fixture();
-  let commits = 0;
-  const ts = new AttachmentUploadRegistry({
-    now: Date.now,
-    putSessionAttachment: async (_id, input) => {
-      assert.equal(Buffer.from(input.bytes).toString(), "你好 Rust");
-      commits++;
-      return { ref: "committed-ref" };
-    },
-  });
+  const bytes = Buffer.from("你好 Rust");
   try {
+    // TS registry 的状态机结果（begin/chunk/commit 与抛出的错误）冻结为观察。
+    // 输出不回显 sessionId，因此录制时用固定会话；浏览器连接隔离由 Rust 断言单独覆盖。
+    const registry = await nodeOracle("transactions", async () => {
+      const { AttachmentUploadRegistry } =
+        await import("../../../apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/attachment-upload-registry.js");
+      const putBytes: string[] = [];
+      const ts = new AttachmentUploadRegistry({
+        now: Date.now,
+        putSessionAttachment: async (_id, input) => {
+          putBytes.push(Buffer.from(input.bytes).toString());
+          return { ref: "committed-ref" };
+        },
+      });
+      const p = meta("oracle-session", bytes, 2);
+      const begins = [ts.begin(p), ts.begin(p)];
+      const steps: { chunkIndex: number; dataBase64: string }[] = [
+        { chunkIndex: 1, dataBase64: bytes.subarray(4).toString("base64") },
+        { chunkIndex: 0, dataBase64: bytes.subarray(0, 4).toString("base64") },
+        { chunkIndex: 0, dataBase64: bytes.subarray(0, 4).toString("base64") },
+        { chunkIndex: 0, dataBase64: Buffer.from("conflict").toString("base64") },
+        { chunkIndex: 1, dataBase64: bytes.subarray(4).toString("base64") },
+      ];
+      const chunkSteps = steps.map((step) => {
+        try {
+          return { value: ts.chunk({ ...terminal(p), ...step }) };
+        } catch (error) {
+          return { error: (error as Error).message };
+        }
+      });
+      // commit 结果里的 ref 由 Rust artifact 存储生成，不可冻结；这里只验证 TS 收到正确字节。
+      await ts.commit(terminal(p));
+      return { begins, chunkSteps, putBytes };
+    });
     const h = f.start();
     const id = await h.create();
-    const bytes = Buffer.from("你好 Rust");
     const p = meta(id, bytes, 2);
     for (let i = 0; i < 2; i++)
       assert.deepEqual(
-        await h.client.request("v4/attachment/begin", p, v4AttachmentBeginResultSchema),
-        ts.begin(p),
+        canonical(await h.client.request("v4/attachment/begin", p, v4AttachmentBeginResultSchema)),
+        registry.begins[i],
       );
-    const steps = [
+    const steps: { chunkIndex: number; dataBase64: string }[] = [
       { chunkIndex: 1, dataBase64: bytes.subarray(4).toString("base64") },
       { chunkIndex: 0, dataBase64: bytes.subarray(0, 4).toString("base64") },
       { chunkIndex: 0, dataBase64: bytes.subarray(0, 4).toString("base64") },
       { chunkIndex: 0, dataBase64: Buffer.from("conflict").toString("base64") },
       { chunkIndex: 1, dataBase64: bytes.subarray(4).toString("base64") },
     ];
-    for (const step of steps) {
+    for (const [index, step] of steps.entries()) {
       const request = { ...terminal(p), ...step };
-      let expected;
-      try {
-        expected = ts.chunk(request);
-      } catch (error) {
+      const expected = registry.chunkSteps[index]!;
+      if (expected.error) {
         await assert.rejects(
           h.client.request("v4/attachment/chunk", request, v4AttachmentChunkResultSchema),
-          { message: (error as Error).message },
+          { message: expected.error },
         );
         continue;
       }
       assert.deepEqual(
-        await h.client.request("v4/attachment/chunk", request, v4AttachmentChunkResultSchema),
-        expected,
+        canonical(
+          await h.client.request("v4/attachment/chunk", request, v4AttachmentChunkResultSchema),
+        ),
+        expected.value,
       );
     }
     await assert.rejects(
@@ -94,14 +118,13 @@ test("Rust attachment transactions match the TS registry for retry, conflicts, g
       ),
       /uploadNotFound/,
     );
-    const committed = await h.client.request(
-      "v4/attachment/commit",
-      terminal(p),
-      v4AttachmentCommitResultSchema,
-    );
-    await ts.commit(terminal(p));
-    assert.deepEqual(
+    const committed = canonical(
       await h.client.request("v4/attachment/commit", terminal(p), v4AttachmentCommitResultSchema),
+    );
+    assert.deepEqual(
+      canonical(
+        await h.client.request("v4/attachment/commit", terminal(p), v4AttachmentCommitResultSchema),
+      ),
       committed,
     );
     assert.equal(
@@ -116,7 +139,7 @@ test("Rust attachment transactions match the TS registry for retry, conflicts, g
       ),
       /beginConflict/,
     );
-    assert.equal(commits, 1);
+    assert.deepEqual(registry.putBytes, ["你好 Rust"]);
     for (const suffix of ["abort", "closed"]) {
       const pending = { ...p, uploadId: suffix };
       await h.client.request("v4/attachment/begin", pending, v4AttachmentBeginResultSchema);
@@ -287,14 +310,14 @@ test("Rust snapshots local firstInput and queued attachments before admission; q
     const rows = (await h.rows(id)).rows.filter((r: any) => r.kind === "userInput") as any[];
     assert.notEqual(rows[0].attachments[0].ref, rows[1].attachments[0].ref);
     const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"), { readOnly: true });
-    const canonical = db
+    const canonicalBody = db
       .prepare("SELECT body FROM rust_message WHERE session=?")
       .all(id)
       .map((r) => r.body)
       .join("");
     db.close();
-    assert(canonical.includes("_escode_attachment"));
-    assert(!canonical.includes("FROZEN_FIRST"));
+    assert(canonicalBody.includes("_escode_attachment"));
+    assert(!canonicalBody.includes("FROZEN_FIRST"));
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     release();

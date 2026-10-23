@@ -7,42 +7,14 @@ import { once } from "node:events";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { fixture, binary } from "./escode-cli-rust-fixture.js";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
-import type { SessionId, MessageId, ProjectId, WorkspaceId, PartId } from "@escode/contracts";
+import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 
-async function seed(f: Awaited<ReturnType<typeof fixture>>) {
-  const path = join(f.root, "ts.sqlite");
-  const store = createSqliteSessionStore({ dbPath: path });
-  for (const id of ["first", "second"]) {
-    await store.createSession({
-      id: id as SessionId,
-      projectID: "fixture" as ProjectId,
-      workspaceID: f.cwd as WorkspaceId,
-      directory: f.cwd,
-      slug: id,
-      title: id,
-      version: "fixture",
-    });
-    await store.saveMessage({
-      id: `${id}-user` as MessageId,
-      sessionID: id as SessionId,
-      role: "user",
-      time: { created: 10 },
-      agent: "main",
-      modelSelection: { providerId: "fixture", modelId: "core-model" },
-    });
-    await store.savePart({
-      id: `${id}-file` as PartId,
-      sessionID: id as SessionId,
-      messageID: `${id}-user` as MessageId,
-      type: "file",
-      mime: "text/plain",
-      filename: `${id}.txt`,
-      url: id === "first" ? "data:text/plain;base64,YXRvbWlj" : "missing.txt",
-    });
-  }
-  store.close();
-  return path;
+function seed(f: Awaited<ReturnType<typeof fixture>>) {
+  // 真实 TS store 写出的 legacy 库已冻结为仓内种子；正常跑只复制，不加载 TS storage。
+  return copyLegacySeed("import-lifecycle.sessions", join(f.root, "ts.sqlite"), {
+    workspace: f.cwd,
+    root: f.root,
+  });
 }
 
 function facts(f: Awaited<ReturnType<typeof fixture>>) {

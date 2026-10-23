@@ -1,0 +1,64 @@
+{
+  "results": [
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-0",
+        "content": "a\n\nb"
+      }
+    ],
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-1",
+        "content": "x\n\nStructured content:\n{\n  \"k\": 1\n}"
+      }
+    ],
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-2",
+        "content": "MCP tool returned an error:\nbad"
+      }
+    ],
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-3",
+        "content": "see\n\n[Attached image/png: MCP image]\n\n[MCP audio content omitted: audio/wav]\n\nMCP resource content:\n{\n  \"uri\": \"file:///x.txt\",\n  \"text\": \"hi\"\n}"
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Tool result media from mcp__local_shapes__shape:"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-4",
+        "content": "{\n  \"content\": []\n}"
+      }
+    ],
+    [
+      {
+        "role": "tool",
+        "tool_call_id": "call-5",
+        "content": "MCP image content saved instead of being inlined: image/png, base64=208 KiB, inlineLimit=200 KiB.\nArtifact: <artifacts>/<session>/call-5-tool-result-<uuid>.png\nArtifact URI: escode-artifact://<session>/tool-result-<uuid>"
+      }
+    ]
+  ],
+  "artifacts": [true],
+  "written": [true],
+  "schemaErrors": []
+}

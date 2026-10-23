@@ -1,0 +1,5 @@
+{
+  "requestsAfterStop": 3,
+  "lastRoles": ["user", "tool", "user"],
+  "notified": true
+}

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「session/read 的 session 投影」：有 Goal 的会话现在也投影
 // `session.target`（TS `mapSessionGoal` + `escodeSessionGoalSchema` strict）。给 Goal 补了
@@ -100,13 +101,13 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust project a goal-bearing session/read target the same way", async () => {
-  const node = await observe("node");
+  const node = await nodeOracle("observe", () => observe("node"));
   // 自检：确认 Node 侧真的带上 target 且状态归一为 complete，避免两侧同样为空也判等。
   assert.equal(node.hasTarget, true);
   assert.equal(node.target.status, "complete");
   assert.equal(node.target.objective, "implement and verify");
   assert.equal(node.target.createdAtType, "number");
   assert.equal(node.target.updatedAtType, "number");
-  const rust = await observe("rust");
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
 });

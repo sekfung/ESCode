@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import {
   mkdir,
@@ -14,7 +14,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-skills.md：skills 服务对真实 TS 实现差分（同一棵目录树上 list 精确相等；变更操作在两棵同构树上比较归一化结果）。
+// docs/specs/rust-u2-skills.md：TS `createSkillsService` 的 list/变更观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/rustHostSkills.oracle.json）。测试只启动 Rust Host，
+// 在同一棵同构树上逐步对比冻结结果与目录树。
+const goldenFile = new URL("./fixtures/golden/rustHostSkills.oracle.json", import.meta.url);
 
 const md = (name: string | null, description: string, body = "Body") =>
   name === null ? body : `---\nname: ${name}\ndescription: ${description}\n---\n${body}\n`;
@@ -24,7 +27,7 @@ async function write(path: string, content: string) {
   await writeFile(path, content);
 }
 
-/** 在 root 下造 home + workspace 两棵树。 */
+/** 在 root 下造 home + workspace 两棵树（与录制脚本完全一致）。 */
 async function build(root: string) {
   const home = join(root, "home");
   const ws = join(root, "ws");
@@ -125,7 +128,7 @@ const strip = (value: unknown, root: string) =>
   JSON.parse(
     text(value)
       .split(root)
-      .join("<root>")
+      .join("$FIXTURE_ROOT")
       .replace(/(glm:[a-z]+:[^:"]+:)[0-9a-f]{12}/g, "$1<hash>"),
   );
 async function outcome<T>(run: () => Promise<T>) {
@@ -149,43 +152,51 @@ async function tree(root: string): Promise<Record<string, string>> {
   return out;
 }
 
+type SkillsService = Awaited<ReturnType<typeof connectRpc>>["skillsService"];
+type Fixture = { home: string; ws: string; sub: string };
+
+interface SkillsGolden {
+  names: string[];
+  lists: Array<{ workspace: "ws" | "sub"; result: unknown }>;
+  steps: Array<{ label: string; result: unknown; files: unknown }>;
+  configText: string;
+}
+
 describe("rust host skills", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "matches the TS skills service",
+    "matches the frozen TS skills observations",
     async () => {
+      const golden = JSON.parse(await readFile(goldenFile, "utf8")) as SkillsGolden;
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-skills-")));
-      const a = join(base, "a");
-      const b = join(base, "b");
-      const fa = await build(a);
-      const fb = await build(b);
-      const previous = { HOME: process.env.HOME, LABEL: process.env.ESCODE_PROCESS_LABEL };
-      process.env.HOME = fa.home;
-      process.env.ESCODE_PROCESS_LABEL = "desktop";
-      vi.resetModules();
-      const { createSkillsService } = await import("@escode/services/node");
-      const ts = createSkillsService({ isDesktopRuntime: true });
-      const start = async (home: string) => {
-        const host = startHost(home, { ESCODE_PROCESS_LABEL: "desktop" });
-        expect((await nextMeaningful(host)).kind).toBe("hostReady");
-        host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir: home });
-        const listening = await nextMeaningful(host);
-        return { host, rpc: await connectRpc(String(listening.addr), String(listening.secret)) };
-      };
-      const same = await start(fa.home); // 与 TS 读同一棵树：list 精确相等（含 id 哈希）
-      const mirror = await start(fb.home); // 同构的另一棵树：变更操作
+      const root = join(base, "b");
+      const fixture = await build(root);
+      const host = startHost(fixture.home, { ESCODE_PROCESS_LABEL: "desktop" });
       try {
-        // ── 同一棵树上的精确相等 ──
-        for (const workspacePath of [fa.ws, fa.sub]) {
-          const expected = await ts.list({ workspacePath });
-          const actual = await same.rpc.skillsService.list({ workspacePath } as never);
-          expect({ workspacePath, result: JSON.parse(text(actual)) }).toEqual({
-            workspacePath,
-            result: JSON.parse(text(expected)),
-          });
+        expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        host.send({
+          kind: "rpcListen",
+          bind: "127.0.0.1:0",
+          home: fixture.home,
+          dataBaseDir: fixture.home,
+        });
+        const listening = await nextMeaningful(host);
+        const rpc = await connectRpc(String(listening.addr), String(listening.secret));
+        const rust = rpc.skillsService;
+
+        // ── list 精确相等 ──
+        for (const { workspace, result } of golden.lists) {
+          const workspacePath = workspace === "ws" ? fixture.ws : fixture.sub;
+          expect({
+            workspace,
+            result: strip(await rust.list({ workspacePath } as never), root),
+          }).toEqual({ workspace, result });
         }
         const names = (
-          (await ts.list({ workspacePath: fa.sub })).skills as Array<{ name: string }>
+          (await rust.list({ workspacePath: fixture.sub } as never)).skills as Array<{
+            name: string;
+          }>
         ).map((s) => s.name);
+        expect(names).toEqual(golden.names);
         expect(names).toEqual(
           expect.arrayContaining([
             "alpha",
@@ -201,16 +212,16 @@ describe("rust host skills", () => {
         );
         expect(names).not.toEqual(expect.arrayContaining(["excluded", "hidden", "escaped"]));
 
-        // ── 变更操作（两棵同构树）──
-        const idOf = async (service: typeof ts, ws: string, name: string, scope?: string) => {
-          const listed = await service.list({ workspacePath: ws });
+        // ── 变更操作：逐步对冻结结果与目录树 ──
+        const idOf = async (service: SkillsService, ws: string, name: string, scope?: string) => {
+          const listed = await service.list({ workspacePath: ws } as never);
           return (
             (listed.skills as Array<{ id: string; name: string; scope: string }>).find(
               (s) => s.name === name && (!scope || s.scope === scope),
             )?.id ?? "missing"
           );
         };
-        type Step = [string, (s: typeof ts, f: typeof fa) => Promise<unknown>];
+        type Step = [string, (s: SkillsService, f: Fixture) => Promise<unknown>];
         const steps: Step[] = [
           [
             "disable alpha",
@@ -320,36 +331,27 @@ describe("rust host skills", () => {
           ],
           ["final list", (s, f) => s.list({ workspacePath: f.sub })],
         ];
-        for (const [label, step] of steps) {
-          const expected = await outcome(() => step(ts, fa));
-          const actual = await outcome(() => step(mirror.rpc.skillsService as never, fb));
+        for (const [index, [label, step]] of steps.entries()) {
+          const expected = golden.steps[index]!;
+          const actual = await outcome(() => step(rust, fixture));
           // 审计日志中的时间戳不可比；其余逐项比较。
-          expect({ label, result: strip(actual, b) }).toEqual({
+          expect({ label, result: strip(actual, root) }).toEqual({
             label,
-            result: strip(expected, a),
+            result: expected.result,
           });
-          const normTree = async (root: string) => {
-            const t = await tree(root);
-            return strip(
-              Object.fromEntries(
-                Object.entries(t).filter(([p]) => !p.endsWith("skills-audit.log")),
-              ),
-              root,
-            );
-          };
-          expect({ label, files: await normTree(b) }).toEqual({ label, files: await normTree(a) });
+          const files = Object.fromEntries(
+            Object.entries(await tree(root)).filter(([p]) => !p.endsWith("skills-audit.log")),
+          );
+          expect({ label, files: strip(files, root) }).toEqual({ label, files: expected.files });
         }
-        // 变更后的配置文件键序/内容：TS 与 Rust 完全一致
-        expect(await readFile(join(fb.home, ".escode", "cli", "config.json"), "utf8")).toBe(
-          (await readFile(join(fa.home, ".escode", "cli", "config.json"), "utf8")).split(a).join(b),
-        );
+        // 变更后的配置文件键序/内容：与冻结的 TS 原文一致。
+        expect(
+          (await readFile(join(fixture.home, ".escode", "cli", "config.json"), "utf8"))
+            .split(root)
+            .join("$FIXTURE_ROOT"),
+        ).toBe(golden.configText);
       } finally {
-        if (previous.HOME === undefined) delete process.env.HOME;
-        else process.env.HOME = previous.HOME;
-        if (previous.LABEL === undefined) delete process.env.ESCODE_PROCESS_LABEL;
-        else process.env.ESCODE_PROCESS_LABEL = previous.LABEL;
-        await same.host.stop();
-        await mirror.host.stop();
+        await host.stop();
         await rm(base, { recursive: true, force: true });
       }
     },

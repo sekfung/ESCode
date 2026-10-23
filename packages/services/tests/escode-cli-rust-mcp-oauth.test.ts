@@ -11,6 +11,7 @@ import { fixture } from "./escode-cli-rust-fixture.js";
 import { escodeMcpListResultSchema } from "@escode/shared";
 import { tools } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-oauth.md「验收（第 2 层）」：本地授权服务器 + 需要 Bearer 的 MCP server 上，
 // Node 与 Rust 的 DCR/authorize/token 请求、mcp/list 状态序列一致；任一方授权后另一方直接连接；refresh 路径一致。
@@ -259,8 +260,10 @@ async function scenario(first: Kind, second: Kind) {
 }
 
 test("MCP OAuth authorization, cross-runtime credential reuse and refresh match Node", async () => {
-  const node = await scenario("node", "rust");
-  const rust = await scenario("rust", "node");
+  const node = await nodeOracle("cross-runtime-oauth", () => scenario("node", "rust"));
+  // 回放只启动 Rust：冻结的 Node 观察来自「Node 授权 → Rust 复用」；
+  // 现场跑 Rust → Rust，验证 Rust 自己的授权/复用/refresh/拒绝链路仍与冻结值一致。
+  const rust = canonical(await scenario("rust", "rust"));
   assert.equal(node.authorized.pending.status, "connecting");
   assert.equal(node.authorized.settled.status, "connected");
   assert.equal(node.reused.status, "connected");
@@ -318,8 +321,8 @@ async function credentials(kind: Kind) {
 }
 
 test("MCP OAuth client_credentials token acquisition matches Node", async () => {
-  const node = await credentials("node");
-  const rust = await credentials("rust");
+  const node = await nodeOracle("client-credentials", () => credentials("node"));
+  const rust = canonical(await credentials("rust"));
   assert.equal(node.status, "connected");
   assert.ok(
     node.log.some((e: any) => e.kind === "token" && e.params.grant_type === "client_credentials"),

@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IGitService } from "@escode/shared";
-import { createGitService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-git.md §5.1 TS oracle 差分：同一套夹具建两份（A 给 TS `createGitService()`，
-// B 给 Rust Host 的 `git` channel，经真实 `@escode/client`），按同一脚本逐步调用，结果把各自根路径
-// 归一为 `<ROOT>` 后 `toEqual` 全等。写操作改变仓库状态，所以两边必须各用一份。
+// Phase 3 golden freeze：原「真实 TS `createGitService`」oracle 的逐步观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/rustHostGit.oracle.json）。测试不再 import `@escode/services`，
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `git` channel（真实 `@escode/client`）。
+const goldenFile = new URL("./fixtures/golden/rustHostGit.oracle.json", import.meta.url);
 
-// 固定作者/提交时间与全局配置：两份夹具的提交哈希一致，服务端运行时产生的提交也一致。
+// docs/specs/rust-u2-git.md §5.1 TS oracle 差分：同一套夹具脚本在 Rust Host 的 `git` channel 上重放，
+// 与冻结的 TS 观察逐字段全等。写操作改变仓库状态，所以夹具只建一份、按同一脚本顺序执行。
+
+// 固定作者/提交时间与全局配置：录制时与重放时的提交哈希、时间戳一致。
 const FIXED_ENV = {
   GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z",
   GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z",
@@ -36,7 +38,7 @@ interface Fixture {
   worktree: string;
 }
 
-/** 构建一份夹具；两份按同一过程构建，内容与提交哈希一致。 */
+/** 构建一份夹具；与生成脚本 generate-rusthost-git-golden.ts 使用同一过程。 */
 async function buildFixture(root: string): Promise<Fixture> {
   const plain = join(root, "plain");
   await mkdir(plain, { recursive: true });
@@ -118,21 +120,17 @@ async function buildFixture(root: string): Promise<Fixture> {
   return { plain, empty, main: app, conflict, worktree };
 }
 
-type Step = (git: IGitService, fixture: Fixture) => Promise<unknown>;
+type GitService = Awaited<ReturnType<typeof connectRpc>>["gitService"];
+type Step = (git: GitService, fixture: Fixture) => Promise<unknown>;
 
-/** 按 TS 与 Rust 各跑一遍：成功值或错误文案都参与比较。 */
-async function settle(step: Step, service: IGitService, fixture: Fixture): Promise<unknown> {
+/** 成功值或错误文案都参与比较；void 方法：TS 冻结为 `<undefined>`，Rust 必须回 `Wire::Undefined`。 */
+async function settle(step: Step, service: GitService, fixture: Fixture): Promise<unknown> {
   try {
     const value = await step(service, fixture);
-    // void 方法：TS 回 undefined，Rust 必须回 `Wire::Undefined`（而不是 null/{}）。
     return { ok: value === undefined ? "<undefined>" : value };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
-}
-
-function normalize(value: unknown, root: string): unknown {
-  return JSON.parse(JSON.stringify(value).split(root).join("<ROOT>"));
 }
 
 const STEPS: Array<[string, Step]> = [
@@ -287,7 +285,7 @@ const STEPS: Array<[string, Step]> = [
 
 describe("rust host git domain", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "matches the TS git service on the same fixtures",
+    "matches the frozen TS git service observations",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-git-")));
       const saved = { ...process.env };
@@ -300,29 +298,36 @@ describe("rust host git domain", () => {
       const home = join(base, "home");
       const host = startHost(home);
       try {
-        const rootA = join(base, "a");
-        const rootB = join(base, "b");
-        const fixtureA = await buildFixture(rootA);
-        const fixtureB = await buildFixture(rootB);
+        // 夹具与全局 gitconfig 同在 base 下：冻结里的 `$FIXTURE_ROOT/gitconfig` 可直接替换。
+        const root = base;
+        const fixture = await buildFixture(root);
 
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
         const services = await connectRpc(String(listening.addr), String(listening.secret));
-        const tsGit = createGitService();
         const rustGit = services.gitService;
 
+        // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换为本次夹具根后逐字段比较。
+        const golden = JSON.parse(
+          (await readFile(goldenFile, "utf8")).split("$FIXTURE_ROOT").join(root),
+        ) as { expected: Record<string, unknown> };
+        // 冻结必须覆盖脚本的每一步，避免后续新增场景时静默漏测。
+        expect(Object.keys(golden.expected)).toEqual(STEPS.map(([label]) => label));
+
         for (const [label, step] of STEPS) {
-          const expected = normalize(await settle(step, tsGit, fixtureA), rootA);
-          const actual = normalize(await settle(step, rustGit, fixtureB), rootB);
-          expect({ label, result: actual }).toEqual({ label, result: expected });
+          const actual = await settle(step, rustGit, fixture);
+          expect({ label, result: actual }).toEqual({
+            label,
+            result: golden.expected[label],
+          });
         }
 
         // generateCommitMessage 的模型编排见 rustHostCommitMessage.test.ts；这里的 Host 没有配 provider 文件，
         // 有变更的仓库会在“读取当前模型”这一步失败（git 侧输入已先于它通过）。
         await expect(
-          rustGit.generateCommitMessage({ workspacePath: fixtureB.main } as never),
+          rustGit.generateCommitMessage({ workspacePath: fixture.main } as never),
         ).rejects.toThrow(/未读取到当前模型/);
       } finally {
         await host.stop();

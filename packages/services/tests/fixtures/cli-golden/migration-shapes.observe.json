@@ -1,0 +1,18 @@
+{
+  "kinds": [
+    "timelineMarker",
+    "turnHeader",
+    "userInput",
+    "assistantText",
+    "timelineMarker",
+    "turnHeader",
+    "userInput",
+    "assistantText"
+  ],
+  "userTexts": ["first question", "after rewind"],
+  "markers": [
+    ["modelChange", null, "core-model"],
+    ["modelChange", "core-model", "other-model"]
+  ],
+  "schemaErrors": []
+}

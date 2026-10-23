@@ -1,0 +1,68 @@
+{
+  "enableBeta": {
+    "enabled": true,
+    "plugin": {
+      "id": "beta@inline",
+      "name": "beta",
+      "enabled": true,
+      "source": "inline",
+      "marketplace": "inline",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "x"
+            }
+          ]
+        }
+      ],
+      "enabledSource": "user"
+    }
+  },
+  "userFile": "{\n  \"zeta\": {\n    \"keep\": [\n      1,\n      \"two\",\n      null\n    ]\n  },\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>/plugins/alpha\",\n      \"<root>/plugins/beta\"\n    ],\n    \"enabledPlugins\": {\n      \"ghost@some-market\": true,\n      \"beta@inline\": true\n    }\n  }\n}\n",
+  "disableAlphaByName": {
+    "enabled": false,
+    "plugin": {
+      "id": "alpha@inline",
+      "name": "alpha",
+      "enabled": false,
+      "source": "inline",
+      "marketplace": "inline",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "one"
+            }
+          ]
+        }
+      ],
+      "enabledSource": "workspace"
+    }
+  },
+  "workspaceFile": "{\n  \"plugins\": {\n    \"enabledPlugins\": {\n      \"alpha@inline\": false\n    }\n  }\n}\n",
+  "notFound": {
+    "error": "Plugin not found: nope@inline"
+  },
+  "missingRow": {
+    "error": "Plugin not found: ghost@some-market"
+  },
+  "listedEnabled": {
+    "alpha@inline": false,
+    "beta@inline": true,
+    "ghost@some-market": true
+  },
+  "schemaErrors": []
+}

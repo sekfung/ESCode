@@ -9,6 +9,7 @@ import yazl from "yazl";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W2：zip 源安装。本地回环 HTTP 服务提供 zip（回环允许 http），
 // 覆盖单顶层目录 strip、显式 path、同源重定向转发自定义头、sha256 不符、manifest 名不符、多顶层无 manifest、
@@ -218,8 +219,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust install plugins from zip sources the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

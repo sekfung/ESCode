@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createProviderRuntime } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-providers.md P1 TS oracle 差分：同一对配置文件（真实 Built-in + 各种 Personal）分别交给真实 TS
-// `ProviderRuntime.modelSelection` 与 Rust Host 的 `model-selection` channel，`getView` 逐项全等。
+// Phase 3 golden freeze：原「真实 TS `createProviderRuntime`」的 `providerSettings.getView` 与
+// `modelSelection.getView` 观察已冻结（revision 归一化），测试不再实例化 TS runtime。
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `provider-settings` / `model-selection` channel。
+const goldenFile = new URL("./fixtures/golden/rustHostProvider.oracle.json.gz", import.meta.url);
+
+// docs/specs/rust-u2-providers.md P1 TS oracle 差分：同一对配置文件（真实 Built-in + 各种 Personal）交给
+// Rust Host，`getView` 逐项对冻结观察全等。
 
 const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
 
@@ -258,9 +263,23 @@ const INPUTS: Array<unknown> = [
   { selection: { providerId: "p-deepseek", modelId: "deepseek-flash" } },
 ];
 
+interface ProviderGolden {
+  scenarios: Array<{
+    label: string;
+    settings: Record<string, unknown>;
+    views: Array<Record<string, unknown>>;
+  }>;
+}
+
+/** 与生成脚本一致：Registry revision 是进程内单调计数，统一写成 `<n>`。 */
+const strip = (view: unknown) => ({
+  ...(JSON.parse(JSON.stringify(view)) as Record<string, unknown>),
+  revision: "<n>",
+});
+
 describe("rust host providers P1", () => {
   it.skipIf(!existsSync(hostBinary) || !existsSync(BUILTIN_SOURCE))(
-    "matches the TS ModelSelection view for the same provider config files",
+    "matches the frozen TS ModelSelection view for the same provider config files",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-provider-")));
       const builtin = join(base, "escode-builtin.json");
@@ -269,6 +288,15 @@ describe("rust host providers P1", () => {
       const home = join(base, "home");
       const host = startHost(home);
       try {
+        // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换成本次运行的工作根后逐字段比较。
+        const golden = JSON.parse(
+          gunzipSync(await readFile(goldenFile))
+            .toString("utf8")
+            .split("$FIXTURE_ROOT")
+            .join(base),
+        ) as ProviderGolden;
+        expect(golden.scenarios).toHaveLength(SCENARIOS.length);
+
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
         host.send({
           kind: "rpcListen",
@@ -285,43 +313,34 @@ describe("rust host providers P1", () => {
         const rust = services.modelSelectionService;
 
         let previousRevision = 0;
-        for (const [label, content] of SCENARIOS) {
+        for (const [index, [label, content]] of SCENARIOS.entries()) {
+          const expected = golden.scenarios[index];
+          expect(expected.label).toBe(label);
+          expect(expected.views).toHaveLength(INPUTS.length);
+
           if (content === null) await rm(personal, { force: true });
           else await writeFile(personal, JSON.stringify(content, null, 2));
 
-          const runtime = createProviderRuntime({
-            escodeBuiltinFilePath: builtin,
-            personalFilePath: personal,
-            watch: false,
-            personalPollingIntervalMs: false,
+          const settingsActual = await services.providerSettingsService.getView();
+          expect({ label, settings: strip(settingsActual) }).toEqual({
+            label,
+            settings: expected.settings,
           });
-          try {
-            const settingsExpected = await runtime.providerSettings.getView();
-            const settingsActual = await services.providerSettingsService.getView();
-            const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
-            expect({ label, settings: strip(settingsActual) }).toEqual({
+          const refreshed = await services.providerSettingsService.refresh("test");
+          expect(strip(refreshed)).toEqual(strip(settingsActual));
+          for (const [inputIndex, input] of INPUTS.entries()) {
+            const actual = await rust.getView(input as never);
+            expect({ label, input, view: strip(actual) }).toEqual({
               label,
-              settings: strip(JSON.parse(JSON.stringify(settingsExpected))),
+              input,
+              view: expected.views[inputIndex],
             });
-            const refreshed = await services.providerSettingsService.refresh("test");
-            expect(strip(refreshed)).toEqual(strip(settingsActual));
-            for (const input of INPUTS) {
-              const expected = await runtime.modelSelection.getView(input as never);
-              const actual = await rust.getView(input as never);
-              expect({ label, input, view: strip(actual) }).toEqual({
-                label,
-                input,
-                view: strip(JSON.parse(JSON.stringify(expected))),
-              });
-              if (input === undefined) {
-                expect(actual.revision, `${label}: 修订号随配置变化单调递增`).toBeGreaterThan(
-                  previousRevision,
-                );
-                previousRevision = actual.revision;
-              }
+            if (input === undefined) {
+              expect(actual.revision, `${label}: 修订号随配置变化单调递增`).toBeGreaterThan(
+                previousRevision,
+              );
+              previousRevision = actual.revision;
             }
-          } finally {
-            runtime.dispose();
           }
         }
       } finally {

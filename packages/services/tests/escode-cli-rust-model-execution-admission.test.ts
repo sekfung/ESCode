@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { end, event, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // 执行作用域：会话忙时收到带 `modelExecution` 的输入，TS core admission 直接拒绝
 // （不排队、不 steer）。这条用例确认 V4 层回给客户端的 ACK 逐字一致，而不是只确认"被拒"。
@@ -65,8 +66,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("busy modelExecution admission ACK matches Node", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.ok(node.reasonCode, JSON.stringify(node));
   assert.deepEqual(rust, node, JSON.stringify({ node, rust }));
 });

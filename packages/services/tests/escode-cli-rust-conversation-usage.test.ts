@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import type { ServerResponse } from "node:http";
 import { fixture, event, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `v4/conversation/usage`（TS getTaskTokenUsage → usage store queryTaskUsage）：一个带工具调用的回合（两次模型
 // 请求，provider 报告含缓存命中与推理 token 的用量）之后，两侧会话用量聚合一致（增量输入基线口径）。
@@ -90,8 +91,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust aggregate conversation and app usage the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.ok(node.after.modelRequestCount >= 2);
   for (const key of Object.keys(node)) {

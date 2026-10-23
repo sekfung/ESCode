@@ -1,0 +1,39 @@
+{
+  "enabled": {
+    "workspace": {
+      "workspacePath": "/tmp/escode-workflow-policy-node-fQ9Led/workspace",
+      "workspaceKey": "/tmp/escode-workflow-policy-node-fQ9Led/workspace"
+    },
+    "enabled": true
+  },
+  "disabled": {
+    "workspace": {
+      "workspacePath": "/tmp/escode-workflow-policy-node-fQ9Led/workspace",
+      "workspaceKey": "/tmp/escode-workflow-policy-node-fQ9Led/workspace"
+    },
+    "enabled": false
+  },
+  "names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "CronUpdate",
+    "Edit",
+    "EnterPlanMode",
+    "ExitPlanMode",
+    "Read",
+    "Skill",
+    "TaskOutput",
+    "TaskStop",
+    "TodoRead",
+    "TodoWrite",
+    "WebFetch",
+    "Write",
+    "SendMessage",
+    "ReadSessionContext"
+  ],
+  "workspace": "/tmp/escode-workflow-policy-node-fQ9Led/workspace"
+}

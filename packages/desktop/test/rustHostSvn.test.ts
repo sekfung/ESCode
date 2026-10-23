@@ -1,20 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { ISvnService } from "@escode/shared";
-import { createSvnService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/svn/architecture.md「Rust Host」：同一套夹具建两份（A 给 TS `createSvnService()`，
-// B 给 Rust Host 的 `svn` channel，经真实 `@escode/client`），按同一脚本逐步调用，
-// 结果把各自根路径与提交时间归一后 `toEqual` 全等。写操作改变仓库状态，所以两边各用一份。
-// 两个仓库用 `svnadmin hotcopy` 复制，UUID 与修订号一致，避免噪声。
+// Phase 3 golden freeze：原「真实 TS `createSvnService()`」逐步观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/rustHostSvn.oracle.json）。测试不再实例化 TS 服务，
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `svn` channel（经真实 `@escode/client`）。
+const goldenFile = new URL("./fixtures/golden/rustHostSvn.oracle.json", import.meta.url);
 
+// docs/svn/architecture.md「Rust Host」：同一套夹具逐步调用，结果把根路径与提交时间归一后
+// 与冻结观察全等。绝对临时路径在生成时归一为 `$FIXTURE_ROOT`（仓库 URL 根为
+// `$FIXTURE_ROOT_URL`），运行时替换为本例的工作根。
 const execFileAsync = promisify(execFile);
 const svnBinary = process.env.ESCODE_SVN_BINARY?.trim() || "svn";
 const svnadminBinary = process.env.ESCODE_SVNADMIN_BINARY?.trim() || "svnadmin";
@@ -69,23 +71,11 @@ async function buildRepository(root: string): Promise<Fixture> {
   await svn(wc, "add", "-q", "--parents", "tracked.md", "del.txt", "img.bin");
   await svn(wc, "commit", "-q", "-m", "test: baseline");
   await svn(root, "copy", "-m", "test: branch", `${repoUrl}/trunk`, `${repoUrl}/branches/feature`);
-  // A 的 WC 在基线提交后停在上一修订；B 是 hotcopy 之后新 checkout 的 HEAD。先对齐修订号。
+  // WC 在基线提交后停在上一修订，先对齐到 HEAD（生成脚本录制时同样处理）。
   await svn(wc, "update", "-q");
   const other = join(root, "other");
   await svn(root, "checkout", "-q", `${repoUrl}/trunk`, other);
   const feature = join(root, "feature");
-  await svn(root, "checkout", "-q", `${repoUrl}/branches/feature`, feature);
-  return { root, repo, repoUrl, wc, other, feature };
-}
-
-async function checkoutCopy(root: string): Promise<Fixture> {
-  const repo = join(root, "repo");
-  const repoUrl = pathToFileURL(repo).href;
-  const wc = join(root, "wc");
-  const other = join(root, "other");
-  const feature = join(root, "feature");
-  await svn(root, "checkout", "-q", `${repoUrl}/trunk`, wc);
-  await svn(root, "checkout", "-q", `${repoUrl}/trunk`, other);
   await svn(root, "checkout", "-q", `${repoUrl}/branches/feature`, feature);
   return { root, repo, repoUrl, wc, other, feature };
 }
@@ -117,13 +107,27 @@ async function settle(step: Step, service: ISvnService, fixture: Fixture): Promi
   }
 }
 
-function normalize(value: unknown, root: string): unknown {
+/** 结构化替换字符串值，避免 Windows 路径反斜杠被当成 JSON 转义序列。 */
+function substitute<T>(value: T, from: string, to: string): T {
+  if (typeof value === "string") return value.split(from).join(to) as T;
+  if (Array.isArray(value)) return value.map((item) => substitute(item, from, to)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, substitute(item, from, to)]),
+    ) as T;
+  }
+  return value;
+}
+
+/** 与生成脚本一致：把跨运行不稳定的非路径值替换为稳定占位符，保留字段结构。 */
+function normalize(value: unknown): unknown {
   const text = JSON.stringify(value)
-    .split(root)
-    .join("<ROOT>")
-    // 提交时间必然不同（两个仓库交替提交），归一后再比较结构。
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<REPOSITORY_UUID>")
     .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<DATE>")
-    // shelf 的创建时间取当前时间，归一后再比较。
+    .replace(/"author":"[^"]*"/g, '"author":"<AUTHOR>"')
+    .replace(/"owner":"[^"]*"/g, '"owner":"<OWNER>"')
+    .replace(/"binaryPath":"[^"]*"/g, '"binaryPath":"<SVN_BINARY>"')
+    .replace(/"version":"[^"]*"/g, '"version":"<SVN_VERSION>"')
     .replace(/"createdAt":\d+/g, '"createdAt":0');
   return JSON.parse(text);
 }
@@ -305,17 +309,11 @@ const STEPS: Array<[string, Step]> = [
 
 describe("rust host svn domain", () => {
   it.skipIf(!existsSync(hostBinary) || !hasSvn())(
-    "matches the TS svn service on the same fixtures",
+    "matches the frozen TS svn observations on the same fixture",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-svn-")));
-      const rootA = join(base, "a");
-      const rootB = join(base, "b");
-      const fixtureA = await buildRepository(rootA);
-      await mkdir(rootB, { recursive: true });
-      await execFileAsync(svnadminBinary, ["hotcopy", fixtureA.repo, join(rootB, "repo")]);
-      const fixtureB = await checkoutCopy(rootB);
-      await modifyWorkingCopy(fixtureA);
-      await modifyWorkingCopy(fixtureB);
+      const fixture = await buildRepository(join(base, "fixture"));
+      await modifyWorkingCopy(fixture);
 
       const home = join(base, "home");
       const host = startHost(home);
@@ -325,13 +323,22 @@ describe("rust host svn domain", () => {
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
         const services = await connectRpc(String(listening.addr), String(listening.secret));
-        const tsSvn = createSvnService();
         const rustSvn = services.svnService;
 
+        const golden = JSON.parse(await readFile(goldenFile, "utf8")) as {
+          expected: Record<string, unknown>;
+        };
+        // 先替换仓库 URL 根（它是 `$FIXTURE_ROOT` 的超集），再替换普通绝对路径。
+        const expected = substitute(
+          substitute(golden.expected, "$FIXTURE_ROOT_URL", pathToFileURL(fixture.root).href),
+          "$FIXTURE_ROOT",
+          fixture.root,
+        );
+
+        expect(STEPS.map(([label]) => label)).toEqual(Object.keys(expected));
         for (const [label, step] of STEPS) {
-          const expected = normalize(await settle(step, tsSvn, fixtureA), rootA);
-          const actual = normalize(await settle(step, rustSvn, fixtureB), rootB);
-          expect({ label, result: actual }).toEqual({ label, result: expected });
+          const actual = normalize(await settle(step, rustSvn, fixture));
+          expect({ label, result: actual }).toEqual({ label, result: expected[label] });
         }
       } finally {
         await host.stop();

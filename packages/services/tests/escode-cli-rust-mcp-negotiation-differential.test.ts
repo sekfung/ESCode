@@ -5,6 +5,7 @@ import { escodeMcpListResultSchema } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { httpServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md「协议协商默认值」：未写 protocolVersion 的 HTTP 先 server/discover 再回落 initialize；
 // SSE 即使写 auto 也只走 legacy initialize。Node 与 Rust 的请求方法序列一致。
@@ -55,8 +56,10 @@ for (const [transport, protocolVersion] of [
   ["sse", "auto"],
 ] as const)
   test(`MCP ${transport} protocol negotiation with ${protocolVersion ?? "no"} protocolVersion matches Node`, async () => {
-    const node = await methods("node", transport, protocolVersion);
-    const rust = await methods("rust", transport, protocolVersion);
+    const node = await nodeOracle(`methods-${transport}`, () =>
+      methods("node", transport, protocolVersion),
+    );
+    const rust = canonical(await methods("rust", transport, protocolVersion));
     assert.equal(node.status, "connected");
     assert.equal(node.methods.includes("server/discover"), transport === "http");
     assert.deepEqual(rust, node);

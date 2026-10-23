@@ -14,6 +14,7 @@ import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { anthropic, responses } from "./escode-cli-rust-protocol-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-media-read.md：Read 图片后，Node 与 Rust 在三种协议下发给模型的工具结果与
 // 媒体消息形态一致（预算内原图字节一致）。
@@ -185,17 +186,19 @@ test("Node and Rust resize an oversized Read image to the same format and dimens
           }
         : m,
     );
-  const node = await observe("node", "openai-chat-completions", wide);
-  const rust = await observe("rust", "openai-chat-completions", wide);
+  const node = await nodeOracle("resize-wide", () =>
+    observe("node", "openai-chat-completions", wide),
+  );
+  const rust = canonical(await observe("rust", "openai-chat-completions", wide));
   assert.deepEqual(shape(node.tail)[1].content[1], { mime: "image/jpeg", width: 2000, height: 83 });
   assert.deepEqual(shape(rust.tail), shape(node.tail));
 });
 
 for (const apiType of ["openai-chat-completions", "anthropic-messages", "openai-responses"]) {
   test(`Node and Rust project Read image results the same way (${apiType})`, async () => {
-    const node = await observe("node", apiType);
+    const node = await nodeOracle(`image-${apiType}`, () => observe("node", apiType));
     assert.deepEqual(node.schemaErrors, []);
-    const rust = await observe("rust", apiType);
+    const rust = canonical(await observe("rust", apiType));
     assert.deepEqual(rust.tail, node.tail);
     assert.deepEqual(rust.schemaErrors, []);
   });
@@ -226,8 +229,10 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages", "openai-
         props: pdfProps,
         ...(pages ? { args: { pages } } : {}),
       };
-      const node = await observe("node", apiType, target);
-      const rust = await observe("rust", apiType, target);
+      const node = await nodeOracle(`pdf-${apiType}-${pages ?? "none"}`, () =>
+        observe("node", apiType, target),
+      );
+      const rust = canonical(await observe("rust", apiType, target));
       assert.deepEqual(rust.read, node.read);
       assert.deepEqual(rust.tail, node.tail);
       assert.deepEqual(rust.schemaErrors, []);
@@ -244,8 +249,8 @@ const clip = Buffer.from([0, 0, 0, 20, 102, 116, 121, 112, 105, 115, 111, 109, 0
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Node and Rust read videos the same way (${apiType})`, async () => {
     const target = { name: "clip.mp4", bytes: clip, props: videoProps };
-    const node = await observe("node", apiType, target);
-    const rust = await observe("rust", apiType, target);
+    const node = await nodeOracle(`video-${apiType}`, () => observe("node", apiType, target));
+    const rust = canonical(await observe("rust", apiType, target));
     assert.deepEqual(rust.tail, node.tail);
     assert.deepEqual(rust.schemaErrors, []);
   });
@@ -319,8 +324,10 @@ for (const [label, name, bytes] of [
   ["undecodable", "broken.png", Buffer.from("not really a png")],
 ] as const) {
   test(`Node and Rust prepare ${label} image attachments the same way`, async () => {
-    const node = await observeAttachment("node", name, bytes);
-    const rust = await observeAttachment("rust", name, bytes);
+    const node = await nodeOracle(`attachment-${label}`, () =>
+      observeAttachment("node", name, bytes),
+    );
+    const rust = canonical(await observeAttachment("rust", name, bytes));
     assert.deepEqual(node.schemaErrors, []);
     if (label === "oversized")
       assert.ok(
@@ -428,8 +435,8 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
 }
 
 test("Node and Rust derive the same local path for uploaded image attachments", async () => {
-  const node = await observeUpload("node", wide);
-  const rust = await observeUpload("rust", wide);
+  const node = await nodeOracle("upload", () => observeUpload("node", wide));
+  const rust = canonical(await observeUpload("rust", wide));
   assert.equal(node.derivedMatchesUpload, true, JSON.stringify(node.content));
   assert.deepEqual(rust, node);
 });

@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, hasGolden, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-resume-notice.md：恢复会话后的 `The Bash tool shell is …` 提醒。
 // 同一会话跑三段（phase 1 → 重启 → phase 2 → 重启 → phase 3），比较 phase 2 / 3 的模型请求会话部分：
@@ -89,9 +90,17 @@ const notice = (name: string) => ({
 });
 const tail = (messages: any[]) => messages.slice(-2);
 
+// 仅在 Windows + Git Bash 环境运行；golden 需在 Windows runner 上用
+// ESCODE_RECORD_CLI_GOLDEN=1 录制一次，未录制时跳过而不是走实时 Node oracle。
+const GOLDEN_KEYS = ["observe-git-bash-cmd", "observe-auto-auto", "observe-cmd-cmd"];
 test(
   "resumed sessions get the same shell reminder on both runtimes",
-  { skip: process.platform !== "win32" || !existsSync(gitBash) },
+  {
+    skip:
+      process.platform !== "win32" ||
+      !existsSync(gitBash) ||
+      !GOLDEN_KEYS.every((key) => hasGolden(key)),
+  },
   async () => {
     const cases: [string, Shell, Shell, string | undefined][] = [
       // 用户把 Git Bash 改成 CMD：提示词里记的是 Git Bash，提醒新的显示名。
@@ -102,8 +111,9 @@ test(
       ["cmd -> cmd", CMD, CMD, undefined],
     ];
     for (const [name, before, after, expected] of cases) {
-      const node = await observe("node", before, after);
-      const rust = await observe("rust", before, after);
+      const key = `observe-${name.replace(/[^a-z0-9]+/gi, "-")}`;
+      const node = await nodeOracle(key, () => observe("node", before, after));
+      const rust = canonical(await observe("rust", before, after));
       // 自检 Node 基准：提醒紧挨在本段输入之前；下一次恢复时旧提醒不在历史里（不落库）。
       if (expected) {
         assert.deepEqual(

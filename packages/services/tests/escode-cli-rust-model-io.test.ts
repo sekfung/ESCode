@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { readModelTrajectory } from "../src/escode-agent/modelTrajectory.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-model-io.md：Rust 写 model-io 记录，App「模型调用轨迹」侧栏读出与 Node 相同的内容。
 // 用 App 自己的 readModelTrajectory 读两侧文件，比对映射后的记录（剔除 id / 时间 / 耗时等非确定字段）。
@@ -171,8 +172,8 @@ async function observe(kind: Runtime, fullRetention = false) {
 }
 
 test("Rust writes model-io that the App trajectory pane reads like Node's", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("default", () => observe("node"));
+  const rust = canonical(await observe("rust"));
   // 落盘的压缩形态允许不同：Node 的消息带随最新消息移动的 cache 标记，前缀指纹对不上，主回合总写 full；
   // Rust 投影后无这些标记，可以合法地写 delta。App 展开后的内容才是契约（下方逐条比对）。
   for (const kind of rust.kinds) assert.ok(["full", "delta", "tail"].includes(kind as string));
@@ -193,8 +194,8 @@ test("Rust writes model-io that the App trajectory pane reads like Node's", asyn
 });
 
 test("full model-IO retention is applied the same way as Node", async () => {
-  const node = await observe("node", true);
-  const rust = await observe("rust", true);
+  const node = await nodeOracle("full-retention", () => observe("node", true));
+  const rust = canonical(await observe("rust", true));
   assert.deepEqual(rust, node);
   assert.equal((node.preference as any).fullRetentionEnabled, true);
   assert.ok(node.kinds.length > 0 && node.kinds.every((kind: unknown) => kind === null));

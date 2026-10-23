@@ -1,0 +1,202 @@
+{
+  "_readme": "rustHostAutomationParity.test.ts 的 TS AutomationService 观察冻结（Phase 3 golden freeze）。TS 创建行 id/时间戳已固定；录制中动态生成的行 id 归一化为 RUST_CREATED，时间戳已剔除。",
+  "expected": {
+    "tsCreated": {
+      "automationId": "automation-oracle-daily-check",
+      "title": "daily check",
+      "cronExpr": "0 9 * * *",
+      "prompt": "check logs",
+      "workspaceKey": "/tmp/escode-automation-parity-oracle",
+      "workspacePath": "/tmp/escode-automation-parity-oracle",
+      "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+      "locationKind": "local",
+      "recurring": true,
+      "runCount": 0,
+      "enabled": true,
+      "lifecycleStatus": "active",
+      "nextRunAt": 4102444800000,
+      "dispatchStatus": "idle",
+      "dispatchAttempts": 0,
+      "createdAt": 1000,
+      "updatedAt": 2000
+    },
+    "afterTsCreate": [
+      {
+        "automationId": "automation-oracle-daily-check",
+        "title": "daily check",
+        "cronExpr": "0 9 * * *",
+        "prompt": "check logs",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "nextRunAt": 4102444800000,
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0,
+        "createdAt": 1000,
+        "updatedAt": 2000
+      }
+    ],
+    "rustCreated": {
+      "automationId": "RUST_CREATED",
+      "title": "weekly report",
+      "cronExpr": "0 10 * * 1",
+      "prompt": "write report",
+      "workspaceKey": "/tmp/escode-automation-parity-oracle",
+      "workspacePath": "/tmp/escode-automation-parity-oracle",
+      "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+      "locationKind": "local",
+      "recurring": true,
+      "runCount": 0,
+      "enabled": true,
+      "lifecycleStatus": "active",
+      "dispatchStatus": "idle",
+      "dispatchAttempts": 0
+    },
+    "afterRustCreate": [
+      {
+        "automationId": "RUST_CREATED",
+        "title": "weekly report",
+        "cronExpr": "0 10 * * 1",
+        "prompt": "write report",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      },
+      {
+        "automationId": "automation-oracle-daily-check",
+        "title": "daily check",
+        "cronExpr": "0 9 * * *",
+        "prompt": "check logs",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      }
+    ],
+    "pausedFields": {
+      "enabled": false,
+      "lifecycleStatus": "paused"
+    },
+    "pausedRow": {
+      "automationId": "RUST_CREATED",
+      "title": "weekly report",
+      "cronExpr": "0 10 * * 1",
+      "prompt": "write report",
+      "workspaceKey": "/tmp/escode-automation-parity-oracle",
+      "workspacePath": "/tmp/escode-automation-parity-oracle",
+      "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+      "locationKind": "local",
+      "recurring": true,
+      "runCount": 0,
+      "enabled": false,
+      "lifecycleStatus": "paused",
+      "dispatchStatus": "idle",
+      "dispatchAttempts": 0
+    },
+    "afterPause": [
+      {
+        "automationId": "RUST_CREATED",
+        "title": "weekly report",
+        "cronExpr": "0 10 * * 1",
+        "prompt": "write report",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": false,
+        "lifecycleStatus": "paused",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      },
+      {
+        "automationId": "automation-oracle-daily-check",
+        "title": "daily check",
+        "cronExpr": "0 9 * * *",
+        "prompt": "check logs",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      }
+    ],
+    "renamedTitle": "daily check (renamed)",
+    "afterRename": [
+      {
+        "automationId": "RUST_CREATED",
+        "title": "weekly report",
+        "cronExpr": "0 10 * * 1",
+        "prompt": "write report",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": false,
+        "lifecycleStatus": "paused",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      },
+      {
+        "automationId": "automation-oracle-daily-check",
+        "title": "daily check (renamed)",
+        "cronExpr": "0 9 * * *",
+        "prompt": "check logs",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      }
+    ],
+    "afterDelete": [
+      {
+        "automationId": "automation-oracle-daily-check",
+        "title": "daily check (renamed)",
+        "cronExpr": "0 9 * * *",
+        "prompt": "check logs",
+        "workspaceKey": "/tmp/escode-automation-parity-oracle",
+        "workspacePath": "/tmp/escode-automation-parity-oracle",
+        "workspaceIdentity": "/tmp/escode-automation-parity-oracle",
+        "locationKind": "local",
+        "recurring": true,
+        "runCount": 0,
+        "enabled": true,
+        "lifecycleStatus": "active",
+        "dispatchStatus": "idle",
+        "dispatchAttempts": 0
+      }
+    ]
+  }
+}

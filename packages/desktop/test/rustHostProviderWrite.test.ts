@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createProviderRuntime } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-providers.md P3（§8）TS oracle 差分：同一份初始 Personal 文件，分别交给真实 TS
-// `ProviderRuntime.providerSettings` 与 Rust Host 的 `provider-settings` channel，依次执行同一组写操作；
-// 每一步比较「成功/失败」「错误文案」「返回视图（去修订号）」「落盘文件的语义（toEqual，不比键序）」。
+// Phase 3 golden freeze：原「真实 TS `ProviderRuntime.providerSettings`」的逐步写操作观察已冻结
+// （revision 归一化；`anyMessage` 用例不冻结文案），测试不再实例化 TS runtime。
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `provider-settings` channel。
+const goldenFile = new URL(
+  "./fixtures/golden/rustHostProviderWrite.oracle.json.gz",
+  import.meta.url,
+);
+
+// docs/specs/rust-u2-providers.md P3（§8）TS oracle 差分：同一份初始 Personal 文件交给 Rust Host 的
+// `provider-settings` channel，依次执行同一组写操作；每一步比较「成功/失败」「错误文案」
+// 「返回视图（去修订号）」「落盘文件的语义」，全部对冻结观察。
 
 const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
 
@@ -489,28 +497,43 @@ const SCENARIOS: Array<[string, unknown, Op[]]> = [
   ["dirty membership and absent order", DIRTY, DIRTY_OPS],
 ];
 
+interface ProviderWriteGolden {
+  scenarios: Array<{
+    label: string;
+    ops: Array<{
+      label: string;
+      ok: boolean;
+      anyMessage: boolean;
+      value?: unknown;
+      message?: string;
+      file: unknown;
+    }>;
+  }>;
+}
+
 describe("rust host providers P3 writes", () => {
   for (const [name, initial, ops] of SCENARIOS) {
     it.skipIf(!existsSync(hostBinary) || !existsSync(BUILTIN_SOURCE))(
-      `applies the same write sequence as the TS ProviderConfigService: ${name}`,
+      `applies the same write sequence as the frozen TS ProviderConfigService: ${name}`,
       async () => {
         const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-provider-w-")));
         const builtin = join(base, "escode-builtin.json");
-        const tsPersonal = join(base, "ts_provider_config.json");
         const rustPersonal = join(base, "rust_provider_config.json");
         await copyFile(BUILTIN_SOURCE, builtin);
-        for (const path of [tsPersonal, rustPersonal]) {
-          if (initial !== null) await writeFile(path, JSON.stringify(initial, null, 2));
-        }
+        if (initial !== null) await writeFile(rustPersonal, JSON.stringify(initial, null, 2));
+        // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换成本次运行的工作根后逐字段比较。
+        const golden = JSON.parse(
+          gunzipSync(await readFile(goldenFile))
+            .toString("utf8")
+            .split("$FIXTURE_ROOT")
+            .join(base),
+        ) as ProviderWriteGolden;
+        const expectedScenario = golden.scenarios.find((scenario) => scenario.label === name);
+        if (!expectedScenario) throw new Error(`缺少冻结场景 ${name}`);
+        expect(expectedScenario.ops).toHaveLength(ops.length);
+
         const home = join(base, "home");
         const host = startHost(home);
-        const runtime = createProviderRuntime({
-          escodeBuiltinFilePath: builtin,
-          personalFilePath: tsPersonal,
-          watch: false,
-          personalPollingIntervalMs: false,
-          testConnectivity: async () => ({ success: true }),
-        });
         try {
           expect((await nextMeaningful(host)).kind).toBe("hostReady");
           host.send({
@@ -524,31 +547,31 @@ describe("rust host providers P3 writes", () => {
           });
           const listening = await nextMeaningful(host);
           const services = await connectRpc(String(listening.addr), String(listening.secret));
-          const ts = runtime.providerSettings as unknown as Api;
           const rust = services.providerSettingsService as unknown as Api;
-          await ts.getView();
           await rust.getView();
 
-          for (const [label, op, options] of ops) {
-            const expected = await outcome(() => op(ts));
+          for (const [index, [label, op]] of ops.entries()) {
+            const expected = expectedScenario.ops[index];
+            expect(expected.label).toBe(label);
             const actual = await outcome(() => op(rust));
-            if (!expected.ok && !options?.anyMessage) {
-              expect({ label, ...actual }).toEqual({ label, ...expected });
+            if (!expected.ok && !expected.anyMessage) {
+              expect({ label, ...actual }).toEqual({
+                label,
+                ok: false,
+                message: expected.message,
+              });
             } else {
               expect({ label, ok: actual.ok }).toEqual({ label, ok: expected.ok });
             }
             if (expected.ok && actual.ok) {
               expect({ label, value: actual.value }).toEqual({ label, value: expected.value });
             }
-            const read = async (path: string) =>
-              existsSync(path) ? JSON.parse(await readFile(path, "utf8")) : null;
-            expect({ label, file: await read(rustPersonal) }).toEqual({
-              label,
-              file: await read(tsPersonal),
-            });
+            const file = existsSync(rustPersonal)
+              ? (JSON.parse(await readFile(rustPersonal, "utf8")) as unknown)
+              : null;
+            expect({ label, file }).toEqual({ label, file: expected.file });
           }
         } finally {
-          runtime.dispose();
           await host.stop();
           await rm(base, { recursive: true, force: true });
         }

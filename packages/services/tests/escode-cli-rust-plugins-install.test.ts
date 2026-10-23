@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W1b：本地源安装（市场目录内相对路径、directory 源、
 // strict:false 合成 manifest、依赖闭包、默认启用不覆盖显式停用、重装保留 installedAt）与失败诊断。
@@ -207,8 +208,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust install plugins from local sources the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

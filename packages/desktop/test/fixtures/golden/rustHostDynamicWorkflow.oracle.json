@@ -1,0 +1,246 @@
+{
+  "_readme": "rustHostDynamicWorkflow.test.ts 的 TS getDynamicWorkflowClientConfig 观察冻结（Phase 3 golden freeze）。覆盖远端取值、用户选择、请求失败与本地覆盖短路；shortCircuit.choice 的 undefined 记为 null。",
+  "folds": [
+    {
+      "label": "remote {\"mode\":\"onDemand\"}",
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand"
+      }
+    },
+    {
+      "label": "remote {\"mode\":\"alwaysOn\"}",
+      "config": {
+        "mode": "alwaysOn",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "alwaysOn"
+      }
+    },
+    {
+      "label": "remote {\"mode\":\"disabled\"}",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "remote {\"mode\":\" onDemand \"}",
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand"
+      }
+    },
+    {
+      "label": "remote {\"mode\":\"bogus\"}",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "remote {\"mode\":1}",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "remote \"x\"",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "remote null",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "no dynamicWorkflow key",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "configs null",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "business code is not validated here",
+      "config": {
+        "mode": "alwaysOn",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "alwaysOn"
+      }
+    },
+    {
+      "label": "offered onDemand, user alwaysOn",
+      "config": {
+        "mode": "alwaysOn",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand",
+        "userMode": "alwaysOn"
+      }
+    },
+    {
+      "label": "offered onDemand, user onDemand",
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand",
+        "userMode": "onDemand"
+      }
+    },
+    {
+      "label": "offered onDemand, user disabled",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "onDemand",
+        "userMode": "disabled"
+      }
+    },
+    {
+      "label": "offered onDemand, user bogus",
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand"
+      }
+    },
+    {
+      "label": "offered onDemand, user undefined",
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "remote",
+        "offeredMode": "onDemand"
+      }
+    },
+    {
+      "label": "offered disabled, user alwaysOn",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "offered disabled, user onDemand",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "offered disabled, user disabled",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "offered disabled, user bogus",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "offered disabled, user undefined",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "remote",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "http 503",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    },
+    {
+      "label": "unparseable body",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "default",
+        "offeredMode": "disabled"
+      }
+    }
+  ],
+  "shortCircuit": [
+    {
+      "choice": null,
+      "config": {
+        "mode": "onDemand",
+        "enabled": true,
+        "source": "override",
+        "offeredMode": "onDemand"
+      }
+    },
+    {
+      "choice": "alwaysOn",
+      "config": {
+        "mode": "alwaysOn",
+        "enabled": true,
+        "source": "override",
+        "offeredMode": "onDemand",
+        "userMode": "alwaysOn"
+      }
+    },
+    {
+      "choice": "disabled",
+      "config": {
+        "mode": "disabled",
+        "enabled": false,
+        "source": "override",
+        "offeredMode": "onDemand",
+        "userMode": "disabled"
+      }
+    }
+  ]
+}

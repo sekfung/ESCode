@@ -10,6 +10,7 @@ import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
@@ -114,64 +115,56 @@ test("settings-page CA is trusted by Node and Rust", async () => {
   const address = server.address();
   assert(address && typeof address !== "string");
 
-  const observed: string[] = [];
-  try {
-    for (const kind of ["node", "rust"] as const) {
-      const f = await fixture(
-        kind === "node"
-          ? {
-              command: process.execPath,
-              args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
-              registry: true,
-              // 生产里 services 同时注入两者（Node 只认前者、Rust 只认后者）。
-              env: { NODE_EXTRA_CA_CERTS: caCert, ESCODE_AGENT_CA_CERT: caCert },
-            }
-          : { registry: true, env: { ESCODE_AGENT_CA_CERT: caCert } },
-      );
-      try {
-        const tlsBaseUrl = `https://127.0.0.1:${address.port}/v1`;
-        // 两个 runtime 都用 App Provider Registry；把个人 provider 指向自签名 TLS 服务。
-        await configureRegistry(f, false);
-        const personalPath = join(f.root, "personal.json");
-        const personal = JSON.parse(await readFile(personalPath, "utf8"));
-        personal.config.providerConfigRules.providerRules[0].config.api.baseUrl = tlsBaseUrl;
-        await writeFile(personalPath, JSON.stringify(personal));
-        const h = f.start(),
-          id = await h.create();
-        await h.subscribe(`conversation/${id}`);
-        await h.command(h.envelope("sendText", id, { text: "ca" }));
-        const settled = await Promise.race([
-          h.completed(id).then(() => "completed" as const),
-          h
-            .wait((m) =>
-              m.params?.frame?.payload?.deltas?.some(
-                (d: any) => d.patch?.control?.phase === "error",
-              ),
-            )
-            .then(() => "error" as const),
-        ]).catch((error: unknown) => `threw:${error instanceof Error ? error.message : error}`);
-        const messages = JSON.stringify(h.messages);
-        const detail =
-          settled === "error" ? (messages.match(/"message":"([^"]{0,120})/) ?? [])[1] : "";
-        observed.push(
-          `${kind}:${
-            settled === "completed"
-              ? messages.includes("trusted")
-                ? "trusted"
-                : "missing"
-              : `${settled}:${detail}`
-          }`,
-        );
-        if (settled === "completed") assert.deepEqual(h.schemaErrors, []);
-      } finally {
-        await f.close();
-      }
-    }
-    assert.deepEqual(
-      observed,
-      ["node:trusted", "rust:trusted"],
-      `tlsErrors=${tlsErrors} requests=${requests}`,
+  const observeKind = async (kind: "node" | "rust") => {
+    const f = await fixture(
+      kind === "node"
+        ? {
+            command: process.execPath,
+            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            registry: true,
+            // 生产里 services 同时注入两者（Node 只认前者、Rust 只认后者）。
+            env: { NODE_EXTRA_CA_CERTS: caCert, ESCODE_AGENT_CA_CERT: caCert },
+          }
+        : { registry: true, env: { ESCODE_AGENT_CA_CERT: caCert } },
     );
+    try {
+      const tlsBaseUrl = `https://127.0.0.1:${address.port}/v1`;
+      // 两个 runtime 都用 App Provider Registry；把个人 provider 指向自签名 TLS 服务。
+      await configureRegistry(f, false);
+      const personalPath = join(f.root, "personal.json");
+      const personal = JSON.parse(await readFile(personalPath, "utf8"));
+      personal.config.providerConfigRules.providerRules[0].config.api.baseUrl = tlsBaseUrl;
+      await writeFile(personalPath, JSON.stringify(personal));
+      const h = f.start(),
+        id = await h.create();
+      await h.subscribe(`conversation/${id}`);
+      await h.command(h.envelope("sendText", id, { text: "ca" }));
+      const settled = await Promise.race([
+        h.completed(id).then(() => "completed" as const),
+        h
+          .wait((m) =>
+            m.params?.frame?.payload?.deltas?.some((d: any) => d.patch?.control?.phase === "error"),
+          )
+          .then(() => "error" as const),
+      ]).catch((error: unknown) => `threw:${error instanceof Error ? error.message : error}`);
+      const messages = JSON.stringify(h.messages);
+      const detail =
+        settled === "error" ? (messages.match(/"message":"([^"]{0,120})/) ?? [])[1] : "";
+      if (settled === "completed") assert.deepEqual(h.schemaErrors, []);
+      return settled === "completed"
+        ? messages.includes("trusted")
+          ? "trusted"
+          : "missing"
+        : `${settled}:${detail}`;
+    } finally {
+      await f.close();
+    }
+  };
+  try {
+    const node = await nodeOracle("ca-trust", () => observeKind("node"));
+    const rust = canonical(await observeKind("rust"));
+    assert.equal(node, "trusted", `tlsErrors=${tlsErrors} requests=${requests}`);
+    assert.deepEqual(rust, node, `tlsErrors=${tlsErrors} requests=${requests}`);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((r) => server.close(() => r()));

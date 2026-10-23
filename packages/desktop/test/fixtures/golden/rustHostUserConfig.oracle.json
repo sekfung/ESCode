@@ -1,0 +1,3838 @@
+{
+  "_readme": "rustHostUserConfig.test.ts 的 TS 服务观察冻结（Phase 3 golden freeze）。绝对临时根归一化为 $FIXTURE_ROOT；token/checkedAt/latency/端口/io 错误/decidedAt/大文件内容均已归一化。",
+  "outputStyle": [
+    {
+      "label": "list without any directory",
+      "result": {
+        "ok": true,
+        "value": {
+          "styles": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Completes coding tasks efficiently and provides concise responses",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": true
+            },
+            {
+              "id": "explanatory",
+              "name": "Explanatory",
+              "description": "Explains implementation choices and codebase patterns",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "learning",
+              "name": "Learning",
+              "description": "Pauses and asks you to write small pieces of code for hands-on practice",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            }
+          ]
+        }
+      },
+      "files": {}
+    },
+    {
+      "label": "active style defaults to null",
+      "result": {
+        "ok": true,
+        "value": {
+          "styleId": null
+        }
+      },
+      "files": {}
+    },
+    {
+      "label": "user styles directory is created",
+      "result": {
+        "ok": true,
+        "value": {
+          "path": "$FIXTURE_ROOT/.claude/output-styles"
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null
+      }
+    },
+    {
+      "label": "add a style with irregular spacing",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline"
+      }
+    },
+    {
+      "label": "add Zeta",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n"
+      }
+    },
+    {
+      "label": "add alpha",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n"
+      }
+    },
+    {
+      "label": "raw files with edge-case front matter",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n"
+      }
+    },
+    {
+      "label": "list with custom styles",
+      "result": {
+        "ok": true,
+        "value": {
+          "styles": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Completes coding tasks efficiently and provides concise responses",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": true
+            },
+            {
+              "id": "explanatory",
+              "name": "Explanatory",
+              "description": "Explains implementation choices and codebase patterns",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "learning",
+              "name": "Learning",
+              "description": "Pauses and asks you to write small pieces of code for hands-on practice",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "custom-alpha",
+              "name": "alpha",
+              "description": "a",
+              "content": "name: alpha\ndescription: a\n\nx",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/alpha.md"
+            },
+            {
+              "id": "custom-crlf",
+              "name": "Crlf Style",
+              "description": "D",
+              "content": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/crlf.md"
+            },
+            {
+              "id": "custom-my-cool-style",
+              "name": "My  Cool\tStyle",
+              "description": "desc",
+              "content": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/my-cool-style.md"
+            },
+            {
+              "id": "custom-plain",
+              "name": "plain",
+              "description": "",
+              "content": "just text",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/plain.md"
+            },
+            {
+              "id": "custom-gap",
+              "name": "Second Line Name",
+              "description": "",
+              "content": "name:\nSecond Line Name\ndescription:   \n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/gap.md"
+            },
+            {
+              "id": "custom-xy.md",
+              "name": "Weird Id",
+              "description": "",
+              "content": "name: Weird Id\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/x.mdy.md"
+            },
+            {
+              "id": "custom-zeta",
+              "name": "Zeta",
+              "description": "z",
+              "content": "name: Zeta\ndescription: z\n\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/zeta.md"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n"
+      }
+    },
+    {
+      "label": "activate a custom style",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "read the active style",
+      "result": {
+        "ok": true,
+        "value": {
+          "styleId": "custom-my-cool-style"
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "list reflects the activation",
+      "result": {
+        "ok": true,
+        "value": {
+          "styles": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Completes coding tasks efficiently and provides concise responses",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "explanatory",
+              "name": "Explanatory",
+              "description": "Explains implementation choices and codebase patterns",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "learning",
+              "name": "Learning",
+              "description": "Pauses and asks you to write small pieces of code for hands-on practice",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "custom-alpha",
+              "name": "alpha",
+              "description": "a",
+              "content": "name: alpha\ndescription: a\n\nx",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/alpha.md"
+            },
+            {
+              "id": "custom-crlf",
+              "name": "Crlf Style",
+              "description": "D",
+              "content": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/crlf.md"
+            },
+            {
+              "id": "custom-my-cool-style",
+              "name": "My  Cool\tStyle",
+              "description": "desc",
+              "content": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+              "isBuiltIn": false,
+              "enabled": true,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/my-cool-style.md"
+            },
+            {
+              "id": "custom-plain",
+              "name": "plain",
+              "description": "",
+              "content": "just text",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/plain.md"
+            },
+            {
+              "id": "custom-gap",
+              "name": "Second Line Name",
+              "description": "",
+              "content": "name:\nSecond Line Name\ndescription:   \n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/gap.md"
+            },
+            {
+              "id": "custom-xy.md",
+              "name": "Weird Id",
+              "description": "",
+              "content": "name: Weird Id\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/x.mdy.md"
+            },
+            {
+              "id": "custom-zeta",
+              "name": "Zeta",
+              "description": "z",
+              "content": "name: Zeta\ndescription: z\n\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/zeta.md"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta\ndescription: z\n\n",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "update a style",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "list after update",
+      "result": {
+        "ok": true,
+        "value": {
+          "styles": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Completes coding tasks efficiently and provides concise responses",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "explanatory",
+              "name": "Explanatory",
+              "description": "Explains implementation choices and codebase patterns",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "learning",
+              "name": "Learning",
+              "description": "Pauses and asks you to write small pieces of code for hands-on practice",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "custom-alpha",
+              "name": "alpha",
+              "description": "a",
+              "content": "name: alpha\ndescription: a\n\nx",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/alpha.md"
+            },
+            {
+              "id": "custom-crlf",
+              "name": "Crlf Style",
+              "description": "D",
+              "content": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/crlf.md"
+            },
+            {
+              "id": "custom-my-cool-style",
+              "name": "My  Cool\tStyle",
+              "description": "desc",
+              "content": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+              "isBuiltIn": false,
+              "enabled": true,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/my-cool-style.md"
+            },
+            {
+              "id": "custom-plain",
+              "name": "plain",
+              "description": "",
+              "content": "just text",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/plain.md"
+            },
+            {
+              "id": "custom-gap",
+              "name": "Second Line Name",
+              "description": "",
+              "content": "name:\nSecond Line Name\ndescription:   \n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/gap.md"
+            },
+            {
+              "id": "custom-xy.md",
+              "name": "Weird Id",
+              "description": "",
+              "content": "name: Weird Id\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/x.mdy.md"
+            },
+            {
+              "id": "custom-zeta",
+              "name": "Zeta 2",
+              "description": "changed",
+              "content": "name: Zeta 2\ndescription: changed\n\nnew",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/zeta.md"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/alpha.md": "name: alpha\ndescription: a\n\nx",
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "delete a style",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "delete a missing style",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "custom-my-cool-style"
+        }
+      }
+    },
+    {
+      "label": "activate a builtin",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "learning"
+        }
+      }
+    },
+    {
+      "label": "settings.json keeps unrelated keys",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "hooks": {
+            "a": 1
+          },
+          "outputStyle": "old",
+          "theme": "dark"
+        }
+      }
+    },
+    {
+      "label": "activate again over existing settings",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "hooks": {
+            "a": 1
+          },
+          "outputStyle": "explanatory",
+          "theme": "dark"
+        }
+      }
+    },
+    {
+      "label": "corrupt settings.json is replaced",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": "{ nope"
+      }
+    },
+    {
+      "label": "activate over corrupt settings",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "default"
+        }
+      }
+    },
+    {
+      "label": "final list",
+      "result": {
+        "ok": true,
+        "value": {
+          "styles": [
+            {
+              "id": "default",
+              "name": "Default",
+              "description": "Completes coding tasks efficiently and provides concise responses",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": true
+            },
+            {
+              "id": "explanatory",
+              "name": "Explanatory",
+              "description": "Explains implementation choices and codebase patterns",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "learning",
+              "name": "Learning",
+              "description": "Pauses and asks you to write small pieces of code for hands-on practice",
+              "content": "",
+              "isBuiltIn": true,
+              "enabled": false
+            },
+            {
+              "id": "custom-crlf",
+              "name": "Crlf Style",
+              "description": "D",
+              "content": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/crlf.md"
+            },
+            {
+              "id": "custom-my-cool-style",
+              "name": "My  Cool\tStyle",
+              "description": "desc",
+              "content": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/my-cool-style.md"
+            },
+            {
+              "id": "custom-plain",
+              "name": "plain",
+              "description": "",
+              "content": "just text",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/plain.md"
+            },
+            {
+              "id": "custom-gap",
+              "name": "Second Line Name",
+              "description": "",
+              "content": "name:\nSecond Line Name\ndescription:   \n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/gap.md"
+            },
+            {
+              "id": "custom-xy.md",
+              "name": "Weird Id",
+              "description": "",
+              "content": "name: Weird Id\n",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/x.mdy.md"
+            },
+            {
+              "id": "custom-zeta",
+              "name": "Zeta 2",
+              "description": "changed",
+              "content": "name: Zeta 2\ndescription: changed\n\nnew",
+              "isBuiltIn": false,
+              "enabled": false,
+              "filePath": "$FIXTURE_ROOT/.claude/output-styles/zeta.md"
+            }
+          ]
+        }
+      },
+      "files": {
+        "/.claude/": null,
+        "/.claude/output-styles/": null,
+        "/.claude/output-styles/crlf.md": "name: Crlf Style\r\ndescription: D\r\n\r\nbody",
+        "/.claude/output-styles/folder.md/": null,
+        "/.claude/output-styles/gap.md": "name:\nSecond Line Name\ndescription:   \n",
+        "/.claude/output-styles/ignored.txt": "name: no\n",
+        "/.claude/output-styles/my-cool-style.md": "name: My  Cool\tStyle\ndescription: desc\n\nbody\nline",
+        "/.claude/output-styles/plain.md": "just text",
+        "/.claude/output-styles/x.mdy.md": "name: Weird Id\n",
+        "/.claude/output-styles/zeta.md": "name: Zeta 2\ndescription: changed\n\nnew",
+        "/.claude/settings.json": {
+          "outputStyle": "default"
+        }
+      }
+    }
+  ],
+  "memory": [
+    {
+      "label": "load before any save",
+      "result": {
+        "ok": true,
+        "value": {
+          "memory": null
+        }
+      }
+    },
+    {
+      "label": "save user memory",
+      "result": {
+        "ok": true,
+        "value": null
+      }
+    },
+    {
+      "label": "load after save",
+      "result": {
+        "ok": true,
+        "value": {
+          "memory": {
+            "content": "remember this",
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "label": "clear user memory",
+      "result": {
+        "ok": true,
+        "value": null
+      }
+    },
+    {
+      "label": "load after clear",
+      "result": {
+        "ok": true,
+        "value": {
+          "memory": {
+            "content": "",
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "label": "user memory directory",
+      "result": {
+        "ok": true,
+        "value": {
+          "path": "$FIXTURE_ROOT/.claude/memory"
+        }
+      }
+    },
+    {
+      "label": "project list without a root",
+      "result": {
+        "ok": true,
+        "value": []
+      }
+    },
+    {
+      "label": "project read without a root",
+      "result": {
+        "ok": false,
+        "message": "ENOENT: no such file or directory, lstat '$FIXTURE_ROOT/.escode/cli/memories/projects'",
+        "code": "ENOENT"
+      }
+    },
+    {
+      "label": "build project fixture",
+      "result": {
+        "ok": true,
+        "value": null
+      }
+    },
+    {
+      "label": "project list",
+      "result": {
+        "ok": true,
+        "value": [
+          {
+            "id": "beta",
+            "label": "beta",
+            "updatedAt": 1700000500000,
+            "files": [
+              {
+                "name": "big.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/beta/memory/big.md",
+                "kind": "item",
+                "size": 5242881,
+                "updatedAt": 1700000400000
+              },
+              {
+                "name": "edge.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/beta/memory/edge.md",
+                "kind": "item",
+                "size": 5242880,
+                "updatedAt": 1700000450000
+              },
+              {
+                "name": "x.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/beta/memory/x.md",
+                "kind": "item",
+                "size": 15,
+                "updatedAt": 1700000500000
+              }
+            ]
+          },
+          {
+            "id": "alpha-0123456789abcdef",
+            "label": "alpha",
+            "updatedAt": 1700000100500,
+            "files": [
+              {
+                "name": "MEMORY.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/MEMORY.md",
+                "kind": "index",
+                "size": 20,
+                "updatedAt": 1700000000122.999
+              },
+              {
+                "name": "a.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/a.md",
+                "kind": "item",
+                "size": 15,
+                "updatedAt": 1700000050000
+              },
+              {
+                "name": "b.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/b.md",
+                "kind": "item",
+                "size": 15,
+                "updatedAt": 1700000100500
+              },
+              {
+                "name": "B.md",
+                "path": "$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/B.md",
+                "kind": "item",
+                "size": 15,
+                "updatedAt": 1700000060000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "label": "read index",
+      "result": {
+        "ok": true,
+        "value": {
+          "content": "content of MEMORY.md",
+          "updatedAt": 1700000000122.999
+        }
+      }
+    },
+    {
+      "label": "read item",
+      "result": {
+        "ok": true,
+        "value": {
+          "content": "content of a.md",
+          "updatedAt": 1700000050000
+        }
+      }
+    },
+    {
+      "label": "read other-case item",
+      "result": {
+        "ok": true,
+        "value": {
+          "content": "content of B.md",
+          "updatedAt": 1700000060000
+        }
+      }
+    },
+    {
+      "label": "read wrong case",
+      "result": {
+        "ok": false,
+        "message": "ENOENT: no such file or directory, lstat '$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/A.md'",
+        "code": "ENOENT"
+      }
+    },
+    {
+      "label": "read traversal",
+      "result": {
+        "ok": false,
+        "message": "Invalid Project Memory path"
+      }
+    },
+    {
+      "label": "read nested file name",
+      "result": {
+        "ok": false,
+        "message": "Invalid Project Memory path"
+      }
+    },
+    {
+      "label": "read non-markdown",
+      "result": {
+        "ok": false,
+        "message": "Invalid Project Memory path"
+      }
+    },
+    {
+      "label": "read symlinked file",
+      "result": {
+        "ok": false,
+        "message": "Project Memory file is not a regular file: sym.md"
+      }
+    },
+    {
+      "label": "read directory named like a file",
+      "result": {
+        "ok": false,
+        "message": "Project Memory file is not a regular file: dir.md"
+      }
+    },
+    {
+      "label": "read missing file",
+      "result": {
+        "ok": false,
+        "message": "ENOENT: no such file or directory, lstat '$FIXTURE_ROOT/.escode/cli/memories/projects/alpha-0123456789abcdef/memory/gone.md'",
+        "code": "ENOENT"
+      }
+    },
+    {
+      "label": "read missing workspace",
+      "result": {
+        "ok": false,
+        "message": "ENOENT: no such file or directory, lstat '$FIXTURE_ROOT/.escode/cli/memories/projects/nowhere'",
+        "code": "ENOENT"
+      }
+    },
+    {
+      "label": "read symlinked workspace",
+      "result": {
+        "ok": false,
+        "message": "Project Memory directory is not a regular directory: $FIXTURE_ROOT/.escode/cli/memories/projects/linked"
+      }
+    },
+    {
+      "label": "read over the preview limit",
+      "result": {
+        "ok": false,
+        "message": "Project Memory file exceeds the 5 MiB preview limit: big.md",
+        "code": "PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED"
+      }
+    },
+    {
+      "label": "read exactly at the preview limit",
+      "result": {
+        "ok": true,
+        "value": {
+          "content": "<big>",
+          "updatedAt": 1700000450000
+        }
+      }
+    }
+  ],
+  "broadcast": {
+    "messages": [
+      {
+        "channel": "state:theme",
+        "payload": {
+          "mode": "dark"
+        }
+      },
+      {
+        "channel": "state:locale",
+        "payload": "en",
+        "sourceWindowId": 7
+      },
+      {
+        "channel": "null-payload",
+        "payload": null
+      }
+    ],
+    "sends": [
+      {
+        "message": {
+          "channel": "state:theme",
+          "payload": {
+            "mode": "dark"
+          }
+        },
+        "ok": true
+      },
+      {
+        "message": {
+          "channel": "  state:locale  ",
+          "payload": "en",
+          "sourceWindowId": 7
+        },
+        "ok": true
+      },
+      {
+        "message": {
+          "channel": "no-payload"
+        },
+        "ok": false
+      },
+      {
+        "message": {
+          "channel": "null-payload",
+          "payload": null
+        },
+        "ok": true
+      },
+      {
+        "message": {
+          "channel": "   ",
+          "payload": 1
+        },
+        "ok": false
+      },
+      {
+        "message": {
+          "channel": "bad-id",
+          "payload": 1,
+          "sourceWindowId": 1.5
+        },
+        "ok": false
+      }
+    ],
+    "claims": [
+      {
+        "label": "empty key",
+        "result": {
+          "status": "unavailable"
+        }
+      },
+      {
+        "label": "acquire",
+        "result": {
+          "status": "acquired",
+          "lease": {
+            "key": "claim-a",
+            "token": "<token>"
+          }
+        }
+      },
+      {
+        "label": "busy",
+        "result": {
+          "status": "busy",
+          "retryAfterMs": 250
+        }
+      },
+      {
+        "label": "wrong token release"
+      },
+      {
+        "label": "still busy",
+        "result": {
+          "status": "busy",
+          "retryAfterMs": 250
+        }
+      },
+      {
+        "label": "release"
+      },
+      {
+        "label": "re-acquire",
+        "result": {
+          "status": "acquired",
+          "lease": {
+            "key": "claim-a",
+            "token": "<token>"
+          }
+        }
+      },
+      {
+        "label": "commit"
+      },
+      {
+        "label": "committed",
+        "result": {
+          "status": "committed"
+        }
+      },
+      {
+        "label": "release after commit"
+      },
+      {
+        "label": "still committed",
+        "result": {
+          "status": "committed"
+        }
+      },
+      {
+        "label": "tryClaim first",
+        "result": true
+      },
+      {
+        "label": "tryClaim second",
+        "result": false
+      },
+      {
+        "label": "tryClaim blank",
+        "result": false
+      }
+    ]
+  },
+  "system": {
+    "shells": [],
+    "probes": [
+      {
+        "isIntranet": true,
+        "reachedTargetCount": 1,
+        "requiredSuccessCount": 1,
+        "totalTargets": 1,
+        "checkedAt": "<t>",
+        "strategy": "tcp-connect",
+        "results": [
+          {
+            "targetId": "127.0.0.1:$TCP_PORT",
+            "kind": "tcp",
+            "host": "127.0.0.1",
+            "port": "$TCP_PORT",
+            "reachable": true,
+            "attemptCount": 1,
+            "latency": "<n>"
+          }
+        ]
+      },
+      {
+        "isIntranet": false,
+        "reachedTargetCount": 0,
+        "requiredSuccessCount": 1,
+        "totalTargets": 1,
+        "checkedAt": "<t>",
+        "strategy": "tcp-connect",
+        "results": [
+          {
+            "targetId": "127.0.0.1:1",
+            "kind": "tcp",
+            "host": "127.0.0.1",
+            "port": 1,
+            "reachable": false,
+            "attemptCount": 3,
+            "latency": null,
+            "error": "<io-error>"
+          }
+        ]
+      },
+      {
+        "isIntranet": false,
+        "reachedTargetCount": 2,
+        "requiredSuccessCount": 3,
+        "totalTargets": 8,
+        "checkedAt": "<t>",
+        "strategy": "mixed",
+        "results": [
+          {
+            "targetId": "mine",
+            "kind": "tcp",
+            "host": "127.0.0.1",
+            "port": "$TCP_PORT",
+            "reachable": true,
+            "attemptCount": 1,
+            "latency": "<n>"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/ok",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/ok",
+            "reachable": true,
+            "attemptCount": 1,
+            "marker": "zcode",
+            "latency": "<n>"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/ok",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/ok",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "marker mismatch(expected=other, actual=zcode)"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/nomarker",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/nomarker",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "marker mismatch(expected=zcode, actual=<empty>)"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/notok",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/notok",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "service returned ok=false"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/bad",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/bad",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "<io-error>"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/noflag",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/noflag",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "invalid service response: missing ok"
+          },
+          {
+            "targetId": "http://127.0.0.1:$HTTP_PORT/boom",
+            "kind": "service",
+            "url": "http://127.0.0.1:$HTTP_PORT/boom",
+            "reachable": false,
+            "attemptCount": 1,
+            "latency": null,
+            "error": "HTTP 503"
+          }
+        ]
+      },
+      {
+        "isIntranet": false,
+        "reachedTargetCount": 0,
+        "requiredSuccessCount": 1,
+        "totalTargets": 0,
+        "checkedAt": "<t>",
+        "strategy": "tcp-connect",
+        "results": []
+      },
+      {
+        "isIntranet": true,
+        "reachedTargetCount": 1,
+        "requiredSuccessCount": 1,
+        "totalTargets": 1,
+        "checkedAt": "<t>",
+        "strategy": "tcp-connect",
+        "results": [
+          {
+            "targetId": "127.0.0.1:$TCP_PORT",
+            "kind": "tcp",
+            "host": "127.0.0.1",
+            "port": "$TCP_PORT",
+            "reachable": true,
+            "attemptCount": 1,
+            "latency": "<n>"
+          }
+        ]
+      }
+    ]
+  },
+  "onboarding": [
+    {
+      "label": "records before anything",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    },
+    {
+      "label": "latest before anything",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    },
+    {
+      "label": "sync before anything",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    },
+    {
+      "label": "should onboard fresh",
+      "result": {
+        "ok": true,
+        "value": true
+      },
+      "file": null
+    },
+    {
+      "label": "dismiss",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [],
+        "decisions": [
+          {
+            "userId": null,
+            "status": "dismissed",
+            "reason": "user_closed",
+            "decidedAt": "<iso>"
+          }
+        ]
+      }
+    },
+    {
+      "label": "records after dismiss",
+      "result": {
+        "ok": true,
+        "value": {
+          "version": 2,
+          "deviceMid": "dev-1",
+          "entries": [],
+          "decisions": [
+            {
+              "userId": null,
+              "status": "dismissed",
+              "reason": "user_closed",
+              "decidedAt": "<iso>"
+            }
+          ]
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [],
+        "decisions": [
+          {
+            "userId": null,
+            "status": "dismissed",
+            "reason": "user_closed",
+            "decidedAt": "<iso>"
+          }
+        ]
+      }
+    },
+    {
+      "label": "should onboard after dismiss",
+      "result": {
+        "ok": true,
+        "value": false
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [],
+        "decisions": [
+          {
+            "userId": null,
+            "status": "dismissed",
+            "reason": "user_closed",
+            "decidedAt": "<iso>"
+          }
+        ]
+      }
+    },
+    {
+      "label": "append",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "developer",
+            "interfaceMode": "coding",
+            "memoryEnabled": true,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "records after append",
+      "result": {
+        "ok": true,
+        "value": {
+          "version": 2,
+          "deviceMid": "dev-1",
+          "entries": [
+            {
+              "userId": null,
+              "occupation": "developer",
+              "interfaceMode": "coding",
+              "memoryEnabled": true,
+              "proactiveSuggestionsEnabled": null,
+              "completedAt": "2026-01-01T00:00:00.000Z",
+              "uploadState": "pending"
+            }
+          ],
+          "decisions": []
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "developer",
+            "interfaceMode": "coding",
+            "memoryEnabled": true,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "latest",
+      "result": {
+        "ok": true,
+        "value": {
+          "userId": null,
+          "occupation": "developer",
+          "interfaceMode": "coding",
+          "memoryEnabled": true,
+          "proactiveSuggestionsEnabled": null,
+          "completedAt": "2026-01-01T00:00:00.000Z",
+          "uploadState": "pending"
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "developer",
+            "interfaceMode": "coding",
+            "memoryEnabled": true,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "sync",
+      "result": {
+        "ok": true,
+        "value": {
+          "onboardingOccupation": "developer",
+          "proactiveSuggestionsEnabled": false,
+          "memoryEnabled": true
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "developer",
+            "interfaceMode": "coding",
+            "memoryEnabled": true,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "append other occupation",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": null,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "sync with unknown occupation",
+      "result": {
+        "ok": true,
+        "value": {
+          "onboardingOccupation": "other",
+          "proactiveSuggestionsEnabled": false,
+          "memoryEnabled": false
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": null,
+            "proactiveSuggestionsEnabled": null,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "update preferences",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": false,
+            "proactiveSuggestionsEnabled": true,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "records after update",
+      "result": {
+        "ok": true,
+        "value": {
+          "version": 2,
+          "deviceMid": "dev-1",
+          "entries": [
+            {
+              "userId": null,
+              "occupation": "no-such-job",
+              "interfaceMode": null,
+              "memoryEnabled": false,
+              "proactiveSuggestionsEnabled": true,
+              "completedAt": "2026-01-01T00:00:00.000Z",
+              "uploadState": "pending"
+            }
+          ],
+          "decisions": []
+        }
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": false,
+            "proactiveSuggestionsEnabled": true,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "claim is a no-op",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": false,
+            "proactiveSuggestionsEnabled": true,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "dismiss with an entry is a no-op",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": false,
+            "proactiveSuggestionsEnabled": true,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "invalid append",
+      "result": {
+        "ok": false,
+        "message": "[\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"coding\",\n      \"office\"\n    ],\n    \"path\": [\n      \"interfaceMode\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"coding\\\"|\\\"office\\\"\"\n  }\n]"
+      },
+      "file": {
+        "version": 2,
+        "deviceMid": "dev-1",
+        "entries": [
+          {
+            "userId": null,
+            "occupation": "no-such-job",
+            "interfaceMode": null,
+            "memoryEnabled": false,
+            "proactiveSuggestionsEnabled": true,
+            "completedAt": "2026-01-01T00:00:00.000Z",
+            "uploadState": "pending"
+          }
+        ],
+        "decisions": []
+      }
+    },
+    {
+      "label": "clear",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    },
+    {
+      "label": "records after clear",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    },
+    {
+      "label": "update without a file",
+      "result": {
+        "ok": true,
+        "value": null
+      },
+      "file": null
+    }
+  ],
+  "modelTrajectory": {
+    "cases": [
+      {
+        "label": "all",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "task-1",
+            "available": true,
+            "records": [
+              {
+                "requestId": "req-5",
+                "attempt": 1,
+                "startedAt": "garbage",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [],
+                  "toolNames": []
+                }
+              },
+              {
+                "requestId": "req-1",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:01.000Z",
+                "callSource": {
+                  "kind": "sidecar",
+                  "querySource": "session_title"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "system",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "Generate a concise title for this coding session. Foo"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "first"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                },
+                "error": {
+                  "name": "TypeError",
+                  "message": "boom",
+                  "stack": "at x"
+                }
+              },
+              {
+                "requestId": "req-2",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:01.000Z",
+                "callSource": {
+                  "kind": "subagent"
+                },
+                "model": {
+                  "role": "subagent"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              },
+              {
+                "requestId": "req-3",
+                "attempt": 2,
+                "startedAt": "2026-01-01T00:00:03.000Z",
+                "completedAt": "2026-01-01T00:00:09.000Z",
+                "durationMs": 12.5,
+                "turnId": "turn",
+                "traceId": "trace",
+                "callSource": {
+                  "kind": "compact",
+                  "querySource": "compact"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "second"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "output": {
+                            "ok": true
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c2",
+                          "output": {
+                            "type": "error-text",
+                            "value": "plain text"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "output": [1, 2]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "t"
+                        },
+                        {
+                          "kind": "reasoning",
+                          "text": "r"
+                        },
+                        {
+                          "kind": "tool-call",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "input": {
+                            "cmd": "ls"
+                          }
+                        },
+                        {
+                          "kind": "tool-result",
+                          "output": 7
+                        },
+                        {
+                          "kind": "image",
+                          "mediaType": "image/png"
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": {
+                            "type": "weird",
+                            "extra": 1
+                          }
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": "raw-string"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": ["bash", "read"]
+                },
+                "response": {
+                  "finishReason": "tool-calls",
+                  "text": "done",
+                  "reasoningText": "thinking",
+                  "toolCalls": [
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c1",
+                      "toolName": "bash",
+                      "input": {
+                        "cmd": "ls"
+                      }
+                    },
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c9",
+                      "toolName": "x",
+                      "input": 1
+                    },
+                    {
+                      "kind": "unknown",
+                      "raw": "bad"
+                    }
+                  ],
+                  "usage": {
+                    "inputTokens": 1,
+                    "outputTokens": 2,
+                    "totalTokens": 3,
+                    "cacheReadTokens": 0
+                  },
+                  "responseId": "resp",
+                  "modelId": "m2"
+                }
+              },
+              {
+                "requestId": "req-6",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:06.000Z",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "rollout"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              }
+            ],
+            "sourceFiles": [
+              "$FIXTURE_ROOT/.escode/cli/debug/model-io-task-1.jsonl",
+              "$FIXTURE_ROOT/.escode/cli/rollout/model-io-task-1.jsonl"
+            ],
+            "truncated": false
+          }
+        }
+      },
+      {
+        "label": "limited",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "task-1",
+            "available": true,
+            "records": [
+              {
+                "requestId": "req-3",
+                "attempt": 2,
+                "startedAt": "2026-01-01T00:00:03.000Z",
+                "completedAt": "2026-01-01T00:00:09.000Z",
+                "durationMs": 12.5,
+                "turnId": "turn",
+                "traceId": "trace",
+                "callSource": {
+                  "kind": "compact",
+                  "querySource": "compact"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "second"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "output": {
+                            "ok": true
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c2",
+                          "output": {
+                            "type": "error-text",
+                            "value": "plain text"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "output": [1, 2]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "t"
+                        },
+                        {
+                          "kind": "reasoning",
+                          "text": "r"
+                        },
+                        {
+                          "kind": "tool-call",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "input": {
+                            "cmd": "ls"
+                          }
+                        },
+                        {
+                          "kind": "tool-result",
+                          "output": 7
+                        },
+                        {
+                          "kind": "image",
+                          "mediaType": "image/png"
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": {
+                            "type": "weird",
+                            "extra": 1
+                          }
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": "raw-string"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": ["bash", "read"]
+                },
+                "response": {
+                  "finishReason": "tool-calls",
+                  "text": "done",
+                  "reasoningText": "thinking",
+                  "toolCalls": [
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c1",
+                      "toolName": "bash",
+                      "input": {
+                        "cmd": "ls"
+                      }
+                    },
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c9",
+                      "toolName": "x",
+                      "input": 1
+                    },
+                    {
+                      "kind": "unknown",
+                      "raw": "bad"
+                    }
+                  ],
+                  "usage": {
+                    "inputTokens": 1,
+                    "outputTokens": 2,
+                    "totalTokens": 3,
+                    "cacheReadTokens": 0
+                  },
+                  "responseId": "resp",
+                  "modelId": "m2"
+                }
+              },
+              {
+                "requestId": "req-6",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:06.000Z",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "rollout"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              }
+            ],
+            "sourceFiles": [
+              "$FIXTURE_ROOT/.escode/cli/debug/model-io-task-1.jsonl",
+              "$FIXTURE_ROOT/.escode/cli/rollout/model-io-task-1.jsonl"
+            ],
+            "truncated": true
+          }
+        }
+      },
+      {
+        "label": "fractional limit",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "task-1",
+            "available": true,
+            "records": [
+              {
+                "requestId": "req-3",
+                "attempt": 2,
+                "startedAt": "2026-01-01T00:00:03.000Z",
+                "completedAt": "2026-01-01T00:00:09.000Z",
+                "durationMs": 12.5,
+                "turnId": "turn",
+                "traceId": "trace",
+                "callSource": {
+                  "kind": "compact",
+                  "querySource": "compact"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "second"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "output": {
+                            "ok": true
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c2",
+                          "output": {
+                            "type": "error-text",
+                            "value": "plain text"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "output": [1, 2]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "t"
+                        },
+                        {
+                          "kind": "reasoning",
+                          "text": "r"
+                        },
+                        {
+                          "kind": "tool-call",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "input": {
+                            "cmd": "ls"
+                          }
+                        },
+                        {
+                          "kind": "tool-result",
+                          "output": 7
+                        },
+                        {
+                          "kind": "image",
+                          "mediaType": "image/png"
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": {
+                            "type": "weird",
+                            "extra": 1
+                          }
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": "raw-string"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": ["bash", "read"]
+                },
+                "response": {
+                  "finishReason": "tool-calls",
+                  "text": "done",
+                  "reasoningText": "thinking",
+                  "toolCalls": [
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c1",
+                      "toolName": "bash",
+                      "input": {
+                        "cmd": "ls"
+                      }
+                    },
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c9",
+                      "toolName": "x",
+                      "input": 1
+                    },
+                    {
+                      "kind": "unknown",
+                      "raw": "bad"
+                    }
+                  ],
+                  "usage": {
+                    "inputTokens": 1,
+                    "outputTokens": 2,
+                    "totalTokens": 3,
+                    "cacheReadTokens": 0
+                  },
+                  "responseId": "resp",
+                  "modelId": "m2"
+                }
+              },
+              {
+                "requestId": "req-6",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:06.000Z",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "rollout"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              }
+            ],
+            "sourceFiles": [
+              "$FIXTURE_ROOT/.escode/cli/debug/model-io-task-1.jsonl",
+              "$FIXTURE_ROOT/.escode/cli/rollout/model-io-task-1.jsonl"
+            ],
+            "truncated": true
+          }
+        }
+      },
+      {
+        "label": "invalid limit",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "task-1",
+            "available": true,
+            "records": [
+              {
+                "requestId": "req-5",
+                "attempt": 1,
+                "startedAt": "garbage",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [],
+                  "toolNames": []
+                }
+              },
+              {
+                "requestId": "req-1",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:01.000Z",
+                "callSource": {
+                  "kind": "sidecar",
+                  "querySource": "session_title"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "system",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "Generate a concise title for this coding session. Foo"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "first"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                },
+                "error": {
+                  "name": "TypeError",
+                  "message": "boom",
+                  "stack": "at x"
+                }
+              },
+              {
+                "requestId": "req-2",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:01.000Z",
+                "callSource": {
+                  "kind": "subagent"
+                },
+                "model": {
+                  "role": "subagent"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              },
+              {
+                "requestId": "req-3",
+                "attempt": 2,
+                "startedAt": "2026-01-01T00:00:03.000Z",
+                "completedAt": "2026-01-01T00:00:09.000Z",
+                "durationMs": 12.5,
+                "turnId": "turn",
+                "traceId": "trace",
+                "callSource": {
+                  "kind": "compact",
+                  "querySource": "compact"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "same start"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "second"
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "output": {
+                            "ok": true
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "toolCallId": "c2",
+                          "output": {
+                            "type": "error-text",
+                            "value": "plain text"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "role": "tool",
+                      "parts": [
+                        {
+                          "kind": "tool-result",
+                          "output": [1, 2]
+                        }
+                      ]
+                    },
+                    {
+                      "role": "assistant",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "t"
+                        },
+                        {
+                          "kind": "reasoning",
+                          "text": "r"
+                        },
+                        {
+                          "kind": "tool-call",
+                          "toolCallId": "c1",
+                          "toolName": "bash",
+                          "input": {
+                            "cmd": "ls"
+                          }
+                        },
+                        {
+                          "kind": "tool-result",
+                          "output": 7
+                        },
+                        {
+                          "kind": "image",
+                          "mediaType": "image/png"
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": {
+                            "type": "weird",
+                            "extra": 1
+                          }
+                        },
+                        {
+                          "kind": "unknown",
+                          "raw": "raw-string"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": ["bash", "read"]
+                },
+                "response": {
+                  "finishReason": "tool-calls",
+                  "text": "done",
+                  "reasoningText": "thinking",
+                  "toolCalls": [
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c1",
+                      "toolName": "bash",
+                      "input": {
+                        "cmd": "ls"
+                      }
+                    },
+                    {
+                      "kind": "tool-call",
+                      "toolCallId": "c9",
+                      "toolName": "x",
+                      "input": 1
+                    },
+                    {
+                      "kind": "unknown",
+                      "raw": "bad"
+                    }
+                  ],
+                  "usage": {
+                    "inputTokens": 1,
+                    "outputTokens": 2,
+                    "totalTokens": 3,
+                    "cacheReadTokens": 0
+                  },
+                  "responseId": "resp",
+                  "modelId": "m2"
+                }
+              },
+              {
+                "requestId": "req-6",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:06.000Z",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [
+                    {
+                      "role": "user",
+                      "parts": [
+                        {
+                          "kind": "text",
+                          "text": "rollout"
+                        }
+                      ]
+                    }
+                  ],
+                  "toolNames": []
+                }
+              }
+            ],
+            "sourceFiles": [
+              "$FIXTURE_ROOT/.escode/cli/debug/model-io-task-1.jsonl",
+              "$FIXTURE_ROOT/.escode/cli/rollout/model-io-task-1.jsonl"
+            ],
+            "truncated": false
+          }
+        }
+      },
+      {
+        "label": "sanitized id",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "weird id!",
+            "available": true,
+            "records": [
+              {
+                "requestId": "req-1",
+                "attempt": 1,
+                "startedAt": "2026-01-01T00:00:01.000Z",
+                "callSource": {
+                  "kind": "main"
+                },
+                "model": {
+                  "modelId": "m",
+                  "providerId": "p",
+                  "role": "main",
+                  "source": "builtin"
+                },
+                "request": {
+                  "messages": [],
+                  "toolNames": []
+                }
+              }
+            ],
+            "sourceFiles": ["$FIXTURE_ROOT/.escode/cli/debug/model-io-weird-id.jsonl"],
+            "truncated": false
+          }
+        }
+      },
+      {
+        "label": "unknown task",
+        "result": {
+          "ok": true,
+          "value": {
+            "taskId": "ghost",
+            "available": true,
+            "records": [],
+            "sourceFiles": [],
+            "truncated": false
+          }
+        }
+      }
+    ],
+    "quirk": {
+      "ok": true,
+      "value": {
+        "taskId": "quirk",
+        "available": true,
+        "records": [
+          {
+            "requestId": "q-100",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.100Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-101",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.101Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-102",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.102Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-103",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.103Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-104",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.104Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-105",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.105Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-106",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.106Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-107",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.107Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-108",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.108Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-109",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.109Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-110",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.110Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-111",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.111Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-112",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.112Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-113",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.113Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-114",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.114Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-115",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.115Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-116",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.116Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-117",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.117Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-118",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.118Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-119",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.119Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-120",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.120Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-121",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.121Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-122",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.122Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-123",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.123Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-124",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.124Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-125",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.125Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-126",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.126Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-127",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.127Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-128",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.128Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-129",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.129Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-130",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.130Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-131",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.131Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-132",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.132Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-133",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.133Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-134",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.134Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-135",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.135Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-136",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.136Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-137",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.137Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-138",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.138Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-139",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.139Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-140",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.140Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-141",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.141Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-142",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.142Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-143",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.143Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-144",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.144Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-145",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.145Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-146",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.146Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-147",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.147Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-148",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.148Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "q-149",
+            "attempt": 1,
+            "startedAt": "2026-02-01T00:00:00.149Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          }
+        ],
+        "sourceFiles": ["$FIXTURE_ROOT/.escode/cli/debug/model-io-quirk.jsonl"],
+        "truncated": true
+      }
+    },
+    "quirkRecordCount": 50,
+    "big": {
+      "ok": true,
+      "value": {
+        "taskId": "big",
+        "available": true,
+        "records": [
+          {
+            "requestId": "req-7",
+            "attempt": 1,
+            "startedAt": "2026-01-01T00:00:07.000Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    }
+                  ]
+                }
+              ],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "req-7",
+            "attempt": 1,
+            "startedAt": "2026-01-01T00:00:07.000Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    }
+                  ]
+                }
+              ],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "req-7",
+            "attempt": 1,
+            "startedAt": "2026-01-01T00:00:07.000Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    }
+                  ]
+                }
+              ],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "req-7",
+            "attempt": 1,
+            "startedAt": "2026-01-01T00:00:07.000Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    }
+                  ]
+                }
+              ],
+              "toolNames": []
+            }
+          },
+          {
+            "requestId": "req-8",
+            "attempt": 1,
+            "startedAt": "2026-01-01T00:00:08.000Z",
+            "callSource": {
+              "kind": "main"
+            },
+            "model": {
+              "modelId": "m",
+              "providerId": "p",
+              "role": "main",
+              "source": "builtin"
+            },
+            "request": {
+              "messages": [],
+              "toolNames": []
+            }
+          }
+        ],
+        "sourceFiles": ["$FIXTURE_ROOT/.escode/cli/debug/model-io-big.jsonl"],
+        "truncated": true
+      }
+    }
+  }
+}

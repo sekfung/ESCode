@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W3：仓库类源。非 GitHub URL 走 Archive → 系统 Git 回退：
 // 普通 clone、ref（分支）、sha pin（检出旧提交）、git-subdir、子目录缺失、仓库不存在、Git 不可用。
@@ -181,8 +182,8 @@ async function observe(kind: Runtime, gitBinary?: string) {
 }
 
 test("Node and Rust install plugins from git sources the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("install", () => observe("node"));
+  const rust = canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }
@@ -199,8 +200,8 @@ test("Node and Rust install plugins from git sources the same way", async () => 
 
 test("Node and Rust report an unavailable system Git the same way", async () => {
   const missing = join(tmpdir(), "escode-no-such-git", "git.exe");
-  const node = await observe("node", missing);
-  const rust = await observe("rust", missing);
+  const node = await nodeOracle("git-unavailable", () => observe("node", missing));
+  const rust = canonical(await observe("rust", missing));
   assert.deepEqual(rust, node);
   assert.equal((node.gitplain as any).diagnostics[0].code, "plugin_git_unavailable");
 });

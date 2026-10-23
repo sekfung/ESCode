@@ -1,6 +1,6 @@
 # Rust 阶段 2：Host 骨架与分域迁移（rust-unified-host.md 子 spec）
 
-> 状态：阶段 2 服务域与验收已完成（2026-10-23）；唯一结构遗留是 P1 #9 plugins crate 抽离。
+> 状态：阶段 2 服务域与验收已完成（2026-10-23）；P1 #9 plugins crate 抽离已闭合（`crates/plugins`）。
 > 证据：`docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md`。
 > 父计划：`rust-unified-host.md` §阶段 2；前置：阶段 1（子 spec `rust-u1-runtime-lib.md`，验收报告 `docs/reports/rust-u1-runtime-library-2026-10-14.md`）
 > 参考实现：ZCode-rs `apps/zcode-cli-rust`（Host 与服务分层）、`apps/zcode-host`（若同构即对照）；对标仓库质量结论见 `docs/reports/rust-impl-quality-comparison-2026-10-14.md`

@@ -9,6 +9,7 @@ import { z } from "zod";
 import { event, end, fixture, waitForFile } from "./escode-cli-rust-fixture.js";
 import { httpServer, listMcp, stdioServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
@@ -111,8 +112,9 @@ for (const transport of ["http", "sse"] as const)
 // 本地 forward 代理转发所有请求并统计 MCP 路径：两侧的 MCP 握手都必须经它过去。
 // 模型 fixture 仍在 127.0.0.1，由 ESCODE_NO_PROXY 显式绕过，所以这里只观察 MCP 流量。
 async function mcpProxyRoutes(
+  kind: "node" | "rust",
   configure: (proxyUrl: string, cwd: string) => Promise<Record<string, string>>,
-): Promise<string[]> {
+): Promise<string> {
   const server = await httpServer("http");
   const mcpConfig = { ...server.config, url: server.config.url.replace("127.0.0.1", "localhost") };
   let mcpRequests = 0;
@@ -140,44 +142,40 @@ async function mcpProxyRoutes(
   const proxyAddress = proxy.address();
   assert(proxyAddress && typeof proxyAddress !== "string");
   const proxyUrl = `http://127.0.0.1:${proxyAddress.port}`;
-  const observed: string[] = [];
   try {
-    for (const kind of ["node", "rust"] as const) {
-      const root = await mkdtemp(join(tmpdir(), `escode-mcp-proxy-${kind}-`));
-      const env = await configure(proxyUrl, join(root, "workspace"));
-      const f = await fixture(
-        kind === "node"
-          ? {
-              root,
-              mode: "yolo",
-              respond,
-              command: process.execPath,
-              args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
-              env,
-            }
-          : { root, mode: "yolo", respond, env },
+    const root = await mkdtemp(join(tmpdir(), `escode-mcp-proxy-${kind}-`));
+    const env = await configure(proxyUrl, join(root, "workspace"));
+    const f = await fixture(
+      kind === "node"
+        ? {
+            root,
+            mode: "yolo",
+            respond,
+            command: process.execPath,
+            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            env,
+          }
+        : { root, mode: "yolo", respond, env },
+    );
+    try {
+      const before = mcpRequests;
+      const h = f.start();
+      // createSession 即触发 MCP 连接；握手经代理过去就算这条传输走了代理。
+      const ack = await h.command(
+        h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [mcpConfig] }),
       );
-      try {
-        const before = mcpRequests;
-        const h = f.start();
-        // createSession 即触发 MCP 连接；握手经代理过去就算这条传输走了代理。
-        const ack = await h.command(
-          h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [mcpConfig] }),
-        );
-        const sid = (ack.result as { sessionId: string }).sessionId;
-        assert.ok(sid);
-        // TS 在 createSession 就连 MCP；Rust 在首轮装配工具面时才连——两侧都发一轮再等代理计数。
-        await h.subscribe(`conversation/${sid}`);
-        await h.command(h.envelope("sendText", sid, { text: "MCP proxied" }));
-        const deadline = Date.now() + 15000;
-        while (mcpRequests === before && Date.now() < deadline)
-          await new Promise((r) => setTimeout(r, 100));
-        observed.push(`${kind}:${mcpRequests > before ? "proxied" : "direct"}`);
-      } finally {
-        await f.close();
-      }
+      const sid = (ack.result as { sessionId: string }).sessionId;
+      assert.ok(sid);
+      // TS 在 createSession 就连 MCP；Rust 在首轮装配工具面时才连——两侧都发一轮再等代理计数。
+      await h.subscribe(`conversation/${sid}`);
+      await h.command(h.envelope("sendText", sid, { text: "MCP proxied" }));
+      const deadline = Date.now() + 15000;
+      while (mcpRequests === before && Date.now() < deadline)
+        await new Promise((r) => setTimeout(r, 100));
+      return mcpRequests > before ? "proxied" : "direct";
+    } finally {
+      await f.close();
     }
-    return observed;
   } finally {
     proxy.closeAllConnections();
     await new Promise<void>((r) => proxy.close(() => r()));
@@ -186,11 +184,14 @@ async function mcpProxyRoutes(
 }
 
 test("MCP HTTP transport goes through the configured proxy in both runtimes", async () => {
-  const observed = await mcpProxyRoutes(async (proxyUrl) => ({
+  const configure = async (proxyUrl: string) => ({
     ESCODE_HTTP_PROXY: proxyUrl,
     ESCODE_NO_PROXY: "127.0.0.1",
-  }));
-  assert.deepEqual(observed, ["node:proxied", "rust:proxied"]);
+  });
+  const node = await nodeOracle("proxy-env", () => mcpProxyRoutes("node", configure));
+  const rust = canonical(await mcpProxyRoutes("rust", configure));
+  assert.equal(node, "proxied");
+  assert.deepEqual(rust, node);
 });
 
 // docs/specs/rust-net-proxy.md「配置文件 `network` 段」：不设任何代理环境变量，只在配置文件里写 network。
@@ -206,89 +207,94 @@ const writeNetwork = async (dir: string, proxyUrl: string) => {
 };
 
 test("user config network section routes MCP through the proxy in both runtimes", async () => {
-  const observed = await mcpProxyRoutes((proxyUrl, cwd) =>
-    writeNetwork(join(dirname(cwd), ".escode", "cli"), proxyUrl),
-  );
-  assert.deepEqual(observed, ["node:proxied", "rust:proxied"]);
+  const configure = (proxyUrl: string, cwd: string) =>
+    writeNetwork(join(dirname(cwd), ".escode", "cli"), proxyUrl);
+  const node = await nodeOracle("user-config-proxy", () => mcpProxyRoutes("node", configure));
+  const rust = canonical(await mcpProxyRoutes("rust", configure));
+  assert.equal(node, "proxied");
+  assert.deepEqual(rust, node);
 });
 
 test("project config network section does not reach the process-level MCP pool in either runtime", async () => {
-  const observed = await mcpProxyRoutes((proxyUrl, cwd) =>
-    writeNetwork(join(cwd, ".escode"), proxyUrl),
-  );
-  assert.deepEqual(observed, ["node:direct", "rust:direct"]);
+  const configure = (proxyUrl: string, cwd: string) => writeNetwork(join(cwd, ".escode"), proxyUrl);
+  const node = await nodeOracle("project-config-proxy", () => mcpProxyRoutes("node", configure));
+  const rust = canonical(await mcpProxyRoutes("rust", configure));
+  assert.equal(node, "direct");
+  assert.deepEqual(rust, node);
 });
 
 // 工具子进程环境读工作区合并视图的 network（TS executionPort）：写了项目层 network 后，两侧 Bash 里的
 // 代理与 NO_PROXY 都是文件值。Windows 环境键大小写不敏感，TS 依次写大写 / 小写键，后写的小写键胜出，
 // 所以比较完整的 `env | grep -i proxy` 而不是只读 `$HTTPS_PROXY`（曾因此误判为「Bash 不读配置」）。
-test("project config network section reaches Bash subprocess env in both runtimes", async () => {
+async function bashProxyEnv(kind: "node" | "rust"): Promise<string> {
   const proxyUrl = "http://127.0.0.1:9";
-  const observed: Record<string, string> = {};
-  for (const kind of ["node", "rust"] as const) {
-    const root = await mkdtemp(join(tmpdir(), `escode-bash-proxy-${kind}-`));
-    await writeNetwork(join(root, "workspace", ".escode"), proxyUrl);
-    let output = "missing";
-    const bash = (request: any, response: any) => {
-      response.writeHead(200, { "Content-Type": "text/event-stream" });
-      const last = request.messages.at(-1);
-      if (last.role === "tool") {
-        output = String(last.content);
-        event(response, { content: "done" });
-        end(response, "stop");
-        return;
-      }
-      event(response, {
-        tool_calls: [
-          {
-            index: 0,
-            id: "bash-env",
-            type: "function",
-            function: {
-              name: "Bash",
-              arguments: JSON.stringify({
-                command: "env | grep -iE '^(https?|all|no)_proxy=' | sort -f; echo END",
-              }),
-            },
-          },
-        ],
-      });
-      end(response, "tool_calls");
-    };
-    const f = await fixture(
-      kind === "node"
-        ? {
-            root,
-            mode: "yolo",
-            registry: true,
-            respond: bash,
-            command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
-          }
-        : { root, mode: "yolo", registry: true, respond: bash },
-    );
-    try {
-      await configureRegistry(f, false);
-      const h = f.start();
-      const sid = await h.create();
-      await h.subscribe(`conversation/${sid}`);
-      await h.command(h.envelope("sendText", sid, { text: "print proxy env" }));
-      await h.completed(sid);
-      // 键名按小写比较：Windows 上 TS 先写大写再写小写键（大小写不敏感，后写者胜出），Rust 保留大写键，
-      // 见 docs/specs/rust-net-proxy.md 已知差异；值必须逐字一致。
-      observed[kind] = output
-        .slice(0, output.indexOf("END"))
-        .trim()
-        .split("\n")
-        .map((line) => line.replace(/^[^=]+/, (key) => key.toLowerCase()))
-        .sort()
-        .join("\n");
-    } finally {
-      await f.close();
+  const root = await mkdtemp(join(tmpdir(), `escode-bash-proxy-${kind}-`));
+  await writeNetwork(join(root, "workspace", ".escode"), proxyUrl);
+  let output = "missing";
+  const bash = (request: any, response: any) => {
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    const last = request.messages.at(-1);
+    if (last.role === "tool") {
+      output = String(last.content);
+      event(response, { content: "done" });
+      end(response, "stop");
+      return;
     }
+    event(response, {
+      tool_calls: [
+        {
+          index: 0,
+          id: "bash-env",
+          type: "function",
+          function: {
+            name: "Bash",
+            arguments: JSON.stringify({
+              command: "env | grep -iE '^(https?|all|no)_proxy=' | sort -f; echo END",
+            }),
+          },
+        },
+      ],
+    });
+    end(response, "tool_calls");
+  };
+  const f = await fixture(
+    kind === "node"
+      ? {
+          root,
+          mode: "yolo",
+          registry: true,
+          respond: bash,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+        }
+      : { root, mode: "yolo", registry: true, respond: bash },
+  );
+  try {
+    await configureRegistry(f, false);
+    const h = f.start();
+    const sid = await h.create();
+    await h.subscribe(`conversation/${sid}`);
+    await h.command(h.envelope("sendText", sid, { text: "print proxy env" }));
+    await h.completed(sid);
+    // 键名按小写比较：Windows 上 TS 先写大写再写小写键（大小写不敏感，后写者胜出），Rust 保留大写键，
+    // 见 docs/specs/rust-net-proxy.md 已知差异；值必须逐字一致。
+    return output
+      .slice(0, output.indexOf("END"))
+      .trim()
+      .split("\n")
+      .map((line) => line.replace(/^[^=]+/, (key) => key.toLowerCase()))
+      .sort()
+      .join("\n");
+  } finally {
+    await f.close();
   }
-  assert.ok(observed.node?.includes(`https_proxy=${proxyUrl}`), observed.node);
-  assert.deepEqual(observed.rust, observed.node);
+}
+
+test("project config network section reaches Bash subprocess env in both runtimes", async () => {
+  const node = await nodeOracle("bash-proxy-env", () => bashProxyEnv("node"));
+  const rust = canonical(await bashProxyEnv("rust"));
+  assert.ok(node.includes("https_proxy=http://127.0.0.1:9"), node);
+  assert.deepEqual(rust, node);
 });
 
 // WebFetch 走会话 app 的 httpClientPort（带 workingDirectory 的合并视图）：只写项目层 network，
@@ -309,65 +315,67 @@ test("project config network section routes WebFetch through the proxy in both r
   const proxyAddress = proxy.address();
   assert(proxyAddress && typeof proxyAddress !== "string");
   const proxyUrl = `http://127.0.0.1:${proxyAddress.port}`;
-  const observed: string[] = [];
-  try {
-    for (const kind of ["node", "rust"] as const) {
-      const root = await mkdtemp(join(tmpdir(), `escode-webfetch-proxy-${kind}-`));
-      await writeNetwork(join(root, "workspace", ".escode"), proxyUrl);
-      let done = false;
-      const fetchOnce = (request: any, response: any) => {
-        response.writeHead(200, { "Content-Type": "text/event-stream" });
-        if (request.messages.at(-1).role === "tool") {
-          done = true;
-          event(response, { content: "done" });
-          end(response, "stop");
-          return;
-        }
-        event(response, {
-          tool_calls: [
-            {
-              index: 0,
-              id: "fetch",
-              type: "function",
-              function: {
-                name: "WebFetch",
-                arguments: JSON.stringify({
-                  url: "http://escode-proxy-probe.example/",
-                  prompt: "what",
-                }),
-              },
-            },
-          ],
-        });
-        end(response, "tool_calls");
-      };
-      const f = await fixture(
-        kind === "node"
-          ? {
-              root,
-              mode: "yolo",
-              registry: true,
-              respond: fetchOnce,
-              command: process.execPath,
-              args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
-            }
-          : { root, mode: "yolo", registry: true, respond: fetchOnce },
-      );
-      try {
-        await configureRegistry(f, false);
-        const before = hits;
-        const h = f.start();
-        const sid = await h.create();
-        await h.subscribe(`conversation/${sid}`);
-        await h.command(h.envelope("sendText", sid, { text: "fetch it" }));
-        const deadline = Date.now() + 30000;
-        while (!done && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
-        observed.push(`${kind}:${hits > before ? "proxied" : "direct"}`);
-      } finally {
-        await f.close();
+  const observeKind = async (kind: "node" | "rust") => {
+    const root = await mkdtemp(join(tmpdir(), `escode-webfetch-proxy-${kind}-`));
+    await writeNetwork(join(root, "workspace", ".escode"), proxyUrl);
+    let done = false;
+    const fetchOnce = (request: any, response: any) => {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      if (request.messages.at(-1).role === "tool") {
+        done = true;
+        event(response, { content: "done" });
+        end(response, "stop");
+        return;
       }
+      event(response, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "fetch",
+            type: "function",
+            function: {
+              name: "WebFetch",
+              arguments: JSON.stringify({
+                url: "http://escode-proxy-probe.example/",
+                prompt: "what",
+              }),
+            },
+          },
+        ],
+      });
+      end(response, "tool_calls");
+    };
+    const f = await fixture(
+      kind === "node"
+        ? {
+            root,
+            mode: "yolo",
+            registry: true,
+            respond: fetchOnce,
+            command: process.execPath,
+            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          }
+        : { root, mode: "yolo", registry: true, respond: fetchOnce },
+    );
+    try {
+      await configureRegistry(f, false);
+      const before = hits;
+      const h = f.start();
+      const sid = await h.create();
+      await h.subscribe(`conversation/${sid}`);
+      await h.command(h.envelope("sendText", sid, { text: "fetch it" }));
+      const deadline = Date.now() + 30000;
+      while (!done && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+      return hits > before ? "proxied" : "direct";
+    } finally {
+      await f.close();
     }
-    assert.deepEqual(observed, ["node:proxied", "rust:proxied"]);
+  };
+  try {
+    const node = await nodeOracle("webfetch-proxy", () => observeKind("node"));
+    const rust = canonical(await observeKind("rust"));
+    assert.equal(node, "proxied");
+    assert.deepEqual(rust, node);
   } finally {
     proxy.closeAllConnections();
     await new Promise<void>((r) => proxy.close(() => r()));

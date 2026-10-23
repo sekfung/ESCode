@@ -33,6 +33,7 @@ import { errorAttributionSchema } from "./escode-protocol-v4/snapshot.js";
 import { escodeTaskModeSchema } from "./escode-task-mode-schema.js";
 
 export {
+  appSettingsKnownKeys,
   appSettingsOccupationEnum,
   appSettingsPatchSchema,
   appSettingsSchema,

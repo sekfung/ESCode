@@ -3,6 +3,7 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-model-content.md：Bash 结果进入模型上下文的正文与 Node 逐字一致
 // （任务 id 与落盘路径每次不同，按占位比较）。
@@ -90,8 +91,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Bash results reach the model with the same text as Node", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.equal(node.length, CALLS.length);
   assert.equal(node[0], "hello\n  world");
   assert.match(node[7]!, /^<persisted-output>\nOutput too large \(39\.1KB\)/);

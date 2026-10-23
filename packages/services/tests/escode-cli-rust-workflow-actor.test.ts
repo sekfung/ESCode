@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md「M2 设计」：带 actor 的 CreateWorkflow。actor 的每一轮在 Rust 子会话执行，
 // submit_result 回宿主由 TS driver 裁决。比对 actor 的模型请求（系统提示词、工具面、消息）、CreateWorkflow
@@ -155,8 +156,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust run a workflow actor ask the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.ok(node.actorRequests >= 1, "the actor ran at least one model request");
   assert.deepEqual(

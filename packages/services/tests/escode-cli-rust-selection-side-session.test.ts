@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md：createSelectionSideSession（框选副屏）在 Node 与 Rust 上的
 // ACK、子会话可见行、模型请求的会话部分、列表可见性与副屏受限命令一致。
@@ -133,8 +134,8 @@ async function observe(kind: Runtime) {
 }
 
 test("selection side session behaves the same on Node and Rust", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.equal(node.ack.type, "createSelectionSideSession");
   assert.equal(node.childListed, false);

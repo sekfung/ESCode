@@ -1,0 +1,195 @@
+{
+  "addDir": {
+    "marketplace": {
+      "id": "dirmk",
+      "name": "dirmk",
+      "source": {
+        "source": "directory",
+        "path": "<root>/markets/dirmk"
+      },
+      "description": "Directory market",
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false
+    },
+    "diagnostics": []
+  },
+  "addFile": {
+    "marketplace": {
+      "id": "filemk",
+      "name": "filemk",
+      "source": {
+        "source": "file",
+        "path": "<root>/markets/filemk/catalog.json"
+      },
+      "description": "File market",
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false
+    },
+    "diagnostics": []
+  },
+  "addUrl": {
+    "marketplace": {
+      "id": "urlmk",
+      "name": "urlmk",
+      "source": {
+        "source": "url",
+        "url": "http://127.0.0.1:<port>/market.json"
+      },
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false
+    },
+    "diagnostics": []
+  },
+  "addDry": {
+    "marketplace": {
+      "id": "dry-run",
+      "name": "dry-run",
+      "source": {
+        "source": "directory",
+        "path": "<root>/markets/dirmk"
+      },
+      "pluginCount": 0,
+      "isOfficial": false
+    },
+    "diagnostics": []
+  },
+  "addReserved": {
+    "error": "Cannot add a marketplace named \"zcode-plugins-official\": that id is reserved for the official marketplace."
+  },
+  "addInvalid": {
+    "error": "Marketplace manifest is invalid"
+  },
+  "addMissing": {
+    "error": "Marketplace source path does not exist: <root>/markets/nope"
+  },
+  "updateDeclaredGit": {
+    "marketplaces": [
+      {
+        "id": "gitmk",
+        "name": "gitmk",
+        "source": {
+          "source": "git",
+          "url": "<root>/markets/gitmk"
+        },
+        "lastUpdated": "<time>",
+        "pluginCount": 1,
+        "isOfficial": false
+      }
+    ],
+    "diagnostics": []
+  },
+  "updateDir": {
+    "marketplaces": [
+      {
+        "id": "dirmk",
+        "name": "dirmk",
+        "source": {
+          "source": "directory",
+          "path": "<root>/markets/dirmk"
+        },
+        "description": "Directory market",
+        "lastUpdated": "<time>",
+        "pluginCount": 1,
+        "isOfficial": false
+      }
+    ],
+    "diagnostics": []
+  },
+  "updateUrlFailing": {
+    "marketplaces": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Failed to fetch marketplace: 500 Internal Server Error",
+        "severity": "error",
+        "pluginId": "urlmk"
+      }
+    ]
+  },
+  "updateUnknown": {
+    "error": "Marketplace not found: ghost"
+  },
+  "installFromUrl": {
+    "dependencyClosure": ["delta@urlmk"],
+    "installedPlugins": [
+      {
+        "id": "delta@urlmk",
+        "name": "delta",
+        "marketplace": "urlmk",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/urlmk/delta/1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "removeFile": {
+    "diagnostics": []
+  },
+  "known": "{\n  \"version\": 1,\n  \"marketplaces\": [\n    {\n      \"id\": \"dirmk\",\n      \"source\": {\n        \"source\": \"directory\",\n        \"path\": \"<root>/markets/dirmk\"\n      },\n      \"name\": \"dirmk\",\n      \"description\": \"Directory market\",\n      \"addedAt\": \"<time>\",\n      \"lastUpdated\": \"<time>\",\n      \"pluginCount\": 1,\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"urlmk\",\n      \"source\": {\n        \"source\": \"url\",\n        \"url\": \"http://127.0.0.1:<port>/market.json\"\n      },\n      \"name\": \"urlmk\",\n      \"addedAt\": \"<time>\",\n      \"lastUpdated\": \"<time>\",\n      \"pluginCount\": 1,\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"zcode-plugins-official\",\n      \"source\": {\n        \"source\": \"url\",\n        \"url\": \"https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json\"\n      },\n      \"name\": \"zcode-plugins-official\",\n      \"description\": \"Official ESCode plugins marketplace: built-in and community plugins for ESCode.\",\n      \"addedAt\": \"<time>\",\n      \"pluginCount\": 0\n    },\n    {\n      \"id\": \"claude-plugins-official\",\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"anthropics/claude-plugins-official\"\n      },\n      \"name\": \"claude-plugins-official\",\n      \"description\": \"Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations\",\n      \"addedAt\": \"<time>\",\n      \"pluginCount\": 0\n    },\n    {\n      \"id\": \"gitmk\",\n      \"source\": {\n        \"source\": \"git\",\n        \"url\": \"<root>/markets/gitmk\"\n      },\n      \"name\": \"gitmk\",\n      \"addedAt\": \"<time>\",\n      \"lastUpdated\": \"<time>\",\n      \"pluginCount\": 1,\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+  "marketplaces": {
+    "dirmk/marketplace.json": "d3074ab8bdcb3fe8",
+    "dirmk/plugins/alpha/.escode-plugin/plugin.json": "af8bb9a8286753fc",
+    "filemk/beta/.escode-plugin/plugin.json": "0bdc67513e3d04b6",
+    "filemk/catalog.json": "c5fb9a31cee9822a",
+    "filemk/marketplace.json": "d2d9ec1286bfa879",
+    "gitmk/.claude-plugin/marketplace.json": "fda63af8dd46a75a",
+    "gitmk/gamma/.escode-plugin/plugin.json": "f08b7cc60ab6a1a7",
+    "gitmk/marketplace.json": "dd07f749556dcb3e",
+    "urlmk/marketplace.json": "3a0170f976f957a6"
+  },
+  "overviewMarkets": [
+    {
+      "id": "dirmk",
+      "name": "dirmk",
+      "source": {
+        "source": "directory",
+        "path": "<root>/markets/dirmk"
+      },
+      "description": "Directory market",
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false,
+      "featured": ["alpha"]
+    },
+    {
+      "id": "urlmk",
+      "name": "urlmk",
+      "source": {
+        "source": "url",
+        "url": "http://127.0.0.1:<port>/market.json"
+      },
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false
+    },
+    {
+      "id": "claude-plugins-official",
+      "name": "claude-plugins-official",
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      },
+      "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+      "pluginCount": 0,
+      "isOfficial": true
+    },
+    {
+      "id": "gitmk",
+      "name": "gitmk",
+      "source": {
+        "source": "git",
+        "url": "<root>/markets/gitmk"
+      },
+      "lastUpdated": "<time>",
+      "pluginCount": 1,
+      "isOfficial": false
+    }
+  ],
+  "schemaErrors": []
+}

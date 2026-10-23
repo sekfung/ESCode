@@ -1,0 +1,12 @@
+{
+  "seen": [
+    "<tool_use_error>InputValidationError: mcp__strict__run failed due to the following issue:\nThe required parameter `text` is missing</tool_use_error>",
+    "<tool_use_error>InputValidationError: mcp__strict__run failed due to the following issues:\nAn unexpected parameter `extra` was provided\nAn unexpected parameter `other` was provided</tool_use_error>",
+    "<tool_use_error>InputValidationError: mcp__strict__run failed due to the following issue:\nThe parameter `text` type is expected as `string` but provided as `number`</tool_use_error>",
+    "<tool_use_error>InputValidationError: mcp__strict__run failed due to the following issue:\nThe parameter `count` type is expected as `int` but provided as `number`</tool_use_error>",
+    "<tool_use_error>InputValidationError: mcp__strict__run failed due to the following issue:\nThe required parameter `text` is missing</tool_use_error>",
+    "<tool_use_error>InputValidationError: [\n  {\n    \"origin\": \"number\",\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"inclusive\": true,\n    \"path\": [\n      \"count\"\n    ],\n    \"message\": \"Too small: expected number to be >=1\"\n  }\n]</tool_use_error>",
+    "ran"
+  ],
+  "calls": ["{\"text\":\"valid\"}"]
+}

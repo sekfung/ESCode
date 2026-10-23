@@ -1,0 +1,20 @@
+[
+  "AskUserQuestion",
+  "Bash",
+  "CronCreate",
+  "CronDelete",
+  "CronList",
+  "CronUpdate",
+  "Edit",
+  "EnterPlanMode",
+  "ExitPlanMode",
+  "Read",
+  "Skill",
+  "TaskOutput",
+  "TaskStop",
+  "TodoRead",
+  "TodoWrite",
+  "WebFetch",
+  "Write",
+  "ReadSessionContext"
+]

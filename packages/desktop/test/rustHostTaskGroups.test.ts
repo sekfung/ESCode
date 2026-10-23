@@ -1,43 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
-// 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 Repo 作 oracle。
-import { TaskIndexRepo } from "../../services/src/session/taskIndexRepo.js";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+
+// Phase 3 golden freeze：TS `TaskIndexRepo` 的逐步观察已冻结（group id 归一化、时间戳剔除），
+// 测试不再实例化 TS Repo；Rust Host 从冻结的 seed 库启动。
+const goldenFile = new URL("./fixtures/golden/rustHostTaskGroups.oracle.json", import.meta.url);
+const goldenSeed = new URL("./fixtures/golden/rustHostTaskGroups.seed.sqlite", import.meta.url);
 
 // docs/specs/rust-u2-tasks-index.md §6.8 TS oracle 差分：分组视图写面（createTaskGroup / renameTaskGroup /
 // updateTaskGroupColor / deleteTaskGroup / applyGroupedTaskViewOrder）。同一脚本分别驱动真实 TS `TaskIndexRepo`
 // （库 A）与 Rust Host（库 B，真实 `@escode/client`），每步之后比较分组结构（group id 归一化、时间戳剔除）。
 
-const glm = "glm" as never;
 const scopes = [{ workspacePath: "/w" }];
 const ref = (taskId: string, workspacePath = "/w") => ({ workspacePath, taskId });
-
-async function seed(repo: TaskIndexRepo): Promise<void> {
-  await repo.ensureReady();
-  for (const [taskId, extra] of [
-    ["t1", {}],
-    ["t2", {}],
-    ["t3", {}],
-    ["t_archived", { archived: true }],
-  ] as const) {
-    const meta = {
-      taskId,
-      traceId: `escode-${taskId}`,
-      title: taskId,
-      workspacePath: "/w",
-      createdAt: 10,
-      updatedAt: 20,
-      mode: "build",
-      provider: glm,
-    };
-    await repo.seedTaskMetaIfMissing(meta as never);
-    await repo.syncTaskMeta({ meta, pinned: false, archived: "archived" in extra } as never);
-  }
-}
 
 /** 去掉时间戳，把随机 group id 换成稳定标签。 */
 function normalize(value: unknown, ids: Map<string, string>): unknown {
@@ -81,22 +59,6 @@ interface Driver {
   remove(groupId: string): Promise<unknown>;
   apply(params: { topLevelNodes: unknown[]; groups: unknown[] }): Promise<unknown>;
   structure(): Promise<unknown>;
-}
-
-function repoDriver(repo: TaskIndexRepo): Driver {
-  return {
-    create: (params) => repo.createTaskGroup(params as never),
-    rename: (groupId, title) => repo.renameTaskGroup({ groupId, title }),
-    recolor: (groupId, color) => repo.updateTaskGroupColor({ groupId, color: color as never }),
-    remove: (groupId) => repo.deleteTaskGroup({ groupId }),
-    apply: (params) =>
-      repo.applyGroupedTaskViewOrder({
-        workspaceScopes: scopes,
-        provider: glm,
-        ...params,
-      } as never),
-    structure: () => repo.queryGroupedTaskViewStructure({ workspaceScopes: scopes } as never),
-  };
 }
 
 async function script(driver: Driver): Promise<Record<string, unknown>> {
@@ -191,15 +153,12 @@ describe("rust host task groups", () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-groups-")));
       const home = join(base, "home");
       const dataBaseDir = join(base, "data");
-      const tsDb = join(base, "ts", "tasks-index.sqlite");
       const rustDb = join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite");
-      await mkdir(join(base, "ts"), { recursive: true });
-      await prepareTasksIndexStorage(tsDb, () => {});
-      await prepareTasksIndexStorage(rustDb, () => {});
-      const tsRepo = new TaskIndexRepo(tsDb);
-      const seedRepo = new TaskIndexRepo(rustDb);
-      await seed(tsRepo);
-      await seed(seedRepo);
+      await mkdir(join(dataBaseDir, ".escode", "v2"), { recursive: true });
+      await copyFile(goldenSeed, rustDb);
+      const golden = JSON.parse(await readFile(goldenFile, "utf8")) as {
+        expected: Record<string, unknown>;
+      };
 
       const host = startHost(home);
       try {
@@ -225,7 +184,7 @@ describe("rust host task groups", () => {
           structure: () => task.listGroupedTaskViewStructure({ workspaceScopes: scopes } as never),
         };
 
-        const expected = await script(repoDriver(tsRepo));
+        const expected = golden.expected;
         const actual = await script(rustDriver);
         for (const key of Object.keys(expected)) {
           if (key === "apply" || key === "applyMove") continue; // 回包 nodes 为登记差异，见下
@@ -249,8 +208,6 @@ describe("rust host task groups", () => {
         ).toBe(true);
       } finally {
         await host.stop();
-        tsRepo.close();
-        seedRepo.close();
         await rm(base, { recursive: true, force: true });
       }
     },

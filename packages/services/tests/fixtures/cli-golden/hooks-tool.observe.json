@@ -1,0 +1,183 @@
+{
+  "blocked": "blocked by policy\n\n[Hook additional context]\n#1\npre context",
+  "allowed": "ok\n\n[Hook additional context]\n#1\npre context\n#2\npost context",
+  "stdin": [
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "riskLevel",
+        "sessionId",
+        "session_id",
+        "sideEffectScope",
+        "timestamp",
+        "toolCallId",
+        "toolInput",
+        "toolName",
+        "tool_input",
+        "tool_name",
+        "tool_use_id",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "PreToolUse",
+      "toolName": "Bash",
+      "toolCallId": "bash-1",
+      "toolInput": {
+        "command": "echo blocked"
+      },
+      "mode": "yolo",
+      "riskLevel": "high",
+      "sideEffectScope": "system",
+      "sameSession": true
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "riskLevel",
+        "sessionId",
+        "session_id",
+        "sideEffectScope",
+        "timestamp",
+        "toolCallId",
+        "toolInput",
+        "toolName",
+        "tool_input",
+        "tool_name",
+        "tool_use_id",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "PreToolUse",
+      "toolName": "Bash",
+      "toolCallId": "bash-2",
+      "toolInput": {
+        "command": "echo ok"
+      },
+      "mode": "yolo",
+      "riskLevel": "high",
+      "sideEffectScope": "system",
+      "sameSession": true
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "sessionId",
+        "session_id",
+        "timestamp",
+        "toolCallId",
+        "toolInput",
+        "toolName",
+        "toolResponse",
+        "toolResultPreview",
+        "tool_input",
+        "tool_name",
+        "tool_response",
+        "tool_use_id",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "PostToolUse",
+      "toolName": "Bash",
+      "toolCallId": "bash-2",
+      "toolInput": {
+        "command": "echo ok"
+      },
+      "mode": "yolo",
+      "sameSession": true,
+      "toolResponse": {
+        "stdout": "ok\n",
+        "stderr": "",
+        "interrupted": false,
+        "isImage": false,
+        "noOutputExpected": false,
+        "status": "completed",
+        "exitCode": 0,
+        "timedOut": false,
+        "cancelled": false,
+        "stdoutTruncated": false,
+        "stderrTruncated": false,
+        "stdoutBytes": 3,
+        "stderrBytes": 0
+      }
+    }
+  ],
+  "rows": [
+    {
+      "hookEventName": "PreToolUse",
+      "hookCount": 1,
+      "state": "completed",
+      "lane": "toolBefore",
+      "anchorToolCallId": "bash-1",
+      "hasEnd": true,
+      "executions": [
+        {
+          "didExecute": true,
+          "state": "completed",
+          "outcome": "blocked",
+          "blockReason": "blocked by policy",
+          "displayName": "node · hook.cjs",
+          "sourceKind": "user",
+          "toolName": "Bash",
+          "hasDuration": true
+        }
+      ]
+    },
+    {
+      "hookEventName": "PreToolUse",
+      "hookCount": 1,
+      "state": "completed",
+      "lane": "toolBefore",
+      "anchorToolCallId": "bash-2",
+      "hasEnd": true,
+      "executions": [
+        {
+          "didExecute": true,
+          "state": "completed",
+          "outcome": "success",
+          "displayName": "node · hook.cjs",
+          "sourceKind": "user",
+          "toolName": "Bash",
+          "hasDuration": true
+        }
+      ]
+    },
+    {
+      "hookEventName": "PostToolUse",
+      "hookCount": 1,
+      "state": "completed",
+      "lane": "toolAfter",
+      "anchorToolCallId": "bash-2",
+      "hasEnd": true,
+      "executions": [
+        {
+          "didExecute": true,
+          "state": "completed",
+          "outcome": "success",
+          "displayName": "node · hook.cjs",
+          "sourceKind": "user",
+          "toolName": "Bash",
+          "hasDuration": true
+        }
+      ]
+    }
+  ],
+  "schemaErrors": []
+}

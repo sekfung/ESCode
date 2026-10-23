@@ -4,6 +4,7 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture } from "./escode-cli-rust-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-file-log.md：两个 runtime 写同一日志目录（桌面导出日志收集的 ~/.escode/cli/log），
 // 各写各的日文件；Rust 条目与 Node toSerializableEntry 同形。
@@ -36,8 +37,8 @@ async function logs(kind: "node" | "rust") {
 }
 
 test("Rust writes its own daily JSONL log next to Node's, in Node's entry shape", async () => {
-  const node = await logs("node");
-  const rust = await logs("rust");
+  const node = await nodeOracle("logs", () => logs("node"));
+  const rust = await canonical(await logs("rust"));
   assert.ok(node.files.some((name) => /^escode-\d{4}-\d{2}-\d{2}\.jsonl$/.test(name)));
   assert.deepEqual(
     rust.files.map((name) => name.replace(/\d{4}-\d{2}-\d{2}/, "<date>")),

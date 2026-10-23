@@ -126,7 +126,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 - [x] 双传输一致性子测试：`tests/dual_transport.rs` 三用例——同一字节流两条链路产出同一 Input 序列（含无效 JSON/空白/无换行尾行）、输出帧字节等价、EOF 与关闭语义等价
 - [x] 执行『实现质量对齐工作包』P1 结构对齐：逐项状态与细节见「实现质量对齐工作包」→「P1 结构对齐」的状态清单（#5/#6/#7/#10/#11 完成，#8/#9 ◐ 部分，#12 ⛔ 挂起）。
 - [x] #6 net 出口收拢、#10 `v4/command` schema 校验、#11 bash registry 类型化：已完成（见「P1 结构对齐」状态清单）。
-- [ ] #9 plugins crate 抽离与 `Ports` 注入：仅完成 SKILL.md 扫描单点与错误类型化；32 个 `plugin_*.rs`（7,290 行）仍与 `tools` 的 `config_file`/`extension_*`/`mcp_config`/`atomic_dir` 相互依赖，抽 crate 需先把这些底座下沉，属独立结构重构。
+- [x] #9 plugins crate 抽离与 `Ports` 注入（2026-10-23）：新建 `apps/escode-cli-rust/crates/plugins`（`escode-cli-plugins`），把插件发现/清单/校验/安装/卸载/市场读写、内置 MCP 服务器（`mcp_rea`/`mcp_serial`/`mcp_node_repl`）及底座（`config_file`/`atomic_dir`/`lexical_path`/`extension_config`/`extension_plugins`/`mcp_config`/`official_plugins*`/`bundled_skills`）下沉；`Ports`（`crates/plugins/src/ports.rs`）统一取消语义与下载客户端，默认实现只依赖 `core-api`/`net`。`tools` 反向依赖该 crate 并通过 `tool_port_plugins` 访问，无循环依赖。证据：`cargo check/test --workspace`、`pnpm check:escode-cli-rust`、插件差分用例。
 
 验收：cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值；同进程两 workspace 并发无串扰；关闭后再 spawn 正常；环境读取检查为 0；双传输差分全绿；记录进程内控制延迟基线（p50 0.250 ms / p95 0.334 ms，n=50，MemoryLink NDJSON 路径）。全部达成，证据见验收报告。
 
@@ -210,11 +210,25 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 - [x] 六目标打包与签名（`rust-runtime` 作业 6 目标；`rust-packaging.md` 的 macOS 签名开关沿用）
 - [ ] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练——代码与 CI 步骤已接入
       （`ci-install-desktop.mjs --host-switch-drill`；Node→Rust→Node 同一 home，断言 Host 类型与
-      settings 夹具不被破坏），待 release CI 四平台实跑证据
-- [ ] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片已支持
+      settings 夹具不被破坏）。2026-10-24 已用当前源码重建的 linux-x64 包本地跑通
+      `node → rust → node`（见 phase2/3 报告 §2.2）；**待 release CI 四平台实跑证据**后勾选。
+      本次本地演练同时修复了 `yazl`/`buffer-crc32` 打包闭包与 Node settings 未知键丢弃问题。
+- [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
       `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
-      （已录制 `linux-x64`）；settings
-      interop 已有冻结夹具单向读入。其余 CLI/desktop 实时 TS oracle 的逐用例冻结未完成
+      （已录制 `linux-x64`；`rust-runtime-ci.yml` 的 linux-x64 已切为 `--golden` 阻塞门禁，
+      其余平台录制对应平台 golden 前保留实时双跑）；settings interop 已有冻结夹具单向读入。
+      desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
+      `import @escode/services` / `services/src/*`；TS 观察冻结为
+      `packages/desktop/test/fixtures/golden/*.oracle.json`（大 JSON 用 gzip）+ seed 库，
+      生成器 `scripts/generate-rusthost-*-golden.ts --check`（汇总入口
+      `pnpm check:rust-host-golden`）。真实 `@escode/client` 保留（客户端契约，不是 oracle）。
+      CLI：全部 `packages/services/tests/escode-cli-rust-*.test.ts` 的确定性 oracle 已冻结到
+      `packages/services/tests/fixtures/cli-golden/`；正常跑只启动 Rust
+      （`ESCODE_RECORD_CLI_GOLDEN=1` 重录；`nodeOracle` 统一 record/load，大观察 gzip）。
+      例外（均非确定性 parity 门禁）：3 个默认跳过的 benchmark/rehearsal
+      （`long-history-bench`、`real-data-rehearsal`、`real-provider-bench`）；
+      `shell-resume-notice` 仅在 Windows 启用，其 golden 需在 Windows runner 上重录一次。
+      清零前不删除 Node Host / TS CLI（远程 workspace 仍需 Node Host）
 - [x] 回退矩阵更新（`rust-release-rollback.md` 的「Host 实现切换矩阵」）；AGENTS.md 同步（CONTEXT.md 无
       Host 实现相关词条）
 
@@ -260,7 +274,7 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 - [x] **#6 网络出口单入口**：完成——`crates/net`：Purpose 三 client、代理/CA 单一解析、rustls provider 归位、clippy `disallowed_methods=deny` 强制；api_key/headers 的 RedactedString 同批落地。
 - [x] **#7 FileStamp/ChangeGate**：完成——`host/src/file_stamp.rs`（五类指纹测试）+ registry 闸门（四测试）。
 - [ ] **#8 分派/所有权/waiter**：◐ 部分——`CoreRuntime` 第二所有权已删；waiter 三表合并单注册表 `Waiters::release/clear`（+ 两测试）；typed 方法分派与瞬态 `Submission` 未做。
-- [ ] **#9 插件域**：◐ 部分——SKILL.md 扫描合并单点 `plugin_skill_files.rs`、插件错误类型化 `plugin_failure.rs`（两处文案匹配收敛为 downcast，TS code 不变）已完成；plugins crate 抽离与 `Ports` 注入待做。
+- [x] **#9 插件域**：完成——SKILL.md 扫描合并单点 `plugin_skill_files.rs`、插件错误类型化 `plugin_failure.rs`；`crates/plugins` 抽离与 `Ports` 注入已落地（`crates/plugins/src/ports.rs`），tools 只通过公开面反向依赖。
 - [x] **#10 `v4/command` schema 校验**：完成。
   - `scripts/generate-escode-cli-rust-command-schema.mjs` 从 TS zod 生成 `command_schema.json`（35 命令类型 + 信封 + CAS 规则集合）；
   - `crates/protocol/src/json_schema.rs` 子集校验器 + `command_schema.rs` 对齐 TS `parseCommandEnvelope`；

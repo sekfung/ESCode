@@ -1,14 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ITerminalService } from "@escode/services/node";
-import { createTerminalService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-terminal.md §5.1 TS oracle 差分：同一个脚本化 SHELL 分别由真实 TS `createTerminalService()`
-// （node-pty）与 Rust Host 的 `terminal` channel（真实 `@escode/client`）驱动，转录与返回形状逐项全等。
+// Phase 3 golden freeze：TS `createTerminalService()`（node-pty）的观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/rustHostTerminal.oracle.json）。测试不再实例化 TS 服务，
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `terminal` channel（真实 `@escode/client`）。
+const goldenFile = new URL("./fixtures/golden/rustHostTerminal.oracle.json", import.meta.url);
+
+// docs/specs/rust-u2-terminal.md §5.1 差分：同一个脚本化 SHELL 由 Rust Host 的 `terminal` channel
+// （真实 `@escode/client`）驱动，转录与返回形状对冻结的 TS 观察逐项全等。
+
+type TerminalService = Awaited<ReturnType<typeof connectRpc>>["terminalService"];
+
+/** 与生成脚本一致：绝对临时路径归一化为 `$FIXTURE_ROOT`，终端 id 归一化为固定 token。 */
+function normalize(value: unknown, root: string, ids: [string, string]): unknown {
+  const [first, second] = ids;
+  let text = JSON.stringify(value).split(root).join("$FIXTURE_ROOT");
+  text = text
+    .split(`Terminal not found: ${first}`)
+    .join("Terminal not found: $TERMINAL_ID")
+    .split(`Terminal not found: ${second}`)
+    .join("Terminal not found: $SECOND_TERMINAL_ID")
+    .split(`"${first}"`)
+    .join('"$TERMINAL_ID"')
+    .split(`"${second}"`)
+    .join('"$SECOND_TERMINAL_ID"');
+  return JSON.parse(text);
+}
+
+/** profile 三态只比较字体/来源等创建结果字段（id/shell 不计入冻结观察）。 */
+function profileShape(created: Record<string, unknown>): Record<string, unknown> {
+  const { id: _id, shell: _shell, ...rest } = created;
+  return rest;
+}
 
 const SHELL_SCRIPT = `#!/bin/sh
 while IFS= read -r line; do
@@ -40,8 +67,8 @@ async function settle<T>(run: () => Promise<T>): Promise<unknown> {
   }
 }
 
-/** 同一份脚本驱动一个 `ITerminalService`，返回可比较的转录。 */
-async function drive(service: ITerminalService, cwd: string): Promise<Record<string, unknown>> {
+/** 同一份脚本驱动终端服务，返回可比较的转录（与生成脚本完全一致）。 */
+async function drive(service: TerminalService, cwd: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   const created = await service.create({ cols: 100, rows: 30, cwd });
   out.created = created;
@@ -103,7 +130,7 @@ describe("rust host terminal domain", () => {
       await writeFile(shell, SHELL_SCRIPT);
       await chmod(shell, 0o755);
 
-      // 两边共用同一份 env：TS 读测试进程 env，Rust Host 读 spawn 时给定的 env。
+      // Rust Host 读 spawn 时给定的 env；生成脚本录制 TS 观察时使用同一组值。
       const shared = {
         SHELL: shell,
         LANG: "C",
@@ -123,29 +150,37 @@ describe("rust host terminal domain", () => {
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
         const services = await connectRpc(String(listening.addr), String(listening.secret));
-        const rustTerminal = services.terminalService as ITerminalService;
+        const rustTerminal = services.terminalService;
+
+        const golden = JSON.parse(await readFile(goldenFile, "utf8")) as {
+          drive: Record<string, unknown>;
+          profiles: {
+            system: Record<string, unknown>;
+            custom: Record<string, unknown>;
+            plain: Record<string, unknown>;
+          };
+        };
 
         // 全流程差分（默认 settings：继承系统 profile，kitty 配置命中）。
-        const tsTerminal = createTerminalService({
-          settingService: { get: async () => ({}) } as never,
-        });
-        const expected = await drive(tsTerminal, work);
         const actual = await drive(rustTerminal, work);
-        expect(actual).toEqual(expected);
-        (tsTerminal as unknown as { disposeAll(): void }).disposeAll();
+        const ids: [string, string] = [
+          String((actual.created as { id: string }).id),
+          String(actual.secondId),
+        ];
+        expect(normalize(actual, base, ids)).toEqual(golden.drive);
 
-        // profile 三态：系统（kitty）→ 自定义字体（与 TS 全等）→ 不继承（回退）。
+        // profile 三态：系统（kitty）→ 自定义字体 → 不继承（回退）。
         const system = await rustTerminal.create({ cols: 80, rows: 24, cwd: work });
-        expect(system.fontFamilySource).toBe("system");
-        expect(system.fontFamily.startsWith("Kitty Mono, ui-monospace")).toBe(true);
+        expect(profileShape(system as unknown as Record<string, unknown>)).toEqual(
+          golden.profiles.system,
+        );
         await rustTerminal.dispose({ id: system.id });
 
         await services.settingService.update({ terminalFontFamily: "Custom Mono" } as never);
         const custom = await rustTerminal.create({ cols: 80, rows: 24, cwd: work });
-        const tsCustom = await createTerminalService({
-          settingService: { get: async () => ({ terminalFontFamily: "Custom Mono" }) } as never,
-        }).create({ cols: 80, rows: 24, cwd: work });
-        expect({ ...custom, id: "_", shell: "_" }).toEqual({ ...tsCustom, id: "_", shell: "_" });
+        expect(profileShape(custom as unknown as Record<string, unknown>)).toEqual(
+          golden.profiles.custom,
+        );
         await rustTerminal.dispose({ id: custom.id });
 
         await services.settingService.update({
@@ -153,7 +188,9 @@ describe("rust host terminal domain", () => {
           terminalInheritSystemProfile: false,
         } as never);
         const plain = await rustTerminal.create({ cols: 80, rows: 24, cwd: work });
-        expect(plain.fontFamilySource).toBe("fallback");
+        expect(profileShape(plain as unknown as Record<string, unknown>)).toEqual(
+          golden.profiles.plain,
+        );
         await rustTerminal.dispose({ id: plain.id });
       } finally {
         await host.stop();

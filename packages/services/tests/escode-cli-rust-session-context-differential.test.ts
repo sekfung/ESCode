@@ -6,78 +6,15 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { escodeSessionListResultSchema } from "@escode/shared";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
-import type { SessionId, MessageId, ProjectId, WorkspaceId, PartId } from "@escode/contracts";
+import type { SessionId } from "@escode/contracts";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 
 // 每个用例多次冷启动 Node 与 shell，Windows CI 上超过 fixture 默认 8s 的等待（CI 实测超时，本地通过）。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
 const SEEDED = "sess_seeded-other-workspace";
 
 /** 另一个 workspace 的 TS 会话：Rust 不会导入它，只能经 TS 库只读回落读取。 */
-async function seed(path: string) {
-  const store = createSqliteSessionStore({ dbPath: path });
-  await store.createSession({
-    id: SEEDED as SessionId,
-    projectID: "p" as ProjectId,
-    workspaceID: "other-workspace" as WorkspaceId,
-    directory: "/other/workspace",
-    slug: "seeded",
-    title: "Seeded auth work",
-    titleSource: "custom",
-    version: "fixture",
-  });
-  const add = async (id: string, role: "user" | "assistant", parts: any[], created: number) => {
-    await store.saveMessage({
-      id: id as MessageId,
-      sessionID: SEEDED as SessionId,
-      role,
-      time: { created, ...(role === "assistant" ? { completed: created } : {}) },
-      agent: "main",
-      ...(role === "assistant"
-        ? {
-            mode: "yolo",
-            path: { cwd: "/other/workspace", root: "/other/workspace" },
-            cost: 0,
-            tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
-          }
-        : { modelSelection: { providerId: "personal:fixture", modelId: "model-a" } }),
-    } as any);
-    for (const [index, part] of parts.entries())
-      await store.savePart({
-        id: `${id}-${index}` as PartId,
-        sessionID: SEEDED as SessionId,
-        messageID: id as MessageId,
-        ...part,
-      });
-  };
-  await add(
-    "m1",
-    "user",
-    [{ type: "text", text: "rotate the auth tokens in vault.ts" }],
-    1_767_000_000_000,
-  );
-  await add(
-    "m2",
-    "assistant",
-    [
-      {
-        type: "tool",
-        callID: "c1",
-        tool: "Edit",
-        state: {
-          status: "completed",
-          input: { file_path: "vault.ts", old_string: "ttl=1h", new_string: "ttl=15m" },
-          output: "edited",
-          title: "Edit",
-          metadata: {},
-          time: { start: 1, end: 2 },
-        },
-      },
-      { type: "text", text: "Shortened the token TTL to 15 minutes." },
-    ],
-    1_767_000_060_000,
-  );
-}
 
 // docs/specs/rust-read-session-context.md：会话 B 引用会话 A（#sess_*）并调用 ReadSessionContext。
 // 两个 runtime 的引用提醒、辅助抽取请求与工具结果，在归一化 id / 时间 / 路径后必须一致。
@@ -86,7 +23,11 @@ const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.strin
 
 async function observe(kind: "node" | "rust", seeded = false) {
   const root = await mkdtemp(join(tmpdir(), `escode-sessctx-${kind}-`));
-  if (seeded) await seed(join(root, "ts.sqlite"));
+  if (seeded)
+    await copyLegacySeed("session-context-differential.legacy", join(root, "ts.sqlite"), {
+      workspace: "/other/workspace",
+      root,
+    });
   let target = "";
   let lite: any;
   let referencing: any;
@@ -221,8 +162,8 @@ async function observe(kind: "node" | "rust", seeded = false) {
 }
 
 test("Node and Rust read a referenced session the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
   // 会话 id 格式与 TS createSessionId 一致。
@@ -239,8 +180,8 @@ test("Node and Rust read a referenced session the same way", async () => {
 });
 
 test("Node and Rust read a TS session from another workspace the same way", async () => {
-  const node = await observe("node", true);
-  const rust = await observe("rust", true);
+  const node = await nodeOracle("seeded", () => observe("node", true));
+  const rust = canonical(await observe("rust", true));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
   assert.ok(node.lite?.[1]?.content.includes("rotate the auth tokens in vault.ts"));

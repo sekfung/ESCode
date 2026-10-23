@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」：设置页「已保存工作流」的「运行」在 Node 与
 // Rust 上给出一致的命令 ACK、启动轮两行（turnHeader + userInput）、session/read 的标题与状态、
@@ -239,8 +240,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust start a saved workflow from the workflows hub the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：确认 Node 侧真的走到了成功启动与四条拒绝，避免两侧同样为空也判等。
   assert.equal(node.ack.status, "accepted");

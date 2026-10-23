@@ -1,0 +1,1654 @@
+{
+  "_readme": "rustHostGit.test.ts 的 TS createGitService 观察冻结（Phase 3 golden freeze）。夹具固定作者/提交时间与全局配置，提交哈希与时间戳可复现；绝对临时路径已归一化为 $FIXTURE_ROOT，测试运行时替换为本次夹具根。",
+  "expected": {
+    "plain summary": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/plain",
+        "repoRoot": "$FIXTURE_ROOT/plain",
+        "workspaceInRepoPath": ".",
+        "autoRefreshWatchPaths": [],
+        "branchName": null,
+        "trackingBranchName": null,
+        "headRefType": "branch",
+        "ahead": 0,
+        "behind": 0,
+        "isDirty": false,
+        "isGitAvailable": true,
+        "isRepository": false
+      }
+    },
+    "plain info": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/plain",
+        "kind": "not-repository",
+        "isGitAvailable": true
+      }
+    },
+    "plain branches": {
+      "ok": {
+        "headRefType": "branch",
+        "currentBranchName": null,
+        "branches": []
+      }
+    },
+    "plain graph": {
+      "ok": {
+        "commits": [],
+        "hasMore": false
+      }
+    },
+    "plain changes": {
+      "ok": []
+    },
+    "plain diff": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/plain/file.txt",
+        "availability": "unavailable",
+        "patch": null,
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": "Workspace is not inside a Git repository."
+      }
+    },
+    "plain identity": {
+      "ok": {
+        "userName": null,
+        "userEmail": null,
+        "nameSource": null,
+        "emailSource": null,
+        "scopeLabel": null
+      }
+    },
+    "plain comparison": {
+      "ok": {
+        "baseRef": null,
+        "headRef": "HEAD",
+        "comparisonLabel": null,
+        "changes": []
+      }
+    },
+    "plain stage": {
+      "error": "Cannot stage paths: workspace is not inside a Git repository"
+    },
+    "plain commit": {
+      "error": "Cannot commit changes: workspace is not inside a Git repository"
+    },
+    "plain push": {
+      "error": "Cannot push changes: workspace is not inside a Git repository"
+    },
+    "plain switch": {
+      "error": "Cannot switch branches: workspace is not inside a Git repository"
+    },
+    "empty summary": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/empty",
+        "repoRoot": "$FIXTURE_ROOT/empty",
+        "workspaceInRepoPath": ".",
+        "autoRefreshWatchPaths": [
+          {
+            "path": "$FIXTURE_ROOT/empty/.git",
+            "recursive": true
+          }
+        ],
+        "branchName": "main",
+        "trackingBranchName": null,
+        "headRefType": "branch",
+        "ahead": 0,
+        "behind": 0,
+        "isDirty": true,
+        "isGitAvailable": true,
+        "isRepository": true
+      }
+    },
+    "empty branches": {
+      "ok": {
+        "headRefType": "branch",
+        "currentBranchName": "main",
+        "branches": []
+      }
+    },
+    "empty graph": {
+      "ok": {
+        "commits": [],
+        "hasMore": false
+      }
+    },
+    "empty changes": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/empty/hello.txt",
+          "repoRelativePath": "hello.txt",
+          "workspaceRelativePath": "hello.txt",
+          "y": "?",
+          "kind": "added",
+          "section": "untracked",
+          "added": 2,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": true,
+          "isConflicted": false
+        }
+      ]
+    },
+    "empty comparison": {
+      "ok": {
+        "baseRef": null,
+        "headRef": "main",
+        "comparisonLabel": null,
+        "changes": []
+      }
+    },
+    "empty untracked diff": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/empty/hello.txt",
+        "availability": "patch",
+        "patch": "--- /dev/null\n+++ b/hello.txt\n@@ -0,0 +1,2 @@\n+one\n+two\n\\ No newline at end of file\n",
+        "beforeContent": "",
+        "afterContent": "one\ntwo",
+        "summary": null
+      }
+    },
+    "empty refresh": {
+      "ok": {
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/empty",
+          "repoRoot": "$FIXTURE_ROOT/empty",
+          "workspaceInRepoPath": ".",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/empty/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": null,
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "identity": {
+          "userName": "Fixture User",
+          "userEmail": "fixture@example.invalid",
+          "nameSource": "file:$FIXTURE_ROOT/gitconfig",
+          "emailSource": "file:$FIXTURE_ROOT/gitconfig",
+          "scopeLabel": "global"
+        },
+        "unstagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/empty/hello.txt",
+            "repoRelativePath": "hello.txt",
+            "workspaceRelativePath": "hello.txt",
+            "y": "?",
+            "kind": "added",
+            "section": "untracked",
+            "added": 2,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": true,
+            "isConflicted": false
+          }
+        ],
+        "stagedChanges": [],
+        "branchComparison": {
+          "baseRef": null,
+          "headRef": "main",
+          "comparisonLabel": null,
+          "changes": []
+        }
+      }
+    },
+    "main summary": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+        "repoRoot": "$FIXTURE_ROOT/repo",
+        "workspaceInRepoPath": "packages/app",
+        "autoRefreshWatchPaths": [
+          {
+            "path": "$FIXTURE_ROOT/repo/.git",
+            "recursive": true
+          }
+        ],
+        "branchName": "main",
+        "trackingBranchName": "origin/main",
+        "headRefType": "branch",
+        "ahead": 1,
+        "behind": 1,
+        "isDirty": true,
+        "isGitAvailable": true,
+        "isRepository": true
+      }
+    },
+    "main info": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+        "kind": "main-tree",
+        "isGitAvailable": true
+      }
+    },
+    "worktree info": {
+      "ok": {
+        "workspacePath": "$FIXTURE_ROOT/wt",
+        "kind": "linked-worktree",
+        "isGitAvailable": true
+      }
+    },
+    "main branches": {
+      "ok": {
+        "headRefType": "branch",
+        "currentBranchName": "main",
+        "branches": [
+          {
+            "name": "main",
+            "isCurrent": true,
+            "upstreamName": "origin/main",
+            "commitHash": "1fb634d0ee37279b1919826dfc0d8fb9d5195575",
+            "commitTimestampMs": 1767225600000
+          },
+          {
+            "name": "feature",
+            "isCurrent": false,
+            "upstreamName": null,
+            "commitHash": "0c8914e35d7dd403f979c5c7dd7c2a22f8e1d56c",
+            "commitTimestampMs": 1767225600000
+          },
+          {
+            "name": "wt-branch",
+            "isCurrent": false,
+            "upstreamName": null,
+            "commitHash": "0c8914e35d7dd403f979c5c7dd7c2a22f8e1d56c",
+            "commitTimestampMs": 1767225600000
+          }
+        ]
+      }
+    },
+    "main graph": {
+      "ok": {
+        "commits": [
+          {
+            "hash": "1fb634d0ee37279b1919826dfc0d8fb9d5195575",
+            "parents": ["b9fe312aed344267c63102a2b3cfc813fb7397ee"],
+            "refs": [
+              {
+                "name": "HEAD",
+                "kind": "head"
+              },
+              {
+                "name": "main",
+                "kind": "branch"
+              }
+            ],
+            "subject": "local change",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          },
+          {
+            "hash": "0c8914e35d7dd403f979c5c7dd7c2a22f8e1d56c",
+            "parents": ["b9fe312aed344267c63102a2b3cfc813fb7397ee"],
+            "refs": [
+              {
+                "name": "wt-branch",
+                "kind": "branch"
+              },
+              {
+                "name": "feature",
+                "kind": "branch"
+              }
+            ],
+            "subject": "feature change",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          },
+          {
+            "hash": "694ea2bc581dc5ca3879fcc4b8077809d05aa87e",
+            "parents": ["b9fe312aed344267c63102a2b3cfc813fb7397ee"],
+            "refs": [
+              {
+                "name": "origin/main",
+                "kind": "remote"
+              }
+            ],
+            "subject": "remote change",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          },
+          {
+            "hash": "b9fe312aed344267c63102a2b3cfc813fb7397ee",
+            "parents": [],
+            "refs": [],
+            "subject": "init",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          }
+        ],
+        "hasMore": false
+      }
+    },
+    "main graph page": {
+      "ok": {
+        "commits": [
+          {
+            "hash": "0c8914e35d7dd403f979c5c7dd7c2a22f8e1d56c",
+            "parents": ["b9fe312aed344267c63102a2b3cfc813fb7397ee"],
+            "refs": [
+              {
+                "name": "wt-branch",
+                "kind": "branch"
+              },
+              {
+                "name": "feature",
+                "kind": "branch"
+              }
+            ],
+            "subject": "feature change",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          },
+          {
+            "hash": "694ea2bc581dc5ca3879fcc4b8077809d05aa87e",
+            "parents": ["b9fe312aed344267c63102a2b3cfc813fb7397ee"],
+            "refs": [
+              {
+                "name": "origin/main",
+                "kind": "remote"
+              }
+            ],
+            "subject": "remote change",
+            "authorName": "Fixture User",
+            "authoredAtMs": 1767225600000
+          }
+        ],
+        "hasMore": true
+      }
+    },
+    "main unstaged": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+          "repoRelativePath": "packages/app/a.txt",
+          "workspaceRelativePath": "a.txt",
+          "x": ".",
+          "y": "M",
+          "kind": "modified",
+          "section": "unstaged",
+          "added": 1,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/del.txt",
+          "repoRelativePath": "packages/app/del.txt",
+          "workspaceRelativePath": "del.txt",
+          "x": ".",
+          "y": "D",
+          "kind": "deleted",
+          "section": "unstaged",
+          "added": 0,
+          "removed": 1,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+          "repoRelativePath": "packages/app/img.bin",
+          "workspaceRelativePath": "img.bin",
+          "x": ".",
+          "y": "M",
+          "kind": "modified",
+          "section": "unstaged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+          "repoRelativePath": "packages/app/untracked.txt",
+          "workspaceRelativePath": "untracked.txt",
+          "y": "?",
+          "kind": "added",
+          "section": "untracked",
+          "added": 3,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": true,
+          "isConflicted": false
+        }
+      ]
+    },
+    "main staged": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+          "repoRelativePath": "packages/app/new.txt",
+          "workspaceRelativePath": "new.txt",
+          "x": "R",
+          "y": ".",
+          "kind": "renamed",
+          "section": "staged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+          "repoRelativePath": "packages/app/staged-only.txt",
+          "workspaceRelativePath": "staged-only.txt",
+          "x": "A",
+          "y": ".",
+          "kind": "added",
+          "section": "staged",
+          "added": 1,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        }
+      ]
+    },
+    "main ignored": {
+      "ok": [
+        "$FIXTURE_ROOT/repo/packages/app/debug.log",
+        "$FIXTURE_ROOT/repo/packages/app/missing.log"
+      ]
+    },
+    "main comparison": {
+      "ok": {
+        "baseRef": "origin/main",
+        "headRef": "main",
+        "comparisonLabel": "main -> origin/main",
+        "changes": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/local.txt",
+            "repoRelativePath": "packages/app/local.txt",
+            "workspaceRelativePath": "local.txt",
+            "kind": "added",
+            "section": "branch",
+            "added": 1,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          }
+        ]
+      }
+    },
+    "main identity": {
+      "ok": {
+        "userName": "Fixture User",
+        "userEmail": "fixture@example.invalid",
+        "nameSource": "file:$FIXTURE_ROOT/gitconfig",
+        "emailSource": "file:$FIXTURE_ROOT/gitconfig",
+        "scopeLabel": "global"
+      }
+    },
+    "main refresh": {
+      "ok": {
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "identity": {
+          "userName": "Fixture User",
+          "userEmail": "fixture@example.invalid",
+          "nameSource": "file:$FIXTURE_ROOT/gitconfig",
+          "emailSource": "file:$FIXTURE_ROOT/gitconfig",
+          "scopeLabel": "global"
+        },
+        "unstagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+            "repoRelativePath": "packages/app/a.txt",
+            "workspaceRelativePath": "a.txt",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 1,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/del.txt",
+            "repoRelativePath": "packages/app/del.txt",
+            "workspaceRelativePath": "del.txt",
+            "x": ".",
+            "y": "D",
+            "kind": "deleted",
+            "section": "unstaged",
+            "added": 0,
+            "removed": 1,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+            "repoRelativePath": "packages/app/img.bin",
+            "workspaceRelativePath": "img.bin",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 0,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+            "repoRelativePath": "packages/app/untracked.txt",
+            "workspaceRelativePath": "untracked.txt",
+            "y": "?",
+            "kind": "added",
+            "section": "untracked",
+            "added": 3,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": true,
+            "isConflicted": false
+          }
+        ],
+        "stagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+            "repoRelativePath": "packages/app/new.txt",
+            "workspaceRelativePath": "new.txt",
+            "x": "R",
+            "y": ".",
+            "kind": "renamed",
+            "section": "staged",
+            "added": 0,
+            "removed": 0,
+            "isStaged": true,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+            "repoRelativePath": "packages/app/staged-only.txt",
+            "workspaceRelativePath": "staged-only.txt",
+            "x": "A",
+            "y": ".",
+            "kind": "added",
+            "section": "staged",
+            "added": 1,
+            "removed": 0,
+            "isStaged": true,
+            "isUntracked": false,
+            "isConflicted": false
+          }
+        ],
+        "branchComparison": {
+          "baseRef": "origin/main",
+          "headRef": "main",
+          "comparisonLabel": "main -> origin/main",
+          "changes": [
+            {
+              "path": "$FIXTURE_ROOT/repo/packages/app/local.txt",
+              "repoRelativePath": "packages/app/local.txt",
+              "workspaceRelativePath": "local.txt",
+              "kind": "added",
+              "section": "branch",
+              "added": 1,
+              "removed": 0,
+              "isStaged": false,
+              "isUntracked": false,
+              "isConflicted": false
+            }
+          ]
+        }
+      }
+    },
+    "main refresh bare": {
+      "ok": {
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "identity": null,
+        "unstagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+            "repoRelativePath": "packages/app/a.txt",
+            "workspaceRelativePath": "a.txt",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 1,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/del.txt",
+            "repoRelativePath": "packages/app/del.txt",
+            "workspaceRelativePath": "del.txt",
+            "x": ".",
+            "y": "D",
+            "kind": "deleted",
+            "section": "unstaged",
+            "added": 0,
+            "removed": 1,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+            "repoRelativePath": "packages/app/img.bin",
+            "workspaceRelativePath": "img.bin",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 0,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+            "repoRelativePath": "packages/app/untracked.txt",
+            "workspaceRelativePath": "untracked.txt",
+            "y": "?",
+            "kind": "added",
+            "section": "untracked",
+            "added": 3,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": true,
+            "isConflicted": false
+          }
+        ],
+        "stagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+            "repoRelativePath": "packages/app/new.txt",
+            "workspaceRelativePath": "new.txt",
+            "x": "R",
+            "y": ".",
+            "kind": "renamed",
+            "section": "staged",
+            "added": 0,
+            "removed": 0,
+            "isStaged": true,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+            "repoRelativePath": "packages/app/staged-only.txt",
+            "workspaceRelativePath": "staged-only.txt",
+            "x": "A",
+            "y": ".",
+            "kind": "added",
+            "section": "staged",
+            "added": 1,
+            "removed": 0,
+            "isStaged": true,
+            "isUntracked": false,
+            "isConflicted": false
+          }
+        ],
+        "branchComparison": null
+      }
+    },
+    "main diff a.txt unstaged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+        "availability": "patch",
+        "patch": "diff --git a/packages/app/a.txt b/packages/app/a.txt\nindex 01e79c3..210b4e6 100644\n--- a/packages/app/a.txt\n+++ b/packages/app/a.txt\n@@ -1,3 +1,4 @@\n 1\n 2\n 3\n+more\n",
+        "beforeContent": "1\n2\n3\n",
+        "afterContent": "1\n2\n3\nmore\n",
+        "summary": null
+      }
+    },
+    "main diff a.txt branch": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+        "availability": "unavailable",
+        "patch": null,
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": "No branch comparison diff is available for this file."
+      }
+    },
+    "main diff new.txt staged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+        "availability": "patch",
+        "patch": "diff --git a/packages/app/new.txt b/packages/app/new.txt\nnew file mode 100644\nindex 0000000..60ec32b\n--- /dev/null\n+++ b/packages/app/new.txt\n@@ -0,0 +1,2 @@\n+rename me\n+keep\n",
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": null
+      }
+    },
+    "main diff del.txt unstaged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/del.txt",
+        "availability": "patch",
+        "patch": "diff --git a/packages/app/del.txt b/packages/app/del.txt\ndeleted file mode 100644\nindex 2d030d7..0000000\n--- a/packages/app/del.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-delete me\n",
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": null
+      }
+    },
+    "main diff img.bin unstaged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+        "availability": "binary",
+        "patch": null,
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": "Binary diff is not previewable."
+      }
+    },
+    "main diff untracked.txt unstaged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+        "availability": "patch",
+        "patch": "--- /dev/null\n+++ b/packages/app/untracked.txt\n@@ -0,0 +1,3 @@\n+u1\n+u2\n+u3\n",
+        "beforeContent": "",
+        "afterContent": "u1\nu2\nu3\n",
+        "summary": null
+      }
+    },
+    "main diff staged-only.txt staged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+        "availability": "patch",
+        "patch": "diff --git a/packages/app/staged-only.txt b/packages/app/staged-only.txt\nnew file mode 100644\nindex 0000000..b478595\n--- /dev/null\n+++ b/packages/app/staged-only.txt\n@@ -0,0 +1 @@\n+s\n",
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": null
+      }
+    },
+    "main diff missing.txt unstaged": {
+      "ok": {
+        "path": "$FIXTURE_ROOT/repo/packages/app/missing.txt",
+        "availability": "unavailable",
+        "patch": null,
+        "beforeContent": null,
+        "afterContent": null,
+        "summary": "No Git diff is available for this file."
+      }
+    },
+    "switch overwrite": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": "feature",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "tracked-changes-would-be-overwritten",
+            "message": "Tracked changes would be overwritten by switching branches.",
+            "paths": ["packages/app/a.txt"],
+            "detail": "error: Your local changes to the following files would be overwritten by checkout:\n\tpackages/app/a.txt\nPlease commit your changes or stash them before you switch branches.\nAborting"
+          }
+        ]
+      }
+    },
+    "switch same": {
+      "ok": {
+        "ok": true,
+        "action": "switch",
+        "branchName": "main",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": []
+      }
+    },
+    "switch missing": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": "nope",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "target-branch-not-found",
+            "message": "Target branch was not found.",
+            "detail": "fatal: invalid reference: nope"
+          }
+        ]
+      }
+    },
+    "switch blank": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": null,
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "invalid-branch-name",
+            "message": "Branch name is invalid.",
+            "detail": null
+          }
+        ]
+      }
+    },
+    "create invalid": {
+      "ok": {
+        "ok": false,
+        "action": "create-and-switch",
+        "branchName": "bad..name",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "invalid-branch-name",
+            "message": "Branch name is invalid.",
+            "detail": "fatal: 'bad..name' is not a valid branch name"
+          }
+        ]
+      }
+    },
+    "create exists": {
+      "ok": {
+        "ok": false,
+        "action": "create-and-switch",
+        "branchName": "main",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "branch-already-exists",
+            "message": "Branch already exists.",
+            "detail": "fatal: a branch named 'main' already exists"
+          }
+        ]
+      }
+    },
+    "create option start": {
+      "ok": {
+        "ok": false,
+        "action": "create-and-switch",
+        "branchName": "topic0",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "target-branch-not-found",
+            "message": "Target branch was not found.",
+            "detail": "fatal: invalid reference: -x"
+          }
+        ]
+      }
+    },
+    "switch worktree branch": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": "wt-branch",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 1,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "branch-in-other-worktree",
+            "message": "Branch is already checked out in another worktree.",
+            "detail": "fatal: 'wt-branch' is already used by worktree at '$FIXTURE_ROOT/wt'"
+          }
+        ]
+      }
+    },
+    "stage dup": {
+      "ok": "<undefined>"
+    },
+    "stage outside": {
+      "error": "Path is outside repository scope: ../../../x"
+    },
+    "unstage": {
+      "ok": "<undefined>"
+    },
+    "discard": {
+      "ok": "<undefined>"
+    },
+    "after paths": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+          "repoRelativePath": "packages/app/a.txt",
+          "workspaceRelativePath": "a.txt",
+          "x": "M",
+          "y": ".",
+          "kind": "modified",
+          "section": "staged",
+          "added": 1,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+          "repoRelativePath": "packages/app/new.txt",
+          "workspaceRelativePath": "new.txt",
+          "x": "R",
+          "y": ".",
+          "kind": "renamed",
+          "section": "staged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        }
+      ]
+    },
+    "after paths unstaged": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+          "repoRelativePath": "packages/app/img.bin",
+          "workspaceRelativePath": "img.bin",
+          "x": ".",
+          "y": "M",
+          "kind": "modified",
+          "section": "unstaged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+          "repoRelativePath": "packages/app/staged-only.txt",
+          "workspaceRelativePath": "staged-only.txt",
+          "y": "?",
+          "kind": "added",
+          "section": "untracked",
+          "added": 1,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": true,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+          "repoRelativePath": "packages/app/untracked.txt",
+          "workspaceRelativePath": "untracked.txt",
+          "y": "?",
+          "kind": "added",
+          "section": "untracked",
+          "added": 3,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": true,
+          "isConflicted": false
+        }
+      ]
+    },
+    "commit blank": {
+      "error": "Commit message cannot be empty"
+    },
+    "stage more": {
+      "ok": "<undefined>"
+    },
+    "edit after stage": {
+      "ok": "<undefined>"
+    },
+    "commit staged only": {
+      "ok": {
+        "commitHash": "b50b1330eb1b949b26271a65bedecadd931c8df3",
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 2,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        }
+      }
+    },
+    "after partial": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+          "repoRelativePath": "packages/app/new.txt",
+          "workspaceRelativePath": "new.txt",
+          "x": "R",
+          "y": ".",
+          "kind": "renamed",
+          "section": "staged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+          "repoRelativePath": "packages/app/staged-only.txt",
+          "workspaceRelativePath": "staged-only.txt",
+          "x": "A",
+          "y": ".",
+          "kind": "added",
+          "section": "staged",
+          "added": 1,
+          "removed": 0,
+          "isStaged": true,
+          "isUntracked": false,
+          "isConflicted": false
+        }
+      ]
+    },
+    "after partial unstaged": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+          "repoRelativePath": "packages/app/a.txt",
+          "workspaceRelativePath": "a.txt",
+          "x": ".",
+          "y": "M",
+          "kind": "modified",
+          "section": "unstaged",
+          "added": 1,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+          "repoRelativePath": "packages/app/img.bin",
+          "workspaceRelativePath": "img.bin",
+          "x": ".",
+          "y": "M",
+          "kind": "modified",
+          "section": "unstaged",
+          "added": 0,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": false
+        },
+        {
+          "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+          "repoRelativePath": "packages/app/untracked.txt",
+          "workspaceRelativePath": "untracked.txt",
+          "y": "?",
+          "kind": "added",
+          "section": "untracked",
+          "added": 3,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": true,
+          "isConflicted": false
+        }
+      ]
+    },
+    "commit all": {
+      "ok": {
+        "commitHash": "9b84eea0813bae4a7a57da17128db19a171c2cb9",
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 3,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        }
+      }
+    },
+    "after commit": {
+      "ok": {
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": "origin/main",
+          "headRefType": "branch",
+          "ahead": 3,
+          "behind": 1,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "identity": null,
+        "unstagedChanges": [
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+            "repoRelativePath": "packages/app/a.txt",
+            "workspaceRelativePath": "a.txt",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 1,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/img.bin",
+            "repoRelativePath": "packages/app/img.bin",
+            "workspaceRelativePath": "img.bin",
+            "x": ".",
+            "y": "M",
+            "kind": "modified",
+            "section": "unstaged",
+            "added": 0,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": false,
+            "isConflicted": false
+          },
+          {
+            "path": "$FIXTURE_ROOT/repo/packages/app/untracked.txt",
+            "repoRelativePath": "packages/app/untracked.txt",
+            "workspaceRelativePath": "untracked.txt",
+            "y": "?",
+            "kind": "added",
+            "section": "untracked",
+            "added": 3,
+            "removed": 0,
+            "isStaged": false,
+            "isUntracked": true,
+            "isConflicted": false
+          }
+        ],
+        "stagedChanges": [],
+        "branchComparison": {
+          "baseRef": "origin/main",
+          "headRef": "main",
+          "comparisonLabel": "main -> origin/main",
+          "changes": [
+            {
+              "path": "$FIXTURE_ROOT/repo/packages/app/a.txt",
+              "repoRelativePath": "packages/app/a.txt",
+              "workspaceRelativePath": "a.txt",
+              "kind": "added",
+              "section": "branch",
+              "added": 1,
+              "removed": 0,
+              "isStaged": false,
+              "isUntracked": false,
+              "isConflicted": false
+            },
+            {
+              "path": "$FIXTURE_ROOT/repo/packages/app/local.txt",
+              "repoRelativePath": "packages/app/local.txt",
+              "workspaceRelativePath": "local.txt",
+              "kind": "added",
+              "section": "branch",
+              "added": 1,
+              "removed": 0,
+              "isStaged": false,
+              "isUntracked": false,
+              "isConflicted": false
+            },
+            {
+              "path": "$FIXTURE_ROOT/repo/packages/app/new.txt",
+              "repoRelativePath": "packages/app/new.txt",
+              "workspaceRelativePath": "new.txt",
+              "kind": "renamed",
+              "section": "branch",
+              "added": 0,
+              "removed": 0,
+              "isStaged": false,
+              "isUntracked": false,
+              "isConflicted": false
+            },
+            {
+              "path": "$FIXTURE_ROOT/repo/packages/app/staged-only.txt",
+              "repoRelativePath": "packages/app/staged-only.txt",
+              "workspaceRelativePath": "staged-only.txt",
+              "kind": "added",
+              "section": "branch",
+              "added": 1,
+              "removed": 0,
+              "isStaged": false,
+              "isUntracked": false,
+              "isConflicted": false
+            }
+          ]
+        }
+      }
+    },
+    "push rejected": {
+      "error": "git push failed: To $FIXTURE_ROOT/remote.git\n ! [rejected]        main -> main (non-fast-forward)\nerror: failed to push some refs to '$FIXTURE_ROOT/remote.git'\nhint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart. If you want to integrate the remote changes,\nhint: use 'git pull' before pushing again.\nhint: See the 'Note about fast-forwards' in 'git push --help' for details."
+    },
+    "create topic": {
+      "ok": {
+        "ok": true,
+        "action": "create-and-switch",
+        "branchName": "topic",
+        "didChange": true,
+        "created": true,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "topic",
+          "trackingBranchName": null,
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": []
+      }
+    },
+    "push upstream": {
+      "ok": {
+        "branchName": "topic",
+        "trackingBranchName": "origin/topic",
+        "remoteName": "origin",
+        "setUpstream": true,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "topic",
+          "trackingBranchName": "origin/topic",
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        }
+      }
+    },
+    "push again": {
+      "ok": {
+        "branchName": "topic",
+        "trackingBranchName": "origin/topic",
+        "remoteName": "origin",
+        "setUpstream": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/repo/packages/app",
+          "repoRoot": "$FIXTURE_ROOT/repo",
+          "workspaceInRepoPath": "packages/app",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/repo/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "topic",
+          "trackingBranchName": "origin/topic",
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        }
+      }
+    },
+    "conflict unstaged": {
+      "ok": [
+        {
+          "path": "$FIXTURE_ROOT/conflict/c.txt",
+          "repoRelativePath": "c.txt",
+          "workspaceRelativePath": "c.txt",
+          "x": "U",
+          "y": "U",
+          "kind": "modified",
+          "section": "conflicted",
+          "added": 0,
+          "removed": 0,
+          "isStaged": false,
+          "isUntracked": false,
+          "isConflicted": true
+        }
+      ]
+    },
+    "conflict staged": {
+      "ok": []
+    },
+    "conflict switch": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": "other",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/conflict",
+          "repoRoot": "$FIXTURE_ROOT/conflict",
+          "workspaceInRepoPath": ".",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/conflict/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": null,
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "conflicts-present",
+            "message": "Repository still has unresolved conflicts."
+          }
+        ]
+      }
+    },
+    "conflict create": {
+      "ok": {
+        "ok": false,
+        "action": "create-and-switch",
+        "branchName": "x",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/conflict",
+          "repoRoot": "$FIXTURE_ROOT/conflict",
+          "workspaceInRepoPath": ".",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/conflict/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": null,
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "conflicts-present",
+            "message": "Repository still has unresolved conflicts."
+          }
+        ]
+      }
+    },
+    "conflict resolve": {
+      "ok": "<undefined>"
+    },
+    "merge in progress switch": {
+      "ok": {
+        "ok": false,
+        "action": "switch",
+        "branchName": "other",
+        "didChange": false,
+        "created": false,
+        "summary": {
+          "workspacePath": "$FIXTURE_ROOT/conflict",
+          "repoRoot": "$FIXTURE_ROOT/conflict",
+          "workspaceInRepoPath": ".",
+          "autoRefreshWatchPaths": [
+            {
+              "path": "$FIXTURE_ROOT/conflict/.git",
+              "recursive": true
+            }
+          ],
+          "branchName": "main",
+          "trackingBranchName": null,
+          "headRefType": "branch",
+          "ahead": 0,
+          "behind": 0,
+          "isDirty": true,
+          "isGitAvailable": true,
+          "isRepository": true
+        },
+        "issues": [
+          {
+            "code": "operation-in-progress",
+            "message": "Another Git operation is still in progress."
+          }
+        ]
+      }
+    }
+  }
+}

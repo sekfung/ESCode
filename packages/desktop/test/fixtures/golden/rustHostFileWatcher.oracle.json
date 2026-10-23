@@ -1,0 +1,73 @@
+{
+  "_readme": "rustHostFileWatcher.test.ts 的 TS createFileWatcherService 观察冻结（Phase 3 golden freeze）。绝对临时路径归一化为 $FIXTURE_ROOT；事件在场景内按到达顺序记录，watcher id 仅记录相对增量；测试对 Rust Host 输出做同一变换。",
+  "expected": {
+    "create": [
+      {
+        "dirPath": "$FIXTURE_ROOT/create",
+        "changedPath": "$FIXTURE_ROOT/create/b.txt"
+      }
+    ],
+    "twoFiles": [
+      {
+        "dirPath": "$FIXTURE_ROOT/two"
+      }
+    ],
+    "modify": [
+      {
+        "dirPath": "$FIXTURE_ROOT/modify",
+        "changedPath": "$FIXTURE_ROOT/modify/a.txt"
+      }
+    ],
+    "rename": [
+      {
+        "dirPath": "$FIXTURE_ROOT/rename"
+      }
+    ],
+    "remove": [
+      {
+        "dirPath": "$FIXTURE_ROOT/remove",
+        "changedPath": "$FIXTURE_ROOT/remove/a.txt"
+      }
+    ],
+    "subWriteFlat": [],
+    "subWriteRecursive": [
+      {
+        "dirPath": "$FIXTURE_ROOT/subrec",
+        "changedPath": "$FIXTURE_ROOT/subrec/sub/n.txt"
+      }
+    ],
+    "mkdirRecursive": [
+      {
+        "dirPath": "$FIXTURE_ROOT/mkdirrec",
+        "changedPath": "$FIXTURE_ROOT/mkdirrec/sub/deep"
+      }
+    ],
+    "removeSelfFlat": [
+      {
+        "dirPath": "$FIXTURE_ROOT/selfflat"
+      }
+    ],
+    "removeEmptySelfFlat": [
+      {
+        "dirPath": "$FIXTURE_ROOT/emptyflat",
+        "changedPath": "$FIXTURE_ROOT/emptyflat/emptyflat"
+      }
+    ],
+    "removeEmptySelfRecursive": [
+      {
+        "dirPath": "$FIXTURE_ROOT/emptyrec"
+      }
+    ],
+    "removeSelfRecursive": [
+      {
+        "dirPath": "$FIXTURE_ROOT/selfrec"
+      }
+    ],
+    "afterUnwatch": [],
+    "unwatchTwice": "<undefined>",
+    "watchMissing": "无法监视目录 '$FIXTURE_ROOT/missing-dir': ENOENT: no such file or directory, watch '$FIXTURE_ROOT/missing-dir'",
+    "nextId": 2,
+    "staleSubscribe": "ok",
+    "disposeAll": "<undefined>"
+  }
+}

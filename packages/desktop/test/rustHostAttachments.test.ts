@@ -1,29 +1,88 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, truncate, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, realpath, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  createFileService,
-  createLocalPromptAttachmentTransferService,
-  createMediaPreviewService,
-} from "@escode/services/node";
-import { buildLocalMediaPreviewUrl } from "@escode/shared";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-attachments.md §4：prompt-attachment-transfer（本地）与 media-preview（内联）对真实 TS 实现逐项比较。
+// Phase 3 golden freeze：TS `createMediaPreviewService` / `createLocalPromptAttachmentTransferService`
+// 的观察已冻结为仓内资产（packages/desktop/test/fixtures/golden/）。测试不再实例化 TS 服务，
+// 删除 TS 实现后仍能独立重验。
+const goldenFile = new URL("./fixtures/golden/rustHostAttachments.oracle.json", import.meta.url);
+
+type Outcome = { ok: true; value: unknown } | { ok: false; message?: string };
+
+interface StageCase {
+  params: Record<string, unknown>;
+  result: Outcome;
+}
+
+interface PreviewCase {
+  path: string;
+  expectedKind: "audio" | "video";
+  result: Outcome;
+}
+
+interface AttachmentsGolden {
+  transfer: { stageCases: StageCase[] };
+  previews: { inline: PreviewCase[]; localUrl: PreviewCase[] };
+}
+
+/** 冻结资产对 >1 MiB 的 base64 只保留 sha256；两侧同法归一后再比较。 */
+const LARGE_STRING = 1024 * 1024;
+function sealLargeStrings<T>(value: T): T {
+  if (typeof value === "string") {
+    return (
+      value.length > LARGE_STRING
+        ? `sha256:${createHash("sha256").update(value).digest("hex")}`
+        : value
+    ) as T;
+  }
+  if (Array.isArray(value)) return value.map((item) => sealLargeStrings(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, sealLargeStrings(item)]),
+    ) as T;
+  }
+  return value;
+}
 
 async function outcome<T>(run: () => Promise<T>) {
   try {
-    return { ok: true as const, value: JSON.parse(JSON.stringify((await run()) ?? null)) };
+    const value = JSON.parse(JSON.stringify((await run()) ?? null));
+    return { ok: true as const, value: sealLargeStrings(value) };
   } catch (error) {
     return { ok: false as const, message: (error as Error).message };
   }
 }
 
+/** 把冻结资产里的 `$FIXTURE_ROOT` / URL 编码形式替换为当前测试的临时根目录。 */
+function substitute<T>(value: T, root: string): T {
+  if (typeof value === "string") {
+    return value
+      .replaceAll("$FIXTURE_ROOT_ENCODED", encodeURIComponent(root))
+      .replaceAll("$FIXTURE_ROOT", root) as T;
+  }
+  if (Array.isArray(value)) return value.map((item) => substitute(item, root)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, substitute(item, root)]),
+    ) as T;
+  }
+  return value;
+}
+
+async function loadGolden(base: string): Promise<AttachmentsGolden> {
+  const committed = JSON.parse(await readFile(goldenFile, "utf8")) as AttachmentsGolden;
+  return substitute(committed, base);
+}
+
+// docs/specs/rust-u2-attachments.md §4：prompt-attachment-transfer（本地）与 media-preview（内联）
+// 对冻结的 TS 观察逐项比较。
 describe("rust host attachments", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "matches the TS local attachment transfer and inline media preview",
+    "matches the frozen TS local attachment transfer and inline media preview",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-att-")));
       const home = join(base, "home");
@@ -44,8 +103,7 @@ describe("rust host attachments", () => {
       await writeFile(over, "");
       await truncate(over, 8 * 1024 * 1024 + 1);
 
-      const tsTransfer = createLocalPromptAttachmentTransferService();
-      const tsPreview = createMediaPreviewService({ fileService: createFileService() });
+      const golden = await loadGolden(base);
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -53,8 +111,8 @@ describe("rust host attachments", () => {
         const listening = await nextMeaningful(host);
         const services = await connectRpc(String(listening.addr), String(listening.secret));
 
-        const stage = (service: typeof tsTransfer, params: Record<string, unknown>) =>
-          outcome(() => service.stage(params as never));
+        const stage = (params: Record<string, unknown>) =>
+          outcome(() => services.promptAttachmentTransferService.stage(params as never));
         const base_ = {
           operationId: "op",
           sessionId: "s",
@@ -69,13 +127,12 @@ describe("rust host attachments", () => {
           { ...base_, localPath: join(files, "missing.bin") },
           { ...base_, localPath: small, sizeBytes: -5 },
         ];
-        for (const params of cases) {
-          expect({
-            params,
-            result: await stage(services.promptAttachmentTransferService, params),
-          }).toEqual({
-            params,
-            result: await stage(tsTransfer, params),
+        expect(cases).toHaveLength(golden.transfer.stageCases.length);
+        for (const [index, params] of cases.entries()) {
+          const expected = golden.transfer.stageCases[index];
+          expect({ params, result: await stage(params) }).toEqual({
+            params: expected.params,
+            result: expected.result,
           });
         }
         for (const method of ["adopt", "cancel", "cleanup"] as const) {
@@ -88,8 +145,8 @@ describe("rust host attachments", () => {
         );
         subscription.dispose();
 
-        const prepare = (service: typeof tsPreview, path: string, kind: "audio" | "video") =>
-          outcome(() => service.prepare({ path, expectedKind: kind }));
+        const prepare = (path: string, kind: "audio" | "video") =>
+          outcome(() => services.mediaPreviewService.prepare({ path, expectedKind: kind }));
         const previews: Array<[string, "audio" | "video"]> = [
           [small, "audio"],
           [small, "video"],
@@ -100,16 +157,22 @@ describe("rust host attachments", () => {
           [exact, "audio"],
           [over, "audio"],
         ];
-        for (const [path, kind] of previews) {
-          const actual = await prepare(services.mediaPreviewService, path, kind);
-          const expected = await prepare(tsPreview, path, kind);
-          if (!expected.ok) {
+        expect(previews).toHaveLength(golden.previews.inline.length);
+        for (const [index, [path, kind]] of previews.entries()) {
+          const expected = golden.previews.inline[index];
+          expect({ path, expectedKind: kind }).toEqual({
+            path: expected.path,
+            expectedKind: expected.expectedKind,
+          });
+          const actual = await prepare(path, kind);
+          if (!expected.result.ok) {
             expect({ path, kind, ok: actual.ok }).toEqual({ path, kind, ok: false });
-            // 缺失文件的 Node 错误文案带 errno 细节，由 file.stat 差分守住；其余文案逐字相同。
-            if (!path.endsWith("gone.mp3"))
-              expect({ path, ...actual }).toEqual({ path, ...expected });
+            // 缺失文件的 Node 错误文案带 errno 细节；其余文案逐字比较（与旧 TS 差分一致）。
+            if (expected.result.message !== undefined) {
+              expect({ path, ...actual }).toEqual({ path, ...expected.result });
+            }
           } else {
-            expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected });
+            expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected.result });
           }
         }
       } finally {
@@ -121,7 +184,7 @@ describe("rust host attachments", () => {
   );
 
   it.skipIf(!existsSync(hostBinary))(
-    "returns local-url like the TS service when Main authorizes (docs §5)",
+    "returns local-url like the frozen TS observation when Main authorizes (docs §5)",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-lurl-")));
       const home = join(base, "home");
@@ -139,16 +202,12 @@ describe("rust host attachments", () => {
       const text = join(files, "notes.txt");
       await writeFile(text, "x");
 
-      // 桩 Main 的授权：规范化（去掉 link- 前缀）或拒绝；TS 与 Rust 共用同一份语义。
+      // 桩 Main 的授权：规范化（去掉 link- 前缀）或拒绝；冻结观察即由同一语义生成。
       const authorize = async (path: string) => {
         if (path.includes("denied")) throw new Error("path not authorized");
         return path.replace("link-", "");
       };
-      const tsPreview = createMediaPreviewService({
-        fileService: createFileService(),
-        authorizeLocalMediaPreviewPath: authorize,
-        createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
-      });
+      const golden = await loadGolden(base);
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -194,12 +253,17 @@ describe("rust host attachments", () => {
           [text, "audio"],
           [spaced, "video"],
         ];
-        for (const [path, kind] of cases) {
+        expect(cases).toHaveLength(golden.previews.localUrl.length);
+        for (const [index, [path, kind]] of cases.entries()) {
+          const expected = golden.previews.localUrl[index];
+          expect({ path, expectedKind: kind }).toEqual({
+            path: expected.path,
+            expectedKind: expected.expectedKind,
+          });
           const actual = await outcome(() =>
             services.mediaPreviewService.prepare({ path, expectedKind: kind }),
           );
-          const expected = await outcome(() => tsPreview.prepare({ path, expectedKind: kind }));
-          expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected });
+          expect({ path, kind, result: actual }).toEqual({ path, kind, result: expected.result });
         }
         // 校验先于授权：格式不符/非文件的路径不应打扰 Main。
         expect(requests).not.toContain(text);

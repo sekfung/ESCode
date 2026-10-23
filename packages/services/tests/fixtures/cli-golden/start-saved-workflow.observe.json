@@ -1,0 +1,161 @@
+{
+  "ack": {
+    "status": "accepted",
+    "reasonCode": null,
+    "message": null,
+    "result": {
+      "type": "startSavedWorkflow",
+      "runId": "dwfrun-<uuid>",
+      "toolCallId": "launch-<uuid>"
+    }
+  },
+  "launchRows": [
+    {
+      "rowId": 1,
+      "kind": "turnHeader",
+      "origin": "workflowLaunch",
+      "executionKind": "controlOnly",
+      "state": "completedSuccess",
+      "text": null,
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": true,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": false,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "launch-<uuid>",
+        "name": "count-txt",
+        "scope": "project",
+        "path": "<root>/workspace/.escode/workflows/count-txt.dwf.ts",
+        "description": "Count the text files in the workspace.",
+        "display": {
+          "kind": "create_workflow",
+          "ok": true,
+          "errorCount": 0,
+          "diagnostics": [],
+          "causalityGraph": {
+            "steps": [
+              {
+                "id": "world-read#1",
+                "kind": "world-read",
+                "label": "glob *.txt",
+                "line": 1,
+                "column": 27,
+                "lane": "workspace"
+              }
+            ],
+            "lanes": [
+              {
+                "id": "workspace"
+              }
+            ],
+            "participants": [
+              {
+                "id": "unphased:workspace",
+                "phase": "unphased",
+                "lane": "workspace",
+                "steps": ["world-read#1"]
+              }
+            ],
+            "handoffs": [],
+            "sink": ["world-read#1"]
+          }
+        },
+        "script": "const paths = await files.glob(\"*.txt\");\nlog(`found ${paths.length}`);\nreturn { count: paths.length };\n"
+      }
+    },
+    {
+      "rowId": 2,
+      "kind": "userInput",
+      "origin": "workflowLaunch",
+      "executionKind": null,
+      "state": null,
+      "text": "Started the saved workflow \"count-txt\" (project) from the workflows hub as run dwfrun-<uuid>.\n\nProgress and results arrive as background notifications; do not start it again.",
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": false,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": true,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "launch-<uuid>",
+        "name": "count-txt",
+        "scope": "project",
+        "path": "<root>/workspace/.escode/workflows/count-txt.dwf.ts",
+        "description": "Count the text files in the workspace.",
+        "display": {
+          "kind": "create_workflow",
+          "ok": true,
+          "errorCount": 0,
+          "diagnostics": [],
+          "causalityGraph": {
+            "steps": [
+              {
+                "id": "world-read#1",
+                "kind": "world-read",
+                "label": "glob *.txt",
+                "line": 1,
+                "column": 27,
+                "lane": "workspace"
+              }
+            ],
+            "lanes": [
+              {
+                "id": "workspace"
+              }
+            ],
+            "participants": [
+              {
+                "id": "unphased:workspace",
+                "phase": "unphased",
+                "lane": "workspace",
+                "steps": ["world-read#1"]
+              }
+            ],
+            "handoffs": [],
+            "sink": ["world-read#1"]
+          }
+        },
+        "script": "const paths = await files.glob(\"*.txt\");\nlog(`found ${paths.length}`);\nreturn { count: paths.length };\n"
+      }
+    }
+  ],
+  "session": {
+    "title": "count-txt",
+    "titleSource": "first_input",
+    "status": "running|idle",
+    "sessionKind": "interactive"
+  },
+  "launchSentence": "Started the saved workflow \"count-txt\" (project) from the workflows hub as run dwfrun-<uuid>.\n\nProgress and results arrive as background notifications; do not start it again.",
+  "busy": {
+    "status": "failed",
+    "reasonCode": "fault.command.savedWorkflowStartRejected.session_busy",
+    "message": "saved workflow start rejected: session_busy",
+    "launchRows": 0
+  },
+  "invalidName": {
+    "status": "failed",
+    "reasonCode": "fault.command.savedWorkflowStartRejected.invalid_name",
+    "message": "'../escape' is not a usable workflow name: workflow names may only contain letters, digits, '.', '-' and '_', and must be 1-64 characters",
+    "rows": 0,
+    "launchRows": 0
+  },
+  "notFound": {
+    "status": "failed",
+    "reasonCode": "fault.command.savedWorkflowStartRejected.not_found",
+    "message": "No saved workflow named 'no-such-workflow' in this project or globally.",
+    "rows": 0,
+    "launchRows": 0
+  },
+  "invalidArgs": {
+    "status": "failed",
+    "reasonCode": "fault.command.savedWorkflowStartRejected.invalid_args",
+    "message": "The arguments for saved workflow 'pr-review' are not valid:\n- missing required argument 'pr'",
+    "rows": 0,
+    "launchRows": 0
+  },
+  "schemaErrors": []
+}

@@ -5,6 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-model-content.md：Bash 读文件命令回填读取状态（之后可直接 Edit/Write），
 // 格式化/修复类命令改写已读文件时提示重新 Read；与 Node 逐字一致。
@@ -96,8 +97,8 @@ test(
       shortTemp && "Node read-state backfill does not apply under 8.3 short temp paths (see spec)",
   },
   async () => {
-    const node = await observe("node");
-    const rust = await observe("rust");
+    const node = await nodeOracle("observe", () => observe("node"));
+    const rust = await canonical(await observe("rust"));
     assert.equal(node.seen.length, CALLS.length);
     // 先比较两侧，再确认用例确实覆盖到回填与过期提示（CI 上 Node 的行为因环境而异时，先看到两侧差异）。
     for (const [index, [name, args]] of CALLS.entries()) {

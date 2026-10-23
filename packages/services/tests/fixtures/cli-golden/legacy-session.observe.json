@@ -1,0 +1,57 @@
+{
+  "created": {
+    "provider": "personal:fixture",
+    "model": "model-b",
+    "thought": "high",
+    "mode": "build"
+  },
+  "setModel": {
+    "provider": "personal:fixture",
+    "model": "model-a",
+    "thought": "low",
+    "mode": "build"
+  },
+  "setThoughtLevel": {
+    "provider": "personal:fixture",
+    "model": "model-a",
+    "thought": "high",
+    "mode": "build"
+  },
+  "setModeEdit": {
+    "provider": "personal:fixture",
+    "model": "model-a",
+    "thought": "high",
+    "mode": "edit"
+  },
+  "setModePlan": {
+    "provider": "personal:fixture",
+    "model": "model-a",
+    "thought": "high",
+    "mode": "edit"
+  },
+  "setModeBuild": {
+    "provider": "personal:fixture",
+    "model": "model-a",
+    "thought": "high",
+    "mode": "build"
+  },
+  "closeDraft": {
+    "closed": true
+  },
+  "sendAck": {
+    "accepted": true,
+    "sessionId": true
+  },
+  "attachmentsReachedModel": [true, true],
+  "closeSent": {
+    "closed": false
+  },
+  "closeImmediate": {
+    "closed": true
+  },
+  "createModes": ["build", "build"],
+  "resumedAfterRestart": {
+    "empty": false,
+    "sent": true
+  }
+}

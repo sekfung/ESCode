@@ -1,0 +1,173 @@
+{
+  "installTool": {
+    "dependencyClosure": ["helper@acme", "tool@acme"],
+    "installedPlugins": [
+      {
+        "id": "helper@acme",
+        "name": "helper",
+        "marketplace": "acme",
+        "version": "0.5.0",
+        "enabled": false,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/helper/0.5.0",
+        "installedAt": "<time>"
+      },
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "version": "1.2.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/tool/1.2.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "afterTool": {
+    "installed": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"helper@acme\",\n      \"name\": \"helper\",\n      \"marketplace\": \"acme\",\n      \"version\": \"0.5.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/helper/0.5.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"directory\",\n        \"path\": \"<root>/outside/helper\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"tool@acme\",\n      \"name\": \"tool\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.2.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/tool/1.2.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"dependencies\": [\n        \"helper\"\n      ],\n      \"source\": \"./plugins/tool\",\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+    "user": "{\n  \"plugins\": {\n    \"enabledPlugins\": {\n      \"helper@acme\": false,\n      \"tool@acme\": true\n    }\n  }\n}\n",
+    "cache": {
+      "helper/0.5.0/.escode-plugin/plugin.json": "78f35b6741ed8ea1",
+      "tool/1.2.0/.escode-plugin/plugin.json": "36b96c65d81eb1c8",
+      "tool/1.2.0/skills/s/SKILL.md": "81e678c9d6670ec7"
+    }
+  },
+  "reinstallTool": {
+    "dependencyClosure": ["helper@acme", "tool@acme"],
+    "installedPlugins": [
+      {
+        "id": "helper@acme",
+        "name": "helper",
+        "marketplace": "acme",
+        "version": "0.5.0",
+        "enabled": false,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/helper/0.5.0",
+        "installedAt": "<time>"
+      },
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "version": "1.2.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/tool/1.2.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "installedAtKept": true,
+  "installSynth": {
+    "dependencyClosure": ["synth@acme"],
+    "installedPlugins": [
+      {
+        "id": "synth@acme",
+        "name": "synth",
+        "marketplace": "acme",
+        "version": "3.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/synth/3.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "synthManifest": "{\n  \"name\": \"synth\",\n  \"version\": \"3.0.0\",\n  \"description\": \"Synthesized\",\n  \"commands\": [\n    \"./commands/go.md\"\n  ]\n}\n",
+  "install_cycle-a": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_dependency_cycle",
+        "message": "Plugin dependency cycle: cycle-a@acme -> cycle-b@acme -> cycle-a@acme",
+        "severity": "error",
+        "pluginId": "cycle-a@acme"
+      }
+    ]
+  },
+  "install_cross": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_dependency_cross_marketplace",
+        "message": "Cross-marketplace dependency is blocked: x@other required by cross@acme",
+        "severity": "error",
+        "pluginId": "cross@acme"
+      }
+    ]
+  },
+  "install_needy": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_dependency_missing",
+        "message": "Dependency not found: nope@acme required by needy@acme",
+        "severity": "error",
+        "pluginId": "needy@acme"
+      }
+    ]
+  },
+  "install_badkind": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin source is invalid or unsupported for badkind@acme: weird",
+        "severity": "error",
+        "pluginId": "badkind@acme"
+      }
+    ]
+  },
+  "install_ghost": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_dependency_missing",
+        "message": "Dependency not found: ghost@acme required by ghost@acme",
+        "severity": "error",
+        "pluginId": "ghost@acme"
+      }
+    ]
+  },
+  "afterAll": {
+    "installed": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"helper@acme\",\n      \"name\": \"helper\",\n      \"marketplace\": \"acme\",\n      \"version\": \"0.5.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/helper/0.5.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"directory\",\n        \"path\": \"<root>/outside/helper\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"tool@acme\",\n      \"name\": \"tool\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.2.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/tool/1.2.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"dependencies\": [\n        \"helper\"\n      ],\n      \"source\": \"./plugins/tool\",\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"synth@acme\",\n      \"name\": \"synth\",\n      \"marketplace\": \"acme\",\n      \"version\": \"3.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/synth/3.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": \"./plugins/synth\",\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+    "user": "{\n  \"plugins\": {\n    \"enabledPlugins\": {\n      \"helper@acme\": false,\n      \"tool@acme\": true,\n      \"synth@acme\": true\n    }\n  }\n}\n",
+    "cache": {
+      "helper/0.5.0/.escode-plugin/plugin.json": "78f35b6741ed8ea1",
+      "synth/3.0.0/.claude-plugin/plugin.json": "eead44f17a8ec2d2",
+      "synth/3.0.0/commands/go.md": "cc9b12be3d11fe29",
+      "tool/1.2.0/.escode-plugin/plugin.json": "36b96c65d81eb1c8",
+      "tool/1.2.0/skills/s/SKILL.md": "81e678c9d6670ec7"
+    }
+  },
+  "listed": [
+    {
+      "id": "helper@acme",
+      "enabled": false,
+      "version": "0.0.0",
+      "source": "cache"
+    },
+    {
+      "id": "tool@acme",
+      "enabled": true,
+      "version": "1.2.0",
+      "source": "cache"
+    },
+    {
+      "id": "synth@acme",
+      "enabled": true,
+      "version": "3.0.0",
+      "source": "cache"
+    }
+  ],
+  "schemaErrors": []
+}

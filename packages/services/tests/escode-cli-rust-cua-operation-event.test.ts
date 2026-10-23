@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { escodeComputerUseOperationEventSchema } from "@escode/shared";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `computer-use/operation-event`（Desktop Computer Use 顶部提示的生命周期元数据）：一轮带一次 Bash 调用、随后关闭会话，
 // 两侧发出同序的 turn-started / tool-scheduled / tool-started / turn-completed / session-closed。
@@ -74,8 +75,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust emit the same Computer Use operation lifecycle", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.equal(node.invalid, 0);
   assert.equal(rust.invalid, 0);
   assert.deepEqual(rust.events, node.events);

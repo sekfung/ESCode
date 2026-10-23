@@ -1,0 +1,529 @@
+{
+  "_readme": "rustHostWindowController.test.ts 的 TS controller runtime 观察冻结（Phase 3 golden freeze）。时间戳已剔除；task id 均为固定 seed。",
+  "expected": {
+    "initialQueries": [
+      {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-archive",
+            "traceId": "trace-t-archive",
+            "title": "gamma archived candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-pin",
+            "traceId": "trace-t-pin",
+            "title": "beta pinned candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 4,
+        "hasMore": false
+      },
+      {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-archive",
+            "traceId": "trace-t-archive",
+            "title": "gamma archived candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-pin",
+            "traceId": "trace-t-pin",
+            "title": "beta pinned candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 4,
+        "hasMore": false
+      },
+      {
+        "items": [],
+        "total": 0,
+        "hasMore": false
+      },
+      {
+        "items": [],
+        "total": 0,
+        "hasMore": false
+      },
+      {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-pin",
+            "traceId": "trace-t-pin",
+            "title": "beta pinned candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-archive",
+            "traceId": "trace-t-archive",
+            "title": "gamma archived candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 4,
+        "hasMore": false
+      },
+      {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-archive",
+            "traceId": "trace-t-archive",
+            "title": "gamma archived candidate",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 4,
+        "hasMore": true
+      },
+      {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 2,
+        "hasMore": false
+      },
+      {
+        "items": [],
+        "total": 0,
+        "hasMore": false
+      }
+    ],
+    "pin": {
+      "taskId": "t-pin",
+      "traceId": "trace-t-pin",
+      "title": "beta pinned candidate",
+      "titleOverridden": false,
+      "workspacePath": "/tmp/escode-controller-oracle-workspace",
+      "workspaceIdentity": "id-controller-oracle",
+      "mode": "build",
+      "model": "fixture/fixture-model$none",
+      "thoughtLevel": "none",
+      "provider": "glm"
+    },
+    "pinnedAfterPin": {
+      "items": [
+        {
+          "taskId": "t-pin",
+          "traceId": "trace-t-pin",
+          "title": "beta pinned candidate",
+          "titleOverridden": false,
+          "workspacePath": "/tmp/escode-controller-oracle-workspace",
+          "workspaceIdentity": "id-controller-oracle",
+          "mode": "build",
+          "model": "fixture/fixture-model$none",
+          "thoughtLevel": "none",
+          "provider": "glm",
+          "sourceAvailability": "online",
+          "liveStatus": "idle"
+        }
+      ],
+      "total": 1,
+      "hasMore": false
+    },
+    "archive": {
+      "taskId": "t-archive",
+      "traceId": "trace-t-archive",
+      "title": "gamma archived candidate",
+      "titleOverridden": false,
+      "workspacePath": "/tmp/escode-controller-oracle-workspace",
+      "workspaceIdentity": "id-controller-oracle",
+      "mode": "build",
+      "model": "fixture/fixture-model$none",
+      "thoughtLevel": "none",
+      "provider": "glm"
+    },
+    "afterArchive": {
+      "archived": {
+        "items": [
+          {
+            "taskId": "t-archive",
+            "traceId": "trace-t-archive",
+            "title": "gamma archived candidate",
+            "titleOverridden": false,
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 1,
+        "hasMore": false
+      },
+      "active": {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-pin",
+            "traceId": "trace-t-pin",
+            "title": "beta pinned candidate",
+            "titleOverridden": false,
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 3,
+        "hasMore": false
+      },
+      "timeline": {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 2,
+        "hasMore": false
+      }
+    },
+    "emptyBatch": {
+      "deletedTaskIds": [],
+      "skippedTaskIds": [],
+      "failedTaskIds": []
+    },
+    "deleteActive": false,
+    "deleteArchived": {
+      "deletedTaskIds": ["t-archive"],
+      "skippedTaskIds": [],
+      "failedTaskIds": []
+    },
+    "afterDeleteArchived": {
+      "items": [],
+      "total": 0,
+      "hasMore": false
+    },
+    "archiveOld": {
+      "taskId": "t-active-old",
+      "traceId": "trace-t-active-old",
+      "title": "alpha oldest",
+      "titleOverridden": false,
+      "workspacePath": "/tmp/escode-controller-oracle-workspace",
+      "workspaceIdentity": "id-controller-oracle",
+      "mode": "build",
+      "model": "fixture/fixture-model$none",
+      "thoughtLevel": "none",
+      "provider": "glm"
+    },
+    "afterArchiveOld": {
+      "archived": {
+        "items": [
+          {
+            "taskId": "t-active-old",
+            "traceId": "trace-t-active-old",
+            "title": "alpha oldest",
+            "titleOverridden": false,
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 1,
+        "hasMore": false
+      },
+      "active": {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          },
+          {
+            "taskId": "t-pin",
+            "traceId": "trace-t-pin",
+            "title": "beta pinned candidate",
+            "titleOverridden": false,
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 2,
+        "hasMore": false
+      },
+      "timeline": {
+        "items": [
+          {
+            "taskId": "t-active-new",
+            "traceId": "trace-t-active-new",
+            "title": "alpha newest",
+            "workspacePath": "/tmp/escode-controller-oracle-workspace",
+            "workspaceIdentity": "id-controller-oracle",
+            "mode": "build",
+            "model": "fixture/fixture-model$none",
+            "thoughtLevel": "none",
+            "provider": "glm",
+            "titleOverridden": false,
+            "sourceAvailability": "online",
+            "liveStatus": "idle"
+          }
+        ],
+        "total": 1,
+        "hasMore": false
+      }
+    },
+    "missingError": "没有与任务地址匹配的 source"
+  }
+}

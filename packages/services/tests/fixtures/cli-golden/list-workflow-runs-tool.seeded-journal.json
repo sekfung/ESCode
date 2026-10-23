@@ -1,0 +1,61 @@
+{
+  "messages": [
+    "<workflow_runs count=\"3\">\n<run id=\"run-running-sibling\" status=\"running\" label=\"return 1;\" label_source=\"script\" owned_by_this_session=\"false\" possibly_interrupted=\"true\" spent_tokens=\"7\" created_at=\"2023-11-14T22:13:20.000Z\" updated_at=\"2023-11-14T22:13:20.020Z\" />\n<run id=\"run-stopped\" status=\"stopped\" stop_reason=\"user\" label=\"return 1;\" label_source=\"script\" owned_by_this_session=\"false\" spent_tokens=\"7\" created_at=\"2023-11-14T22:13:20.000Z\" updated_at=\"2023-11-14T22:13:20.010Z\" />\n<run id=\"run-completed\" status=\"completed\" label=\"review\" label_source=\"name\" owned_by_this_session=\"false\" spent_tokens=\"7\" created_at=\"2023-11-14T22:13:20.000Z\" updated_at=\"2023-11-14T22:13:20.000Z\" />\n</workflow_runs>",
+    "<workflow_runs count=\"1\">\n<run id=\"run-stopped\" status=\"stopped\" stop_reason=\"user\" label=\"return 1;\" label_source=\"script\" owned_by_this_session=\"false\" spent_tokens=\"7\" created_at=\"2023-11-14T22:13:20.000Z\" updated_at=\"2023-11-14T22:13:20.010Z\" />\n</workflow_runs>"
+  ],
+  "displays": [
+    {
+      "kind": "list_workflow_runs",
+      "runs": [
+        {
+          "runId": "run-running-sibling",
+          "label": "return 1;",
+          "labelSource": "script",
+          "status": "running",
+          "ownedByThisSession": false,
+          "possiblyInterrupted": true,
+          "createdAt": 1700000000000,
+          "updatedAt": 1700000000020,
+          "spentTokens": 7
+        },
+        {
+          "runId": "run-stopped",
+          "label": "return 1;",
+          "labelSource": "script",
+          "status": "stopped",
+          "stopReason": "user",
+          "ownedByThisSession": false,
+          "createdAt": 1700000000000,
+          "updatedAt": 1700000000010,
+          "spentTokens": 7
+        },
+        {
+          "runId": "run-completed",
+          "label": "review",
+          "labelSource": "name",
+          "status": "completed",
+          "ownedByThisSession": false,
+          "createdAt": 1700000000000,
+          "updatedAt": 1700000000000,
+          "spentTokens": 7
+        }
+      ]
+    },
+    {
+      "kind": "list_workflow_runs",
+      "runs": [
+        {
+          "runId": "run-stopped",
+          "label": "return 1;",
+          "labelSource": "script",
+          "status": "stopped",
+          "stopReason": "user",
+          "ownedByThisSession": false,
+          "createdAt": 1700000000000,
+          "updatedAt": 1700000000010,
+          "spentTokens": 7
+        }
+      ]
+    }
+  ]
+}

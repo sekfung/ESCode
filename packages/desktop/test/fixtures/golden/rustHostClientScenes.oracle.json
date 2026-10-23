@@ -1,0 +1,148 @@
+{
+  "_readme": "rustHostClientScenes.test.ts 的 TS createClientScenesService 观察冻结（Phase 3 golden freeze）。HTTP 桩 origin 归一化为 $STUB_ORIGIN；来源头运行时值使用占位符，测试运行时替换；x-request-id 仅校验 UUID。",
+  "modes": [
+    {
+      "mode": "ok",
+      "result": {
+        "ok": true,
+        "value": {
+          "code": 0,
+          "msg": "ok",
+          "data": [
+            {
+              "namespace": "home",
+              "scene": "draft",
+              "options": {
+                "topic": {
+                  "id": "topic",
+                  "type": "topic",
+                  "contents": {
+                    "en": "Topic",
+                    "zh": "主题"
+                  },
+                  "items": [
+                    {
+                      "id": "a",
+                      "type": "t",
+                      "contents": {
+                        "en": "A"
+                      },
+                      "labels": {
+                        "en": "L"
+                      },
+                      "img": null
+                    }
+                  ]
+                }
+              },
+              "created_at": 1
+            }
+          ]
+        }
+      },
+      "url": "/api/v1/client/scenes",
+      "headers": {
+        "user-agent": "ESCode/$APP_VERSION",
+        "http-referer": "$STUB_ORIGIN",
+        "x-title": "ESCode@electron",
+        "x-zcode-app-version": "$APP_VERSION",
+        "x-platform": "$PLATFORM",
+        "x-release-channel": "$RELEASE_CHANNEL",
+        "x-client-language": "$CLIENT_LANGUAGE",
+        "x-client-timezone": "$CLIENT_TIMEZONE",
+        "x-os-category": "$OS_CATEGORY",
+        "x-os-version": "$OS_VERSION"
+      }
+    },
+    {
+      "mode": "business-error",
+      "result": {
+        "ok": true,
+        "value": {
+          "code": 40101,
+          "msg": "not allowed",
+          "data": []
+        }
+      },
+      "url": "/api/v1/client/scenes",
+      "headers": {
+        "user-agent": "ESCode/$APP_VERSION",
+        "http-referer": "$STUB_ORIGIN",
+        "x-title": "ESCode@electron",
+        "x-zcode-app-version": "$APP_VERSION",
+        "x-platform": "$PLATFORM",
+        "x-release-channel": "$RELEASE_CHANNEL",
+        "x-client-language": "$CLIENT_LANGUAGE",
+        "x-client-timezone": "$CLIENT_TIMEZONE",
+        "x-os-category": "$OS_CATEGORY",
+        "x-os-version": "$OS_VERSION"
+      }
+    },
+    {
+      "mode": "http-error",
+      "result": {
+        "ok": false,
+        "name": "ApiError",
+        "message": "boom",
+        "status": 500
+      },
+      "url": "/api/v1/client/scenes",
+      "headers": {
+        "user-agent": "ESCode/$APP_VERSION",
+        "http-referer": "$STUB_ORIGIN",
+        "x-title": "ESCode@electron",
+        "x-zcode-app-version": "$APP_VERSION",
+        "x-platform": "$PLATFORM",
+        "x-release-channel": "$RELEASE_CHANNEL",
+        "x-client-language": "$CLIENT_LANGUAGE",
+        "x-client-timezone": "$CLIENT_TIMEZONE",
+        "x-os-category": "$OS_CATEGORY",
+        "x-os-version": "$OS_VERSION"
+      }
+    },
+    {
+      "mode": "text-error",
+      "result": {
+        "ok": false,
+        "name": "ApiError",
+        "message": "upstream down",
+        "status": 502
+      },
+      "url": "/api/v1/client/scenes",
+      "headers": {
+        "user-agent": "ESCode/$APP_VERSION",
+        "http-referer": "$STUB_ORIGIN",
+        "x-title": "ESCode@electron",
+        "x-zcode-app-version": "$APP_VERSION",
+        "x-platform": "$PLATFORM",
+        "x-release-channel": "$RELEASE_CHANNEL",
+        "x-client-language": "$CLIENT_LANGUAGE",
+        "x-client-timezone": "$CLIENT_TIMEZONE",
+        "x-os-category": "$OS_CATEGORY",
+        "x-os-version": "$OS_VERSION"
+      }
+    },
+    {
+      "mode": "bad-json",
+      "result": {
+        "ok": false,
+        "name": "ApiError",
+        "message": "<syntax-error>",
+        "status": 200
+      },
+      "url": "/api/v1/client/scenes",
+      "headers": {
+        "user-agent": "ESCode/$APP_VERSION",
+        "http-referer": "$STUB_ORIGIN",
+        "x-title": "ESCode@electron",
+        "x-zcode-app-version": "$APP_VERSION",
+        "x-platform": "$PLATFORM",
+        "x-release-channel": "$RELEASE_CHANNEL",
+        "x-client-language": "$CLIENT_LANGUAGE",
+        "x-client-timezone": "$CLIENT_TIMEZONE",
+        "x-os-category": "$OS_CATEGORY",
+        "x-os-version": "$OS_VERSION"
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "requests": 2,
+  "sameBody": true,
+  "rows": [
+    {
+      "kind": "turnHeader",
+      "state": "completedSuccess",
+      "text": null
+    },
+    {
+      "kind": "userInput",
+      "state": null,
+      "text": "hello"
+    },
+    {
+      "kind": "reasoning",
+      "state": "complete",
+      "text": "thinking..."
+    },
+    {
+      "kind": "assistantText",
+      "state": "interrupted",
+      "text": "partial "
+    },
+    {
+      "kind": "assistantText",
+      "state": "complete",
+      "text": "full answer"
+    }
+  ],
+  "recovering": [
+    "{\"attempt\":1,\"maxAttempts\":11,\"nextRetryAt\":\"number\",\"reasonCode\":\"fault.network.unreachable\"}"
+  ],
+  "cleared": true,
+  "cold": [
+    {
+      "kind": "turnHeader",
+      "state": "completedSuccess",
+      "text": null
+    },
+    {
+      "kind": "userInput",
+      "state": null,
+      "text": "hello"
+    },
+    {
+      "kind": "assistantText",
+      "state": "complete",
+      "text": "full answer"
+    }
+  ]
+}

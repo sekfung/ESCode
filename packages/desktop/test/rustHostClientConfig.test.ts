@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir, version as osVersion } from "node:os";
 import { join } from "node:path";
 import { ESCODE_ENV, ESCODE_VERSION } from "@escode/shared";
-import { createClientConfigService, createNodeApiClient } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-client-config.md §5 S2：本地 HTTP 桩作 Endpoint，真实 TS `createClientConfigService` 与 Rust Host 的
-// `client-config.getSnapshot` 对同一桩求值——快照、请求次数（缓存/forceRefresh）、请求头与错误逐项相等。
+// Phase 3 golden freeze：TS `createClientConfigService` 的快照、请求次数（缓存/forceRefresh）、
+// 请求头与错误观察已冻结（packages/desktop/test/fixtures/golden/rustHostClientConfig.oracle.json）。
+// 测试不再实例化 TS 服务，删除 TS 实现后仍能独立重验 Rust Host 的 `client-config` channel。
+const goldenFile = new URL("./fixtures/golden/rustHostClientConfig.oracle.json", import.meta.url);
+
+// docs/specs/rust-u2-client-config.md §5 S2：本地 HTTP 桩作 Endpoint，Rust Host 的
+// `client-config.getSnapshot` 对同一桩求值——快照、请求次数、请求头与错误逐项等于冻结观察。
 
 interface Seen {
   url: string;
@@ -18,6 +22,16 @@ interface Seen {
 }
 
 type Reply = { status: number; body: string };
+
+type Outcome =
+  | { ok: true; value: unknown }
+  | { ok: false; name?: string; message?: string; status?: number };
+
+interface ClientConfigGolden {
+  outcomes: Record<string, Outcome>;
+  invalidOptions: Array<{ bad: unknown; ok: boolean; name?: string }>;
+  request: { count: number; url: string; headers: Record<string, string> };
+}
 
 const MESSY = {
   code: 0,
@@ -88,9 +102,30 @@ function relevant(headers: IncomingHttpHeaders): Record<string, string> {
   return result;
 }
 
+/** 冻结观察里的占位符按本次运行环境展开（与生成脚本的归一化一一对应）。 */
+function expandGolden(raw: string, base: string, stubOrigin: string): ClientConfigGolden {
+  const replacements: Record<string, string> = {
+    $FIXTURE_ROOT: base,
+    $STUB_ORIGIN: stubOrigin,
+    $APP_VERSION: ESCODE_VERSION,
+    $PLATFORM: `${process.platform}-${process.arch}`,
+    $RELEASE_CHANNEL: ESCODE_ENV,
+    $CLIENT_LANGUAGE: Intl.DateTimeFormat().resolvedOptions().locale,
+    $CLIENT_TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    $OS_CATEGORY:
+      process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux",
+    $OS_VERSION: osVersion(),
+  };
+  let expanded = raw;
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    expanded = expanded.split(placeholder).join(value);
+  }
+  return JSON.parse(expanded) as ClientConfigGolden;
+}
+
 describe("rust host client-config.getSnapshot (S2)", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "matches the TS service for snapshots, caching, forceRefresh, errors and option validation",
+    "matches the frozen TS observations for snapshots, caching, forceRefresh, errors and option validation",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-config-")));
       const home = join(base, "home");
@@ -98,15 +133,7 @@ describe("rust host client-config.getSnapshot (S2)", () => {
       const stub = await startStub();
       const language = Intl.DateTimeFormat().resolvedOptions().locale;
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const makeTs = () =>
-        createClientConfigService({
-          apiClient: createNodeApiClient({ resolveESCodeEndpointOrigin: () => stub.origin }),
-          resolveRequestContext: async () => ({
-            endpointOrigin: stub.origin,
-            appVersion: ESCODE_VERSION,
-            platform: `${process.platform}-${process.arch}`,
-          }),
-        });
+      const golden = expandGolden(await readFile(goldenFile, "utf8"), base, stub.origin);
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -128,16 +155,15 @@ describe("rust host client-config.getSnapshot (S2)", () => {
         const rust = (await connectRpc(String(listening.addr), String(listening.secret)))
           .clientConfigService;
 
-        // 每个场景用全新的 TS 服务实例（它自带缓存）；Rust 的缓存在 Host 里，靠 forceRefresh 重置。
+        // Rust 的缓存在 Host 里，靠 forceRefresh 重置；每个场景与冻结的 TS 观察比较。
         const compare = async (
           label: string,
           options: unknown,
           { sameMessage = true }: { sameMessage?: boolean } = {},
         ) => {
-          const ts = makeTs();
+          const expected = golden.outcomes[label];
+          if (!expected) throw new Error(`缺少冻结观察 ${label}`);
           stub.seen.length = 0;
-          const expected = await outcome(() => ts.getSnapshot(options as never));
-          const tsSeen = stub.seen.length;
           const actual = await outcome(() => rust.getSnapshot(options as never));
           if (sameMessage) expect({ label, result: actual }).toEqual({ label, result: expected });
           else {
@@ -146,29 +172,25 @@ describe("rust host client-config.getSnapshot (S2)", () => {
               name: (expected as { name: string }).name,
             });
           }
-          return { tsSeen, rustSeen: stub.seen.length - tsSeen, seen: [...stub.seen] };
+          return { rustSeen: stub.seen.length, seen: [...stub.seen] };
         };
 
-        // 1) 成功：快照逐值相等；两边各发一次相同路径与 query、相同来源头。
+        // 1) 成功：快照逐值相等；恰好一次请求，路径/query 与来源头等于冻结的 TS 请求。
         stub.reply({ status: 200, body: JSON.stringify(MESSY) });
         const first = await compare("messy envelope", { forceRefresh: true });
-        expect(first).toMatchObject({ tsSeen: 1, rustSeen: 1 });
-        expect(first.seen[1]!.url).toBe(first.seen[0]!.url);
-        expect(first.seen[0]!.url).toBe(
-          `/api/v1/client/configs?app_version=${ESCODE_VERSION}&platform=${process.platform}-${process.arch}`,
-        );
-        expect(relevant(first.seen[1]!.headers)).toEqual(relevant(first.seen[0]!.headers));
+        expect(first.rustSeen).toBe(golden.request.count);
+        expect(first.seen[0]!.url).toBe(golden.request.url);
+        expect(relevant(first.seen[0]!.headers)).toEqual(golden.request.headers);
         for (const request of first.seen) {
           expect(request.headers.authorization).toBeUndefined();
           expect(request.headers.cookie).toBeUndefined();
         }
 
-        // 2) 缓存：Rust 在 TTL 内不再请求（TS 实例是新的，所以这里只断言 Rust 一侧 + 值相等）。
+        // 2) 缓存：Rust 在 TTL 内不再请求；forceRefresh 绕过缓存，恰好一次请求。
         const before = stub.seen.length;
         const cached = await outcome(() => rust.getSnapshot());
         expect(stub.seen.length).toBe(before);
         expect(cached.ok).toBe(true);
-        // forceRefresh 绕过缓存，恰好一次请求。
         await rust.getSnapshot({ forceRefresh: true });
         expect(stub.seen.length).toBe(before + 1);
 
@@ -177,16 +199,21 @@ describe("rust host client-config.getSnapshot (S2)", () => {
         await compare("unknown option keys", { forceRefresh: true, extra: 1 });
 
         // 4) 非法选项：两边都是 ZodError（文案是各自的措辞，只比类别）。
-        for (const bad of [null, "yes", { forceRefresh: "yes" }, { forceRefresh: null }, []]) {
-          const ts = makeTs();
-          const [expected, actual] = [
-            await outcome(() => ts.getSnapshot(bad as never)),
-            await outcome(() => rust.getSnapshot(bad as never)),
-          ];
+        for (const [index, bad] of [
+          null,
+          "yes",
+          { forceRefresh: "yes" },
+          { forceRefresh: null },
+          [],
+        ].entries()) {
+          const expected = golden.invalidOptions[index];
+          if (!expected) throw new Error(`缺少冻结的非法选项观察 ${index}`);
+          expect(expected.bad).toEqual(bad);
+          const actual = await outcome(() => rust.getSnapshot(bad as never));
           expect({ bad, ok: actual.ok, name: (actual as { name?: string }).name }).toEqual({
             bad,
             ok: expected.ok,
-            name: (expected as { name?: string }).name,
+            name: expected.name,
           });
         }
 
@@ -205,7 +232,7 @@ describe("rust host client-config.getSnapshot (S2)", () => {
         expect((retained as { value: { zsrcUrl: unknown } }).value.zsrcUrl).toBe(
           "https://zsrc.example.com/path",
         );
-        // 恢复后 forceRefresh 拿到新值，与 TS 一致（`configs: null` → 两个字段都为 null）。
+        // 恢复后 forceRefresh 拿到新值，与冻结观察一致（`configs: null` → 两个字段都为 null）。
         stub.reply({ status: 200, body: JSON.stringify({ code: 0, data: { configs: null } }) });
         await compare("recovers after failures", { forceRefresh: true });
       } finally {

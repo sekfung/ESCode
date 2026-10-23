@@ -1,0 +1,27 @@
+{
+  "static": {
+    "http-referer": "https://zcode.z.ai",
+    "x-zcode-app-version": "9.8.7",
+    "x-title": "ESCode@electron",
+    "x-release-channel": "production",
+    "x-client-language": "zh-CN",
+    "x-client-timezone": "Asia/Shanghai",
+    "x-zcode-agent": "glm",
+    "x-platform": "linux-x64",
+    "x-os-category": "linux",
+    "x-os-version": "7.0.0-38-generic"
+  },
+  "userAgentPrefix": "ESCode/9.8.7",
+  "attributionKeys": [
+    "x-request-id",
+    "x-zcode-session-type",
+    "x-zcode-trace-id",
+    "x-session-id",
+    "x-query-id"
+  ],
+  "sessionType": "main",
+  "sessionIdIsStrippedSessionId": true,
+  "traceIsSessionTrace": true,
+  "requestIdIsUuid": true,
+  "queryIdIsUuid": true
+}

@@ -174,8 +174,19 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 `node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill` 复用同一 home 依次以
 Node Host → Rust Host → Node Host 启动，断言每次 Host 类型正确，并校验冻结设置夹具（含未知键）在切换后
 未被破坏。release 工作流的 `installed` 四平台作业执行该演练（`.github/workflows/release.yml`）。
+2026-10-24 已用当前源码重建的 linux-x64 包本地跑通（`host switch and rollback drill passed`）；
+四平台 CI 证据待可访问 GitHub 的环境运行后勾选。
 
 golden freeze（阶段 3）：Host parity 切片已支持冻结 Node 侧观察（`scripts/diff-escode-cli-rust-parity.mjs --record`）
 与只跑 Rust 的判定（`--golden`），冻结资产在 `scripts/fixtures/parity/`；settings interop 增加
-“TS 写出的冻结 `setting.json` → Rust 单向读入”用例。其余 CLI/desktop 实时 TS oracle 的逐用例冻结仍待完成，
+“TS 写出的冻结 `setting.json` → Rust 单向读入”用例。Desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
+`import @escode/services` / `services/src/*`，原 TS 观察冻结在
+`packages/desktop/test/fixtures/golden/`（大 JSON 用 gzip，seed 库在录制前快照）；
+生成器 `scripts/generate-rusthost-*-golden.ts --check`（汇总入口
+`pnpm check:rust-host-golden`）检测漂移。真实 `@escode/client` 保留（客户端契约，不是 oracle）。
+CLI 确定性 oracle 已清零：`packages/services/tests/escode-cli-rust-*.test.ts` 共 156 个，
+正常跑只启动 Rust；观察冻结在 `packages/services/tests/fixtures/cli-golden/`
+（`nodeOracle` record/load，`ESCODE_RECORD_CLI_GOLDEN=1` 重录；legacy DB 用 gzip seed）。
+例外为非确定性 benchmark/rehearsal（`long-history-bench`、`real-data-rehearsal`、
+`real-provider-bench`，默认跳过）与仅 Windows 的 `shell-resume-notice`（golden 待 Windows 重录）。
 在清零前不删除 Node Host / TS CLI（远程 workspace 仍需 Node Host）。

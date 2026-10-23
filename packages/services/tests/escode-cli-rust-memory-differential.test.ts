@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-project-memory.md：Host 开启 Memory 时，Node 与 Rust 的 Memory 段、MEMORY.md 索引注入、
 // 轮次后的提取请求与写入的记忆文件一致；主会话直接写记忆 Markdown 在 build 模式下无需确认且跳过提取。
@@ -209,8 +210,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust inject, extract and permit project memory the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：Node 注入了索引并完成两轮提取，直接写入的记忆文件落盘且未弹确认。
   assert.ok(node.secondContext.includes("- [Prefs](prefs.md) — tabs"), node.secondContext);
   assert.equal(node.extractionCount, 2);

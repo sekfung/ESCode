@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-model-request-headers.md：同一夹具与环境下，两侧模型请求的客户端头逐字一致，
 // 归因头的键集合、会话类型与 session / trace 归属一致。
@@ -79,8 +80,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("model requests carry the same client and attribution headers on both runtimes", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检 Node 基准：环境注入的版本与 electron 来源、主轮会话类型、归因与会话一致。
   assert.equal(node.static["x-zcode-app-version"], "9.8.7");
   assert.equal(node.static["x-title"], "ESCode@electron");

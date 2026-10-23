@@ -1,0 +1,25 @@
+{
+  "warm": {
+    "sessionKind": "interactive",
+    "status": "idle",
+    "title": "write it",
+    "mode": "yolo",
+    "projectionStatus": "idle",
+    "messageRoles": ["user", "assistant", "assistant"],
+    "partKinds": ["text", "tool", "text"],
+    "slashCommands": ["compact", "goal", "init", "plan"]
+  },
+  "cold": {
+    "sessionKind": "interactive",
+    "status": "idle",
+    "title": "write it",
+    "mode": "yolo",
+    "projectionStatus": "idle",
+    "messageRoles": ["user", "assistant", "assistant"],
+    "partKinds": ["text", "tool", "text"],
+    "slashCommands": ["compact", "goal", "init", "plan"]
+  },
+  "resumedTurns": 2,
+  "listSavedWorkflowsVisible": true,
+  "schemaErrors": []
+}

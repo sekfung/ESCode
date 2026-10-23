@@ -1,0 +1,8 @@
+[
+  "hello world",
+  "from-alias",
+  "Exit code 1\n/bin/bash: 第 3 行： cd: missing-dir: 没有那个文件或目录",
+  "sub",
+  "moved\nShell cwd was reset to /tmp/<tmp>/workspace",
+  "Exit code 1"
+]

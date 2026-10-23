@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // V4 setAssistantFeedback（助手回复点赞/点踩）在 Node 与 Rust 上的 ACK、行投影与重启后恢复一致。
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
@@ -79,8 +80,8 @@ async function observe(kind: Runtime) {
 }
 
 test("assistant feedback behaves the same on Node and Rust", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.equal(node.like.feedback, "like");
   assert.equal(node.clear.feedback, null);

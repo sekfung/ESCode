@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5b：plugins/validate。只读校验：已知市场里的单个插件
 // （manifest / 依赖 / MCP 声明 / 兼容性）与按 source 加载的市场（形状、远端条目延后、本地条目深扫）。
@@ -193,8 +194,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust validate plugins the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

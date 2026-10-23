@@ -1,17 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { gunzipSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
   resolveESCodeBuiltinCachePaths,
   resolveESCodeBuiltinClientPlatform,
 } from "@escode/provider-node";
-import { createProviderRuntime } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-providers.md §11（P5a）：同一 Bundled/Active 夹具分别交给真实 TS Built-in Source 与 Rust Host，
-// `model-selection.getView` 全等，且两端物化出的 Active 文件语义相同。
+// Phase 3 golden freeze：TS Built-in Source / ProviderRuntime 的 `providerSettings.getView`
+// 与物化出的 Active 文件观察已冻结（packages/desktop/test/fixtures/golden/
+// rustHostBuiltinActive.oracle.json.gz）。测试不再实例化 TS runtime，删除 TS 实现后仍能
+// 独立重验 Rust Host 的 Bundled/Active 选择与物化语义。
+const goldenFile = new URL(
+  "./fixtures/golden/rustHostBuiltinActive.oracle.json.gz",
+  import.meta.url,
+);
+
+// docs/specs/rust-u2-providers.md §11（P5a）：同一 Bundled/Active 夹具分别交给冻结的 TS 观察与
+// Rust Host，`model-selection.getView` 全等，且两端物化出的 Active 文件语义相同。
 
 const BUILTIN_SOURCE = resolve("config/provider/escode-builtin.json");
 const ENDPOINT = "https://api.example.com";
@@ -37,9 +46,17 @@ const SCENARIOS: Array<[string, (bundled: Release) => string | null]> = [
   ["schema-invalid active", () => JSON.stringify({ schemaVersion: 1, revision: 99, config: {} })],
 ];
 
+interface BuiltinActiveGolden {
+  scenarios: Array<{
+    label: string;
+    view: Record<string, unknown>;
+    active: Record<string, unknown>;
+  }>;
+}
+
 describe("rust host providers P5a", () => {
   it.skipIf(!existsSync(hostBinary) || !existsSync(BUILTIN_SOURCE))(
-    "selects and materializes Built-in Active like the TS source",
+    "selects and materializes Built-in Active like the frozen TS source",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-active-")));
       const bundledText = await readFile(BUILTIN_SOURCE, "utf8");
@@ -48,7 +65,6 @@ describe("rust host providers P5a", () => {
       await copyFile(BUILTIN_SOURCE, builtin);
       const personal = join(base, "provider_config.json");
       const home = join(base, "home");
-      const tsRoot = join(base, "ts-cache");
       const rustRoot = join(base, "rust-cache");
       const platform = resolveESCodeBuiltinClientPlatform();
       const activeOf = (root: string) =>
@@ -58,6 +74,14 @@ describe("rust host providers P5a", () => {
           appVersion: APP_VERSION,
           escodeEndpointOrigin: ENDPOINT,
         }).activeFilePath;
+      // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换成本次运行的工作根后逐字段比较。
+      const golden = JSON.parse(
+        gunzipSync(await readFile(goldenFile))
+          .toString("utf8")
+          .split("$FIXTURE_ROOT")
+          .join(base),
+      ) as BuiltinActiveGolden;
+      expect(golden.scenarios).toHaveLength(SCENARIOS.length);
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -76,42 +100,19 @@ describe("rust host providers P5a", () => {
         const listening = await nextMeaningful(host);
         const services = await connectRpc(String(listening.addr), String(listening.secret));
 
-        for (const [label, activeContent] of SCENARIOS) {
-          for (const root of [tsRoot, rustRoot]) {
-            await rm(activeOf(root), { force: true });
-            if (activeContent(bundled) !== null) {
-              await mkdir(dirname(activeOf(root)), { recursive: true });
-              await writeFile(activeOf(root), activeContent(bundled)!);
-            }
+        const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
+        for (const [index, [label, activeContent]] of SCENARIOS.entries()) {
+          const expected = golden.scenarios[index];
+          expect(expected.label).toBe(label);
+          await rm(activeOf(rustRoot), { force: true });
+          if (activeContent(bundled) !== null) {
+            await mkdir(dirname(activeOf(rustRoot)), { recursive: true });
+            await writeFile(activeOf(rustRoot), activeContent(bundled)!);
           }
-          const runtime = createProviderRuntime({
-            escodeBuiltinFilePath: builtin,
-            escodeBuiltinEnvironment: {
-              environmentConfigRoot: tsRoot,
-              platform,
-              appVersion: APP_VERSION,
-              resolveEndpointOrigin: () => ENDPOINT,
-              fetchRelease: async () => null,
-              watch: false,
-            },
-            personalFilePath: personal,
-            watch: false,
-            personalPollingIntervalMs: false,
-          });
-          try {
-            const strip = (view: { revision: number }) => ({ ...view, revision: "<n>" });
-            const expected = await runtime.providerSettings.getView();
-            const actual = await services.providerSettingsService.getView();
-            expect({ label, view: strip(actual) }).toEqual({
-              label,
-              view: strip(JSON.parse(JSON.stringify(expected))),
-            });
-            const tsActive = JSON.parse(await readFile(activeOf(tsRoot), "utf8"));
-            const rustActive = JSON.parse(await readFile(activeOf(rustRoot), "utf8"));
-            expect({ label, active: rustActive }).toEqual({ label, active: tsActive });
-          } finally {
-            runtime.dispose();
-          }
+          const actual = await services.providerSettingsService.getView();
+          expect({ label, view: strip(actual) }).toEqual({ label, view: expected.view });
+          const rustActive = JSON.parse(await readFile(activeOf(rustRoot), "utf8"));
+          expect({ label, active: rustActive }).toEqual({ label, active: expected.active });
         }
       } finally {
         await host.stop();

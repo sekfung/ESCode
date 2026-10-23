@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 6 期：ListWorkflowRuns 在 Node 与 Rust 上一致。
 //
@@ -132,36 +133,39 @@ async function migrate(kind: "node" | "rust", root: string) {
   await f.close();
 }
 
-test("ListWorkflowRuns matches Node for a seeded journal", async () => {
-  const root = await mkdtemp(join(tmpdir(), "escode-list-workflow-runs-"));
-  await migrate("node", root);
-  await migrate("rust", root);
-  for (const dbPath of [join(root, "ts.sqlite"), join(root, "data", "rust-sessions.sqlite")]) {
-    const { db, insert, run } = seed(dbPath);
-    insert("dwf_run", run("run-completed", { cwd: join(root, "workspace"), name: "review" }));
-    insert(
-      "dwf_run",
-      run("run-stopped", {
-        cwd: join(root, "workspace"),
-        status: "cancelled",
-        failure_json: '{"stopReason":"user"}',
-        time_updated: NOW + 10,
-      }),
-    );
-    insert(
-      "dwf_run",
-      run("run-running-sibling", {
-        cwd: join(root, "workspace"),
-        status: "running",
-        failure_json: null,
-        time_updated: NOW + 20,
-      }),
-    );
-    db.close();
-  }
+/** 每个 runtime 用自己的 root：迁移自己的库、播同一组种子行，再观察。 */
+async function seeded(kind: "node" | "rust") {
+  const root = await mkdtemp(join(tmpdir(), `escode-list-workflow-runs-${kind}-`));
+  await migrate(kind, root);
+  const dbPath =
+    kind === "node" ? join(root, "ts.sqlite") : join(root, "data", "rust-sessions.sqlite");
+  const { db, insert, run } = seed(dbPath);
+  insert("dwf_run", run("run-completed", { cwd: join(root, "workspace"), name: "review" }));
+  insert(
+    "dwf_run",
+    run("run-stopped", {
+      cwd: join(root, "workspace"),
+      status: "cancelled",
+      failure_json: '{"stopReason":"user"}',
+      time_updated: NOW + 10,
+    }),
+  );
+  insert(
+    "dwf_run",
+    run("run-running-sibling", {
+      cwd: join(root, "workspace"),
+      status: "running",
+      failure_json: null,
+      time_updated: NOW + 20,
+    }),
+  );
+  db.close();
+  return observe(kind, root);
+}
 
-  const node = await observe("node", root);
-  const rust = await observe("rust", root);
+test("ListWorkflowRuns matches Node for a seeded journal", async () => {
+  const node = await nodeOracle("seeded-journal", () => seeded("node"));
+  const rust = canonical(await seeded("rust"));
   // 自检：三次运行（completed / stopped / running），两条消息分别是全量与被过滤的 stopped。
   assert.match(node.messages[0] ?? "", /^<workflow_runs count="3">/);
   assert.match(node.messages[0] ?? "", /id="run-stopped" status="stopped" stop_reason="user"/);

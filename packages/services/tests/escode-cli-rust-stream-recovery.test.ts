@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-model-retry.md「断流恢复」：模型已流出推理与部分正文后连接断开，两侧都作废失败尾部
 // （正文行 interrupted、推理行 complete）、用同一历史重发请求，并在恢复期间显示同样的 apiRetry 状态。
@@ -90,8 +91,8 @@ async function observe(kind: Runtime) {
 }
 
 test("a stream that drops after visible output recovers the same way on both runtimes", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检 Node 基准：只重发一次、请求体不含失败尾部，旧正文行作废、新行完成，恢复态出现后被清空。
   assert.equal(node.requests, 2);
   assert.equal(node.sameBody, true);

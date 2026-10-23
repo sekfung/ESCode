@@ -10,6 +10,7 @@ members = [
   "crates/state",
   "crates/model",
   "crates/tools",
+  "crates/plugins",
   "crates/app-server",
   "crates/tui",
   "crates/wiki",
@@ -124,6 +125,7 @@ escode-cli-net = { path = "crates/net" }
 escode-cli-state = { path = "crates/state" }
 escode-cli-model = { path = "crates/model" }
 escode-cli-tools = { path = "crates/tools" }
+escode-cli-plugins = { path = "crates/plugins" }
 escode-cli-app-server = { path = "crates/app-server" }
 escode-cli-tui = { path = "crates/tui" }
 escode-cli-wiki = { path = "crates/wiki" }

@@ -1,0 +1,414 @@
+{
+  "_readme": "rustHostTaskGroups.test.ts 的 TS TaskIndexRepo 观察冻结（Phase 3 golden freeze）。group id 已归一化为 G1/G2，时间戳已剔除。",
+  "expected": {
+    "created": [
+      {
+        "id": "G1",
+        "title": "Alpha",
+        "color": "red"
+      },
+      {
+        "id": "G2",
+        "title": "New Group",
+        "color": "gray"
+      }
+    ],
+    "afterCreate": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "Alpha",
+          "color": "red"
+        },
+        {
+          "id": "G2",
+          "title": "New Group",
+          "color": "gray"
+        }
+      ],
+      "members": [],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 1000
+        },
+        {
+          "type": "group",
+          "groupId": "G2",
+          "sortOrder": 0
+        }
+      ]
+    },
+    "renameBlank": {
+      "ok": {
+        "id": "G1",
+        "title": "New Group",
+        "color": "red"
+      }
+    },
+    "recolor": {
+      "ok": {
+        "id": "G2",
+        "title": "New Group",
+        "color": "purple"
+      }
+    },
+    "recolorInvalid": {
+      "error": "Task group 颜色无效"
+    },
+    "renameMissing": {
+      "error": "Task group 不存在，无法重命名"
+    },
+    "recolorMissing": {
+      "error": "Task group 不存在，无法更新颜色"
+    },
+    "afterEdits": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "New Group",
+          "color": "red"
+        },
+        {
+          "id": "G2",
+          "title": "New Group",
+          "color": "purple"
+        }
+      ],
+      "members": [],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 1000
+        },
+        {
+          "type": "group",
+          "groupId": "G2",
+          "sortOrder": 0
+        }
+      ]
+    },
+    "apply": {
+      "ok": {
+        "nodes": [
+          {
+            "type": "task",
+            "task": {
+              "taskId": "t3",
+              "traceId": "escode-t3",
+              "title": "t3",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "mode": "build",
+              "provider": "glm"
+            },
+            "sortOrder": 1000
+          },
+          {
+            "type": "group",
+            "group": {
+              "id": "G2",
+              "title": "New Group",
+              "color": "purple"
+            },
+            "tasks": [],
+            "sortOrder": 2000
+          },
+          {
+            "type": "group",
+            "group": {
+              "id": "G1",
+              "title": "New Group",
+              "color": "red"
+            },
+            "tasks": [
+              {
+                "taskId": "t2",
+                "traceId": "escode-t2",
+                "title": "t2",
+                "titleOverridden": false,
+                "workspacePath": "/w",
+                "mode": "build",
+                "provider": "glm"
+              },
+              {
+                "taskId": "t1",
+                "traceId": "escode-t1",
+                "title": "t1",
+                "titleOverridden": false,
+                "workspacePath": "/w",
+                "mode": "build",
+                "provider": "glm"
+              }
+            ],
+            "sortOrder": 3000
+          }
+        ]
+      }
+    },
+    "afterApply": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "New Group",
+          "color": "red"
+        },
+        {
+          "id": "G2",
+          "title": "New Group",
+          "color": "purple"
+        }
+      ],
+      "members": [
+        {
+          "groupId": "G1",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "t2",
+          "sortOrder": 1000
+        },
+        {
+          "groupId": "G1",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "t1",
+          "sortOrder": 2000
+        }
+      ],
+      "topLevelOrders": [
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t3",
+          "sortOrder": 1000
+        },
+        {
+          "type": "group",
+          "groupId": "G2",
+          "sortOrder": 2000
+        },
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 3000
+        }
+      ]
+    },
+    "applyMove": {
+      "ok": {
+        "nodes": [
+          {
+            "type": "group",
+            "group": {
+              "id": "G1",
+              "title": "New Group",
+              "color": "red"
+            },
+            "tasks": [
+              {
+                "taskId": "t2",
+                "traceId": "escode-t2",
+                "title": "t2",
+                "titleOverridden": false,
+                "workspacePath": "/w",
+                "mode": "build",
+                "provider": "glm"
+              }
+            ],
+            "sortOrder": 1000
+          },
+          {
+            "type": "task",
+            "task": {
+              "taskId": "t1",
+              "traceId": "escode-t1",
+              "title": "t1",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "mode": "build",
+              "provider": "glm"
+            },
+            "sortOrder": 2000
+          },
+          {
+            "type": "group",
+            "group": {
+              "id": "G2",
+              "title": "New Group",
+              "color": "purple"
+            },
+            "tasks": [],
+            "sortOrder": 3000
+          },
+          {
+            "type": "task",
+            "task": {
+              "taskId": "t3",
+              "traceId": "escode-t3",
+              "title": "t3",
+              "titleOverridden": false,
+              "workspacePath": "/w",
+              "mode": "build",
+              "provider": "glm"
+            },
+            "sortOrder": 4000
+          }
+        ]
+      }
+    },
+    "afterMove": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "New Group",
+          "color": "red"
+        },
+        {
+          "id": "G2",
+          "title": "New Group",
+          "color": "purple"
+        }
+      ],
+      "members": [
+        {
+          "groupId": "G1",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "t2",
+          "sortOrder": 1000
+        }
+      ],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 1000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t1",
+          "sortOrder": 2000
+        },
+        {
+          "type": "group",
+          "groupId": "G2",
+          "sortOrder": 3000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t3",
+          "sortOrder": 4000
+        }
+      ]
+    },
+    "applyDuplicate": {
+      "error": "Grouped task order 不能让同一个 task 进入多个 group"
+    },
+    "applyGhostGroup": {
+      "error": "Grouped task order 包含不存在的 group"
+    },
+    "applyOutsideScope": {
+      "error": "Grouped task order 包含当前 scope 外的 task"
+    },
+    "applyArchived": {
+      "error": "Grouped task order 包含不可见 task"
+    },
+    "applyMissing": {
+      "error": "Grouped task order 包含不可见 task"
+    },
+    "afterRejected": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "New Group",
+          "color": "red"
+        },
+        {
+          "id": "G2",
+          "title": "New Group",
+          "color": "purple"
+        }
+      ],
+      "members": [
+        {
+          "groupId": "G1",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "t2",
+          "sortOrder": 1000
+        }
+      ],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 1000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t1",
+          "sortOrder": 2000
+        },
+        {
+          "type": "group",
+          "groupId": "G2",
+          "sortOrder": 3000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t3",
+          "sortOrder": 4000
+        }
+      ]
+    },
+    "remove": {
+      "ok": "<undefined>"
+    },
+    "removeAgain": {
+      "error": "Task group 不存在，无法删除"
+    },
+    "afterRemove": {
+      "groups": [
+        {
+          "id": "G1",
+          "title": "New Group",
+          "color": "red"
+        }
+      ],
+      "members": [
+        {
+          "groupId": "G1",
+          "workspaceKey": "/w",
+          "workspacePath": "/w",
+          "taskId": "t2",
+          "sortOrder": 1000
+        }
+      ],
+      "topLevelOrders": [
+        {
+          "type": "group",
+          "groupId": "G1",
+          "sortOrder": 1000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t1",
+          "sortOrder": 2000
+        },
+        {
+          "type": "task",
+          "workspaceKey": "/w",
+          "taskId": "t3",
+          "sortOrder": 4000
+        }
+      ]
+    }
+  }
+}

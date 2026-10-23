@@ -190,12 +190,22 @@ jobs:
             cat bench-results/summary.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      # 差分门禁（docs/specs/rust-unified-host.md §4.2）：同一确定性场景在 Node bundle 与 Rust
-      # 二进制上各跑一次，归一化后逐面（消息帧 / 存储进度 / 事件流 / 模型请求 / 工作区文件）对拍；
-      # 出现新差异（既非已批准、也不在欠账基线内）即失败，evidence 与报告随 artifact 上传。
-      # 观察期：基线指纹此前只在本机 Windows 验证稳定；三平台首次全绿后去掉 continue-on-error 转阻塞
-      # （转阻塞条件记录在 docs/specs/rust-unified-host.md 阶段 0 的切片条目）。
-      - name: Node vs Rust parity differential (session-baseline)
+      # 差分门禁（docs/specs/rust-unified-host.md §4.2 / 阶段 3 golden freeze）：
+      # - linux-x64 已录制 `scripts/fixtures/parity/session-baseline.linux-x64.node.golden.json`，
+      #   这里只跑 Rust 并对冻结 golden 判定（不再启动 Node），作为阻塞门禁；
+      # - 其余平台尚无该平台 golden，暂保留 Node/Rust 实时双跑（观察期 continue-on-error），
+      #   录制对应平台 golden 后同样切到 `--golden`。
+      - name: Rust parity against frozen golden (session-baseline)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          node scripts/diff-escode-cli-rust-parity.mjs --golden
+          {
+            echo "### parity golden (session-baseline, ${{ matrix.os }})"
+            cat .escode-runtime/parity/session-baseline.report.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Node vs Rust parity differential (session-baseline, live oracle)
+        if: matrix.os != 'ubuntu-latest'
         shell: bash
         continue-on-error: true
         run: |

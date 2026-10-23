@@ -3,6 +3,7 @@ import test from "node:test";
 import { dirname, resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // 内置 `/workflow`（TS builtin-workflow-command.ts）：动态工作流开启的会话展开成带技能前言的提示词，关闭的会话
 // 原文作普通提示词。userInput 行仍显示原文。比对两种会话第一次模型请求的末条用户消息与行文本。
@@ -75,8 +76,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust expand the builtin /workflow command the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(String(node.enabled.model), /Run custom command \/workflow\./);
   assert.equal(node.disabled.model, input);

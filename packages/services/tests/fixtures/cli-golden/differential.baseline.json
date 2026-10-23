@@ -1,0 +1,120 @@
+{
+  "rowFields": [
+    [
+      "turnHeader",
+      [
+        "activeMs",
+        "createdAt",
+        "createdAtSeq",
+        "endedAt",
+        "entityId",
+        "executionKind",
+        "historyRoundCount",
+        "kind",
+        "origin",
+        "outputTokens",
+        "productTurnId",
+        "rowId",
+        "sourceCommandId",
+        "startedAt",
+        "state",
+        "turnId",
+        "visibility"
+      ]
+    ],
+    [
+      "userInput",
+      [
+        "actions",
+        "clientId",
+        "createdAt",
+        "createdAtSeq",
+        "entityId",
+        "kind",
+        "origin",
+        "productTurnId",
+        "rootSourceCommandId",
+        "rowId",
+        "sourceCommandId",
+        "text",
+        "turnId",
+        "visibility"
+      ]
+    ],
+    [
+      "toolCall",
+      [
+        "assistantResponseId",
+        "createdAt",
+        "createdAtSeq",
+        "endedAt",
+        "entityId",
+        "input",
+        "inputText",
+        "kind",
+        "output",
+        "productTurnId",
+        "rowId",
+        "startedAt",
+        "status",
+        "toolCallId",
+        "toolName",
+        "turnId",
+        "visibility"
+      ]
+    ],
+    [
+      "assistantText",
+      [
+        "actions",
+        "assistantResponseId",
+        "createdAt",
+        "createdAtSeq",
+        "entityId",
+        "kind",
+        "productTurnId",
+        "rowId",
+        "state",
+        "text",
+        "turnId",
+        "visibility"
+      ]
+    ]
+  ],
+  "rowFacts": [
+    {
+      "kind": "turnHeader",
+      "visibility": "visible",
+      "executionKind": "agent",
+      "historyRoundCount": 2,
+      "activeMs": "number"
+    },
+    {
+      "kind": "userInput",
+      "visibility": "visible",
+      "activeMs": "undefined",
+      "rootIsSource": true
+    },
+    {
+      "kind": "toolCall",
+      "visibility": "visible",
+      "activeMs": "undefined",
+      "input": {
+        "file_path": "sample.txt"
+      },
+      "responseLinked": true
+    },
+    {
+      "kind": "assistantText",
+      "visibility": "visible",
+      "activeMs": "undefined"
+    }
+  ],
+  "rowKinds": ["assistantText", "toolCall", "turnHeader", "userInput"],
+  "toolNames": ["Read"],
+  "toolStatuses": ["success"],
+  "toolErrorCodes": [null],
+  "rowTexts": ["done"],
+  "capabilityKeys": ["independentPlanState"],
+  "schemaErrors": []
+}

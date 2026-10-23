@@ -1,0 +1,35 @@
+{
+  "reads": [
+    {
+      "filePath": "sub/a.txt",
+      "content": "hello\n"
+    },
+    {
+      "filePath": "sub/a.txt",
+      "content": "hello\n"
+    },
+    {
+      "filePath": "sub/a.txt",
+      "content": "hello\n"
+    },
+    {
+      "filePath": "sub/a.txt",
+      "content": "hello\n"
+    },
+    {
+      "filePath": "up.txt",
+      "content": "up\n"
+    },
+    {
+      "filePath": "sub/a.txt",
+      "content": "hello\n"
+    }
+  ],
+  "mirrorPath": "mirror/a.txt",
+  "linkedWritePath": "mirror/linked.txt",
+  "write": {
+    "filePath": "sub/ts-written.txt",
+    "type": "create",
+    "content": "written\n"
+  }
+}

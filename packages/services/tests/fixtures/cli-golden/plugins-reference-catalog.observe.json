@@ -1,0 +1,265 @@
+{
+  "workspaceCatalog": {
+    "authority": "workspace",
+    "plugins": [
+      {
+        "pluginId": "alpha@inline",
+        "name": "alpha",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": ["alpha:one", "alpha:two"],
+        "mcpServerNames": ["plugin:alpha:m1"],
+        "subagentNames": ["alpha:rev"]
+      },
+      {
+        "pluginId": "beta@inline",
+        "name": "beta",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@inline",
+        "name": "dup",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@acme"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@acme",
+        "name": "dup",
+        "marketplace": "acme",
+        "icon": "https://icon",
+        "displayName": "Dup",
+        "displayNameI18n": {
+          "zh": "重复"
+        },
+        "description": "Dup plugin",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@inline"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      }
+    ]
+  },
+  "withCategory": {
+    "authority": "workspace",
+    "plugins": [
+      {
+        "category": "other",
+        "pluginId": "alpha@inline",
+        "name": "alpha",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": ["alpha:one", "alpha:two"],
+        "mcpServerNames": ["plugin:alpha:m1"],
+        "subagentNames": ["alpha:rev"]
+      },
+      {
+        "category": "other",
+        "pluginId": "beta@inline",
+        "name": "beta",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "category": "other",
+        "pluginId": "dup@inline",
+        "name": "dup",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@acme"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "category": "dev",
+        "pluginId": "dup@acme",
+        "name": "dup",
+        "marketplace": "acme",
+        "icon": "https://icon",
+        "displayName": "Dup",
+        "displayNameI18n": {
+          "zh": "重复"
+        },
+        "description": "Dup plugin",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@inline"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      }
+    ]
+  },
+  "sessionBefore": {
+    "authority": "session",
+    "plugins": [
+      {
+        "pluginId": "alpha@inline",
+        "name": "alpha",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": ["alpha:one", "alpha:two"],
+        "mcpServerNames": ["plugin:alpha:m1"],
+        "subagentNames": ["alpha:rev"]
+      },
+      {
+        "pluginId": "beta@inline",
+        "name": "beta",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@inline",
+        "name": "dup",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@acme"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@acme",
+        "name": "dup",
+        "marketplace": "acme",
+        "icon": "https://icon",
+        "displayName": "Dup",
+        "displayNameI18n": {
+          "zh": "重复"
+        },
+        "description": "Dup plugin",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@inline"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      }
+    ]
+  },
+  "sessionAfter": {
+    "authority": "session",
+    "plugins": [
+      {
+        "pluginId": "alpha@inline",
+        "name": "alpha",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": ["alpha:one", "alpha:two"],
+        "mcpServerNames": ["plugin:alpha:m1"],
+        "subagentNames": ["alpha:rev"]
+      },
+      {
+        "pluginId": "beta@inline",
+        "name": "beta",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@inline",
+        "name": "dup",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@acme"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@acme",
+        "name": "dup",
+        "marketplace": "acme",
+        "icon": "https://icon",
+        "displayName": "Dup",
+        "displayNameI18n": {
+          "zh": "重复"
+        },
+        "description": "Dup plugin",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@inline"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      }
+    ]
+  },
+  "workspaceAfter": {
+    "authority": "workspace",
+    "plugins": [
+      {
+        "pluginId": "alpha@inline",
+        "name": "alpha",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": ["alpha:one", "alpha:two"],
+        "mcpServerNames": [],
+        "subagentNames": ["alpha:rev"]
+      },
+      {
+        "pluginId": "beta@inline",
+        "name": "beta",
+        "marketplace": "inline",
+        "enabled": false,
+        "conflictingPluginIds": [],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@inline",
+        "name": "dup",
+        "marketplace": "inline",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@acme"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      },
+      {
+        "pluginId": "dup@acme",
+        "name": "dup",
+        "marketplace": "acme",
+        "icon": "https://icon",
+        "displayName": "Dup",
+        "displayNameI18n": {
+          "zh": "重复"
+        },
+        "description": "Dup plugin",
+        "enabled": true,
+        "conflictingPluginIds": ["dup@inline"],
+        "skillQualifiedNames": [],
+        "mcpServerNames": [],
+        "subagentNames": []
+      }
+    ]
+  },
+  "unknownSession": {
+    "error": true
+  },
+  "schemaErrors": []
+}

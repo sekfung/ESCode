@@ -3,12 +3,22 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createFileService } from "@escode/services/node";
-import type { IFileService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-file-index.md §5 TS oracle 差分：同一组夹具目录分别交给真实 TS `createFileService()`
-// 与 Rust Host 的 `file` channel（真实 `@escode/client`），索引内容、搜索结果、规则读写逐项全等。
+// Phase 3 golden freeze：TS `createFileService` 的索引/搜索/忽略规则观察已冻结为仓内资产
+// （packages/desktop/test/fixtures/golden/rustHostFileIndex.oracle.json）。测试不再实例化 TS 服务，
+// 删除 TS 实现后仍能独立重验 Rust Host 的 `file` channel（真实 `@escode/client`）。
+const goldenFile = new URL("./fixtures/golden/rustHostFileIndex.oracle.json", import.meta.url);
+
+// 搜索打分会把绝对 rootPath 参与模糊匹配（path 维度），因此录制与回放必须使用同一个根路径
+// 字符串；mkdtemp 的随机段会改变命中集合。固定 POSIX 路径（win32 测试已跳过）保证跨机器一致。
+const FIXTURE_ROOT = "/tmp/escode-rust-host-file-index-fixture";
+const WORK_ROOT = join(FIXTURE_ROOT, "work");
+
+type FileService = Awaited<ReturnType<typeof connectRpc>>["fileService"];
+
+// docs/specs/rust-u2-file-index.md §5 TS oracle 差分：同一组夹具目录交给 Rust Host 的 `file` channel，
+// 索引内容、搜索结果、规则读写与冻结的 TS 观察逐项全等。
 
 /** 夹具树：覆盖隐藏目录、默认黑名单、二进制扩展名、.env、中文/空格/TAB/反斜杠/emoji 文件名与软链接。 */
 const TREE_FILES = [
@@ -127,7 +137,7 @@ const QUERIES = [
 
 const LIMITS = [undefined, 0, 1, 3, 1000, 5000, -2, 2.7];
 
-async function drive(service: IFileService, root: string): Promise<Record<string, unknown>> {
+async function drive(service: FileService, root: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const [label, rules] of RULE_SETS) {
     const dir = join(root, `rules-${label.replace(/\W+/g, "-")}`);
@@ -207,7 +217,7 @@ async function drive(service: IFileService, root: string): Promise<Record<string
 }
 
 async function driveIgnoreSettings(
-  service: IFileService,
+  service: FileService,
   root: string,
 ): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
@@ -268,10 +278,6 @@ async function driveIgnoreSettings(
   return out;
 }
 
-function normalize(value: unknown, root: string): unknown {
-  return JSON.parse(JSON.stringify(value).split(root).join("<ROOT>"));
-}
-
 describe("rust host file index domain", () => {
   it.skipIf(!existsSync(hostBinary) || process.platform === "win32")(
     "matches the TS file service for search, packing and ignore rules",
@@ -280,33 +286,34 @@ describe("rust host file index domain", () => {
       const home = join(base, "home");
       const host = startHost(home);
       try {
-        // 候选打分含绝对路径：两边必须用**同一个**根目录，先跑 TS，清空后再跑 Rust。
-        const root = join(base, "work");
+        const root = WORK_ROOT;
+        await rm(FIXTURE_ROOT, { recursive: true, force: true });
         await mkdir(root, { recursive: true });
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
         const services = await connectRpc(String(listening.addr), String(listening.secret));
-        const rust = services.fileService as unknown as IFileService;
-        const ts = createFileService();
 
-        const expected = normalize(await drive(ts, root), root) as Record<string, unknown>;
-        const settingsExpected = normalize(await driveIgnoreSettings(ts, root), root);
-        await rm(root, { recursive: true, force: true });
-        await mkdir(root, { recursive: true });
-        const actual = normalize(await drive(rust, root), root) as Record<string, unknown>;
-        const settingsActual = normalize(await driveIgnoreSettings(rust, root), root);
-        for (const key of Object.keys(expected)) {
+        // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换成本次运行的工作根后逐字段比较。
+        const golden = JSON.parse(
+          (await readFile(goldenFile, "utf8")).split("$FIXTURE_ROOT").join(root),
+        ) as { expected: Record<string, unknown>; settings: unknown };
+        const rust = services.fileService;
+
+        const actual = await drive(rust, root);
+        const settingsActual = await driveIgnoreSettings(rust, root);
+        for (const key of Object.keys(golden.expected)) {
           expect({ key, value: actual[key] }).toEqual({
             key,
-            value: expected[key],
+            value: golden.expected[key],
           });
         }
-        expect(Object.keys(actual)).toEqual(Object.keys(expected));
-        expect(settingsActual).toEqual(settingsExpected);
+        expect(Object.keys(actual)).toEqual(Object.keys(golden.expected));
+        expect(settingsActual).toEqual(golden.settings);
       } finally {
         await host.stop();
+        await rm(FIXTURE_ROOT, { recursive: true, force: true });
         await rm(base, { recursive: true, force: true });
       }
     },

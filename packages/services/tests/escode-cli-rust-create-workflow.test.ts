@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { applyConversationDeltas } from "@escode/shared/escode-protocol-v4";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md「运行面实现计划」M1：CreateWorkflow（无 actor 脚本）。技能门之后提交 →
 // alwaysAsk 确认（无「总是允许」）→ 后台启动 → run 结算 → 完成通知作为后台结果轮续跑。Rust 经工作流宿主
@@ -181,8 +182,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust run a CreateWorkflow script in the background the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_PERM)
     console.log(JSON.stringify({ node: node.permissions, rust: rust.permissions }));
   assert.deepEqual(node.schemaErrors, []);

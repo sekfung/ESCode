@@ -1,0 +1,258 @@
+{
+  "_readme": "rustHostAttachments.test.ts 的 TS media-preview / prompt-attachment-transfer 观察冻结（Phase 3 golden freeze）。由真实 createMediaPreviewService/createLocalPromptAttachmentTransferService 生成一次；删除 TS 后测试只加载本资产。$FIXTURE_ROOT 由测试替换为当前临时根目录，$FIXTURE_ROOT_ENCODED 为其 URL 编码形式；超过 1 MiB 的字符串以 sha256 摘要存储。",
+  "transfer": {
+    "stageCases": [
+      {
+        "params": {
+          "operationId": "op",
+          "sessionId": "s",
+          "workspacePath": "$FIXTURE_ROOT/files",
+          "fileName": "f",
+          "mime": "m",
+          "localPath": "$FIXTURE_ROOT/files/song.mp3",
+          "sizeBytes": 123
+        },
+        "result": {
+          "ok": true,
+          "value": {
+            "operationId": "op",
+            "ref": "$FIXTURE_ROOT/files/song.mp3",
+            "bytes": 123,
+            "staged": false
+          }
+        }
+      },
+      {
+        "params": {
+          "operationId": "op",
+          "sessionId": "s",
+          "workspacePath": "$FIXTURE_ROOT/files",
+          "fileName": "f",
+          "mime": "m",
+          "localPath": "$FIXTURE_ROOT/files/song.mp3"
+        },
+        "result": {
+          "ok": true,
+          "value": {
+            "operationId": "op",
+            "ref": "$FIXTURE_ROOT/files/song.mp3",
+            "bytes": 8,
+            "staged": false
+          }
+        }
+      },
+      {
+        "params": {
+          "operationId": "op",
+          "sessionId": "s",
+          "workspacePath": "$FIXTURE_ROOT/files",
+          "fileName": "f",
+          "mime": "m",
+          "localPath": "$FIXTURE_ROOT/files/song.mp3",
+          "sizeBytes": 0
+        },
+        "result": {
+          "ok": true,
+          "value": {
+            "operationId": "op",
+            "ref": "$FIXTURE_ROOT/files/song.mp3",
+            "bytes": 8,
+            "staged": false
+          }
+        }
+      },
+      {
+        "params": {
+          "operationId": "op",
+          "sessionId": "s",
+          "workspacePath": "$FIXTURE_ROOT/files",
+          "fileName": "f",
+          "mime": "m",
+          "localPath": "$FIXTURE_ROOT/files/missing.bin"
+        },
+        "result": {
+          "ok": true,
+          "value": {
+            "operationId": "op",
+            "ref": "$FIXTURE_ROOT/files/missing.bin",
+            "bytes": 0,
+            "staged": false
+          }
+        }
+      },
+      {
+        "params": {
+          "operationId": "op",
+          "sessionId": "s",
+          "workspacePath": "$FIXTURE_ROOT/files",
+          "fileName": "f",
+          "mime": "m",
+          "localPath": "$FIXTURE_ROOT/files/song.mp3",
+          "sizeBytes": -5
+        },
+        "result": {
+          "ok": true,
+          "value": {
+            "operationId": "op",
+            "ref": "$FIXTURE_ROOT/files/song.mp3",
+            "bytes": 8,
+            "staged": false
+          }
+        }
+      }
+    ]
+  },
+  "previews": {
+    "inline": [
+      {
+        "path": "$FIXTURE_ROOT/files/song.mp3",
+        "expectedKind": "audio",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "inline",
+            "dataBase64": "YWJjZGVmZ2g=",
+            "mediaType": "audio/mpeg",
+            "path": "$FIXTURE_ROOT/files/song.mp3",
+            "size": 8
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/song.mp3",
+        "expectedKind": "video",
+        "result": {
+          "ok": false,
+          "message": "Unsupported media preview format: $FIXTURE_ROOT/files/song.mp3"
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/CLIP.MP4",
+        "expectedKind": "video",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "inline",
+            "dataBase64": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBw==",
+            "mediaType": "video/mp4",
+            "path": "$FIXTURE_ROOT/files/CLIP.MP4",
+            "size": 1024
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/notes.txt",
+        "expectedKind": "audio",
+        "result": {
+          "ok": false,
+          "message": "Unsupported media preview format: $FIXTURE_ROOT/files/notes.txt"
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/folder.webm",
+        "expectedKind": "video",
+        "result": {
+          "ok": false,
+          "message": "Path is not a media file: $FIXTURE_ROOT/files/folder.webm"
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/gone.mp3",
+        "expectedKind": "audio",
+        "result": {
+          "ok": false
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/exact.wav",
+        "expectedKind": "audio",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "inline",
+            "dataBase64": "sha256:5f05925957257370e24aa48263f3519312cc4c92d12dcb4d9bdd4665ba874c99",
+            "mediaType": "audio/wav",
+            "path": "$FIXTURE_ROOT/files/exact.wav",
+            "size": 8388608
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/over.ogg",
+        "expectedKind": "audio",
+        "result": {
+          "ok": false,
+          "message": "Media file is too large for inline preview: $FIXTURE_ROOT/files/over.ogg"
+        }
+      }
+    ],
+    "localUrl": [
+      {
+        "path": "$FIXTURE_ROOT/files/我的 song#1.mp3",
+        "expectedKind": "audio",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "local-url",
+            "mediaType": "audio/mpeg",
+            "path": "$FIXTURE_ROOT/files/我的 song#1.mp3",
+            "size": 8,
+            "url": "escode-media://local/preview?path=$FIXTURE_ROOT_ENCODED%2Ffiles%2F%E6%88%91%E7%9A%84+song%231.mp3"
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/link-CLIP.MP4",
+        "expectedKind": "video",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "local-url",
+            "mediaType": "video/mp4",
+            "path": "$FIXTURE_ROOT/files/CLIP.MP4",
+            "size": 1024,
+            "url": "escode-media://local/preview?path=$FIXTURE_ROOT_ENCODED%2Ffiles%2FCLIP.MP4"
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/big.mp4",
+        "expectedKind": "video",
+        "result": {
+          "ok": true,
+          "value": {
+            "kind": "local-url",
+            "mediaType": "video/mp4",
+            "path": "$FIXTURE_ROOT/files/big.mp4",
+            "size": 8388609,
+            "url": "escode-media://local/preview?path=$FIXTURE_ROOT_ENCODED%2Ffiles%2Fbig.mp4"
+          }
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/denied.mp3",
+        "expectedKind": "audio",
+        "result": {
+          "ok": false,
+          "message": "path not authorized"
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/notes.txt",
+        "expectedKind": "audio",
+        "result": {
+          "ok": false,
+          "message": "Unsupported media preview format: $FIXTURE_ROOT/files/notes.txt"
+        }
+      },
+      {
+        "path": "$FIXTURE_ROOT/files/我的 song#1.mp3",
+        "expectedKind": "video",
+        "result": {
+          "ok": false,
+          "message": "Unsupported media preview format: $FIXTURE_ROOT/files/我的 song#1.mp3"
+        }
+      }
+    ]
+  }
+}

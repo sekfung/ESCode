@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { sse } from "./escode-cli-rust-protocol-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-websearch.md：声明 provider-native 搜索的 Anthropic 模型下，Node 与 Rust 暴露同样的
 // WebSearch 定义、发出同样的内部搜索请求，并把服务端搜索流整理成同样的工具结果。
@@ -206,8 +207,8 @@ async function observe(
 }
 
 test("Node and Rust expose and run provider-native WebSearch the same way", async () => {
-  const node = await observe("node", true);
-  const rust = await observe("rust", true);
+  const node = await nodeOracle("native", () => observe("node", true));
+  const rust = canonical(await observe("rust", true));
   // 自检：Node 暴露 WebSearch、发出内部搜索请求并把服务端流整理成带链接的结果。
   assert.ok(node.definition, JSON.stringify(node.names));
   assert.ok(node.inner, "Node issues the internal search request");
@@ -228,8 +229,8 @@ test("Node and Rust reject allowed_domains with blocked_domains before searching
     allowed_domains: ["tokio.rs"],
     blocked_domains: ["example.com"],
   };
-  const node = await observe("node", true, args);
-  const rust = await observe("rust", true, args);
+  const node = await nodeOracle("domains", () => observe("node", true, args));
+  const rust = canonical(await observe("rust", true, args));
   assert.equal(node.inner, undefined, "Node must not issue the internal search request");
   assert.match(text(node.toolResult?.content), /cannot both be specified/);
   assert.equal(rust.inner, undefined);
@@ -237,8 +238,8 @@ test("Node and Rust reject allowed_domains with blocked_domains before searching
 });
 
 test("Node and Rust hide WebSearch when the model has no native search", async () => {
-  const node = await observe("node", false);
-  const rust = await observe("rust", false);
+  const node = await nodeOracle("no-native", () => observe("node", false));
+  const rust = canonical(await observe("rust", false));
   assert.ok(!node.names.includes("WebSearch"), JSON.stringify(node.names));
   assert.deepEqual(rust.names, node.names);
 });

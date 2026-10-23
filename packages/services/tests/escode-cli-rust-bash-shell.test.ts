@@ -4,6 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-shell-snapshot.md：用户 ~/.bashrc 的函数与 alias 经 shell 初始化快照可用；
 // 出错行号、离开工作区时的 cwd 重置提示与 Node 一致（临时目录名按占位比较）。
@@ -85,8 +86,8 @@ test(
   "Bash sees the user's shell init and reports cwd and errors the same way as Node",
   { skip: windows && "Git Bash snapshot creation sits at TS's 10s timeout on Windows" },
   async () => {
-    const node = await observe("node");
-    const rust = await observe("rust");
+    const node = await nodeOracle("observe", () => observe("node"));
+    const rust = await canonical(await observe("rust"));
     assert.equal(node.length, CALLS.length);
     assert.equal(node[0], "hello world");
     assert.equal(node[1], "from-alias");

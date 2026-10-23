@@ -1,14 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, mkdtemp, realpath, rename, rm, writeFile } from "node:fs/promises";
+import {
+  appendFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFileWatcherService } from "@escode/services/node";
-import type { IFileWatcherService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-file-watcher.md §5.1 TS oracle 差分：同一脚本分别驱动真实 TS `createFileWatcherService()`
-// （node:fs watch）与 Rust Host 的 `file-watcher` channel（真实 `@escode/client`），比较每个场景收到的事件序列。
+// Phase 3 golden freeze：原「真实 TS `createFileWatcherService()`（node:fs watch）VS Rust Host」的
+// 差分观察已冻结为仓内资产（packages/desktop/test/fixtures/golden/rustHostFileWatcher.oracle.json）。
+// 测试不再实例化 TS 服务，删除 TS 实现后仍能独立重验 Rust Host 的 `file-watcher` channel
+// （真实 `@escode/client`）。
+const goldenFile = new URL("./fixtures/golden/rustHostFileWatcher.oracle.json", import.meta.url);
+
+type FileWatcherService = Awaited<ReturnType<typeof connectRpc>>["fileWatcherService"];
+
+// docs/specs/rust-u2-file-watcher.md §5.1 差分：同一脚本驱动 Rust Host 的 `file-watcher` channel，
+// 每个场景收到的事件序列对冻结的 TS 观察逐项全等。
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** 防抖 150 ms + 余量。 */
@@ -17,7 +32,7 @@ const SETTLE_MS = 700;
 type Act = (dir: string) => Promise<void>;
 
 async function scenario(
-  service: IFileWatcherService,
+  service: FileWatcherService,
   root: string,
   name: string,
   recursive: boolean,
@@ -40,7 +55,7 @@ async function scenario(
   return events;
 }
 
-async function drive(service: IFileWatcherService, root: string): Promise<Record<string, unknown>> {
+async function drive(service: FileWatcherService, root: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   out.create = await scenario(service, root, "create", false, (d) =>
     writeFile(join(d, "b.txt"), "x"),
@@ -125,29 +140,21 @@ describe("rust host file-watcher domain", () => {
       const home = join(base, "home");
       const host = startHost(home);
       try {
-        const rootTs = join(base, "ts");
-        const rootRust = join(base, "rust");
-        await mkdir(rootTs, { recursive: true });
-        await mkdir(rootRust, { recursive: true });
+        const root = join(base, "work");
+        await mkdir(root, { recursive: true });
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
         const listening = await nextMeaningful(host);
         expect(listening.kind).toBe("rpcListening");
         const services = await connectRpc(String(listening.addr), String(listening.secret));
 
-        const expected = JSON.parse(
-          JSON.stringify(await drive(createFileWatcherService(), rootTs))
-            .split(rootTs)
-            .join("<ROOT>"),
-        );
-        const actual = JSON.parse(
-          JSON.stringify(
-            await drive(services.fileWatcherService as unknown as IFileWatcherService, rootRust),
-          )
-            .split(rootRust)
-            .join("<ROOT>"),
-        );
-        expect(actual).toEqual(expected);
+        // 冻结观察中的绝对临时路径统一写成 $FIXTURE_ROOT；替换成本次运行的工作根后逐字段比较。
+        const golden = JSON.parse(
+          (await readFile(goldenFile, "utf8")).split("$FIXTURE_ROOT").join(root),
+        ) as { expected: Record<string, unknown> };
+
+        const actual = await drive(services.fileWatcherService, root);
+        expect(actual).toEqual(golden.expected);
       } finally {
         await host.stop();
         await rm(base, { recursive: true, force: true });

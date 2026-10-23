@@ -3,11 +3,19 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { escodeWorkspaceUpdateInteractionPreferencesResultSchema } from "@escode/shared";
-import { askUserQuestionToolEntry } from "../../../apps/escode-cli/packages/core/src/tool/handlers/ask-user-question.js";
-import { AskUserQuestionInputSchema } from "../../../apps/escode-cli/packages/contracts/src/tools/ask-user-question.js";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 type Message = Record<string, any>;
+const askUserQuestionModule =
+  "../../../apps/escode-cli/packages/core/src/tool/handlers/ask-user-question.js";
+const askUserQuestionInputModule =
+  "../../../apps/escode-cli/packages/contracts/src/tools/ask-user-question.js";
+// 仅在录制 golden 时加载 TS 源码；正常跑只读冻结观察，不执行 TS 实现。
+async function askFormat(input: Message) {
+  const { askUserQuestionToolEntry } = await import(askUserQuestionModule);
+  return askUserQuestionToolEntry.formatModelContent!(input);
+}
 const questions = [
   {
     question: "Which layout?",
@@ -132,8 +140,15 @@ async function preference(h: Harness, enabled: boolean) {
 }
 const clockEnv = { ESCODE_ENV: "test", ESCODE_E2E_ASK_USER_QUESTION_CLOCK_SCALE: "100" };
 
+type AnswerCase = {
+  answer: Message;
+  expected?: Record<string, unknown>;
+  single?: boolean;
+  error?: string;
+};
+
 test("Rust AskUserQuestion matches TS normalization/formatting for partial, skipped, legacy and declined answers", async () => {
-  const cases = [
+  const cases: AnswerCase[] = [
     {
       answer: { action: "accept", content: { answers: { "Which layout?": "Grid" } } },
       expected: { "Which layout?": "Grid" },
@@ -151,7 +166,20 @@ test("Rust AskUserQuestion matches TS normalization/formatting for partial, skip
     { answer: { action: "decline" }, error: "declined" },
     { answer: { action: "cancel" }, error: "cancelled" },
   ];
-  for (const c of cases) {
+  // TS handler 的模型可见文案：只录制一次，正常跑读冻结值。
+  const formatted = await nodeOracle("format", async () => {
+    const out: (string | null)[] = [];
+    for (const c of cases) {
+      if (c.error) {
+        out.push(null);
+        continue;
+      }
+      const questionsForCase = c.single ? [questions[0]!] : questions;
+      out.push(await askFormat({ questions: questionsForCase, answers: c.expected! }));
+    }
+    return out;
+  });
+  for (const [index, c] of cases.entries()) {
     const input = { questions: c.single ? [questions[0]] : questions };
     const f = await questionFixture(input);
     try {
@@ -166,14 +194,7 @@ test("Rust AskUserQuestion matches TS normalization/formatting for partial, skip
       await h.completed(id);
       const output = f.requests[1]!.messages.at(-1).content;
       if (c.error) assert.match(output, new RegExp(c.error));
-      else
-        assert.equal(
-          output,
-          askUserQuestionToolEntry.formatModelContent!({
-            questions: input.questions,
-            answers: c.expected,
-          }),
-        );
+      else assert.equal(canonical(output), formatted[index]);
       const current = await snapshot(h, id);
       assert.deepEqual(current.pendingInteractions, []);
       assert.deepEqual(h.schemaErrors, []);
@@ -216,8 +237,24 @@ test("Rust question validation agrees with TS and never announces invalid questi
       }),
     ),
   ];
-  for (const input of invalid) {
-    assert.equal(AskUserQuestionInputSchema.safeParse(input).success, false);
+  // TS 侧校验结论（是否合法、是否只有 refine/annotations 规则拒绝）冻结为观察。
+  const validation = await nodeOracle("validation", async () => {
+    const { AskUserQuestionInputSchema } = await import(askUserQuestionInputModule);
+    return invalid.map((input) => {
+      const parsed = AskUserQuestionInputSchema.safeParse(input);
+      return {
+        success: parsed.success,
+        refineOnly:
+          !parsed.success &&
+          parsed.error.issues.every(
+            (issue: any) => issue.code === "custom" || issue.path[0] === "annotations",
+          ),
+      };
+    });
+  });
+  for (const [index, input] of invalid.entries()) {
+    const verdict = validation[index]!;
+    assert.equal(verdict.success, false);
     const f = await questionFixture(input);
     try {
       const h = f.start();
@@ -227,9 +264,7 @@ test("Rust question validation agrees with TS and never announces invalid questi
       await h.completed(id);
       // 结构问题以工具失败收口（JSON Schema 校验）；JSON Schema 查不到的问题（refine 与 annotations 的值）
       // 与 TS 交互 broker 一样直接拒绝（docs/specs/rust-user-questions.md「入参 refine 失败」）。
-      const refineOnly = AskUserQuestionInputSchema.safeParse(input).error!.issues.every(
-        (issue) => issue.code === "custom" || issue.path[0] === "annotations",
-      );
+      const refineOnly = verdict.refineOnly;
       const content = f.requests[1]!.messages.at(-1).content;
       const rows = (await h.rows(id)).rows.filter((r) => r.kind === "toolCall");
       assert.deepEqual(
@@ -441,6 +476,7 @@ for (const action of ["stop", "startNow", "EOF", "deleteSession"] as const)
   });
 
 test("Rust question countdown becomes visible then explicitly skips with no invented preference", async () => {
+  const skipped = await nodeOracle("countdown", () => askFormat({ questions, answers: {} }));
   const f = await questionFixture({ questions }, 1, clockEnv);
   try {
     const h = f.start();
@@ -456,10 +492,7 @@ test("Rust question countdown becomes visible then explicitly skips with no inve
       ),
     );
     await h.completed(id);
-    assert.equal(
-      f.requests[1]!.messages.at(-1).content,
-      askUserQuestionToolEntry.formatModelContent!({ questions, answers: {} }),
-    );
+    assert.equal(canonical(f.requests[1]!.messages.at(-1).content), skipped);
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();

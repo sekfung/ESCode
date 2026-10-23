@@ -1,8 +1,12 @@
-//! hooks 域差分：真实 TS `createHooksService()` 作 oracle，经真实 `@escode/client` 调 Rust Host。
+//! hooks 域差分：冻结的 TS `createHooksService()` 观察作 oracle，经真实 `@escode/client` 调 Rust Host。
+//!
+//! Phase 3 golden freeze：测试不再实例化 TS 服务，改为回放
+//! `fixtures/golden/rustHostHooksParity.oracle.json` 中冻结的配置与观察；
+//! 删除 TS 实现后仍能独立重验 Rust Host。
 //!
 //! 覆盖（docs/specs/rust-u2-hooks.md §9）：
-//! - L4：同一批 TS 写出的配置，Rust `loadHooks` 与 TS `loadHooks` 结构全等（`discoveredAt` 除外）；
-//! - L5：同一 Hook[] 分别由 TS/Rust `saveHooks` 写回，两份文件逐字节一致；
+//! - L4：同一批 TS 写出的配置，Rust `loadHooks` 与冻结的 TS `loadHooks` 结构全等（`discoveredAt` 除外）；
+//! - L5：同一 Hook[] 由 Rust `saveHooks` 写回，与冻结的 TS 落盘文件逐字节一致；
 //! - 存量读入：TS 写出的 config / trust store 被 Rust 读入；
 //! - 真实客户端错误路径与 grant 转发（最小 workflow host 桩）。
 import { describe, expect, it } from "vitest";
@@ -10,15 +14,30 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createHooksService } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
 const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
 
+// 冻结的 TS 观察：绝对临时根统一写成 `$FIXTURE_ROOT`，运行时替换为本次临时根。
+const goldenFile = new URL("./fixtures/golden/rustHostHooksParity.oracle.json", import.meta.url);
+
+interface Golden {
+  expected: {
+    loaded: Record<string, unknown> & {
+      workspaceHookSnapshot: {
+        bundleDigest: string;
+        hooks: Array<{ hookDeclarationDigest: string }>;
+      };
+    };
+    trusted: Record<string, unknown>;
+    saved: { userConfig: string; projectConfig: string };
+  };
+}
+
 function normalize(result: Record<string, unknown>): Record<string, unknown> {
   // 线上语义是 JSON：TS 对象里的 `undefined` 属性不会出现在 RPC 应答中；
-  // 先过一遍 JSON 去掉它们，再替换自然生成的时间戳。
+  // 先过一遍 JSON 去掉它们，再替换自然生成的时间戳（与生成脚本一致）。
   const wire = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
   const snapshot = wire.workspaceHookSnapshot as Record<string, unknown> | undefined;
   return {
@@ -63,11 +82,13 @@ const fixtureHooks = [
 ];
 
 describe.skipIf(!existsSync(hostBinary))("rust host hooks parity", () => {
-  it("matches the TypeScript service and reads/writes the same files", async () => {
+  it("matches the frozen TypeScript observations and reads/writes the same files", async () => {
     const root = await mkdtemp(join(tmpdir(), "escode-rust-hooks-"));
     const home = join(root, "home");
     const workspace = join(root, "workspace");
     const dataBaseDir = join(root, "data");
+    const userConfigPath = join(home, ".escode", "cli", "config.json");
+    const projectConfigPath = join(workspace, ".escode", "config.json");
     for (const path of [home, workspace, dataBaseDir]) await mkdir(path, { recursive: true });
     const stub = join(root, "workflow-host.cjs");
     await writeFile(
@@ -89,14 +110,15 @@ rl.on("line", (line) => {
     );
     process.env.HOME = home;
     process.env.USERPROFILE = home;
-    const ts = createHooksService();
-    // TS 写出的存量文件（未知键 features 必须保留）。
+    const golden = JSON.parse(
+      (await readFile(goldenFile, "utf8")).split("$FIXTURE_ROOT").join(root),
+    ) as Golden;
+
+    // 回放 TS 写出的存量文件（冻结的 L5 基线；未知键 features 必须保留）。
     await mkdir(join(home, ".escode", "cli"), { recursive: true });
-    await writeFile(
-      join(home, ".escode", "cli", "config.json"),
-      JSON.stringify({ features: { mcp: true } }),
-    );
-    await ts.saveHooks({ workspacePath: workspace, hooks: fixtureHooks } as never);
+    await mkdir(join(workspace, ".escode"), { recursive: true });
+    await writeFile(userConfigPath, golden.expected.saved.userConfig);
+    await writeFile(projectConfigPath, golden.expected.saved.projectConfig);
 
     const host = startHost(home);
     try {
@@ -114,50 +136,39 @@ rl.on("line", (line) => {
       const listening = await nextMeaningful(host);
       const services = await connectRpc(String(listening.addr), String(listening.secret));
 
-      // L4 + 存量读入：TS 写、Rust/TS 各读一次，除 generatedAt 外全等。
+      // L4 + 存量读入：TS 写、Rust 读，除 discoveredAt 外与冻结 TS 观察全等。
       const rustLoaded = (await services.hooksService.loadHooks({
         workspacePath: workspace,
         workspaceIdentity: workspace,
       } as never)) as Record<string, unknown>;
-      const tsLoaded = (await ts.loadHooks({
-        workspacePath: workspace,
-        workspaceIdentity: workspace,
-      })) as unknown as Record<string, unknown>;
-      expect(normalize(rustLoaded)).toEqual(normalize(tsLoaded));
+      expect(normalize(rustLoaded)).toEqual(golden.expected.loaded);
       expect(rustLoaded.workspaceHookSnapshot).toBeDefined();
 
-      // L5：重置后 TS/Rust 各写一次，逐字节比较。
-      await rm(join(home, ".escode", "cli", "config.json"));
+      // L5：重置后 Rust 写一次，与冻结的 TS 落盘文件逐字节比较。
+      await rm(userConfigPath);
       await rm(join(workspace, ".escode"), { recursive: true, force: true });
       await mkdir(join(home, ".escode", "cli"), { recursive: true });
-      await writeFile(
-        join(home, ".escode", "cli", "config.json"),
-        JSON.stringify({ features: { mcp: true } }),
-      );
+      await writeFile(userConfigPath, JSON.stringify({ features: { mcp: true } }));
       await services.hooksService.saveHooks({
         workspacePath: workspace,
         workspaceIdentity: workspace,
         hooks: fixtureHooks,
       } as never);
-      const rustUser = await readFile(join(home, ".escode", "cli", "config.json"), "utf8");
-      const rustProject = await readFile(join(workspace, ".escode", "config.json"), "utf8");
+      const rustUser = await readFile(userConfigPath, "utf8");
+      const rustProject = await readFile(projectConfigPath, "utf8");
+      expect(rustUser).toBe(golden.expected.saved.userConfig);
+      expect(rustProject).toBe(golden.expected.saved.projectConfig);
 
-      await rm(join(home, ".escode", "cli", "config.json"));
+      // 恢复 TS 写出的配置，继续存量读入场景。
+      await rm(userConfigPath);
       await rm(join(workspace, ".escode"), { recursive: true, force: true });
       await mkdir(join(home, ".escode", "cli"), { recursive: true });
-      await writeFile(
-        join(home, ".escode", "cli", "config.json"),
-        JSON.stringify({ features: { mcp: true } }),
-      );
-      await ts.saveHooks({ workspacePath: workspace, hooks: fixtureHooks } as never);
-      expect(rustUser).toBe(await readFile(join(home, ".escode", "cli", "config.json"), "utf8"));
-      expect(rustProject).toBe(await readFile(join(workspace, ".escode", "config.json"), "utf8"));
+      await mkdir(join(workspace, ".escode"), { recursive: true });
+      await writeFile(userConfigPath, golden.expected.saved.userConfig);
+      await writeFile(projectConfigPath, golden.expected.saved.projectConfig);
 
       // trust store 存量读入：TS 形状的持久信任命中。
-      const snapshot = rustLoaded.workspaceHookSnapshot as {
-        bundleDigest: string;
-        hooks: Array<{ hookDeclarationDigest: string }>;
-      };
+      const snapshot = golden.expected.loaded.workspaceHookSnapshot;
       const digest = snapshot.hooks[0].hookDeclarationDigest;
       await mkdir(join(home, ".escode", "security"), { recursive: true });
       await writeFile(
@@ -184,12 +195,8 @@ rl.on("line", (line) => {
       } as never)) as {
         hooks: Array<{ workspaceHook?: { trustState?: string } }>;
       };
-      const tsTrusted = (await ts.loadHooks({
-        workspacePath: workspace,
-        workspaceIdentity: workspace,
-      })) as unknown as { hooks: Array<{ workspaceHook?: { trustState?: string } }> };
       expect(normalize(rustTrusted as unknown as Record<string, unknown>)).toEqual(
-        normalize(tsTrusted as unknown as Record<string, unknown>),
+        golden.expected.trusted,
       );
       expect(rustTrusted.hooks[0]?.workspaceHook?.trustState).toBe("trusted_persistent");
 

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 4 期（选项面）：user / workspace 两层配置合并（dirs 并集、options 按 key）、
 // plugins/list 的 enabledSource / optionSources / rootSource / configuredOptions（剔除 sensitive）/ userConfig，
@@ -169,8 +170,8 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust merge, report and write plugin options the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
   }

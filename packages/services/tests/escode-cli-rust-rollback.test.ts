@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
-import type { MessageId, PartId, ProjectId, SessionId, WorkspaceId } from "@escode/contracts";
+import { DatabaseSync } from "node:sqlite";
 import { fixture } from "./escode-cli-rust-fixture.js";
+import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 
 /** 源库与 TS 侧文件的字节指纹：回退的前提是 Rust 只读、不改写 TS 的数据。 */
 async function digest(path: string): Promise<string> {
@@ -20,47 +20,9 @@ test("Rust import leaves TS storage byte-identical and frees the workspace for r
   const f = await fixture({ legacy: true });
   try {
     const tsDb = join(f.root, "ts.sqlite");
-    const store = createSqliteSessionStore({ dbPath: tsDb });
-    const id = "rollback-session" as SessionId;
-    const messageID = "rollback-user" as MessageId;
-    await store.createSession({
-      id,
-      projectID: "p" as ProjectId,
-      workspaceID: f.cwd as WorkspaceId,
-      directory: f.cwd,
-      slug: "rollback",
-      title: "rollback",
-      version: "fixture",
-    });
-    await store.saveSessionEntry({
-      id: "rollback-model",
-      sessionID: id,
-      type: "runtime/model_selection",
-      time: { created: 1, updated: 1 },
-      data: { providerId: "fixture", modelId: "core-model", options: { reasoningLevel: "none" } },
-    });
-    await store.saveSessionEntry({
-      id: "rollback-mode",
-      sessionID: id,
-      type: "runtime/execution_state",
-      time: { created: 1, updated: 1 },
-      data: { mode: "yolo", planEnabled: false },
-    });
-    await store.saveMessage({
-      id: messageID,
-      sessionID: id,
-      role: "user",
-      time: { created: 1 },
-      agent: "main",
-    });
-    await store.savePart({
-      id: "rollback-text" as PartId,
-      sessionID: id,
-      messageID,
-      type: "text",
-      text: "ts history survives rollback",
-    });
-    store.close();
+    const id = "rollback-session";
+    // 真实 TS store 写出的库已冻结为仓内种子；正常跑不再加载 TS storage。
+    await copyLegacySeed("rollback.session", tsDb, { workspace: f.cwd, root: f.root });
     const before = await digest(tsDb);
 
     // 第一次：Rust 导入并在自己的存储里跑一轮会话。
@@ -71,11 +33,17 @@ test("Rust import leaves TS storage byte-identical and frees the workspace for r
     await first.close();
     assert.equal(await digest(tsDb), before, "Rust import mutated the TS source database");
 
-    // 源库仍可被 TS 侧读取（回退后 Node 继续用同一份数据）。
-    const reopened = createSqliteSessionStore({ dbPath: tsDb });
-    const sessions = await reopened.listSessions({ directory: f.cwd } as never).catch(() => null);
-    if (sessions) assert(sessions.some((s: { id: string }) => s.id === id));
-    reopened.close();
+    // 源库仍按 TS schema 可读（回退后 Node 继续用同一份数据）：直接读原始 SQLite，
+    // 不引入 TS storage 实现。
+    const reopened = new DatabaseSync(tsDb, { readOnly: true });
+    try {
+      const row = reopened
+        .prepare("SELECT id FROM session WHERE COALESCE(NULLIF(TRIM(workspace_id),''),directory)=?")
+        .get(f.cwd) as { id: string } | undefined;
+      assert.equal(row?.id, id);
+    } finally {
+      reopened.close();
+    }
 
     // 第二次：workspace 未被上一次运行占用（owner lock 已释放），会话可继续被读到。
     const second = f.start();
@@ -103,10 +71,7 @@ test("Rust storage stays readable after the process exits", async () => {
     await first.close();
 
     // 直接读 Rust 的库：结构化事实确实落盘（回退后可由 Rust runtime 重新打开）。
-    const db = new (await import("node:sqlite")).DatabaseSync(
-      join(f.dataDir, "rust-sessions.sqlite"),
-      { readOnly: true },
-    );
+    const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"), { readOnly: true });
     try {
       const row = db.prepare("SELECT body FROM rust_session WHERE id=?").get(id) as
         | { body: string }

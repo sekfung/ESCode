@@ -1,0 +1,10 @@
+{
+  "ackMode": "resume",
+  "payloadKind": "deltas",
+  "deliveryKind": "initial",
+  "fromSeq": 0,
+  "reachesLatest": true,
+  "coversRange": true,
+  "opKinds": ["row.appended", "row.upserted", "state.updated"],
+  "schemaErrors": []
+}

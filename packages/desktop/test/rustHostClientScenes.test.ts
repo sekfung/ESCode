@@ -1,22 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir, version as osVersion } from "node:os";
 import { join } from "node:path";
 import { ESCODE_ENV, ESCODE_VERSION } from "@escode/shared";
-import { createClientScenesService, createNodeApiClient } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-client-config.md §5 S1：本地 HTTP 桩作 Endpoint，真实 TS `createClientScenesService` + `createNodeApiClient`
-// 与 Rust Host 的 `client-scenes.list` 对同一桩求值——请求路径/头集合与应答/错误逐项相等。
+// Phase 3 golden freeze：TS `createClientScenesService` + `createNodeApiClient` 的请求路径/头集合与
+// 应答/错误观察已冻结（packages/desktop/test/fixtures/golden/rustHostClientScenes.oracle.json）。
+// 测试不再实例化 TS 服务，删除 TS 实现后仍能独立重验 Rust Host 的 `client-scenes` channel。
+const goldenFile = new URL("./fixtures/golden/rustHostClientScenes.oracle.json", import.meta.url);
+
+// docs/specs/rust-u2-client-config.md §5 S1：本地 HTTP 桩作 Endpoint，Rust Host 的
+// `client-scenes.list` 对同一桩求值——请求路径/头集合与应答/错误逐项等于冻结观察。
 
 type Mode = "ok" | "http-error" | "text-error" | "bad-json" | "business-error";
 
 interface Seen {
   url: string;
   headers: IncomingHttpHeaders;
+}
+
+type Outcome =
+  | { ok: true; value: unknown }
+  | { ok: false; name?: string; message?: string; status?: number };
+
+interface ScenesGolden {
+  modes: Array<{
+    mode: Mode;
+    result: Outcome;
+    url: string;
+    headers: Record<string, string>;
+  }>;
 }
 
 const SCENES = {
@@ -88,7 +105,7 @@ async function outcome<T>(run: () => Promise<T>) {
   }
 }
 
-/** 只比较与来源头相关的头；`x-request-id` 只校验是 UUID，`x-device-mid` 取决于本机状态文件，不参与。 */
+/** 只比较与来源头相关的头；`x-device-mid` 取决于本机状态文件，不参与。 */
 function relevant(headers: IncomingHttpHeaders): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
@@ -107,19 +124,36 @@ function relevant(headers: IncomingHttpHeaders): Record<string, string> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** 冻结观察里的占位符按本次运行环境展开（与生成脚本的归一化一一对应）。 */
+function expandGolden(raw: string, base: string, stubOrigin: string): ScenesGolden {
+  const replacements: Record<string, string> = {
+    $FIXTURE_ROOT: base,
+    $STUB_ORIGIN: stubOrigin,
+    $APP_VERSION: ESCODE_VERSION,
+    $PLATFORM: `${process.platform}-${process.arch}`,
+    $RELEASE_CHANNEL: ESCODE_ENV,
+    $CLIENT_LANGUAGE: Intl.DateTimeFormat().resolvedOptions().locale,
+    $CLIENT_TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    $OS_CATEGORY:
+      process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux",
+    $OS_VERSION: osVersion(),
+  };
+  let expanded = raw;
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    expanded = expanded.split(placeholder).join(value);
+  }
+  return JSON.parse(expanded) as ScenesGolden;
+}
+
 describe("rust host client-scenes (S1)", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "matches the TS service for requests, source headers, responses and errors",
+    "matches the frozen TS observations for requests, source headers, responses and errors",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-scenes-")));
       const home = join(base, "home");
       await mkdir(home, { recursive: true });
       const stub = await startStub();
-      const language = Intl.DateTimeFormat().resolvedOptions().locale;
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const tsService = createClientScenesService({
-        apiClient: createNodeApiClient({ resolveESCodeEndpointOrigin: () => stub.origin }),
-      });
+      const golden = expandGolden(await readFile(goldenFile, "utf8"), base, stub.origin);
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
@@ -131,8 +165,8 @@ describe("rust host client-scenes (S1)", () => {
             ESCODE_APP_VERSION: ESCODE_VERSION,
             ESCODE_ENV,
             ESCODE_ENDPOINT_ORIGIN: stub.origin,
-            ESCODE_CLIENT_LANGUAGE: language,
-            ESCODE_CLIENT_TIMEZONE: timezone,
+            ESCODE_CLIENT_LANGUAGE: Intl.DateTimeFormat().resolvedOptions().locale,
+            ESCODE_CLIENT_TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
             ESCODE_OS_VERSION: osVersion(),
             ESCODE_BUILTIN_CACHE_ROOT: base,
           },
@@ -140,44 +174,30 @@ describe("rust host client-scenes (S1)", () => {
         const listening = await nextMeaningful(host);
         const services = await connectRpc(String(listening.addr), String(listening.secret));
 
-        for (const mode of [
-          "ok",
-          "business-error",
-          "http-error",
-          "text-error",
-          "bad-json",
-        ] as const) {
+        for (const expected of golden.modes) {
+          const mode = expected.mode;
           stub.setMode(mode);
           stub.seen.length = 0;
-          const expected = await outcome(() => tsService.list());
           const actual = await outcome(() => services.clientScenesService.list());
           if (mode === "bad-json") {
             // 登记差异（spec §6 ⑤）：JSON 解析错误的文案是 V8 与 serde 各自的措辞，只比较类别与状态码。
             expect(actual).toMatchObject({ ok: false, name: "ApiError", status: 200 });
-            expect(expected).toMatchObject({ ok: false, name: "ApiError", status: 200 });
             expect((actual as { message: string }).message.length).toBeGreaterThan(0);
+            expect(expected.result).toMatchObject({ ok: false, name: "ApiError", status: 200 });
           } else {
-            expect({ mode, result: actual }).toEqual({ mode, result: expected });
+            expect({ mode, result: actual }).toEqual({ mode, result: expected.result });
           }
 
-          expect(stub.seen).toHaveLength(2);
-          const [tsRequest, rustRequest] = stub.seen;
-          expect(rustRequest!.url, mode).toBe(tsRequest!.url);
-          expect(rustRequest!.url).toBe("/api/v1/client/scenes");
-          const [tsHeaders, rustHeaders] = [
-            relevant(tsRequest!.headers),
-            relevant(rustRequest!.headers),
-          ];
-          for (const headers of [tsHeaders, rustHeaders]) {
-            expect(headers["x-request-id"], mode).toMatch(UUID);
-            delete headers["x-request-id"];
-          }
-          expect({ mode, headers: rustHeaders }).toEqual({ mode, headers: tsHeaders });
-          // 无凭据：任何一边都不带 Authorization / Cookie。
-          for (const request of stub.seen) {
-            expect(request.headers.authorization).toBeUndefined();
-            expect(request.headers.cookie).toBeUndefined();
-          }
+          expect(stub.seen).toHaveLength(1);
+          const rustRequest = stub.seen[0]!;
+          expect(rustRequest.url, mode).toBe(expected.url);
+          const rustHeaders = relevant(rustRequest.headers);
+          expect(rustHeaders["x-request-id"], mode).toMatch(UUID);
+          delete rustHeaders["x-request-id"];
+          expect({ mode, headers: rustHeaders }).toEqual({ mode, headers: expected.headers });
+          // 无凭据：不带 Authorization / Cookie。
+          expect(rustRequest.headers.authorization).toBeUndefined();
+          expect(rustRequest.headers.cookie).toBeUndefined();
         }
       } finally {
         await host.stop();

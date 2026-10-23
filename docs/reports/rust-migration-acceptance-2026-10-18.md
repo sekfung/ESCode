@@ -269,6 +269,13 @@ spec 引用行号漂移：`rust-u2-tasks-index.md` §6.1 的 TS 行号整体偏 
 
 ## 8. TS oracle 依赖清单（golden freeze）
 
+> 2026-10-24 更新：本节的 desktop Host 与 CLI 确定性 oracle 已冻结，见
+> `docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md` §2.3。全部
+> `packages/desktop/test/rustHost*.test.ts` 不再 import `@escode/services`；156 个
+> `escode-cli-rust-*.test.ts` 正常跑只启动 Rust（goldens + gzip seed）。仍待：
+> `installed` 四平台演练的 release CI 实跑证据，以及仅 Windows 的
+> `shell-resume-notice` golden 重录。下表保留为冻结前的历史盘点。
+
 ### 当前依赖
 
 | 类别                       | 数量/位置                                                                                          | 说明                                                                                                                                                                    |

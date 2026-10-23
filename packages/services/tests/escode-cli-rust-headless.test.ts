@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { binary, fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-headless-prompt.md：同一模型夹具与 Provider Registry 下分别运行 Node `escode.cjs -p` 与 Rust `-p`，
 // 比较 stdout / stderr / 退出码。各 runtime 用独立的 HOME（会话库互不影响），模型回复只由请求内容决定。
@@ -108,16 +109,13 @@ function comparable(stdout: string) {
   };
 }
 
-test("headless -p prints the same results and errors on Node and Rust", async () => {
+/** 同一 runtime 依次执行全部参数组合（`-c` 依赖同一 HOME 的上一轮），返回可冻结的观察。 */
+async function observe(kind: Runtime) {
   const { f, root, run } = await setup();
   try {
-    // text / json / 带工具的轮次 / 审批被拒的工具 / -c 续接，两侧逐项比较。
-    for (const args of [["-p", "hi there"]]) {
-      const [node, rust] = [await run("node", args), await run("rust", args)];
-      assert.equal(node.code, 0, node.stderr);
-      assert.deepEqual(rust, node);
-    }
-    const sessions: Record<Runtime, string[]> = { node: [], rust: [] };
+    const text = await run(kind, ["-p", "hi there"]);
+    const json: { args: string; code: number | null; output: ReturnType<typeof comparable> }[] = [];
+    const sessions: string[] = [];
     for (const args of [
       ["-p", "plain json", "--output-format", "json"],
       ["-p", "please read it", "--json"],
@@ -126,21 +124,11 @@ test("headless -p prints the same results and errors on Node and Rust", async ()
       ["-p", "please write it", "--output-format", "json"],
       ["-p", "again", "-c", "--output-format", "json"],
     ]) {
-      const results = { node: await run("node", args), rust: await run("rust", args) };
-      assert.equal(results.node.code, 0, `${args.join(" ")}: ${results.node.stderr}`);
-      assert.equal(results.rust.code, 0, `${args.join(" ")}: ${results.rust.stderr}`);
-      assert.deepEqual(
-        comparable(results.rust.stdout),
-        comparable(results.node.stdout),
-        args.join(" "),
-      );
-      for (const kind of ["node", "rust"] as const)
-        sessions[kind].push(JSON.parse(results[kind].stdout).sessionId);
+      const result = await run(kind, args);
+      json.push({ args: args.join(" "), code: result.code, output: comparable(result.stdout) });
+      sessions.push(JSON.parse(result.stdout).sessionId);
     }
-    // -c 续接上一个会话（两侧同样）。
-    for (const kind of ["node", "rust"] as const)
-      assert.equal(sessions[kind][4], sessions[kind][3], kind);
-    // 参数错误：退出码与 stderr 首行一致。
+    const errors: { args: string; code: number | null; stderrFirst: string; stdout: string }[] = [];
     for (const args of [
       ["-p", ""],
       ["-p", "x", "--output-format", "xml"],
@@ -151,14 +139,40 @@ test("headless -p prints the same results and errors on Node and Rust", async ()
       ["-p", "x", "--disallowed-tools"],
       ["-p"],
     ]) {
-      const [node, rust] = [await run("node", args), await run("rust", args)];
-      const first = (s: string) => s.split("\n")[0];
-      assert.equal(rust.code, node.code, args.join(" "));
-      assert.equal(first(rust.stderr), first(node.stderr), args.join(" "));
-      assert.equal(rust.stdout, node.stdout, args.join(" "));
+      const result = await run(kind, args);
+      errors.push({
+        args: args.join(" "),
+        code: result.code,
+        stderrFirst: result.stderr.split("\n")[0],
+        stdout: result.stdout,
+      });
     }
+    return {
+      // text / json / 带工具的轮次 / 审批被拒的工具 / -c 续接，逐项冻结。
+      text: { code: text.code, stdout: text.stdout, stderr: text.stderr },
+      json,
+      // -c 续接上一个会话：第 5 条 json 的 sessionId 与第 4 条相同。
+      continuationSame: sessions[4] === sessions[3],
+      errors,
+    };
   } finally {
     await f.close();
     await rm(root, { recursive: true, force: true });
   }
+}
+
+test("headless -p prints the same results and errors on Node and Rust", async () => {
+  const node = await nodeOracle("runs", () => observe("node"));
+  const rust = canonical(await observe("rust"));
+  assert.equal(node.text.code, 0, node.text.stderr);
+  assert.deepEqual(rust.text, node.text);
+  for (const entry of node.json) assert.equal(entry.code, 0, entry.args);
+  for (const entry of rust.json) assert.equal(entry.code, 0, entry.args);
+  assert.deepEqual(
+    rust.json.map((entry) => entry.output),
+    node.json.map((entry) => entry.output),
+  );
+  assert.equal(node.continuationSame, true);
+  assert.equal(rust.continuationSame, node.continuationSame);
+  assert.deepEqual(rust.errors, node.errors);
 });

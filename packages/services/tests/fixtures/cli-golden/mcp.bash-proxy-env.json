@@ -1,0 +1,1 @@
+"all_proxy=http://127.0.0.1:9\nall_proxy=http://127.0.0.1:9\nhttp_proxy=http://127.0.0.1:9\nhttp_proxy=http://127.0.0.1:9\nhttps_proxy=http://127.0.0.1:9\nhttps_proxy=http://127.0.0.1:9\nno_proxy=127.0.0.1\nno_proxy=127.0.0.1"

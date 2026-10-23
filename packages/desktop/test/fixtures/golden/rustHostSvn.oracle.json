@@ -1,0 +1,958 @@
+{
+  "_readme": "rustHostSvn.test.ts 的 TS createSvnService 观察冻结（Phase 3 golden freeze）。由真实 createSvnService 生成一次；删除 TS 后测试只加载本资产。$FIXTURE_ROOT 由测试替换为当前临时根目录，仓库 URL 根由 $FIXTURE_ROOT_URL 替换；repository UUID、日期、作者、锁 owner、svn 路径/版本与 shelf createdAt 已归一化。",
+  "expected": {
+    "info": {
+      "ok": {
+        "availability": {
+          "status": "available",
+          "version": "<SVN_VERSION>",
+          "binaryPath": "<SVN_BINARY>"
+        },
+        "isWorkingCopy": true,
+        "wcRoot": "$FIXTURE_ROOT/wc",
+        "url": "$FIXTURE_ROOT_URL/repo/trunk",
+        "repositoryRoot": "$FIXTURE_ROOT_URL/repo",
+        "repositoryUuid": "<REPOSITORY_UUID>",
+        "revision": 3,
+        "branch": {
+          "kind": "trunk",
+          "name": "trunk",
+          "relativePath": "trunk"
+        },
+        "canSwitch": true
+      }
+    },
+    "changes": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": "del.txt",
+            "status": "missing",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "img.bin",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": true
+          },
+          {
+            "path": "new.txt",
+            "status": "unversioned",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 2,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 1,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "diff tracked": {
+      "ok": {
+        "ok": true,
+        "path": "tracked.md",
+        "patch": "Index: tracked.md\n===================================================================\n--- tracked.md\t(revision 3)\n+++ tracked.md\t(working copy)\n@@ -1,2 +1,2 @@\n line one\n-line two\n+local change\n",
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "diff new": {
+      "ok": {
+        "ok": true,
+        "path": "new.txt",
+        "patch": "Index: new.txt\n===================================================================\n--- new.txt\t(nonexistent)\n+++ new.txt\t(working copy)\n@@ -0,0 +1,2 @@\n+new file\n+second",
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "diff binary": {
+      "ok": {
+        "ok": true,
+        "path": "img.bin",
+        "patch": "Index: img.bin\n===================================================================\nCannot display: file marked as a binary type.\nsvn:mime-type = application/octet-stream\n",
+        "isBinary": true,
+        "truncated": false
+      }
+    },
+    "diff deleted": {
+      "ok": {
+        "ok": true,
+        "path": "del.txt",
+        "patch": null,
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "diff ignored": {
+      "ok": {
+        "ok": false,
+        "issue": "not-working-copy",
+        "message": "svn: E155010: The node '$FIXTURE_ROOT/wc/ignored.log' was not found."
+      }
+    },
+    "diff unsafe": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "path must be relative to the workspace"
+      }
+    },
+    "remote status": {
+      "ok": {
+        "ok": true,
+        "headRevision": 3,
+        "outOfDateCount": 0
+      }
+    },
+    "log head": {
+      "ok": {
+        "ok": true,
+        "entries": [
+          {
+            "revision": 2,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: baseline",
+            "changedPaths": [
+              {
+                "action": "M",
+                "path": "/trunk",
+                "kind": "dir"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/del.txt",
+                "kind": "file"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/img.bin",
+                "kind": "file"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/tracked.md",
+                "kind": "file"
+              }
+            ]
+          },
+          {
+            "revision": 1,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "layout",
+            "changedPaths": [
+              {
+                "action": "A",
+                "path": "/branches",
+                "kind": "dir"
+              },
+              {
+                "action": "A",
+                "path": "/trunk",
+                "kind": "dir"
+              }
+            ]
+          }
+        ],
+        "hasMore": false
+      }
+    },
+    "log page": {
+      "ok": {
+        "ok": true,
+        "entries": [
+          {
+            "revision": 1,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "layout",
+            "changedPaths": [
+              {
+                "action": "A",
+                "path": "/branches",
+                "kind": "dir"
+              },
+              {
+                "action": "A",
+                "path": "/trunk",
+                "kind": "dir"
+              }
+            ]
+          }
+        ],
+        "hasMore": false
+      }
+    },
+    "branches": {
+      "ok": {
+        "ok": true,
+        "layout": "standard",
+        "branches": [
+          {
+            "kind": "trunk",
+            "name": "trunk",
+            "relativePath": "trunk"
+          },
+          {
+            "kind": "branch",
+            "name": "feature",
+            "relativePath": "branches/feature"
+          }
+        ],
+        "current": {
+          "kind": "trunk",
+          "name": "trunk",
+          "relativePath": "trunk"
+        }
+      }
+    },
+    "prepare conflict": {
+      "ok": "<prepared>"
+    },
+    "update conflict": {
+      "ok": {
+        "ok": true,
+        "revision": 4,
+        "changedFileCount": 1,
+        "conflictCount": 1
+      }
+    },
+    "changes conflict": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": "img.bin",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": true
+          },
+          {
+            "path": "new.txt",
+            "status": "unversioned",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 2,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "conflicted",
+            "propsModified": false,
+            "conflict": {
+              "kinds": ["text"]
+            },
+            "isDirectory": false,
+            "additions": 6,
+            "deletions": 0,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "diff conflict": {
+      "ok": {
+        "ok": true,
+        "path": "tracked.md",
+        "patch": "Index: tracked.md\n===================================================================\n--- tracked.md\t(revision 4)\n+++ tracked.md\t(working copy)\n@@ -1,2 +1,8 @@\n line one\n+<<<<<<< .mine\n+local conflict\n+||||||| .r3\n+line two\n+=======\n incoming change\n+>>>>>>> .r4\n",
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "commit conflict": {
+      "ok": {
+        "ok": false,
+        "issue": "unresolved-conflicts",
+        "message": "selected paths contain unresolved conflicts"
+      }
+    },
+    "resolve mine": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "changes resolved": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": "img.bin",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": true
+          },
+          {
+            "path": "new.txt",
+            "status": "unversioned",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 2,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 1,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "commit selected": {
+      "ok": {
+        "ok": true,
+        "revision": 5,
+        "addedPaths": ["new.txt"]
+      }
+    },
+    "changes committed": {
+      "ok": {
+        "ok": true,
+        "changes": [],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "revert": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "diff reverted": {
+      "ok": {
+        "ok": true,
+        "path": "tracked.md",
+        "patch": null,
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "commit blank": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "commit message is empty"
+      }
+    },
+    "commit empty": {
+      "ok": {
+        "ok": false,
+        "issue": "nothing-to-commit",
+        "message": "no paths selected"
+      }
+    },
+    "commit unsafe": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "paths must be relative to the workspace"
+      }
+    },
+    "revert unsafe": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "paths must be relative to the workspace"
+      }
+    },
+    "resolve invalid": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "path must be relative to the workspace"
+      }
+    },
+    "switch feature": {
+      "ok": {
+        "ok": true,
+        "revision": 5,
+        "branch": {
+          "kind": "branch",
+          "name": "feature",
+          "relativePath": "branches/feature"
+        },
+        "conflictCount": 0
+      }
+    },
+    "info feature": {
+      "ok": {
+        "availability": {
+          "status": "available",
+          "version": "<SVN_VERSION>",
+          "binaryPath": "<SVN_BINARY>"
+        },
+        "isWorkingCopy": true,
+        "wcRoot": "$FIXTURE_ROOT/wc",
+        "url": "$FIXTURE_ROOT_URL/repo/branches/feature",
+        "repositoryRoot": "$FIXTURE_ROOT_URL/repo",
+        "repositoryUuid": "<REPOSITORY_UUID>",
+        "revision": 5,
+        "branch": {
+          "kind": "branch",
+          "name": "feature",
+          "relativePath": "branches/feature"
+        },
+        "canSwitch": true
+      }
+    },
+    "log feature": {
+      "ok": {
+        "ok": true,
+        "entries": [
+          {
+            "revision": 3,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: branch",
+            "changedPaths": [
+              {
+                "action": "A",
+                "path": "/branches/feature",
+                "kind": "dir",
+                "copyFromPath": "/trunk",
+                "copyFromRevision": 2
+              }
+            ]
+          },
+          {
+            "revision": 2,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: baseline",
+            "changedPaths": [
+              {
+                "action": "M",
+                "path": "/trunk",
+                "kind": "dir"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/del.txt",
+                "kind": "file"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/img.bin",
+                "kind": "file"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/tracked.md",
+                "kind": "file"
+              }
+            ]
+          }
+        ],
+        "hasMore": true
+      }
+    },
+    "switch trunk": {
+      "ok": {
+        "ok": true,
+        "revision": 5,
+        "branch": {
+          "kind": "trunk",
+          "name": "trunk",
+          "relativePath": "trunk"
+        },
+        "conflictCount": 0
+      }
+    },
+    "switch invalid": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "invalid branch path"
+      }
+    },
+    "prepare feature change": {
+      "ok": "<prepared>"
+    },
+    "merge feature": {
+      "ok": {
+        "ok": true,
+        "mergedFileCount": 2,
+        "conflictCount": 0
+      }
+    },
+    "changes merged": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": ".",
+            "status": "props-modified",
+            "propsModified": true,
+            "isDirectory": true,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "merged.md",
+            "status": "added",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "diff merged": {
+      "ok": {
+        "ok": true,
+        "path": "merged.md",
+        "patch": "Index: merged.md\n===================================================================\n",
+        "isBinary": false,
+        "truncated": false
+      }
+    },
+    "merge invalid source": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "invalid branch path"
+      }
+    },
+    "merge invalid range": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "revision range requires both start and end"
+      }
+    },
+    "merge start after end": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "invalid revision range"
+      }
+    },
+    "commit merged": {
+      "ok": {
+        "ok": true,
+        "revision": 7,
+        "addedPaths": []
+      }
+    },
+    "changes after merge commit": {
+      "ok": {
+        "ok": true,
+        "changes": [],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "branch graph": {
+      "ok": {
+        "ok": true,
+        "layout": "standard",
+        "nodes": [
+          {
+            "relativePath": "trunk",
+            "kind": "trunk",
+            "name": "trunk"
+          },
+          {
+            "relativePath": "branches/feature",
+            "kind": "branch",
+            "name": "feature",
+            "createdRevision": 3,
+            "createdFrom": "trunk"
+          }
+        ],
+        "edges": [
+          {
+            "kind": "copy",
+            "from": "trunk",
+            "to": "branches/feature",
+            "revision": 3
+          },
+          {
+            "kind": "merge",
+            "from": "branches/feature",
+            "to": "trunk",
+            "revisions": "3-6"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "file log tracked": {
+      "ok": {
+        "ok": true,
+        "entries": [
+          {
+            "revision": 5,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: selected",
+            "changedPaths": [
+              {
+                "action": "M",
+                "path": "/trunk/img.bin",
+                "kind": "file"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/new.txt",
+                "kind": "file"
+              },
+              {
+                "action": "M",
+                "path": "/trunk/tracked.md",
+                "kind": "file"
+              }
+            ]
+          },
+          {
+            "revision": 4,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: incoming",
+            "changedPaths": [
+              {
+                "action": "M",
+                "path": "/trunk/tracked.md",
+                "kind": "file"
+              }
+            ]
+          }
+        ],
+        "hasMore": true,
+        "repositoryPath": "/trunk/tracked.md"
+      }
+    },
+    "file log merged": {
+      "ok": {
+        "ok": true,
+        "entries": [
+          {
+            "revision": 7,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: merge feature",
+            "changedPaths": [
+              {
+                "action": "M",
+                "path": "/trunk",
+                "kind": "dir"
+              },
+              {
+                "action": "A",
+                "path": "/trunk/merged.md",
+                "kind": "file",
+                "copyFromPath": "/branches/feature/merged.md",
+                "copyFromRevision": 6
+              }
+            ]
+          },
+          {
+            "revision": 6,
+            "author": "<AUTHOR>",
+            "date": "<DATE>",
+            "message": "test: feature file",
+            "changedPaths": [
+              {
+                "action": "A",
+                "path": "/branches/feature/merged.md",
+                "kind": "file"
+              }
+            ]
+          }
+        ],
+        "hasMore": false,
+        "repositoryPath": "/trunk/merged.md"
+      }
+    },
+    "file log unversioned": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "path is not versioned"
+      }
+    },
+    "file log unsafe": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "path must be relative to the workspace"
+      }
+    },
+    "blame tracked": {
+      "ok": {
+        "ok": true,
+        "path": "tracked.md",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "revision": 2,
+            "author": "<AUTHOR>",
+            "content": "line one"
+          },
+          {
+            "lineNumber": 2,
+            "revision": 5,
+            "author": "<AUTHOR>",
+            "content": "local conflict"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "blame baseline": {
+      "ok": {
+        "ok": true,
+        "path": "tracked.md",
+        "lines": [
+          {
+            "lineNumber": 1,
+            "revision": 2,
+            "author": "<AUTHOR>",
+            "content": "line one"
+          },
+          {
+            "lineNumber": 2,
+            "revision": 2,
+            "author": "<AUTHOR>",
+            "content": "line two"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "blame unsafe": {
+      "ok": {
+        "ok": false,
+        "issue": "invalid-request",
+        "message": "path must be relative to the workspace"
+      }
+    },
+    "prepare externals": {
+      "ok": "<prepared>"
+    },
+    "externals": {
+      "ok": {
+        "ok": true,
+        "externals": [
+          {
+            "path": ".",
+            "url": "^/trunk",
+            "name": "ext-a",
+            "revision": 2
+          },
+          {
+            "path": ".",
+            "url": "$FIXTURE_ROOT_URL/repo/branches/feature",
+            "name": "ext/b",
+            "pegRevision": 3
+          }
+        ]
+      }
+    },
+    "prepare lock": {
+      "ok": "<prepared>"
+    },
+    "lock tracked": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "changes locked": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": ".",
+            "status": "props-modified",
+            "propsModified": true,
+            "isDirectory": true,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "modified",
+            "propsModified": false,
+            "lock": {
+              "owner": "<OWNER>",
+              "comment": "hold",
+              "created": "<DATE>"
+            },
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 1,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "unlock tracked": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "changes unlocked": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": ".",
+            "status": "props-modified",
+            "propsModified": true,
+            "isDirectory": true,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 1,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "prepare shelf": {
+      "ok": "<prepared>"
+    },
+    "shelve": {
+      "ok": {
+        "ok": true,
+        "shelf": {
+          "name": "s1",
+          "message": "hold",
+          "createdAt": 0,
+          "paths": ["tracked.md", "shelf-new.md"]
+        }
+      }
+    },
+    "changes shelved": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": ".",
+            "status": "props-modified",
+            "propsModified": true,
+            "isDirectory": true,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "shelves": {
+      "ok": {
+        "ok": true,
+        "shelves": [
+          {
+            "name": "s1",
+            "message": "hold",
+            "createdAt": 0,
+            "paths": ["tracked.md", "shelf-new.md"]
+          }
+        ]
+      }
+    },
+    "unshelve": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "changes unshelved": {
+      "ok": {
+        "ok": true,
+        "changes": [
+          {
+            "path": ".",
+            "status": "props-modified",
+            "propsModified": true,
+            "isDirectory": true,
+            "additions": 0,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "shelf-new.md",
+            "status": "added",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 0,
+            "isBinary": false
+          },
+          {
+            "path": "tracked.md",
+            "status": "modified",
+            "propsModified": false,
+            "isDirectory": false,
+            "additions": 1,
+            "deletions": 1,
+            "isBinary": false
+          }
+        ],
+        "ignoredPaths": ["ignored.log"]
+      }
+    },
+    "delete shelf": {
+      "ok": {
+        "ok": true
+      }
+    },
+    "shelves empty": {
+      "ok": {
+        "ok": true,
+        "shelves": []
+      }
+    },
+    "cleanup": {
+      "ok": {
+        "ok": true
+      }
+    }
+  }
+}

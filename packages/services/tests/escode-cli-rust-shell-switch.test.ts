@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-selection.md：会话内的 shell 在会话开始时固定一次。
 // 场景：同一进程、同一会话，先按 Host 的 Git Bash 跑一条 Bash，再把设置改成 CMD，
@@ -88,8 +89,8 @@ test(
   "a mid-session shell setting change does not affect the running session on either runtime",
   { skip: process.platform !== "win32" || !existsSync(gitBash) },
   async () => {
-    const node = await observe("node");
-    const rust = await observe("rust");
+    const node = await nodeOracle("observe", () => observe("node"));
+    const rust = await canonical(await observe("rust"));
     assert.deepEqual(rust, node);
     assert.doesNotMatch(String(node.first), /Microsoft Windows/);
     assert.doesNotMatch(String(node.second), /Microsoft Windows/);

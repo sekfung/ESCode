@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-legacy-session-methods.md：App 仍在用的 legacy session/* 请求在 Node 与 Rust 上语义一致。
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
@@ -15,7 +16,6 @@ const PROVIDER = "personal:fixture";
 const B64_MARK = "ATTACH-B64-CONTENT";
 const PATH_MARK = "ATTACH-PATH-CONTENT";
 type Runtime = "node" | "rust";
-const createModes: Partial<Record<Runtime, unknown[]>> = {};
 
 const lastUserText = (req: any) =>
   JSON.stringify(req.messages.filter((m: any) => m.role === "user").at(-1)?.content ?? "");
@@ -156,7 +156,7 @@ async function observe(kind: Runtime) {
     const emptyId = empty.session.sessionId;
     // 已知差异（见 spec）：Node legacy create 的快照不体现 mode 参数（yolo/edit 都读回 build），
     // Rust 按参数生效。单独记录，不进入两侧逐字比较。
-    createModes[kind] = [settings(empty).mode, settings(await create({ mode: "edit" })).mode];
+    out.createModes = [settings(empty).mode, settings(await create({ mode: "edit" })).mode];
     // 已发送的会话重启后可恢复。
     assert.deepEqual(h.schemaErrors, []);
     await h.close();
@@ -175,9 +175,12 @@ async function observe(kind: Runtime) {
 }
 
 test("legacy session methods behave the same on Node and Rust", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
-  assert.deepEqual(rust, node);
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
+  // createModes 是已登记差异（Node legacy create 不体现 mode），不参与整体逐字比较。
+  const { createModes: rustModes, ...rustRest } = rust;
+  const { createModes: nodeModes, ...nodeRest } = node;
+  assert.deepEqual(rustRest, nodeRest);
   assert.deepEqual(node.created, {
     provider: PROVIDER,
     model: "model-b",
@@ -188,6 +191,6 @@ test("legacy session methods behave the same on Node and Rust", async () => {
   assert.deepEqual(node.closeDraft, { closed: true });
   assert.deepEqual(node.closeSent, { closed: false });
   assert.deepEqual(node.resumedAfterRestart, { empty: false, sent: true });
-  assert.deepEqual(createModes.rust, ["yolo", "edit"]);
-  assert.deepEqual(createModes.node, ["build", "build"]);
+  assert.deepEqual(rustModes, ["yolo", "edit"]);
+  assert.deepEqual(nodeModes, ["build", "build"]);
 });

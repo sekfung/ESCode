@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-webfetch.md：同一轮 WebFetch 在 Node 与 Rust 上发给辅助模型的处理请求、
 // 回给主模型的工具结果必须一致。需要访问公网，默认跳过；ESCODE_WEBFETCH_LIVE=1 时运行。
@@ -103,8 +104,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust process a WebFetch page the same way", { skip: !live }, async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
   // 自检：两侧确实抓到页面并调用了辅助模型。

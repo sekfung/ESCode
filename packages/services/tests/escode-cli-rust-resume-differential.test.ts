@@ -4,8 +4,10 @@ import { join, resolve } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { z } from "zod";
+import { isDeepStrictEqual } from "node:util";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // WP6：远程 workspace断线重连时带 base 续订，应拿到 base 之后的增量（resume），而不是整份快照。
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
@@ -82,9 +84,9 @@ async function observeResume(kind: Runtime, clientMode: string) {
 
 for (const clientMode of ["web-remote-replayable", "desktop-continuous"] as const) {
   test(`Node and Rust resume a ${clientMode} subscription from base the same way`, async () => {
-    const node = await observeResume("node", clientMode);
+    const node = await nodeOracle(`resume-${clientMode}`, () => observeResume("node", clientMode));
     if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP", clientMode, JSON.stringify(node));
-    const rust = await observeResume("rust", clientMode);
+    const rust = canonical(await observeResume("rust", clientMode));
     if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP-RUST", clientMode, JSON.stringify(rust));
     assert.deepEqual(rust, node);
   });
@@ -135,79 +137,93 @@ test("Node and Rust fall back to a snapshot when the base epoch is stale", async
       await f.close();
     }
   };
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("stale", () => observe("node"));
+  const rust = canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.equal(rust.ackMode, "snapshot");
 });
 
 // 续传的正确性：base 快照 + 续传增量，经 App 自己的归约器（@escode/shared applyConversationDeltas）
 // 必须得到与同一时刻全新快照相同的状态。两个 runtime 用同一规则检验。
+async function observeReduce(kind: Runtime) {
+  const { applyConversationDeltas } = await import("@escode/shared/escode-protocol-v4");
+  const root = await mkdtemp(join(tmpdir(), `escode-resume-reduce-${kind}-`));
+  const f =
+    kind === "node"
+      ? await fixture({
+          root,
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+        })
+      : await fixture({ root, registry: true });
+  try {
+    await configureRegistry(f);
+    const h = f.start();
+    const id = await h.create();
+    const topic = `conversation/${id}`;
+    await h.subscribe(topic, "phone-1", "web-remote-replayable");
+    const initial = await h.wait(
+      (m) => m.method === "v4/conversation/frame" && m.params?.topic === topic,
+    );
+    const base = initial.params.frame.payload.snapshot;
+    const baseSeq = initial.params.frame.toSeq;
+    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
+    await h.completed(id);
+    const open = async (connectionId: string, withBase: boolean) => {
+      const mark = h.messages.length;
+      const reply = (await h.client.request(
+        "v4/conversation/subscribe",
+        {
+          topic,
+          connectionId,
+          clientMode: "web-remote-replayable",
+          ...(withBase ? { base: { logEpoch: base.logEpoch, seq: baseSeq } } : {}),
+        },
+        z.any(),
+      )) as any;
+      const ack = reply.ack ?? reply;
+      return (
+        await h.wait(
+          (m) =>
+            m.method === "v4/conversation/frame" && m.params?.subscriptionId === ack.subscriptionId,
+          mark,
+        )
+      ).params.frame;
+    };
+    const resumed = await open("phone-2", true);
+    const fresh = await open("phone-3", false);
+    const reduced = applyConversationDeltas(base, resumed.payload.deltas);
+    // seq 由帧携带、快照内另记；两者都指向同一时刻时比较其余全部状态。
+    const strip = (s: Record<string, unknown>) => {
+      const { seq: _seq, ...rest } = s;
+      return rest;
+    };
+    const observation = {
+      resumedKind: resumed.payload.kind,
+      freshKind: fresh.payload.kind,
+      sameSeq: resumed.toSeq === fresh.toSeq,
+      reducedMatches: isDeepStrictEqual(strip(reduced as any), strip(fresh.payload.snapshot)),
+      schemaErrors: h.schemaErrors,
+    };
+    await h.close();
+    return observation;
+  } finally {
+    await f.close();
+  }
+}
+
 for (const kind of ["node", "rust"] as const) {
   test(`${kind}: base snapshot plus resumed deltas reduces to the fresh snapshot`, async () => {
-    const { applyConversationDeltas } = await import("@escode/shared/escode-protocol-v4");
-    const root = await mkdtemp(join(tmpdir(), `escode-resume-reduce-${kind}-`));
-    const f =
+    const observation =
       kind === "node"
-        ? await fixture({
-            root,
-            command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
-            registry: true,
-          })
-        : await fixture({ root, registry: true });
-    try {
-      await configureRegistry(f);
-      const h = f.start();
-      const id = await h.create();
-      const topic = `conversation/${id}`;
-      await h.subscribe(topic, "phone-1", "web-remote-replayable");
-      const initial = await h.wait(
-        (m) => m.method === "v4/conversation/frame" && m.params?.topic === topic,
-      );
-      const base = initial.params.frame.payload.snapshot;
-      const baseSeq = initial.params.frame.toSeq;
-      await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
-      await h.completed(id);
-      const open = async (connectionId: string, withBase: boolean) => {
-        const mark = h.messages.length;
-        const reply = (await h.client.request(
-          "v4/conversation/subscribe",
-          {
-            topic,
-            connectionId,
-            clientMode: "web-remote-replayable",
-            ...(withBase ? { base: { logEpoch: base.logEpoch, seq: baseSeq } } : {}),
-          },
-          z.any(),
-        )) as any;
-        const ack = reply.ack ?? reply;
-        return (
-          await h.wait(
-            (m) =>
-              m.method === "v4/conversation/frame" &&
-              m.params?.subscriptionId === ack.subscriptionId,
-            mark,
-          )
-        ).params.frame;
-      };
-      const resumed = await open("phone-2", true);
-      const fresh = await open("phone-3", false);
-      assert.equal(resumed.payload.kind, "deltas");
-      assert.equal(fresh.payload.kind, "snapshot");
-      assert.equal(resumed.toSeq, fresh.toSeq, "resume and snapshot describe the same point");
-      const reduced = applyConversationDeltas(base, resumed.payload.deltas);
-      // seq 由帧携带、快照内另记；两者都指向同一时刻时比较其余全部状态。
-      const strip = (s: Record<string, unknown>) => {
-        const { seq: _seq, ...rest } = s;
-        return rest;
-      };
-      assert.deepEqual(strip(reduced as any), strip(fresh.payload.snapshot));
-      assert.deepEqual(h.schemaErrors, []);
-      await h.close();
-    } finally {
-      await f.close();
-    }
+        ? await nodeOracle("reduce", () => observeReduce("node"))
+        : canonical(await observeReduce("rust"));
+    assert.equal(observation.resumedKind, "deltas");
+    assert.equal(observation.freshKind, "snapshot");
+    assert.equal(observation.sameSeq, true, "resume and snapshot describe the same point");
+    assert.equal(observation.reducedMatches, true);
+    assert.deepEqual(observation.schemaErrors, []);
   });
 }
 
@@ -276,9 +292,9 @@ async function observeResync(kind: Runtime) {
 }
 
 test("Node and Rust resync an existing subscription the same way", async () => {
-  const node = await observeResync("node");
+  const node = await nodeOracle("resync", () => observeResync("node"));
   if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP resync", JSON.stringify(node));
-  const rust = await observeResync("rust");
+  const rust = canonical(await observeResync("rust"));
   if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP-RUST resync", JSON.stringify(rust));
   assert.deepEqual(rust, node);
 });
@@ -348,9 +364,9 @@ async function observeDrain(kind: Runtime) {
 }
 
 test("Node and Rust resend after a saturated connection drains the same way", async () => {
-  const node = await observeDrain("node");
+  const node = await nodeOracle("drain", () => observeDrain("node"));
   if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP drain", JSON.stringify(node));
-  const rust = await observeDrain("rust");
+  const rust = canonical(await observeDrain("rust"));
   if (process.env.ESCODE_RESUME_DUMP) console.log("DUMP-RUST drain", JSON.stringify(rust));
   assert.deepEqual(rust, node);
 });

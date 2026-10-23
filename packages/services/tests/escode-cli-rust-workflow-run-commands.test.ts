@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md：run 卡 / 详情页的「取消」（cancelBackgroundWork {workId: dwfrun-…}）与
 // 「恢复」（resumeWorkflowRun）走用户命令面。actor 首个请求挂住 → UI 取消 → UI 恢复 → actor 重跑并结算。
@@ -180,8 +181,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust cancel and resume a workflow run from the UI command surface the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.cancel.status, "accepted");
   assert.equal(node.resume.status, "accepted");

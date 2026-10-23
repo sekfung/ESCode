@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-selection.md「已知差异」：曾记「TS 把 shell 选择落库为 session entry，
 // 冷恢复沿用创建时的 shell；Rust 只做进程内缓存、冷恢复重新问 Host」。
@@ -121,8 +122,8 @@ test(
   "changing the shell setting applies to an existing session on both runtimes",
   { skip: process.platform !== "win32" || !existsSync(gitBash) },
   async () => {
-    const node = await observe("node");
-    const rust = await observe("rust");
+    const node = await nodeOracle("observe", () => observe("node"));
+    const rust = await canonical(await observe("rust"));
     assert.deepEqual(rust.shell, node.shell);
     // 自检：阶段 1 走的是 Git Bash（cmd 才有 Windows 版本行），阶段 2 改成 CMD 后二者都换过来。
     assert.doesNotMatch(String(node.shell.firstTool), /Microsoft Windows/);

@@ -5,6 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：TaskOutput 读工作流 run。阻塞读取拿到终态产物并认领完成通知（之后不再
 // 开后台结果轮）；未知的 run id 是可修复的工具失败。宿主复用 TS 的后台追踪器与运行时任务注册表。
@@ -117,8 +118,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust read a workflow run with TaskOutput the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.blockingRead, /<status>completed<\/status>/);
   assert.equal(node.requestCount, 5);

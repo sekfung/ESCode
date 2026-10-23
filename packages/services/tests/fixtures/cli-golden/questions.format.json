@@ -1,0 +1,8 @@
+[
+  "The user answered some questions and skipped 1. Provided answers: \"Which layout?\"=\"Grid\". Continue with the provided answers and use your best judgment for the unanswered questions; do not invent user preferences.",
+  "The user did not provide answers to these questions. Continue using your best judgment; do not treat this as a rejection or invent a user preference.",
+  "User has answered your questions: \"Which layout?\"=\"Grid\", \"Which features?\"=\"Search, Export\". You can now continue with the user's answers in mind.",
+  "User has answered your questions: \"Which layout?\"=\"My custom layout\". You can now continue with the user's answers in mind.",
+  null,
+  null
+]

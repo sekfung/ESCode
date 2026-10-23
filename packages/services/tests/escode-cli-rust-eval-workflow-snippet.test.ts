@@ -5,6 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 6 期：EvalWorkflowSnippet。技能门、来源二选一、编译诊断（内联与
 // 文件两种写法）、正常返回与日志、运行时抛错、无返回值。执行面两侧都是 Node 的 snippet 服务（Rust 经
@@ -91,8 +92,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust evaluate workflow snippets the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(Object.keys(node.results).length, 7);

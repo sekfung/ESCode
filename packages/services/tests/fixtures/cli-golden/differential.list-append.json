@@ -1,0 +1,41 @@
+{
+  "order": ["newer", "older"],
+  "entries": [
+    {
+      "createdAt": "number",
+      "mode": "build",
+      "traceId": "string",
+      "sessionId": "newer",
+      "sessionKind": "interactive",
+      "status": "idle",
+      "title": "newer live session",
+      "titleSource": "first_input",
+      "updatedAt": "number",
+      "workspace": {
+        "workspacePath": "<cwd>",
+        "workspaceKey": "<cwd>"
+      },
+      "fresh": true
+    },
+    {
+      "createdAt": "number",
+      "mode": "yolo",
+      "model": {
+        "providerId": "personal:fixture",
+        "modelId": "model-a"
+      },
+      "traceId": "string",
+      "sessionId": "older",
+      "sessionKind": "interactive",
+      "status": "idle",
+      "title": "",
+      "updatedAt": "number",
+      "workspace": {
+        "workspacePath": "<cwd>",
+        "workspaceKey": "<cwd>"
+      },
+      "fresh": true
+    }
+  ],
+  "schemaErrors": []
+}

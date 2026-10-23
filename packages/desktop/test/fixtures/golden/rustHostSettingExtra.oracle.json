@@ -1,0 +1,43 @@
+{
+  "_readme": "rustHostSettingExtra.test.ts 的 TS createSettingService 观察冻结（Phase 3 golden freeze）。TS home 归一化为 $FIXTURE_ROOT/home，迁移目标归一化为 $FIXTURE_ROOT/target。",
+  "ensureDefaultProject": [
+    {
+      "label": "first",
+      "result": {
+        "ok": true,
+        "value": {
+          "path": "$FIXTURE_ROOT/home/ESCodeProject",
+          "created": true
+        }
+      }
+    },
+    {
+      "label": "second",
+      "result": {
+        "ok": true,
+        "value": {
+          "path": "$FIXTURE_ROOT/home/ESCodeProject",
+          "created": false
+        }
+      }
+    }
+  ],
+  "update": {
+    "result": {
+      "ok": true,
+      "value": null
+    },
+    "tree": {
+      "/v2/a.json": "keep-me",
+      "/v2/sub/b.txt": "b"
+    },
+    "settingDataBaseDir": "$FIXTURE_ROOT/target"
+  },
+  "reset": {
+    "result": {
+      "ok": true,
+      "value": null
+    },
+    "hasDataBaseDir": false
+  }
+}

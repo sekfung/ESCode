@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「forkAssistant 的 child 身份与边界」：
 // fork 出的 child 在 Node 与 Rust 上身份（id/taskType/title/titleSource）、列表可见性、
@@ -149,8 +150,8 @@ async function observe(kind: Runtime) {
 }
 
 test("forked session child keeps Node identity, fork boundary and provider transcript on both runtimes", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.equal(node.childIdPrefix, "sess_");
   assert.deepEqual(node.ack, { status: "accepted", reasonCode: null, type: "forkAssistant" });

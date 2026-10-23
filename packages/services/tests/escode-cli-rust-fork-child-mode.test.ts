@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「forkAssistant」：fork child 按**被选轮**的协作模式执行
 // （TS 取被选 assistant 消息上的 execution state），父会话之后切换模式不影响 child；
@@ -76,8 +77,8 @@ async function observe(kind: Runtime) {
 }
 
 test("a forked child runs in the mode of the forked turn on both runtimes", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检 Node 基准：父会话当前是 build，child 跟被选轮走 yolo，两个字段一致。
   assert.deepEqual(node, {
     ack: "accepted",

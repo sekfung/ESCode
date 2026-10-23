@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md：随 CLI 内置的技能包（bundled-skills / dynamic-workflows）。
 // 动态工作流开启的会话里模型能看到 `dynamic-workflows` 技能，关闭的会话里看不到；它永远不进 `$` 引用面板。
@@ -75,8 +76,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust expose the bundled dynamic-workflows skill the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node, {
     seenWhenEnabled: true,
     seenWhenDisabled: false,

@@ -1,0 +1,44 @@
+{
+  "_readme": "rustHostTerminal.test.ts 的 TS createTerminalService 观察冻结（Phase 3 golden freeze）。绝对临时路径归一化为 $FIXTURE_ROOT，终端 id 归一化为 $TERMINAL_ID / $SECOND_TERMINAL_ID；测试对 Rust Host 输出做同一变换。",
+  "drive": {
+    "created": {
+      "id": "$TERMINAL_ID",
+      "shell": "$FIXTURE_ROOT/shell.sh",
+      "fontFamily": "Kitty Mono, ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, Cascadia Mono, JetBrains Mono, MesloLGS NF, Hack Nerd Font, Noto Sans Mono CJK SC, monospace",
+      "fontFamilySource": "system"
+    },
+    "exitCode": 7,
+    "transcript": "ping\r\ngot:ping\r\nenv\r\nENV:xterm-256color|24bit|C.UTF-8|$FIXTURE_ROOT/work\r\nutf8\r\nU:中文é🙂\r\nsize\r\nSIZE:40 120\r\nexit 7\r\n",
+    "writeAfterExit": {
+      "error": "Terminal not found: $TERMINAL_ID"
+    },
+    "resizeAfterExit": {
+      "error": "Terminal not found: $TERMINAL_ID"
+    },
+    "disposeAfterExit": {
+      "ok": "<undefined>"
+    },
+    "secondId": "$SECOND_TERMINAL_ID",
+    "secondExit": "<none>",
+    "writeAfterDispose": {
+      "error": "Terminal not found: $SECOND_TERMINAL_ID"
+    },
+    "disposeTwice": {
+      "ok": "<undefined>"
+    }
+  },
+  "profiles": {
+    "system": {
+      "fontFamily": "Kitty Mono, ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, Cascadia Mono, JetBrains Mono, MesloLGS NF, Hack Nerd Font, Noto Sans Mono CJK SC, monospace",
+      "fontFamilySource": "system"
+    },
+    "custom": {
+      "fontFamily": "Custom Mono, ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, Cascadia Mono, JetBrains Mono, MesloLGS NF, Hack Nerd Font, Noto Sans Mono CJK SC, monospace",
+      "fontFamilySource": "custom"
+    },
+    "plain": {
+      "fontFamily": "ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, Cascadia Mono, JetBrains Mono, MesloLGS NF, Hack Nerd Font, Noto Sans Mono CJK SC, monospace",
+      "fontFamilySource": "fallback"
+    }
+  }
+}

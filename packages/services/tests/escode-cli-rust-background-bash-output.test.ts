@@ -3,6 +3,7 @@ import test from "node:test";
 import { basename, resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `v4/conversation/backgroundBashOutput`：后台 Bash 详情面板的输出尾窗。运行中、结算后与未知 workId 三种应答
 // 两侧一致（输出路径只比文件名）。
@@ -94,8 +95,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust read background Bash output for the details panel the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.settled.status, "completed");
   for (const key of Object.keys(node)) {

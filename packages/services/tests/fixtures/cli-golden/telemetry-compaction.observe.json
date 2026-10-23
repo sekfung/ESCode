@@ -1,0 +1,14 @@
+{
+  "invalid": 0,
+  "facts": [
+    {
+      "status": "completed",
+      "trigger": "manual",
+      "hasOperation": true,
+      "hasPre": true,
+      "hasPost": true,
+      "modelName": "model-a",
+      "modelProvider": "personal:fixture"
+    }
+  ]
+}

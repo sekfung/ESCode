@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-session-title.md：会话标题 sidecar。Node 与 Rust 必须发出同样的标题请求
 // （system 首段、user 内容、无工具），并在清洗后写回同样的 meta（title/titleSource）。
@@ -164,8 +165,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust generate session titles the same way", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：Node 为长输入发出标题请求，短输入不发；清洗后的标题与 titleSource 已投影。
   assert.deepEqual(
     node.titles.map((t) => t.input),
@@ -304,8 +305,8 @@ async function observeGoals(kind: "node" | "rust") {
 }
 
 test("Node and Rust title goals and their summaries the same way", async () => {
-  const node = await observeGoals("node");
-  const rust = await observeGoals("rust");
+  const node = await nodeOracle("observeGoals", () => observeGoals("node"));
+  const rust = await canonical(await observeGoals("rust"));
   // 自检：Node 为首条 /goal 同时写会话标题与目标摘要；已有标题时只写摘要；空标题回落目标文本。
   assert.equal(node.first.summaryTitle, "Parser refactor", JSON.stringify(node.first));
   assert.equal(node.first.meta.title, "Parser refactor");

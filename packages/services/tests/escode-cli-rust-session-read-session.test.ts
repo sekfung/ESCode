@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「session/read 的 session 投影」：`session` 与 `settings` 两个
 // 投影块逐字段与 Node 的 `mapSessionInfo` / `mapSessionSettings` 对齐——traceId 的存在性、无目标时的
@@ -97,7 +98,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust project the session/read session block the same way", async () => {
-  const node = await observe("node");
+  const node = await nodeOracle("observe", () => observe("node"));
   // 自检：确认 Node 侧真的带上这几个字段、新会话真的省掉 titleSource，避免两侧同为缺失也判等。
   assert.equal(node.fresh.session.traceIdType, "string");
   assert.equal(node.fresh.session.hasTarget, true);
@@ -105,6 +106,6 @@ test("Node and Rust project the session/read session block the same way", async 
   assert.deepEqual(node.fresh.session.modelKeys, ["modelId", "providerId"]);
   assert.equal(node.fresh.session.hasTitleSource, false);
   assert.equal(node.warm.session.titleSource, "first_input");
-  const rust = await observe("rust");
+  const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
 });

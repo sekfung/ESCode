@@ -4,7 +4,6 @@ import { copyFile, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture } from "./escode-cli-rust-fixture.js";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
 import type { SessionId, MessageId, ProjectId, WorkspaceId, PartId } from "@escode/contracts";
 
 // 性能验收「长历史会话」：同一份由真实 TS store 写出的长会话，分别由 Node 与 Rust 打开。
@@ -19,6 +18,9 @@ let benchModelId = "";
 const workspace = "long-history-workspace";
 
 async function seed(path: string, modelId: string) {
+  // benchmark/rehearsal 例外：只有显式启用 benchmark 时才加载 TS store 造历史。
+  const { createSqliteSessionStore } =
+    await import("../../../apps/escode-cli/packages/adapters/src/storage/session-store.js");
   const store = createSqliteSessionStore({ dbPath: path });
   await store.createSession({
     id: session,

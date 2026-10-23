@@ -1,0 +1,237 @@
+{
+  "_readme": "rustHostHooksParity.test.ts 的 TS createHooksService 观察冻结（Phase 3 golden freeze）。discoveredAt 归一化为 <time>；绝对临时根归一化为 $FIXTURE_ROOT，测试运行时替换。",
+  "expected": {
+    "loaded": {
+      "hooks": [
+        {
+          "id": "workspace-hook-0-PreToolUse-0-0",
+          "event": "PreToolUse",
+          "matcher": "Bash",
+          "type": "command",
+          "command": "./hook.sh",
+          "async": true,
+          "shell": "bash",
+          "statusMessage": "Preparing",
+          "timeout": 12,
+          "enabled": true,
+          "editable": true,
+          "configuredState": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/workspace/.escode/config.json"
+          },
+          "workspaceHook": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/workspace/.escode/config.json",
+            "reviewItemId": "workspace-hook-0-PreToolUse-0-0",
+            "sourceFileIndex": 0,
+            "workspaceIdentity": "$FIXTURE_ROOT/workspace",
+            "bundleDigest": "76d414aa7312839147cd04a42b1c9f1d296935abae4b10d3cb1d0e85e9b17797",
+            "hookDeclarationDigest": "1421eaa1ad9065b37d000c87f4fbd7a925d1611075d6fa862fb902266385f2d6",
+            "trustState": "pending_trust"
+          },
+          "location": {
+            "source": "escode",
+            "scope": "project",
+            "directoryPath": "$FIXTURE_ROOT/workspace/.escode",
+            "projectPath": "$FIXTURE_ROOT/workspace"
+          }
+        },
+        {
+          "id": "hook-escode-user-0",
+          "event": "SessionStart",
+          "matcher": "startup",
+          "type": "process",
+          "command": "node",
+          "args": ["user.mjs"],
+          "enabled": true,
+          "editable": true,
+          "configuredState": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/config.json"
+          },
+          "custom": {
+            "flag": true
+          },
+          "location": {
+            "source": "escode",
+            "scope": "user",
+            "directoryPath": "$FIXTURE_ROOT/home/.escode/cli"
+          }
+        }
+      ],
+      "hooksEnabled": true,
+      "workspaceHookSnapshot": {
+        "schemaVersion": 1,
+        "workspaceIdentity": "$FIXTURE_ROOT/workspace",
+        "discoveredAt": "<time>",
+        "sourceFiles": [
+          {
+            "canonicalPath": "$FIXTURE_ROOT/workspace/.escode/config.json",
+            "baseDir": "$FIXTURE_ROOT/workspace",
+            "discoveryOrder": 0,
+            "configFileKind": ".escode/config.json",
+            "explicitProjectConfig": false,
+            "editable": true,
+            "hooksRoot": {
+              "enabled": true
+            }
+          }
+        ],
+        "hooks": [
+          {
+            "reviewItemId": "workspace-hook-0-PreToolUse-0-0",
+            "event": "PreToolUse",
+            "matcherIndex": 0,
+            "hookIndex": 0,
+            "sourceFileIndex": 0,
+            "sourceRelativePath": ".escode/config.json",
+            "matcher": "Bash",
+            "command": "./hook.sh",
+            "resolvedTimeoutMs": 12000,
+            "resolvedMaxOutputBytes": 32768,
+            "statusMessage": "Preparing",
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "editable": true,
+            "declarationDigestAlgorithm": "sha256",
+            "hookDeclarationDigest": "1421eaa1ad9065b37d000c87f4fbd7a925d1611075d6fa862fb902266385f2d6",
+            "type": "command",
+            "async": true,
+            "shell": "bash"
+          }
+        ],
+        "digestAlgorithm": "sha256",
+        "bundleDigest": "76d414aa7312839147cd04a42b1c9f1d296935abae4b10d3cb1d0e85e9b17797"
+      }
+    },
+    "saved": {
+      "userConfig": "{\n  \"features\": {\n    \"mcp\": true\n  },\n  \"hooks\": {\n    \"enabled\": true,\n    \"events\": {\n      \"SessionStart\": [\n        {\n          \"matcher\": \"startup\",\n          \"hooks\": [\n            {\n              \"flag\": true,\n              \"type\": \"process\",\n              \"command\": \"node\",\n              \"enabled\": true,\n              \"args\": [\n                \"user.mjs\"\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  }\n}\n",
+      "projectConfig": "{\n  \"hooks\": {\n    \"enabled\": true,\n    \"events\": {\n      \"PreToolUse\": [\n        {\n          \"matcher\": \"Bash\",\n          \"hooks\": [\n            {\n              \"type\": \"command\",\n              \"command\": \"./hook.sh\",\n              \"enabled\": true,\n              \"statusMessage\": \"Preparing\",\n              \"async\": true,\n              \"shell\": \"bash\",\n              \"timeout\": 12\n            }\n          ]\n        }\n      ]\n    }\n  }\n}\n"
+    },
+    "trusted": {
+      "hooks": [
+        {
+          "id": "workspace-hook-0-PreToolUse-0-0",
+          "event": "PreToolUse",
+          "matcher": "Bash",
+          "type": "command",
+          "command": "./hook.sh",
+          "async": true,
+          "shell": "bash",
+          "statusMessage": "Preparing",
+          "timeout": 12,
+          "enabled": true,
+          "editable": true,
+          "configuredState": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/workspace/.escode/config.json"
+          },
+          "workspaceHook": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/workspace/.escode/config.json",
+            "reviewItemId": "workspace-hook-0-PreToolUse-0-0",
+            "sourceFileIndex": 0,
+            "workspaceIdentity": "$FIXTURE_ROOT/workspace",
+            "bundleDigest": "76d414aa7312839147cd04a42b1c9f1d296935abae4b10d3cb1d0e85e9b17797",
+            "hookDeclarationDigest": "1421eaa1ad9065b37d000c87f4fbd7a925d1611075d6fa862fb902266385f2d6",
+            "trustState": "trusted_persistent"
+          },
+          "location": {
+            "source": "escode",
+            "scope": "project",
+            "directoryPath": "$FIXTURE_ROOT/workspace/.escode",
+            "projectPath": "$FIXTURE_ROOT/workspace"
+          }
+        },
+        {
+          "id": "hook-escode-user-0",
+          "event": "SessionStart",
+          "matcher": "startup",
+          "type": "process",
+          "command": "node",
+          "args": ["user.mjs"],
+          "enabled": true,
+          "editable": true,
+          "configuredState": {
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "sourcePath": "$FIXTURE_ROOT/home/.escode/cli/config.json"
+          },
+          "custom": {
+            "flag": true
+          },
+          "location": {
+            "source": "escode",
+            "scope": "user",
+            "directoryPath": "$FIXTURE_ROOT/home/.escode/cli"
+          }
+        }
+      ],
+      "hooksEnabled": true,
+      "workspaceHookSnapshot": {
+        "schemaVersion": 1,
+        "workspaceIdentity": "$FIXTURE_ROOT/workspace",
+        "discoveredAt": "<time>",
+        "sourceFiles": [
+          {
+            "canonicalPath": "$FIXTURE_ROOT/workspace/.escode/config.json",
+            "baseDir": "$FIXTURE_ROOT/workspace",
+            "discoveryOrder": 0,
+            "configFileKind": ".escode/config.json",
+            "explicitProjectConfig": false,
+            "editable": true,
+            "hooksRoot": {
+              "enabled": true
+            }
+          }
+        ],
+        "hooks": [
+          {
+            "reviewItemId": "workspace-hook-0-PreToolUse-0-0",
+            "event": "PreToolUse",
+            "matcherIndex": 0,
+            "hookIndex": 0,
+            "sourceFileIndex": 0,
+            "sourceRelativePath": ".escode/config.json",
+            "matcher": "Bash",
+            "command": "./hook.sh",
+            "resolvedTimeoutMs": 12000,
+            "resolvedMaxOutputBytes": 32768,
+            "statusMessage": "Preparing",
+            "sourceRootEnabled": true,
+            "declarationEnabled": true,
+            "runtimeHooksEnabled": true,
+            "configuredEnabled": true,
+            "editable": true,
+            "declarationDigestAlgorithm": "sha256",
+            "hookDeclarationDigest": "1421eaa1ad9065b37d000c87f4fbd7a925d1611075d6fa862fb902266385f2d6",
+            "type": "command",
+            "async": true,
+            "shell": "bash"
+          }
+        ],
+        "digestAlgorithm": "sha256",
+        "bundleDigest": "76d414aa7312839147cd04a42b1c9f1d296935abae4b10d3cb1d0e85e9b17797"
+      }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "asked": true,
+  "blocked": "blocked by policy",
+  "allowed": "(Bash completed with no output)",
+  "stdin": [
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "reason",
+        "requestId",
+        "riskLevel",
+        "sessionId",
+        "session_id",
+        "sideEffectScope",
+        "timestamp",
+        "toolCallId",
+        "toolInput",
+        "toolName",
+        "tool_input",
+        "tool_name",
+        "tool_use_id",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "PermissionRequest",
+      "toolName": "Bash",
+      "toolCallId": "bash-1",
+      "toolInput": {
+        "command": "touch blocked.txt"
+      },
+      "mode": "build",
+      "reason": "High risk tools require explicit approval",
+      "hasRequest": true,
+      "riskLevel": "high",
+      "sideEffectScope": "system",
+      "sameSession": true
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "reason",
+        "requestId",
+        "riskLevel",
+        "sessionId",
+        "session_id",
+        "sideEffectScope",
+        "timestamp",
+        "toolCallId",
+        "toolInput",
+        "toolName",
+        "tool_input",
+        "tool_name",
+        "tool_use_id",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "PermissionRequest",
+      "toolName": "Bash",
+      "toolCallId": "bash-2",
+      "toolInput": {
+        "command": "touch ok.txt"
+      },
+      "mode": "build",
+      "reason": "High risk tools require explicit approval",
+      "hasRequest": true,
+      "riskLevel": "high",
+      "sideEffectScope": "system",
+      "sameSession": true
+    }
+  ],
+  "rows": [
+    {
+      "hookEventName": "PermissionRequest",
+      "hookCount": 1,
+      "state": "completed",
+      "lane": "toolBefore",
+      "anchorToolCallId": "bash-1",
+      "hasEnd": true,
+      "executions": [
+        {
+          "didExecute": true,
+          "state": "completed",
+          "outcome": "blocked",
+          "blockReason": "blocked by policy",
+          "displayName": "node · hook.cjs",
+          "sourceKind": "user",
+          "toolName": "Bash",
+          "hasDuration": true
+        }
+      ]
+    },
+    {
+      "hookEventName": "PermissionRequest",
+      "hookCount": 1,
+      "state": "completed",
+      "lane": "toolBefore",
+      "anchorToolCallId": "bash-2",
+      "hasEnd": true,
+      "executions": [
+        {
+          "didExecute": true,
+          "state": "completed",
+          "outcome": "success",
+          "displayName": "node · hook.cjs",
+          "sourceKind": "user",
+          "toolName": "Bash",
+          "hasDuration": true
+        }
+      ]
+    }
+  ],
+  "schemaErrors": []
+}

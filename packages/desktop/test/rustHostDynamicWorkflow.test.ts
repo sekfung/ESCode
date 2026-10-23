@@ -1,22 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir, version as osVersion } from "node:os";
 import { dirname, join } from "node:path";
 import { ESCODE_DYNAMIC_WORKFLOW_MODE_ENV, ESCODE_ENV, ESCODE_VERSION } from "@escode/shared";
-import { createClientConfigService, createNodeApiClient } from "@escode/services/node";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
 
-// docs/specs/rust-u2-client-config.md §5 S3：真实 TS `createClientConfigService.getDynamicWorkflowClientConfig` 与 Rust Host
-// 对同一本地 HTTP 桩求值——远端取值 × 用户选择 × 请求失败 × 环境覆盖，返回值逐项相等；缓存与短路行为一致。
+// Phase 3 golden freeze：TS `createClientConfigService.getDynamicWorkflowClientConfig` 的观察已冻结
+// （packages/desktop/test/fixtures/golden/rustHostDynamicWorkflow.oracle.json）。测试不再实例化 TS
+// 服务，删除 TS 实现后仍能独立重验 Rust Host 的 `client-config` 动态工作流读面。
+const goldenFile = new URL(
+  "./fixtures/golden/rustHostDynamicWorkflow.oracle.json",
+  import.meta.url,
+);
+
+// docs/specs/rust-u2-client-config.md §5 S3：Rust Host 对同一本地 HTTP 桩求值——远端取值 ×
+// 用户选择 × 请求失败 × 环境覆盖，返回值逐项等于冻结观察；缓存与短路行为一致。
 
 interface Stub {
   origin: string;
   requests: () => number;
   reply: (status: number, body: unknown) => void;
   server: Server;
+}
+
+interface DynamicWorkflowGolden {
+  folds: Array<{ label: string; config: unknown }>;
+  shortCircuit: Array<{ choice: string | null; config: unknown }>;
+}
+
+async function loadGolden(base: string): Promise<DynamicWorkflowGolden> {
+  const raw = (await readFile(goldenFile, "utf8")).split("$FIXTURE_ROOT").join(base);
+  return JSON.parse(raw) as DynamicWorkflowGolden;
 }
 
 async function startStub(): Promise<Stub> {
@@ -76,34 +93,30 @@ async function setUserMode(home: string, mode: unknown) {
   await writeFile(file, JSON.stringify(mode === undefined ? {} : { dynamicWorkflowMode: mode }));
 }
 
-function tsService(stub: Stub, userMode: () => Promise<unknown>) {
-  return createClientConfigService({
-    apiClient: createNodeApiClient({ resolveESCodeEndpointOrigin: () => stub.origin }),
-    resolveRequestContext: async () => ({
-      endpointOrigin: stub.origin,
-      appVersion: ESCODE_VERSION,
-      platform: `${process.platform}-${process.arch}`,
-    }),
-    resolveDynamicWorkflowUserMode: userMode,
-  });
-}
+const snapshot = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("rust host client-config.getDynamicWorkflowClientConfig (S3)", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "folds remote offer, user choice and failures exactly like the TS service",
+    "folds remote offer, user choice and failures exactly like the frozen TS observations",
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-dw-")));
       const stub = await startStub();
-      const { host, home, config } = await startRustHost(base, stub);
+      const golden = await loadGolden(base);
+      // 显式清空继承的本地覆盖，冻结观察对应「无覆盖」场景。
+      const { host, home, config } = await startRustHost(base, stub, {
+        [ESCODE_DYNAMIC_WORKFLOW_MODE_ENV]: "",
+      });
       try {
-        let userMode: unknown;
-        const ts = () => tsService(stub, async () => userMode);
+        let index = 0;
         const compare = async (label: string) => {
-          const expected = await ts().getDynamicWorkflowClientConfig({ forceRefresh: true });
+          const expected = golden.folds[index];
+          if (!expected) throw new Error(`缺少冻结观察 ${label}`);
+          expect(expected.label).toBe(label);
+          index += 1;
           const actual = await config.getDynamicWorkflowClientConfig({ forceRefresh: true });
-          expect({ label, config: JSON.parse(JSON.stringify(actual)) }).toEqual({
+          expect({ label, config: snapshot(actual) }).toEqual({
             label,
-            config: JSON.parse(JSON.stringify(expected)),
+            config: expected.config,
           });
           return actual;
         };
@@ -133,20 +146,19 @@ describe("rust host client-config.getDynamicWorkflowClientConfig (S3)", () => {
         for (const offered of ["onDemand", "disabled"]) {
           stub.reply(200, envelope({ mode: offered }));
           for (const choice of ["alwaysOn", "onDemand", "disabled", "bogus", undefined]) {
-            userMode = choice;
             await setUserMode(home, choice);
             await compare(`offered ${offered}, user ${String(choice)}`);
           }
         }
 
         // 请求失败：fail-closed 为 disabled/default（两边都只记 warn）。
-        userMode = undefined;
         await setUserMode(home, undefined);
         stub.reply(503, "{}");
         const failed = await compare("http 503");
         expect(failed).toMatchObject({ mode: "disabled", source: "default", enabled: false });
         stub.reply(200, "<html>");
         await compare("unparseable body");
+        expect(index).toBe(golden.folds.length);
 
         // 缓存：1 h TTL 内不带 forceRefresh 不再请求；失败没有污染它。
         stub.reply(200, envelope({ mode: "alwaysOn" }));
@@ -169,31 +181,27 @@ describe("rust host client-config.getDynamicWorkflowClientConfig (S3)", () => {
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-dw-env-")));
       const stub = await startStub();
+      const golden = await loadGolden(base);
       stub.reply(200, envelope({ mode: "disabled" }));
       const { host, home, config } = await startRustHost(base, stub, {
         [ESCODE_DYNAMIC_WORKFLOW_MODE_ENV]: "onDemand",
       });
-      const saved = process.env[ESCODE_DYNAMIC_WORKFLOW_MODE_ENV];
-      process.env[ESCODE_DYNAMIC_WORKFLOW_MODE_ENV] = "onDemand";
       try {
-        for (const choice of [undefined, "alwaysOn", "disabled"]) {
+        const choices = [undefined, "alwaysOn", "disabled"] as const;
+        for (const [index, choice] of choices.entries()) {
+          const expected = golden.shortCircuit[index];
+          if (!expected) throw new Error(`缺少冻结的本地覆盖观察 ${index}`);
+          expect(expected.choice).toBe(choice ?? null);
           await setUserMode(home, choice);
-          const expected = await tsService(stub, async () => choice).getDynamicWorkflowClientConfig(
-            {
-              forceRefresh: true,
-            },
-          );
           const actual = await config.getDynamicWorkflowClientConfig({ forceRefresh: true });
-          expect({ choice, config: JSON.parse(JSON.stringify(actual)) }).toEqual({
-            choice,
-            config: JSON.parse(JSON.stringify(expected)),
+          expect({ choice: choice ?? null, config: snapshot(actual) }).toEqual({
+            choice: choice ?? null,
+            config: expected.config,
           });
           expect(actual).toMatchObject({ source: "override" });
         }
-        expect(stub.requests(), "覆盖合法即短路，两边都不发请求").toBe(0);
+        expect(stub.requests(), "覆盖合法即短路，不发请求").toBe(0);
       } finally {
-        if (saved === undefined) delete process.env[ESCODE_DYNAMIC_WORKFLOW_MODE_ENV];
-        else process.env[ESCODE_DYNAMIC_WORKFLOW_MODE_ENV] = saved;
         await host.stop();
         stub.server.close();
         await rm(base, { recursive: true, force: true });

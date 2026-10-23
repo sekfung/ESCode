@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 2 期：GUI 中枢 `workflows/*`（list / get / updateMeta /
 // delete / move）在 Node 与 Rust 上同名同形。`workflows/runs` 是第 4 期的 journal，不在用例里。
@@ -120,8 +121,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("workflows/* hub matches Node", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：Node 侧的形状与语义确实是我们期望的那套。
   assert.equal((node.observed.listProject as any).workflows.length, 1);
   assert.equal((node.observed.listProject as any).invalid.length, 0);

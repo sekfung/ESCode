@@ -1,0 +1,13 @@
+{
+  "catalogBefore": ["goal", "compact", "init", "plan"],
+  "catalogAfter": ["goal", "workflow", "compact", "init", "plan"],
+  "disabled": {
+    "model": "/workflow count the txt files",
+    "row": "/workflow count the txt files"
+  },
+  "enabled": {
+    "model": "Run custom command /workflow.\nCommand source: system/escode.\nRequired skills: `dynamic-workflows`.\nBefore following the command body, call the Skill tool for `dynamic-workflows`.\n\nUse the `dynamic-workflows` skill to design and launch a dynamic workflow for this request:\n\ncount the txt files\n\nDecide the subagent topology before writing any code: how many subagents, which of them\nshare a context, what result each one returns. Then write the script and call the\n`CreateWorkflow` tool. (`CreateWorkflow` is the dynamic-workflow tool. Do not use the\nlegacy `Workflow` tool, and do not substitute the `Agent` tool.)",
+    "row": "/workflow count the txt files"
+  },
+  "schemaErrors": []
+}

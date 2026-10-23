@@ -1,0 +1,7 @@
+{
+  "framesWhilePaused": 0,
+  "payloadKind": "deltas",
+  "deliveryKind": "online",
+  "continuous": true,
+  "schemaErrors": []
+}

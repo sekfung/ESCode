@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { conversationTelemetryFactSchema } from "@escode/shared/escode-protocol-v4";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // `compaction.terminal` 遥测（TS CompactCompleted）：一轮对话后手动 /compact，两侧发出同形的压缩终态事实。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
@@ -70,8 +71,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust emit the same compaction telemetry", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   assert.equal(node.facts.length, 1);
   assert.equal(rust.invalid, 0);
   assert.deepEqual(rust.facts, node.facts);

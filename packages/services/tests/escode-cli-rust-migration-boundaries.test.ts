@@ -6,8 +6,7 @@ import { z } from "zod";
 import { DatabaseSync } from "node:sqlite";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
-import { createSqliteSessionStore } from "../../../apps/escode-cli/packages/adapters/src/storage/session-store.js";
-import type { SessionId, MessageId, PartId, ProjectId, WorkspaceId } from "@escode/contracts";
+import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 import {
   v4AttachmentReadResultSchema,
   v4ConversationAttachmentReadResultSchema,
@@ -16,56 +15,12 @@ import {
 test("TS task membership preserves visible forks while archived and auxiliary tasks remain addressable", async () => {
   const f = await fixture({ legacy: true });
   try {
-    const { store, sessionID, messageID } = await seed(f);
-    for (const [id, taskType] of [
-      ["fork", "fork"],
-      ["workflow", "workflow_parent"],
-      ["child", "subagent_child"],
-      ["archived", "interactive"],
-    ] as const) {
-      await store.createSession({
-        id: id as SessionId,
-        parentID: sessionID,
-        taskType,
-        projectID: "project" as ProjectId,
-        workspaceID: f.cwd as WorkspaceId,
-        directory: f.cwd,
-        slug: id,
-        title: id,
-        version: "fixture",
-      });
-    }
-    await store.updateSession({ id: "archived" as SessionId, timeArchived: 10 });
-    const assistant = "planned-answer" as MessageId;
-    await store.saveMessage({
-      id: assistant,
-      sessionID,
-      role: "assistant",
-      parentID: messageID,
-      time: { created: 2 },
-      agent: "main",
-      mode: "plan",
-      path: { cwd: f.cwd, root: f.cwd },
-      cost: 0,
-      tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+    // 成员/计划部件的最终形态已由 TS store 冻结为仓内种子。
+    await copyLegacySeed("migration-boundaries.membership", join(f.root, "ts.sqlite"), {
+      workspace: f.cwd,
+      root: f.root,
     });
-    await store.savePart({
-      id: "old-plan" as PartId,
-      sessionID,
-      messageID: assistant,
-      type: "tool",
-      tool: "ExitPlanMode",
-      callID: "plan-call",
-      state: {
-        status: "completed",
-        input: { plan: "Historical plan remains readable" },
-        output: "accepted",
-        title: "Plan",
-        metadata: {},
-        time: { start: 2, end: 3 },
-      },
-    });
-    store.close();
+    const sessionID = "legacy";
     for (let restart = 0; restart < 2; restart++) {
       const h = f.start();
       await h.subscribe(`sessions-index/${f.cwd}`);
@@ -105,53 +60,17 @@ test("TS task membership preserves visible forks while archived and auxiliary ta
   }
 });
 
-async function seed(f: Awaited<ReturnType<typeof fixture>>, planEnabled = false) {
-  const store = createSqliteSessionStore({ dbPath: join(f.root, "ts.sqlite") });
-  const sessionID = "legacy" as SessionId;
-  const messageID = "input" as MessageId;
-  await store.createSession({
-    id: sessionID,
-    projectID: "project" as ProjectId,
-    workspaceID: f.cwd as WorkspaceId,
-    directory: f.cwd,
-    slug: "legacy",
-    title: "legacy",
-    version: "fixture",
+function seed(f: Awaited<ReturnType<typeof fixture>>, name: string) {
+  return copyLegacySeed(name, join(f.root, "ts.sqlite"), {
+    workspace: f.cwd,
+    root: f.root,
   });
-  await store.saveSessionEntry({
-    id: "mode",
-    sessionID,
-    type: "runtime/execution_state",
-    time: { created: 1, updated: 1 },
-    data: { mode: "yolo", planEnabled },
-  });
-  await store.saveSessionEntry({
-    id: "model",
-    sessionID,
-    type: "runtime/model_selection",
-    time: { created: 1, updated: 1 },
-    data: { providerId: "fixture", modelId: "core-model", options: { reasoningLevel: "none" } },
-  });
-  await store.saveMessage({
-    id: messageID,
-    sessionID,
-    role: "user",
-    time: { created: 1 },
-    agent: "main",
-  });
-  await store.savePart({
-    id: "text" as PartId,
-    sessionID,
-    messageID,
-    type: "text",
-    text: "historical question",
-  });
-  return { store, sessionID, messageID };
 }
 test("Imported artifact bytes survive TS cache removal and read queries enforce session and row authorization", async () => {
   const f = await fixture({ legacy: true });
   try {
-    const { store, sessionID, messageID } = await seed(f);
+    await seed(f, "migration-boundaries.artifacts");
+    const sessionID = "legacy";
     const storage = join(f.root, "storage");
     const uri = "escode-artifact://legacy/tool-result-fixture";
     const data = Buffer.from("fixture-image-bytes");
@@ -161,17 +80,6 @@ test("Imported artifact bytes survive TS cache removal and read queries enforce 
       `data:image/png;base64,${data.toString("base64")}`,
     );
     await writeFile(join(f.cwd, "escode.json"), JSON.stringify({ storage: { dir: storage } }));
-    await store.savePart({
-      id: "image" as PartId,
-      sessionID,
-      messageID,
-      type: "file",
-      mime: "image/png",
-      filename: "old.png",
-      url: uri,
-      metadata: { storageKind: "artifact", artifactUri: uri },
-    });
-    store.close();
     const h = f.start();
     await h.subscribe(`conversation/${sessionID}`);
     const rows = await h.rows(sessionID);
@@ -236,8 +144,8 @@ test("Imported artifact bytes survive TS cache removal and read queries enforce 
 test("Imported plan state requires an explicit false input before yolo execution", async () => {
   const f = await fixture({ legacy: true });
   try {
-    const { store, sessionID } = await seed(f, true);
-    store.close();
+    await seed(f, "migration-boundaries.plan");
+    const sessionID = "legacy";
     const h = f.start();
     await h.subscribe(`conversation/${sessionID}`);
     const snapshot = await h.wait(
@@ -264,8 +172,7 @@ test("Imported plan state requires an explicit false input before yolo execution
 test("Unknown TS history and a missing explicit source report storage failure before admitting any request", async () => {
   const f = await fixture({ legacy: true });
   try {
-    const { store } = await seed(f);
-    store.close();
+    await seed(f, "migration-boundaries.base");
     const db = new DatabaseSync(join(f.root, "ts.sqlite"));
     db.exec("UPDATE part SET data=json_set(data,'$.type','future-part')");
     db.close();

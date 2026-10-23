@@ -1,0 +1,4681 @@
+{
+  "_readme": "rustHostFileIndex.test.ts 的 TS createFileService 观察冻结（Phase 3 golden freeze）。绝对临时路径已归一化为 $FIXTURE_ROOT；测试运行时替换为同一个固定工作根（搜索打分包含绝对路径）。",
+  "expected": {
+    "rules:no rules file": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "link-to-readme",
+      "Makefile",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:no rules file": {
+      "length": 728,
+      "joined": "directory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tlink-to-readme\nfile\tMakefile\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt"
+    },
+    "rules:basic names": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:basic names": {
+      "length": 924,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:negation": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:negation": {
+      "length": 1004,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:anchored": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:anchored": {
+      "length": 1008,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt"
+    },
+    "rules:unanchored": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:unanchored": {
+      "length": 989,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt"
+    },
+    "rules:double star": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:double star": {
+      "length": 979,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:leading double star dir": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji"
+    ],
+    "packed:leading double star dir": {
+      "length": 943,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:dir only vs file": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:dir only vs file": {
+      "length": 968,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:parent excluded cannot be re-included": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:parent excluded cannot be re-included": {
+      "length": 968,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:parent file-level negation works": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:parent file-level negation works": {
+      "length": 1004,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:char class": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:char class": {
+      "length": 894,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:question mark": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:question mark": {
+      "length": 980,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:escaped hash and bang": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:escaped hash and bang": {
+      "length": 1022,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:comment and blank lines": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:comment and blank lines": {
+      "length": 989,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt"
+    },
+    "rules:trailing spaces": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "link-to-readme",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:trailing spaces": {
+      "length": 907,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tlink-to-readme\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt"
+    },
+    "rules:CRLF line endings": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:CRLF line endings": {
+      "length": 924,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:case sensitivity": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:case sensitivity": {
+      "length": 957,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:unicode names": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "src/app/Page With Space.tsx",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:unicode names": {
+      "length": 911,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:emoji": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:emoji": {
+      "length": 996,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:backslash name": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:backslash name": {
+      "length": 1001,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:everything then re-include": [
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:everything then re-include": {
+      "length": 212,
+      "joined": "directory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts"
+    },
+    "rules:ignore all files keep dirs": [
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:ignore all files keep dirs": {
+      "length": 445,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib"
+    },
+    "rules:nested glob": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:nested glob": {
+      "length": 975,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:root-relative with slash": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:root-relative with slash": {
+      "length": 930,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:trailing double star": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:trailing double star": {
+      "length": 930,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:hidden dir rules": [
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:hidden dir rules": {
+      "length": 992,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:empty-dir rule": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:empty-dir rule": {
+      "length": 1002,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:symlink name rule": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:symlink name rule": {
+      "length": 1000,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:symlink dir slash rule": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:symlink dir slash rule": {
+      "length": 1000,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:defaults only template": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:defaults only template": {
+      "length": 941,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:re-include node_modules": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "README.md",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:re-include node_modules": {
+      "length": 1022,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tREADME.md\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "rules:invalid bracket": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      "a/b.txt",
+      "a/b/c/d/deep.txt",
+      "back\\slash.txt",
+      "build/keep.txt",
+      "build/out.js",
+      "cmake-build-debug/x.txt",
+      "dangling-link",
+      "dist/bundle.js",
+      "docs/guide/intro.md",
+      "docs/Guide/Intro.MD",
+      "keep/temp.tmp",
+      "link-to-readme",
+      "logs/app.log",
+      "logs/archive/old.log",
+      "Makefile",
+      "node_modules/pkg/index.js",
+      "src/app/页面.tsx",
+      "src/app/Page With Space.tsx",
+      "src/emoji/😀-file.md",
+      "src/lib/util.test.ts",
+      "src/lib/util.ts",
+      "src/main.ts",
+      "tab\tname.txt",
+      "temp.tmp",
+      "__pycache__",
+      "a",
+      "a/b",
+      "a/b/c",
+      "a/b/c/d",
+      "build",
+      "cmake-build-debug",
+      "coverage",
+      "dist",
+      "docs",
+      "docs/guide",
+      "docs/Guide",
+      "empty-dir",
+      "keep",
+      "lib",
+      "link-to-src",
+      "logs",
+      "logs/archive",
+      "node_modules",
+      "node_modules/pkg",
+      "src",
+      "src/app",
+      "src/emoji",
+      "src/lib"
+    ],
+    "packed:invalid bracket": {
+      "length": 1007,
+      "joined": "directory\t__pycache__\ndirectory\ta\ndirectory\ta/b\ndirectory\ta/b/c\ndirectory\ta/b/c/d\ndirectory\tbuild\ndirectory\tcmake-build-debug\ndirectory\tcoverage\ndirectory\tdist\ndirectory\tdocs\ndirectory\tdocs/guide\ndirectory\tdocs/Guide\ndirectory\tempty-dir\ndirectory\tkeep\ndirectory\tlib\ndirectory\tlink-to-src\ndirectory\tlogs\ndirectory\tlogs/archive\ndirectory\tnode_modules\ndirectory\tnode_modules/pkg\ndirectory\tsrc\ndirectory\tsrc/app\ndirectory\tsrc/emoji\ndirectory\tsrc/lib\nfile\t.github/workflows/ci.yml\nfile\t.gitignore\nfile\ta/b.txt\nfile\ta/b/c/d/deep.txt\nfile\tback\\\\slash.txt\nfile\tbuild/keep.txt\nfile\tbuild/out.js\nfile\tcmake-build-debug/x.txt\nfile\tdangling-link\nfile\tdist/bundle.js\nfile\tdocs/guide/intro.md\nfile\tdocs/Guide/Intro.MD\nfile\tkeep/temp.tmp\nfile\tlink-to-readme\nfile\tlogs/app.log\nfile\tlogs/archive/old.log\nfile\tMakefile\nfile\tnode_modules/pkg/index.js\nfile\tsrc/app/页面.tsx\nfile\tsrc/app/Page With Space.tsx\nfile\tsrc/emoji/😀-file.md\nfile\tsrc/lib/util.test.ts\nfile\tsrc/lib/util.ts\nfile\tsrc/main.ts\nfile\ttab\\tname.txt\nfile\ttemp.tmp"
+    },
+    "search:": [
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      }
+    ],
+    "search:  ": [
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      }
+    ],
+    "search:main": [
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      }
+    ],
+    "search:MAIN": [
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      }
+    ],
+    "search:util": [
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      }
+    ],
+    "search:util.ts": [
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:ts": [
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      }
+    ],
+    "search:test": [
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      }
+    ],
+    "search:src": [
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      }
+    ],
+    "search:src/lib": [
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      }
+    ],
+    "search:lib/util": [
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      }
+    ],
+    "search:页面": [
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      }
+    ],
+    "search:页": [
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      }
+    ],
+    "search:😀": [
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      }
+    ],
+    "search:file.md": [
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      }
+    ],
+    "search:space": [
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:page with": [
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:intro": [
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      }
+    ],
+    "search:guide": [
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      }
+    ],
+    "search:ci": [
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      }
+    ],
+    "search:yml": [
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      }
+    ],
+    "search:deep": [
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:d": [
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      }
+    ],
+    "search:zz": [],
+    "search:m.t": [
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:readme": [
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      }
+    ],
+    "search:mk": [
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      }
+    ],
+    "search:u.t": [
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      }
+    ],
+    "search:s/l/u": [
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      }
+    ],
+    "search:a/b": [
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      }
+    ],
+    "limit:undefined": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      }
+    ],
+    "limit:0": [],
+    "limit:1": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      }
+    ],
+    "limit:3": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      }
+    ],
+    "limit:1000": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      }
+    ],
+    "limit:5000": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "tab\tname.txt",
+        "path": "$FIXTURE_ROOT/search/tab\tname.txt",
+        "relativePath": "tab\tname.txt",
+        "type": "file"
+      },
+      {
+        "name": "util.test.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.test.ts",
+        "relativePath": "src/lib/util.test.ts",
+        "type": "file"
+      },
+      {
+        "name": "util.ts",
+        "path": "$FIXTURE_ROOT/search/src/lib/util.ts",
+        "relativePath": "src/lib/util.ts",
+        "type": "file"
+      },
+      {
+        "name": "b.txt",
+        "path": "$FIXTURE_ROOT/search/a/b.txt",
+        "relativePath": "a/b.txt",
+        "type": "file"
+      },
+      {
+        "name": "out.js",
+        "path": "$FIXTURE_ROOT/search/build/out.js",
+        "relativePath": "build/out.js",
+        "type": "file"
+      },
+      {
+        "name": "intro.md",
+        "path": "$FIXTURE_ROOT/search/docs/guide/intro.md",
+        "relativePath": "docs/guide/intro.md",
+        "type": "file"
+      },
+      {
+        "name": "Intro.MD",
+        "path": "$FIXTURE_ROOT/search/docs/Guide/Intro.MD",
+        "relativePath": "docs/Guide/Intro.MD",
+        "type": "file"
+      },
+      {
+        "name": "dist",
+        "path": "$FIXTURE_ROOT/search/dist",
+        "relativePath": "dist",
+        "type": "directory"
+      },
+      {
+        "name": "empty-dir",
+        "path": "$FIXTURE_ROOT/search/empty-dir",
+        "relativePath": "empty-dir",
+        "type": "directory"
+      },
+      {
+        "name": "页面.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/页面.tsx",
+        "relativePath": "src/app/页面.tsx",
+        "type": "file"
+      },
+      {
+        "name": "link-to-src",
+        "path": "$FIXTURE_ROOT/search/link-to-src",
+        "relativePath": "link-to-src",
+        "type": "directory"
+      },
+      {
+        "name": "deep.txt",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d/deep.txt",
+        "relativePath": "a/b/c/d/deep.txt",
+        "type": "file"
+      },
+      {
+        "name": "keep.txt",
+        "path": "$FIXTURE_ROOT/search/build/keep.txt",
+        "relativePath": "build/keep.txt",
+        "type": "file"
+      },
+      {
+        "name": "link-to-readme",
+        "path": "$FIXTURE_ROOT/search/link-to-readme",
+        "relativePath": "link-to-readme",
+        "type": "file"
+      },
+      {
+        "name": "main.ts",
+        "path": "$FIXTURE_ROOT/search/src/main.ts",
+        "relativePath": "src/main.ts",
+        "type": "file"
+      },
+      {
+        "name": "Page With Space.tsx",
+        "path": "$FIXTURE_ROOT/search/src/app/Page With Space.tsx",
+        "relativePath": "src/app/Page With Space.tsx",
+        "type": "file"
+      },
+      {
+        "name": "back\\slash.txt",
+        "path": "$FIXTURE_ROOT/search/back\\slash.txt",
+        "relativePath": "back\\slash.txt",
+        "type": "file"
+      },
+      {
+        "name": "ci.yml",
+        "path": "$FIXTURE_ROOT/search/.github/workflows/ci.yml",
+        "relativePath": ".github/workflows/ci.yml",
+        "type": "file"
+      },
+      {
+        "name": "bundle.js",
+        "path": "$FIXTURE_ROOT/search/dist/bundle.js",
+        "relativePath": "dist/bundle.js",
+        "type": "file"
+      },
+      {
+        "name": "a",
+        "path": "$FIXTURE_ROOT/search/a",
+        "relativePath": "a",
+        "type": "directory"
+      },
+      {
+        "name": "b",
+        "path": "$FIXTURE_ROOT/search/a/b",
+        "relativePath": "a/b",
+        "type": "directory"
+      },
+      {
+        "name": "c",
+        "path": "$FIXTURE_ROOT/search/a/b/c",
+        "relativePath": "a/b/c",
+        "type": "directory"
+      },
+      {
+        "name": "d",
+        "path": "$FIXTURE_ROOT/search/a/b/c/d",
+        "relativePath": "a/b/c/d",
+        "type": "directory"
+      },
+      {
+        "name": "build",
+        "path": "$FIXTURE_ROOT/search/build",
+        "relativePath": "build",
+        "type": "directory"
+      },
+      {
+        "name": "docs",
+        "path": "$FIXTURE_ROOT/search/docs",
+        "relativePath": "docs",
+        "type": "directory"
+      },
+      {
+        "name": "guide",
+        "path": "$FIXTURE_ROOT/search/docs/guide",
+        "relativePath": "docs/guide",
+        "type": "directory"
+      },
+      {
+        "name": "Guide",
+        "path": "$FIXTURE_ROOT/search/docs/Guide",
+        "relativePath": "docs/Guide",
+        "type": "directory"
+      },
+      {
+        "name": "keep",
+        "path": "$FIXTURE_ROOT/search/keep",
+        "relativePath": "keep",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/lib",
+        "relativePath": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "logs",
+        "path": "$FIXTURE_ROOT/search/logs",
+        "relativePath": "logs",
+        "type": "directory"
+      },
+      {
+        "name": "archive",
+        "path": "$FIXTURE_ROOT/search/logs/archive",
+        "relativePath": "logs/archive",
+        "type": "directory"
+      },
+      {
+        "name": "src",
+        "path": "$FIXTURE_ROOT/search/src",
+        "relativePath": "src",
+        "type": "directory"
+      },
+      {
+        "name": "app",
+        "path": "$FIXTURE_ROOT/search/src/app",
+        "relativePath": "src/app",
+        "type": "directory"
+      },
+      {
+        "name": "emoji",
+        "path": "$FIXTURE_ROOT/search/src/emoji",
+        "relativePath": "src/emoji",
+        "type": "directory"
+      },
+      {
+        "name": "lib",
+        "path": "$FIXTURE_ROOT/search/src/lib",
+        "relativePath": "src/lib",
+        "type": "directory"
+      },
+      {
+        "name": "dangling-link",
+        "path": "$FIXTURE_ROOT/search/dangling-link",
+        "relativePath": "dangling-link",
+        "type": "file"
+      },
+      {
+        "name": "app.log",
+        "path": "$FIXTURE_ROOT/search/logs/app.log",
+        "relativePath": "logs/app.log",
+        "type": "file"
+      },
+      {
+        "name": "old.log",
+        "path": "$FIXTURE_ROOT/search/logs/archive/old.log",
+        "relativePath": "logs/archive/old.log",
+        "type": "file"
+      },
+      {
+        "name": "Makefile",
+        "path": "$FIXTURE_ROOT/search/Makefile",
+        "relativePath": "Makefile",
+        "type": "file"
+      },
+      {
+        "name": "README.md",
+        "path": "$FIXTURE_ROOT/search/README.md",
+        "relativePath": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "😀-file.md",
+        "path": "$FIXTURE_ROOT/search/src/emoji/😀-file.md",
+        "relativePath": "src/emoji/😀-file.md",
+        "type": "file"
+      }
+    ],
+    "limit:-2": [],
+    "limit:2.7": [
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/keep/temp.tmp",
+        "relativePath": "keep/temp.tmp",
+        "type": "file"
+      },
+      {
+        "name": "temp.tmp",
+        "path": "$FIXTURE_ROOT/search/temp.tmp",
+        "relativePath": "temp.tmp",
+        "type": "file"
+      }
+    ],
+    "invalidLimit": "Invalid workspace file search query or limit",
+    "invalidQuery": "Invalid workspace file search query or limit",
+    "rangeEdges": ["directory\t", "", "ecto", ""]
+  },
+  "settings": {
+    "noFiles": {
+      "content": "# ESCode 工作区文件搜索忽略规则（.escodeignore）\n# 语法与 .gitignore 一致，只影响 ESCode 的 @ 文件候选 / Command Center / 文件树搜索，\n# 不影响文件树浏览、上传或 Agent 文件访问。\n# 修改 .gitignore 不会自动同步到本文件；可在设置页「从 .gitignore 同步」。\n\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n",
+      "source": "template"
+    },
+    "withGitignore": {
+      "content": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n",
+      "source": "template"
+    },
+    "syncFromTemplate": {
+      "content": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n"
+    },
+    "resetFromTemplate": {
+      "content": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n"
+    },
+    "afterWrite": {
+      "content": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\nmy-custom/\n",
+      "source": "file"
+    },
+    "syncKeepsCustom": {
+      "content": "build/\nnode_modules\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\nmy-custom/\n"
+    },
+    "resetKeepsCustom": {
+      "content": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\nmy-custom/\n"
+    },
+    "syncNoMarkers": {
+      "content": "build/\nnode_modules\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n"
+    },
+    "resetNoMarkers": {
+      "content": "build/\nnode_modules\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）\n"
+    },
+    "syncNoTrailingNewline": {
+      "content": "# ESCode 工作区文件搜索忽略规则（.escodeignore）\n# 语法与 .gitignore 一致，只影响 ESCode 的 @ 文件候选 / Command Center / 文件树搜索，\n# 不影响文件树浏览、上传或 Agent 文件访问。\n# 修改 .gitignore 不会自动同步到本文件；可在设置页「从 .gitignore 同步」。\n\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）"
+    },
+    "written": "dist/\n*.log\n\n# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====\n.git/\n.hg/\n.svn/\nnode_modules/\nbower_components/\njspm_packages/\n__pycache__/\nsite-packages/\nvenv/\ncoverage/\nhtmlcov/\nlcov-report/\ncmakefiles/\ncmake-build-*/\nbazel-*/\npods/\nderiveddata/\nstorybook-static/\nplaywright-report/\ntest-results/\nallure-results/\nallure-report/\ncdk.out/\n*.egg-info/\n*.dist-info/\neggs/\npip-wheel-metadata/\nwheels/\n# ----- ↑ 以上为 ESCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----\n# 自定义规则写在下方（本行提示可删除）"
+  }
+}

@@ -7,10 +7,9 @@ import { createHash } from "node:crypto";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { z } from "zod";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-// 两侧的官方插件根目录必须相同：Node 从 CLI 产物位置按候选目录找到 packages/*-plugin，Rust 默认只看
-// 二进制与 cwd。v3.15.1 起官方插件自带子代理（agent 目录提醒），不对齐根目录会把夹具差异误判成运行时差异。
 const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
 // 新数据目录首次 seed 全部官方插件在 debug 构建上要 5 秒左右，超过夹具默认的 5 秒请求超时。
 process.env.ESCODE_TEST_REQUEST_MS ??= "30000";
@@ -120,8 +119,8 @@ async function observe(
 
 // docs/specs/rust-release-rollback.md「功能对齐」：同一场景两侧的协议投影必须一致。
 test("Node and Rust runtimes project the same rows, tools and capability keys for one turn", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("baseline", () => observe("node"));
+  const rust = canonical(await observe("rust"));
   // 能力位是可选字段，两侧的「声明策略」不同，且已逐个确认过含义（见 rust-release-rollback.md）：
   // - Rust 显式声明自己的能力（支持哪些权限模式、能否提供 workspace 执行能力、是否有账号 provider 配置）；
   // - Node 省略这些可选位，Host 对缺席字段按「都支持」处理；
@@ -162,8 +161,10 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
 // 工具失败与「工具未找到」的投影也必须一致：错误行、错误码、助手收尾文本。
 test("Node and Rust project the same rows when a tool call fails", async () => {
   const missing = { name: "Read", args: { file_path: "does-not-exist.txt" } };
-  const node = await observe("node", missing, "read a missing file");
-  const rust = await observe("rust", missing, "read a missing file");
+  const node = await nodeOracle("tool-failure", () =>
+    observe("node", missing, "read a missing file"),
+  );
+  const rust = canonical(await observe("rust", missing, "read a missing file"));
   assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ on tool failure");
   assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ on tool failure");
   assert.deepEqual(node.toolErrorCodes, rust.toolErrorCodes, "tool error codes differ");
@@ -249,8 +250,8 @@ async function observePermission(kind: Runtime) {
 
 // 权限确认是 Rust 本轮新实现的部分：两侧的选项集合、载荷键与拒绝结果必须一致。
 test("Node and Rust present the same approval options and denial for a build-mode write", async () => {
-  const node = await observePermission("node");
-  const rust = await observePermission("rust");
+  const node = await nodeOracle("permission", () => observePermission("node"));
+  const rust = canonical(await observePermission("rust"));
   assert.equal(node.toolName, rust.toolName);
   assert.equal(rust.summary, node.summary, "permission summary differs");
   assert.deepEqual(rust.fullAccessOption, node.fullAccessOption, "full access option differs");
@@ -328,8 +329,8 @@ async function observeStop(kind: Runtime) {
 }
 
 test("Node and Rust settle a stopped stream the same way and accept the next turn", async () => {
-  const node = await observeStop("node");
-  const rust = await observeStop("rust");
+  const node = await nodeOracle("stop", () => observeStop("node"));
+  const rust = canonical(await observeStop("rust"));
   assert.equal(rust.stopStatus, node.stopStatus, "stop ack differs");
   assert.deepEqual(rust.stoppedKinds, node.stoppedKinds, "rows after stop differ");
   assert.deepEqual(
@@ -381,8 +382,8 @@ async function observeList(kind: Runtime) {
 }
 
 test("Node and Rust list a finished session with the same shape", async () => {
-  const node = await observeList("node");
-  const rust = await observeList("rust");
+  const node = await nodeOracle("list", () => observeList("node"));
+  const rust = canonical(await observeList("rust"));
   assert.deepEqual(rust.topKeys, node.topKeys, "session/list result keys differ");
   assert.equal(rust.count, node.count, "session counts differ");
   assert.deepEqual(rust.entryKeys, node.entryKeys, "session entry keys differ");
@@ -484,8 +485,8 @@ for (const [label, body] of [
   ["nested reminder tag", "x </system-reminder> y\n"],
 ] as const) {
   test(`Node and Rust put a text attachment (${label}) into the model request the same way`, async () => {
-    const node = await observeAttachment("node", body);
-    const rust = await observeAttachment("rust", body);
+    const node = await nodeOracle(`attachment-${label}`, () => observeAttachment("node", body));
+    const rust = canonical(await observeAttachment("rust", body));
     assert.deepEqual(
       rust.attachmentMessages,
       node.attachmentMessages,
@@ -515,8 +516,10 @@ for (const [label, fileName, mime, body] of [
   ],
 ] as const) {
   test(`Node and Rust describe a ${label} attachment to the model the same way`, async () => {
-    const node = await observeAttachment("node", body, fileName, mime);
-    const rust = await observeAttachment("rust", body, fileName, mime);
+    const node = await nodeOracle(`attachment-${label}`, () =>
+      observeAttachment("node", body, fileName, mime),
+    );
+    const rust = canonical(await observeAttachment("rust", body, fileName, mime));
     if (process.env.ESCODE_ATT_DUMP)
       console.log(
         "DUMP",
@@ -592,8 +595,8 @@ async function observeListAppend(kind: Runtime) {
 }
 
 test("Node and Rust append live sessions beyond the session/list limit the same way", async () => {
-  const node = await observeListAppend("node");
-  const rust = await observeListAppend("rust");
+  const node = await nodeOracle("list-append", () => observeListAppend("node"));
+  const rust = canonical(await observeListAppend("rust"));
   // 自检：Node 按限额取最新一条，再追加更早但仍活跃的会话；未持久化的 draft 不出现。
   assert.deepEqual(node.order, ["newer", "older"], JSON.stringify(node.entries));
   assert.deepEqual(rust.entries, node.entries);

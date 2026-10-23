@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
-// 相对路径 import：根 node_modules 不链接工作区包，测试要拿真实 TS 实现作 oracle。
-import { createESCodeTaskServiceAdapter } from "../../services/src/escode-agent/escodeTaskServiceAdapter.js";
-import { TaskIndexRepo } from "../../services/src/session/taskIndexRepo.js";
-import { prepareTasksIndexStorage } from "../../services/src/storage-startup.js";
-import { createWindowHostControllerRuntime } from "../src/host/windowHostControllerService.js";
+
+// Phase 3 golden freeze：原「真实 TS `createWindowHostControllerRuntime` + `TaskIndexRepo`」oracle
+// 的逐步观察已冻结（时间戳剔除），测试不再实例化 TS runtime/Repo；Rust Host 从冻结 seed 库启动。
+const goldenFile = new URL(
+  "./fixtures/golden/rustHostWindowController.oracle.json",
+  import.meta.url,
+);
+const goldenSeed = new URL(
+  "./fixtures/golden/rustHostWindowController.seed.sqlite",
+  import.meta.url,
+);
 
 // docs/specs/rust-u2-window-controller.md §4.2：`listTaskList` / `mutateTask` / 归档删除的
-// **真实 TS 服务差分**——同一份 tasks-index 夹具库喂给真实 TS `createWindowHostControllerRuntime`
-// （真实 `TaskIndexRepo` + 真实适配器读取面）与 Rust Host 的 `window-controller` channel
-// （真实 `@escode/client`），逐字段 `toEqual`。
+// Rust Host `window-controller` channel（真实 `@escode/client`）对冻结 TS 观察逐字段比较。
 //
 // 链路：spawn escode-host → rpcListen{home, dataBaseDir} → capability → ws://addr/ws/host →
 //       connectRpc → services.windowControllerService。
@@ -23,104 +26,61 @@ const WORKSPACE_PATH = "/tmp/escode-controller-oracle-workspace";
 const WORKSPACE_IDENTITY = "id-controller-oracle";
 const WORKSPACE = { workspacePath: WORKSPACE_PATH, workspaceIdentity: WORKSPACE_IDENTITY };
 
-interface TaskSeed {
-  taskId: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
+interface TaskListResult {
+  items: unknown[];
+  total: number;
+  hasMore: boolean;
 }
 
-const SEEDS: TaskSeed[] = [
-  { taskId: "t-active-new", title: "alpha newest", createdAt: 30, updatedAt: 40 },
-  { taskId: "t-active-old", title: "alpha oldest", createdAt: 10, updatedAt: 20 },
-  { taskId: "t-pin", title: "beta pinned candidate", createdAt: 15, updatedAt: 25 },
-  { taskId: "t-archive", title: "gamma archived candidate", createdAt: 5, updatedAt: 35 },
-];
+interface DeletionResult {
+  deletedTaskIds: string[];
+  skippedTaskIds: string[];
+  failedTaskIds: string[];
+}
 
-function scope(overrides: { workspacePath: string; workspaceIdentity?: string }) {
-  return {
-    kind: "local" as const,
-    workspacePath: overrides.workspacePath,
-    ...(overrides.workspaceIdentity ? { workspaceIdentity: overrides.workspaceIdentity } : {}),
+interface Golden {
+  expected: {
+    initialQueries: TaskListResult[];
+    pin: { taskId: string };
+    pinnedAfterPin: TaskListResult;
+    archive: { taskId: string };
+    afterArchive: Record<string, TaskListResult>;
+    emptyBatch: DeletionResult;
+    deleteActive: boolean;
+    deleteArchived: DeletionResult;
+    afterDeleteArchived: TaskListResult;
+    archiveOld: { taskId: string };
+    afterArchiveOld: Record<string, TaskListResult>;
+    missingError: string;
   };
 }
 
-/** 读取面适配器的依赖：快照/写面成员不会被本用例触碰，给可 dispose 形状即可。 */
-function stubTaskServiceDependencies(repo: TaskIndexRepo) {
-  const agentService = new Proxy(
-    {},
-    {
-      get: () => () => {
-        throw new Error("provider/agent 路径不应在列表读取面被调用");
-      },
-    },
+/** 与生成脚本一致：剔除时间戳；本用例的 task id 都是固定 seed，无需归一化。 */
+function normalize(value: unknown): unknown {
+  const text = JSON.stringify(value, (key, item) =>
+    /^(created|updated|added)At$/.test(key) ? undefined : item,
   );
-  // 与 `generate-escode-host-task-projection-fixtures.mjs` 同法：读取面不驱动 syncer，
-  // 任何被碰到的成员都是「调用后回可 dispose 形状」的函数；workspace 事件返回可调用 Event。
-  const disposable = () => ({ dispose() {}, fire() {}, event: () => ({ dispose() {} }) });
-  // `Event<T>` 是「可调用 + 自带 dispose」的值：workspace 事件注册后永不再触发（本用例不驱动 syncer）。
-  const workspaceEvent = () => {
-    const event = () => ({ dispose: () => undefined });
-    return Object.assign(event, { dispose: () => undefined });
-  };
-  const syncer = new Proxy(
-    {},
-    {
-      get: (_target, key) =>
-        key === "onDynamicWorkspaceEvent" || key === "getWorkspaceEmitter"
-          ? workspaceEvent
-          : disposable,
-    },
-  );
-  return createESCodeTaskServiceAdapter({
-    escodeAgentService: agentService as never,
-    taskIndexRepo: repo,
-    taskIndexSyncer: syncer as never,
-  });
+  return text === undefined ? "<undefined>" : JSON.parse(text);
 }
+
+const scopes = [WORKSPACE];
+const address = (taskId: string) => ({ ...WORKSPACE, taskId });
+const listQuery = (kind: string) => ({ kind, sortBy: "updated", workspaceScopes: scopes });
 
 describe("rust host window-controller parity", () => {
   it.skipIf(!existsSync(hostBinary))(
-    "listTaskList / mutateTask / archived deletion match the real TS controller runtime",
+    "listTaskList / mutateTask / archived deletion match the frozen TS controller observations",
     async () => {
       const root = await mkdtemp(join(tmpdir(), "escode-rust-host-controller-"));
       const home = join(root, "home");
       const dataBaseDir = join(root, "data-base");
       await mkdir(home, { recursive: true });
-      const dbPath = join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite");
-      await prepareTasksIndexStorage(dbPath, () => {});
-      const repo = new TaskIndexRepo(dbPath);
-      await repo.ensureReady();
-      for (const seed of SEEDS) {
-        await repo.seedTaskMetaIfMissing({
-          taskId: seed.taskId,
-          traceId: `trace-${seed.taskId}`,
-          title: seed.title,
-          workspacePath: WORKSPACE_PATH,
-          workspaceIdentity: WORKSPACE_IDENTITY,
-          createdAt: seed.createdAt,
-          updatedAt: seed.updatedAt,
-          mode: "build",
-          provider: "glm",
-          model: "fixture/fixture-model$none",
-          thoughtLevel: "none",
-        } as never);
-      }
-
-      const taskService = stubTaskServiceDependencies(repo);
-      const runtime = createWindowHostControllerRuntime({
-        createId: () => randomUUID(),
-        resolveSource: (queryScope) => ({
-          scope: scope(queryScope),
-          taskService,
-          // 无 agent 服务：与 Rust 侧一致——没有 sessions-index 摘要 → 没有 overlay。
-          agentService: undefined,
-          sourceAvailability: "online",
-        }),
-        onSourceError: (scope, operation, error) => {
-          console.error("[oracle] source error", operation, scope, error);
-        },
-      });
+      // 冻结的 TS tasks-index seed：Rust Host 直接读同一文件，不再在测试内跑 TS Repo 造数。
+      const dbDir = join(dataBaseDir, ".escode", "v2");
+      await mkdir(dbDir, { recursive: true });
+      await copyFile(goldenSeed, join(dbDir, "tasks-index.sqlite"));
+      const golden = JSON.parse(await readFile(goldenFile, "utf8")) as Golden;
+      const expected = golden.expected;
 
       const host = startHost(home);
       try {
@@ -132,7 +92,6 @@ describe("rust host window-controller parity", () => {
         const services = await connectRpc(String(listening.addr), String(listening.secret));
         const rust = services.windowControllerService;
 
-        const scopes = [WORKSPACE];
         const queries = [
           { kind: "active", sortBy: "updated", workspaceScopes: scopes },
           { kind: "timeline", sortBy: "updated", workspaceScopes: scopes },
@@ -143,133 +102,75 @@ describe("rust host window-controller parity", () => {
           { kind: "active", sortBy: "updated", workspaceScopes: scopes, search: "alpha" },
           { kind: "active", sortBy: "updated", workspaceScopes: scopes, search: "no-match-here" },
         ];
-        for (const query of queries) {
-          const expected = await runtime.service.listTaskList(query as never);
+        for (const [index, query] of queries.entries()) {
           const actual = await rust.listTaskList(query as never);
-          expect(actual, JSON.stringify(query)).toEqual(expected);
+          expect(normalize(actual), JSON.stringify(query)).toEqual(expected.initialQueries[index]);
         }
 
-        // 写后一致：Rust 侧 pin/archive，两侧再各自读同一库（TS 侧用 `open` mutation 强制重读投影）。
-        const address = (taskId: string) => ({ ...WORKSPACE, taskId });
+        // 写后一致：Rust 侧 pin/archive，Host 自己是写者，事件驱动投影收敛后对冻结观察。
         const pinnedMeta = await rust.mutateTask({
           address: address("t-pin"),
           mutation: { kind: "pin", pinned: true },
         } as never);
-        expect((pinnedMeta as { taskId?: string } | null)?.taskId).toBe("t-pin");
-        await runtime.service.mutateTask({
-          address: address("t-pin"),
-          mutation: { kind: "open" },
-        } as never);
-        expect(
-          await rust.listTaskList({
-            kind: "pinned",
-            sortBy: "updated",
-            workspaceScopes: scopes,
-          } as never),
-        ).toEqual(
-          await runtime.service.listTaskList({
-            kind: "pinned",
-            sortBy: "updated",
-            workspaceScopes: scopes,
-          } as never),
+        expect((pinnedMeta as { taskId?: string } | null)?.taskId).toBe(expected.pin.taskId);
+        expect(normalize(await rust.listTaskList(listQuery("pinned") as never))).toEqual(
+          expected.pinnedAfterPin,
         );
 
         await rust.mutateTask({
           address: address("t-archive"),
           mutation: { kind: "archive", archived: true },
         } as never);
-        await runtime.service.mutateTask({
-          address: address("t-archive"),
-          mutation: { kind: "open" },
-        } as never);
         for (const kind of ["archived", "active", "timeline"]) {
-          expect(
-            await rust.listTaskList({ kind, sortBy: "updated", workspaceScopes: scopes } as never),
-            kind,
-          ).toEqual(
-            await runtime.service.listTaskList({
-              kind,
-              sortBy: "updated",
-              workspaceScopes: scopes,
-            } as never),
+          expect(normalize(await rust.listTaskList(listQuery(kind) as never)), kind).toEqual(
+            expected.afterArchive[kind],
           );
         }
 
-        // 归档删除：空批次短路（两侧都不碰库）。
-        const emptyBatch = await rust.deleteArchivedTasks({
-          address: address("t-archive"),
-          taskIds: [],
-        } as never);
-        expect(emptyBatch).toEqual({
-          deletedTaskIds: [],
-          skippedTaskIds: [],
-          failedTaskIds: [],
-        });
-        // 未归档的归档删除 → 幂等跳过（TS 同：`deleteArchivedTask` 回 false）。
-        expect(await rust.deleteArchivedTask({ address: address("t-active-new") } as never)).toBe(
-          false,
-        );
+        // 归档删除：空批次短路（不碰库）。
         expect(
-          await runtime.service.deleteArchivedTask({ address: address("t-active-new") } as never),
-        ).toBe(false);
+          await rust.deleteArchivedTasks({
+            address: address("t-archive"),
+            taskIds: [],
+          } as never),
+        ).toEqual(expected.emptyBatch);
+        // 未归档的归档删除 → 幂等跳过。
+        expect(await rust.deleteArchivedTask({ address: address("t-active-new") } as never)).toBe(
+          expected.deleteActive,
+        );
 
-        // Rust 侧真实删除（Host 是写者 → 事件驱动投影收敛），TS 侧强制重读后逐字段一致。
+        // Rust 侧真实删除（Host 是写者 → 事件驱动投影收敛）。
         expect(
           await rust.deleteArchivedTasks({
             address: address("t-archive"),
             taskIds: ["t-archive"],
           } as never),
-        ).toEqual({ deletedTaskIds: ["t-archive"], skippedTaskIds: [], failedTaskIds: [] });
-        await runtime.service.mutateTask({
-          address: address("t-active-new"),
-          mutation: { kind: "open" },
-        } as never);
-        expect(
-          await rust.listTaskList({
-            kind: "archived",
-            sortBy: "updated",
-            workspaceScopes: scopes,
-          } as never),
-        ).toEqual(
-          await runtime.service.listTaskList({
-            kind: "archived",
-            sortBy: "updated",
-            workspaceScopes: scopes,
-          } as never),
+        ).toEqual(expected.deleteArchived);
+        expect(normalize(await rust.listTaskList(listQuery("archived") as never))).toEqual(
+          expected.afterDeleteArchived,
         );
 
-        // 反向：TS 侧写（外部写者）→ Rust 侧强制重读（`open` mutation）后同样一致。
-        await runtime.service.mutateTask({
+        // 反向写者（原用例由 TS 侧写入）：归档 t-active-old 后三分区一致。
+        await rust.mutateTask({
           address: address("t-active-old"),
           mutation: { kind: "archive", archived: true },
         } as never);
-        await rust.mutateTask({
-          address: address("t-active-old"),
-          mutation: { kind: "open" },
-        } as never);
         for (const kind of ["archived", "active", "timeline"]) {
-          expect(
-            await rust.listTaskList({ kind, sortBy: "updated", workspaceScopes: scopes } as never),
-            kind,
-          ).toEqual(
-            await runtime.service.listTaskList({
-              kind,
-              sortBy: "updated",
-              workspaceScopes: scopes,
-            } as never),
+          expect(normalize(await rust.listTaskList(listQuery(kind) as never)), kind).toEqual(
+            expected.afterArchiveOld[kind],
           );
         }
 
-        // 地址校验文案（TS 抛错 → Rust 回结构化错误）。
+        // 地址校验文案：与冻结的 TS 观察一致。
         await expect(
           rust.mutateTask({
             address: { ...WORKSPACE, taskId: "missing-task" },
             mutation: { kind: "pin", pinned: true },
           } as never),
-        ).rejects.toThrow("没有与任务地址匹配的 source");
+        ).rejects.toThrow(expected.missingError);
       } finally {
-        repo.close();
         await host.stop();
+        await rm(root, { recursive: true, force: true });
       }
     },
   );

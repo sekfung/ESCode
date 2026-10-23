@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
+import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 2 期：ListSavedWorkflows 在灰度为开时，Node 与 Rust
 // 对同一份项目档给出的模型面内容与行级 display 一致（路径按 workspace 归一后逐字比较）。
@@ -109,8 +110,8 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("ListSavedWorkflows matches Node for the project archive", async () => {
-  const node = await observe("node");
-  const rust = await observe("rust");
+  const node = await nodeOracle("observe", () => observe("node"));
+  const rust = await canonical(await observe("rust"));
   // 自检：模型面确实是清单，而不是空容器或别的东西。
   assert.match(node.tool ?? "", /^<saved_workflows count="1">/);
   assert.match(node.tool ?? "", /<workflow name="review" scope="project">/);

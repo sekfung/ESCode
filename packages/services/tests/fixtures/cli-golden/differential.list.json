@@ -1,0 +1,18 @@
+{
+  "topKeys": ["sessions"],
+  "count": 1,
+  "entryKeys": [
+    "createdAt",
+    "mode",
+    "sessionId",
+    "sessionKind",
+    "status",
+    "title",
+    "titleSource",
+    "traceId",
+    "updatedAt",
+    "workspace"
+  ],
+  "title": "list me",
+  "schemaErrors": []
+}

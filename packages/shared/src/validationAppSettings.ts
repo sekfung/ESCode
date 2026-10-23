@@ -551,6 +551,9 @@ const appSettingsObjectSchema = z.object({
   escodeEndpointOrigin: escodeEndpointOriginSchema.optional(),
 });
 
+/** 设置文件的已知顶层键；Host 切换时用于区分未知键（必须保留）与已删除的已知键。 */
+export const appSettingsKnownKeys = new Set(Object.keys(appSettingsObjectSchema.shape));
+
 export const appSettingsSchema = z.preprocess(
   (value) =>
     sanitizeEmbeddedBrowserViewportPreference(
