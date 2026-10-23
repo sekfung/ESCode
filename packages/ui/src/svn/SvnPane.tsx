@@ -656,8 +656,8 @@ export function SvnPane({
                           onResolve={handleResolveRow}
                           onShowFileHistory={handleShowFileHistory}
                           onShowBlame={handleShowBlame}
-                          onLock={(change) => void handleLock(change)}
-                          onUnlock={(change) => void handleUnlock(change)}
+                          onLock={handleLock}
+                          onUnlock={handleUnlock}
                           onOpenFile={handleOpenFile}
                           onCopyAbsolutePath={handleCopyAbsolutePath}
                           onCopyRelativePath={handleCopyRelativePath}
