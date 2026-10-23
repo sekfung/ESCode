@@ -10,7 +10,8 @@
   `attachLocalPort`**。手机远控删除后，原来的 Rust attachment 消费方也不存在了。
 - 2026-10-22 已补 `desktopRustHostWindow.ts` 与 `desktopWindowLifecycle.ts` 的 Rust 分支：
   开关打开时窗口只建 attachment，不 spawn utility process；reload/close 只解绑。
-- 因此 `ESCODE_RUST_HOST=1` **现在会真正改变窗口 Host**；默认仍关，原因见 §5。
+- 因此 `ESCODE_RUST_HOST` **现在决定窗口 Host**；2026-10-23 已完成四平台安装包验收并默认开启，
+  显式 `0`/`false` 回退 Node Host（见 §6）。
 - `ESCODE_RUST_HOST_BINARY` 覆盖已落地（E2E/自定义安装布局）。
 
 ## 2. 目标形态
@@ -111,7 +112,7 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
 
 该项仍是**产品边界**（远程 workspace 保留 per-window Node Host），不是 Rust 原生 remote parity；但边界行为已由上述可执行 E2E 验证。
 
-**默认开关**：`ESCODE_RUST_HOST` 仍默认关。1–10 已闭合；Linux 的窗口生命周期与 SSH 远程 E2E 已通过（§6），macOS/Windows 安装包验收已接入 CI `installed` 作业，CI 绿灯后再翻转默认值。
+**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退 Node Host。依据是 CI run `39920171658`：win-x64、mac-arm64、mac-x64、linux-x64 四个 `installed` 作业的 “launch installed package with Rust Host” 步骤全部 success。
 
 ## 6. 验收（默认翻转前必须满足）
 
@@ -123,18 +124,19 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
   "serves multiple window attachments from one Host process" 与
   "restarts within the budget and attachments are rebuilt"）。
 - E2E（Linux，2026-10-23 已通过）：`conversation-session-rust-host-window-lifecycle.test.ts`，
-  artifact `desktop-e2e-20261023-064527-548`。本地窗口只由 1 个 `escode-host-rust-host` 服务，
-  无 `escode-host-local-*` utility host；renderer reload 后 Host pid 不变。App quit 后 Host 退出由
-  `desktop-e2e` 退出屏障、`rustHostManager.stop()` 测试与 SSH E2E teardown 的
-  `[spawnHostProcess] host process ... exited` 覆盖。
+  artifact `desktop-e2e-20261023-064527-548`（显式 `ESCODE_RUST_HOST=1`）与
+  `desktop-e2e-20261023-092550-025`（不设置任何 env，走翻转后的默认值）。本地窗口只由 1 个
+  `escode-host-rust-host` 服务，无 `escode-host-local-*` utility host；renderer reload 后 Host pid
+  不变。App quit 后 Host 退出由 `desktop-e2e` 退出屏障、`rustHostManager.stop()` 测试与 SSH E2E
+  teardown 的 `[spawnHostProcess] host process ... exited` 覆盖。
 - 远程 workspace：`conversation-session-ssh-remote-connection-p0.test.ts` 在
   `ESCODE_RUST_HOST=1` 下通过（§5.1）。
 - 资源管理器、网络捕获、CUA 指示、browser-use、agent 进程计数：由 `rustHostHostEvents`、
   `rustHostCuaPermission`、`rustHostRuntimeCrash` 与对应 channel 测试覆盖；SSH E2E 回归了
   远程 host 行与 agent 进程注册。
-- 默认翻转的 macOS/Windows 安装包 E2E 已接入 CI：`.github/workflows/release.yml` 的
+- 默认翻转的 macOS/Windows 安装包 E2E 已接入且通过 CI：`.github/workflows/release.yml` 的
   `installed` 作业（win-x64 / mac-arm64 / mac-x64 / linux-x64）在真实安装后，再用
   `ESCODE_RUST_HOST=1 ESCODE_INSTALLED_EXPECT_RUST_HOST=1 node scripts/ci-install-desktop.mjs --launch-only`
   启动同一个包，断言包内 `escode-host` 启动、renderer attach，且没有 utility Node 窗口 Host。
-  该作业在 release 标签、手动运行以及 `feat/**` / `dev` 分支改动发布链路时执行；CI 绿灯后即可
-  翻转 `ESCODE_RUST_HOST` 默认值，本机不预置未验证平台的结论。
+  CI run `39920171658` 四个平台的该步骤全部 success；随后已把 `ESCODE_RUST_HOST` 默认翻转为开启
+  （显式 `0`/`false` 回退 Node Host）。

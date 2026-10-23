@@ -30,10 +30,12 @@ describe("rust host dev switch", () => {
     handle = undefined;
   });
 
-  it("only enables on an explicit truthy flag", () => {
-    expect(isRustHostEnabled({})).toBe(false);
+  it("defaults to Rust Host and only falls back on an explicit false flag", () => {
+    // M5 已翻转：未设置时走 Rust Host，显式 0/false 才回退 Node Host。
+    expect(isRustHostEnabled({})).toBe(true);
     expect(isRustHostEnabled({ ESCODE_RUST_HOST: "0" })).toBe(false);
     expect(isRustHostEnabled({ ESCODE_RUST_HOST: "false" })).toBe(false);
+    expect(isRustHostEnabled({ ESCODE_RUST_HOST: " FALSE " })).toBe(false);
     expect(isRustHostEnabled({ ESCODE_RUST_HOST: "1" })).toBe(true);
     expect(isRustHostEnabled({ ESCODE_RUST_HOST: " TRUE " })).toBe(true);
   });

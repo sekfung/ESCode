@@ -153,6 +153,25 @@ const E2E_HOME_DIR = resolve(
 const E2E_PACKAGED_APP_BINARY_PATH = process.env.ESCODE_E2E_PACKAGED_APP_PATH?.trim()
   ? resolve(process.env.ESCODE_E2E_PACKAGED_APP_PATH)
   : null;
+// M5 默认走 Rust Host：非打包 E2E 的 appPath 指向 .e2e-cache 副本，Main 无法按仓库布局
+// 推导 debug 二进制，必须在 runnerEnv 里显式给出。打包 E2E 用包内二进制，不覆盖。
+const E2E_RUST_HOST_ENABLED = !["0", "false"].includes(
+  (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
+);
+if (
+  !E2E_PACKAGED_APP_BINARY_PATH &&
+  E2E_RUST_HOST_ENABLED &&
+  !process.env.ESCODE_RUST_HOST_BINARY?.trim()
+) {
+  process.env.ESCODE_RUST_HOST_BINARY = resolve(
+    REPO_ROOT,
+    "apps",
+    "escode-host",
+    "target",
+    "debug",
+    process.platform === "win32" ? "escode-host.exe" : "escode-host",
+  );
+}
 // 目录隔离已回滚：所有 Desktop E2E 继续使用历史 ~/.escode 布局。
 const E2E_STORAGE_ROOT = resolve(E2E_HOME_DIR, ".escode");
 const E2E_APP_CONFIG_DIR = resolve(E2E_STORAGE_ROOT, "v2");
@@ -811,6 +830,19 @@ function applyAskUserQuestionClockScaleForWorker(specs: string[]) {
   }
 }
 
+function ensureRustHostBinaryForE2E() {
+  if (E2E_PACKAGED_APP_BINARY_PATH || !E2E_RUST_HOST_ENABLED) return;
+  const binary = process.env.ESCODE_RUST_HOST_BINARY?.trim();
+  if (!binary || existsSync(binary)) return;
+  // M5 默认走 Rust Host：非打包 E2E 使用仓库 debug 二进制，缺失时在 onPrepare 自举一次。
+  console.log("[e2e] building Rust Host debug binary for the default Rust Host");
+  execFileSync("cargo", ["build", "--locked", "--manifest-path", "apps/escode-host/Cargo.toml"], {
+    cwd: REPO_ROOT,
+    env: process.env,
+    stdio: "inherit",
+  });
+}
+
 function prepareDesktopAppBuild() {
   if (E2E_PACKAGED_APP_BINARY_PATH) {
     if (!existsSync(E2E_PACKAGED_APP_BINARY_PATH)) {
@@ -819,6 +851,7 @@ function prepareDesktopAppBuild() {
     console.log(`[e2e] using packaged app: ${E2E_PACKAGED_APP_BINARY_PATH}`);
     return;
   }
+  ensureRustHostBinaryForE2E();
   // 修复原因：WDIO 配置会先被 esbuild 解析，CI 可执行字符串必须保持 ASCII 引号。
   if (process.env.ESCODE_E2E_SKIP_BUILD === "1") {
     console.log("[e2e] ESCODE_E2E_SKIP_BUILD=1, skipping onPrepare build");

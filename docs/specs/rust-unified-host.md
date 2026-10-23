@@ -147,7 +147,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - host-runtime runtime-link 选择器（embedded/child）与实例表（single-flight、懒重启 generation、收口残余清单）；
   - 进程入口 attach/detach/转发/扇出/收口端到端。
 - [x] **u2b 第一个服务域 settings**：与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进）；双 Host 交替写读演练通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留）。
-- [x] **Renderer 直连的 RPC 面**：`@escode/rpc` 协议 + 真实客户端集成；`ESCODE_RUST_HOST` dev 开关与 Main 侧 attachment 切换（`rustHostManager.ts` / `rustHostBridge.ts`），见子 spec 实施进度表。
+- [x] **Renderer 直连的 RPC 面**：`@escode/rpc` 协议 + 真实客户端集成；`ESCODE_RUST_HOST` 开关（2026-10-23 默认开启，显式 `0`/`false` 回退 Node）与 Main 侧 attachment 切换（`rustHostManager.ts` / `rustHostBridge.ts`），见子 spec 实施进度表。
 - [x] **CI 接入**：`pnpm check:escode-host`（checks 作业）与 `pnpm test:escode-host`（三平台 test 作业）。
 - [x] **验收项「Host 服务契约清单（channel/method）`--check` 与源码一致」已机器化**：channel 方法表即分派来源（`Channel{name, methods}`），`host-rpc/tests/contract.rs` 双向对账清单与源码（Implemented 必须在表里、Pending 不得在表里、注册 channel ⊆ 清单），负向验证见子 spec。
 - [x] **优先序 4–5 已落地部分**：
@@ -155,7 +155,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - `system.info` 与 `file` 精确子集（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法）；
   - tasks-index 只读切片（生成器提取 TS 迁移账本与物理 DDL + 账本三分类对账 + `escode-task.getTaskMeta` + 真实 TS Repo 逐字段差分，含 `listTaskList` 全文搜索与分组结构读），见 `rust-u2-tasks-index.md`；
   - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——桌面的时间线/置顶/归档/全局搜索不再空列表。
-- [ ] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 落地窗口 attachment；2026-10-23 `rust-u2-window-host.md` §5 的 1–10 闭合，Linux 窗口生命周期 E2E（单 Rust Host、reload pid 不变）与 SSH 远程 E2E 已通过；默认翻转仅待 macOS/Windows 安装包 E2E。
+- [x] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 落地窗口 attachment；2026-10-23 `rust-u2-window-host.md` §5 的 1–10 闭合，Linux 窗口生命周期 E2E（单 Rust Host、reload pid 不变）与 SSH 远程 E2E 已通过；四平台安装包 CI（run `39920171658`）通过后已默认开启 `ESCODE_RUST_HOST`（显式 `0`/`false` 回退 Node）。
 - [ ] **优先序 4–9 其余服务域**：各域进度见对应子 spec 的进度表（`git` 17/18、`terminal` T1、`file-watcher`、`providers` P1 已交付；extensions / automation / remote 未开始）。
 
 工作区结构：新增 `apps/escode-host`（独立 Cargo workspace），共用基础代码放独立 shared workspace（对标三 workspace 结构，理由：Host 不拖 CLI 编译与依赖）。注意现有 `apps/escode-cli-rust/crates/host` 是 CLI 的配置/路径 adapter，与新 Host 概念重名，子 spec 中明确更名或文档注明。

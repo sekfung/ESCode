@@ -12,9 +12,24 @@ import { runCommand } from "../../../scripts/spawn-command.mjs";
 import { getTargetPlatform } from "./target-platform.mjs";
 
 const desktopRoot = resolve(import.meta.dirname, "..");
+const repoRoot = resolve(desktopRoot, "..", "..");
 const target = getTargetPlatform();
 const bundledToolsRoot = join(desktopRoot, "bundled-tools", target.key);
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+// M5 默认走 Rust Host：开发态由 Main 解析 apps/escode-host/target/debug/escode-host。
+// 显式 0/false 或 ESCODE_RUST_HOST_BINARY 覆盖时不参与自举。
+const rustHostDisabled = ["0", "false"].includes(
+  (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
+);
+const rustHostBinaryOverride = process.env.ESCODE_RUST_HOST_BINARY?.trim();
+const debugRustHostBinary = join(
+  repoRoot,
+  "apps",
+  "escode-host",
+  "target",
+  "debug",
+  target.os === "win32" ? "escode-host.exe" : "escode-host",
+);
 const nativeSearchReleasePlan = resolveNativeSearchReleasePlan({
   platform: target.os,
   arch: target.arch,
@@ -70,6 +85,20 @@ function isNativeSearchReady() {
 }
 
 const REQUIRED_LOCAL_RUNTIME_ASSETS = [
+  ...(!rustHostDisabled && !rustHostBinaryOverride
+    ? [
+        {
+          label: "Rust Host (debug)",
+          isReady: () => existsSync(debugRustHostBinary),
+          prepare: () =>
+            runCommand(
+              "cargo",
+              ["build", "--locked", "--manifest-path", "apps/escode-host/Cargo.toml"],
+              { cwd: repoRoot, env: process.env },
+            ),
+        },
+      ]
+    : []),
   ...(nativeSearchReleasePlan.enabled
     ? [
         {
@@ -125,6 +154,10 @@ for (const asset of missingAssets) {
   console.log(
     `[ensure-local-runtime-assets] preparing ${asset.label} because local runtime asset is missing or incomplete`,
   );
+  if (asset.prepare) {
+    asset.prepare();
+    continue;
+  }
   runCommand(pnpmCommand, [asset.script], {
     cwd: desktopRoot,
     env: process.env,

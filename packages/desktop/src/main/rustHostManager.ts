@@ -9,10 +9,11 @@ import {
   type RustHostHandle,
 } from "./rustHostBridge.js";
 
-// Rust Host 生命周期（dev 开关，docs/specs/rust-u2-host-skeleton.md §6；韧性见
+// Rust Host 生命周期（默认开启，docs/specs/rust-u2-host-skeleton.md §6；韧性见
 // docs/specs/rust-u2-host-resilience.md §3/§4）：
-// - `ESCODE_RUST_HOST=1` 时 Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/远程 workspace
-//   经 attachment 接入同一个 Host，符合 AGENTS.md 的状态所有者约定）；
+// - Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/远程 workspace
+//   经 attachment 接入同一个 Host，符合 AGENTS.md 的状态所有者约定）；显式 `ESCODE_RUST_HOST=0/false`
+//   才回退 Node Host；
 // - `attachLocalPort`：给一个 attachment 生产 renderer/relay 侧的 MessagePort——Main 把另一端桥到
 //   Rust Host 的 RPC WebSocket，因此**消费方协议不变**（MessagePort 上的 `@escode/rpc`）；
 // - Host 意外退出（Main 没有调用 `stop()`）时：已桥接的 attachment 全部 `onLost`（消费方按

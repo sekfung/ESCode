@@ -2,8 +2,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { WebSocket, type RawData } from "ws";
 import { ProtocolMessageType } from "@escode/rpc";
 
-// dev 开关：`ESCODE_RUST_HOST=1` 时窗口的本地 Host 通路由 Electron utility process
-// 切到 Rust Host（docs/specs/rust-u2-host-skeleton.md §6）。切换点是 Main 的
+// Host 默认走 Rust（显式 `ESCODE_RUST_HOST=0/false` 才回退 Node）：窗口的本地 Host 通路由
+// Electron utility process 切到 Rust Host（docs/specs/rust-u2-host-skeleton.md §6）。切换点是 Main 的
 // `attachWorkspaceHost` 本地分支：renderer 仍拿到一个 MessagePort（协议层 SocketProtocol
 // 不变），Main 把该端口与 Rust Host 的 RPC WebSocket（`@escode/rpc` 协议，二进制帧）
 // 字节级桥接——Renderer 代码不变。
@@ -85,10 +85,13 @@ export interface RustHostHandle {
   send(message: Record<string, unknown>): void;
 }
 
-/** `ESCODE_RUST_HOST` 是否为真（`1`/`true`；`0`/`false`/空一律关闭）。 */
+/**
+ * `ESCODE_RUST_HOST` 默认开启（M5 已翻转，四平台安装包验收见 rust-u2-window-host.md §6）；
+ * 显式 `0`/`false` 才回退 Node Host。其它未识别值保持默认开启，避免拼写错误静默降级。
+ */
 export function isRustHostEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = (env.ESCODE_RUST_HOST ?? "").trim().toLowerCase();
-  return raw === "1" || raw === "true";
+  return raw !== "0" && raw !== "false";
 }
 
 export interface StartRustHostOptions {

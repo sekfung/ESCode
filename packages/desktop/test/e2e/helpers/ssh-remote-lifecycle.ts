@@ -449,7 +449,11 @@ export async function prepareSSHLifecycle(caseMarker: string): Promise<{
   const config = readSSHRuntimeConfig(caseMarker);
   await prepareV4ConversationE2E({ skipProvider: true });
   const initialHosts = await readHostProcesses();
-  if (process.env.ESCODE_RUST_HOST === "1") expect(initialHosts.length).toBeGreaterThanOrEqual(1);
+  // M5 默认走 Rust Host；显式 0/false 才回到 Node Host。
+  const rustMode = !["0", "false"].includes(
+    (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
+  );
+  if (rustMode) expect(initialHosts.length).toBeGreaterThanOrEqual(1);
   else expect(initialHosts).toHaveLength(1);
   const provider = await createSSHLifecycleProvider(config, caseMarker);
   return { config, initialHosts, provider };
