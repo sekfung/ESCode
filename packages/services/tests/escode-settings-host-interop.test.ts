@@ -168,3 +168,40 @@ test("Node and Rust Hosts alternate writes to the same settings file", async (t)
     await host.stop();
   }
 });
+
+// golden freeze（阶段 3）：Rust 对 TS 写出的冻结设置文件单向读入。该用例不启动 TS 服务，
+// 删除 Node Host / TS CLI 后仍可验证设置读写；fixture 含未知键，用来钉住"写补丁不丢对方键"。
+test("Rust Host reads the frozen TypeScript settings fixture", async (t) => {
+  if (!existsSync(hostBinary)) {
+    t.skip(`escode-host binary missing (${hostBinary}); build apps/escode-host first`);
+    return;
+  }
+  const root = await mkdtemp(join(tmpdir(), "escode-settings-golden-"));
+  const home = join(root, "home");
+  await mkdir(join(home, ".escode", "v2"), { recursive: true });
+  const expected = JSON.parse(
+    await readFile(resolve("packages/services/tests/fixtures/settings-frozen.json"), "utf8"),
+  ) as Record<string, unknown>;
+  const settingsFile = join(home, ".escode", "v2", "setting.json");
+  await writeFile(settingsFile, `${JSON.stringify(expected, null, 2)}\n`);
+
+  const host = startHost(home);
+  try {
+    assert.equal((await nextMeaningful(host)).kind, "hostReady");
+    await host.send({ kind: "settingsRead", home });
+    const read = await nextMeaningful(host);
+    assert.equal(read.kind, "settingsValue");
+    assert.deepEqual(read.settings, expected, "Rust 只读冻结夹具，与 TS 写出的视图全等");
+
+    await host.send({ kind: "settingsWrite", home, patch: { locale: "en-US" } });
+    const write = await nextMeaningful(host);
+    assert.equal(write.kind, "settingsValue");
+    const onDisk = JSON.parse(await readFile(settingsFile, "utf8")) as Record<string, unknown>;
+    assert.equal(onDisk.locale, "en-US");
+    assert.deepEqual(onDisk.unknownFromNode, { kept: true }, "补丁写入保留未知键");
+    assert.equal(onDisk.memoryEnabled, true, "补丁写入保留其它已有值");
+    assert.ok((await readFile(settingsFile, "utf8")).startsWith('{\n  "'), "2 空格缩进");
+  } finally {
+    await host.stop();
+  }
+});

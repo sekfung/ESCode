@@ -50,19 +50,6 @@
       "removal": "Host 要求打开耗时分解（或 Node 去掉该诊断块）时复核"
     },
     {
-      "id": "model-request-messages-fixture-plugin-env",
-      "scenario": "session-baseline",
-      "surface": "modelRequests",
-      "status": "approved",
-      "match": {
-        "index": 0,
-        "leftSha256": "741f446c3b794e7ba632ec4d8a52b89511a0912b511641bb1a12f467c101bbc9",
-        "rightSha256": "ced654fa3e09ee7f14dca2ca61030d4322d9deb76a6a6cd9330abbe207871d7b"
-      },
-      "reason": "fixture 环境差异（非协议偏移）：CLI 直跑未注入插件宿主 env，Node 侧自装官方插件缓存（<storage>/cli/plugins/cache）并据此注入 skills/agents 提示，Rust 侧依赖宿主注入（桌面由 Host 提供 ESCODE_PLUGIN_HOST_ENTRYPOINT），故 messages 条数/长度不同。2026-10-14 已修复同一条目内的 max_completion_tokens/tool_choice 字段偏移（差分 M-1/M-2 收敛）。",
-      "removal": "桌面 L3 E2E 覆盖插件面（阶段 2/3）后从本条拆出；或夹具预置同等插件环境后重新对拍"
-    },
-    {
       "id": "title-request-streaming-shape",
       "scenario": "session-baseline",
       "surface": "modelRequests",

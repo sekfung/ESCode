@@ -235,6 +235,11 @@ jobs:
           ESCODE_RUST_HOST: "1"
           ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
         run: node scripts/ci-install-desktop.mjs --launch-only
+      # 阶段 3 切默认演练：同一个安装包依次以 Node Host → Rust Host → Node Host 启动，
+      # 断言每次 Host 类型正确，且冻结设置夹具在切换后未被破坏。
+      - name: Host switch and rollback drill
+        shell: bash
+        run: node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill
       - name: Node → Rust → Node rollback rehearsal on the installed package
         shell: bash
         env:

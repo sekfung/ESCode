@@ -7,12 +7,22 @@
 // - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
 //   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 const launchOnly = process.argv.includes("--launch-only");
 const source = resolve(process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? "artifacts");
 const temp = process.env.RUNNER_TEMP ?? resolve(".ci-install");
+// --launch-only 与切换演练都直接 mkdtemp；本地默认目录可能尚未创建。
+mkdirSync(temp, { recursive: true });
 const pick = (suffix) => {
   const files = readdirSync(source);
   const found = files.find((name) => name.endsWith(suffix));
@@ -95,8 +105,9 @@ const DATABASE_TERMINAL_PATTERN = /\[database-startup\] terminal \{[^}]*?status:
 const RUST_HOST_STARTED_PATTERN = /\[rust-host\] started at \d+\.\d+\.\d+\.\d+:\d+ \(pid \d+\)/;
 // 默认翻转前的安装包验收：包内 Rust Host 必须真实启动并挂上 renderer，且不能再出现
 // utility Node 窗口 Host。ESCODE_INSTALLED_EXPECT_RUST_HOST=1 时启用这些断言。
-const expectRustHost = process.env.ESCODE_INSTALLED_EXPECT_RUST_HOST === "1";
-const assertRustHostLaunch = (output) => {
+const expectRustHostEnv = process.env.ESCODE_INSTALLED_EXPECT_RUST_HOST === "1";
+const NODE_HOST_STARTED_PATTERN = /forked host process for \(local-/;
+const assertRustHostLaunch = (output, expectRustHost) => {
   if (!expectRustHost) return;
   if (!RUST_HOST_STARTED_PATTERN.test(output)) {
     throw new Error(
@@ -106,92 +117,141 @@ const assertRustHostLaunch = (output) => {
   if (!output.includes("attached renderer to Rust Host")) {
     throw new Error("Installed renderer did not attach to the packaged Rust Host");
   }
-  if (output.includes("forked host process for (local-")) {
+  if (NODE_HOST_STARTED_PATTERN.test(output)) {
     throw new Error("Installed app spawned a Node utility window Host in Rust mode");
   }
 };
-const launchCwd = mkdtempSync(join(temp, "escode-launch-"));
-await new Promise((done, fail) => {
-  const [command, args] =
-    process.platform === "linux" ? ["xvfb-run", ["-a", app, "--no-sandbox"]] : [app, []];
-  const child = spawn(command, args, {
-    cwd: launchCwd,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, ELECTRON_ENABLE_LOGGING: "1" },
-    // POSIX 下自成进程组，结束时整组回收（见 stop）。
-    detached: process.platform !== "win32",
-  });
-  let output = "";
-  let databaseStatus;
-  let settled = false;
-  const stop = () => {
-    child.removeAllListeners("exit");
-    if (process.platform === "win32") {
-      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
-    } else {
-      // Bugfix：Linux 上 child 是 xvfb-run 脚本，SIGKILL 它不会连带结束 Electron/Xvfb；
-      // 孤儿进程继续持有 stdout/stderr 管道，事件循环无法退出，installed (linux-x64) 卡到作业超时。
-      // 按进程组整组 SIGKILL，并销毁管道，保证启动检查结束后脚本必然退出。
-      try {
-        process.kill(-child.pid, "SIGKILL");
-      } catch {
-        child.kill("SIGKILL");
+const assertNodeHostLaunch = (output) => {
+  if (RUST_HOST_STARTED_PATTERN.test(output)) {
+    throw new Error("Installed app started the Rust Host in ESCODE_RUST_HOST=0 mode");
+  }
+  if (!NODE_HOST_STARTED_PATTERN.test(output)) {
+    throw new Error("Installed app did not spawn the Node utility window Host in fallback mode");
+  }
+};
+
+/** 启动一次安装包；同一 home/cwd 复用可验证切换前后状态未被破坏。 */
+async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
+  console.log(`[installed] launch ${label}`);
+  return await new Promise((done, fail) => {
+    const [command, args] =
+      process.platform === "linux" ? ["xvfb-run", ["-a", app, "--no-sandbox"]] : [app, []];
+    const child = spawn(command, args, {
+      cwd: launchCwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, ...env, ELECTRON_ENABLE_LOGGING: "1" },
+      // POSIX 下自成进程组，结束时整组回收（见 stop）。
+      detached: process.platform !== "win32",
+    });
+    let output = "";
+    let databaseStatus;
+    let settled = false;
+    const stop = () => {
+      child.removeAllListeners("exit");
+      if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+      } else {
+        // Bugfix：Linux 上 child 是 xvfb-run 脚本，SIGKILL 它不会连带结束 Electron/Xvfb；
+        // 孤儿进程继续持有 stdout/stderr 管道，事件循环无法退出，installed (linux-x64) 卡到作业超时。
+        // 按进程组整组 SIGKILL，并销毁管道，保证启动检查结束后脚本必然退出。
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
       }
-    }
-    child.stdout.destroy();
-    child.stderr.destroy();
-  };
-  const finish = (error) => {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timer);
-    if (error) fail(error);
-    else done();
-  };
-  const onData = (stream) => (chunk) => {
-    stream.write(chunk);
-    // 即使 DB 已 ready 也要继续累积：Rust Host 的 started/attach 日志出现在终态之后。
-    output += chunk.toString();
-    if (databaseStatus) return;
-    const match = DATABASE_TERMINAL_PATTERN.exec(output);
-    if (!match) return;
-    databaseStatus = match[1];
-    if (databaseStatus !== "ready") {
+      child.stdout.destroy();
+      child.stderr.destroy();
+    };
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) fail(error);
+      else done();
+    };
+    const onData = (stream) => (chunk) => {
+      stream.write(chunk);
+      // 即使 DB 已 ready 也要继续累积：Rust Host 的 started/attach 日志出现在终态之后。
+      output += chunk.toString();
+      if (databaseStatus) return;
+      const match = DATABASE_TERMINAL_PATTERN.exec(output);
+      if (!match) return;
+      databaseStatus = match[1];
+      if (databaseStatus !== "ready") {
+        stop();
+        finish(new Error(`Database startup did not become ready: status=${databaseStatus}`));
+      }
+    };
+    child.stdout.on("data", onData(process.stdout));
+    child.stderr.on("data", onData(process.stderr));
+    child.once("error", finish);
+    child.once("exit", (code, signal) => {
+      finish(new Error(`Application exited during startup: ${signal ?? code}`));
+    });
+    const timer = setTimeout(() => {
       stop();
-      finish(new Error(`Database startup did not become ready: status=${databaseStatus}`));
-    }
-  };
-  child.stdout.on("data", onData(process.stdout));
-  child.stderr.on("data", onData(process.stderr));
-  child.once("error", finish);
-  child.once("exit", (code, signal) => {
-    finish(new Error(`Application exited during startup: ${signal ?? code}`));
-  });
-  const timer = setTimeout(() => {
-    stop();
-    if (databaseStatus !== "ready") {
-      finish(
-        new Error(
-          `Database startup reached no terminal state within ${STARTUP_TIMEOUT_MS / 1000}s`,
-        ),
-      );
-      return;
-    }
-    console.log(
-      `application stayed up for ${STARTUP_TIMEOUT_MS / 1000}s with database startup ready`,
-    );
-    try {
-      assertRustHostLaunch(output);
-      if (expectRustHost) {
-        console.log("packaged Rust Host started and attached the renderer");
+      if (databaseStatus !== "ready") {
+        finish(
+          new Error(
+            `Database startup reached no terminal state within ${STARTUP_TIMEOUT_MS / 1000}s`,
+          ),
+        );
+        return;
       }
-    } catch (error) {
-      finish(error);
-      return;
+      console.log(
+        `application stayed up for ${STARTUP_TIMEOUT_MS / 1000}s with database startup ready`,
+      );
+      try {
+        assertRustHostLaunch(output, expectRustHost);
+        if (!expectRustHost && label.startsWith("drill")) assertNodeHostLaunch(output);
+        if (expectRustHost) {
+          console.log("packaged Rust Host started and attached the renderer");
+        } else if (label.startsWith("drill")) {
+          console.log("packaged Node utility window Host started (expected in fallback mode)");
+        }
+      } catch (error) {
+        finish(error);
+        return;
+      }
+      finish();
+    }, STARTUP_TIMEOUT_MS);
+  });
+}
+
+// 阶段 3 的四平台切换 + 回退演练：Node Host → Rust Host → Node Host，复用同一 home/cwd。
+// 启动前写入冻结设置夹具，切换后逐次校验文件未被任一 Host 破坏（未知键与已有值仍在）。
+const hostSwitchDrill = process.argv.includes("--host-switch-drill");
+if (hostSwitchDrill) {
+  const drillHome = mkdtempSync(join(temp, "escode-drill-home-"));
+  const drillCwd = mkdtempSync(join(temp, "escode-drill-cwd-"));
+  const settingsDir = join(drillHome, ".escode", "v2");
+  mkdirSync(settingsDir, { recursive: true });
+  const settingsFile = join(settingsDir, "setting.json");
+  copyFileSync(resolve("packages/services/tests/fixtures/settings-frozen.json"), settingsFile);
+  const drillEnv = () => ({ HOME: drillHome, USERPROFILE: drillHome });
+  for (const [index, mode] of ["node", "rust", "node"].entries()) {
+    await launchApp({
+      expectRustHost: mode === "rust",
+      launchCwd: drillCwd,
+      label: `drill ${index + 1}/3 ${mode}`,
+      env: { ...drillEnv(), ESCODE_RUST_HOST: mode === "rust" ? "1" : "0" },
+    });
+    const after = JSON.parse(readFileSync(settingsFile, "utf8"));
+    if (after.locale !== "zh-CN" || after.unknownFromNode?.kept !== true) {
+      throw new Error(
+        `Host switch drill corrupted settings after ${mode} (locale=${after.locale})`,
+      );
     }
-    finish();
-  }, STARTUP_TIMEOUT_MS);
-});
+  }
+  console.log("host switch and rollback drill passed: node → rust → node, settings preserved");
+} else {
+  await launchApp({
+    expectRustHost: expectRustHostEnv,
+    launchCwd: mkdtempSync(join(temp, "escode-launch-")),
+    label: "startup",
+  });
+}
 
 if (process.env.GITHUB_ENV) {
   appendFileSync(

@@ -1,6 +1,7 @@
 # Rust 阶段 2：Host 骨架与分域迁移（rust-unified-host.md 子 spec）
 
-> 状态：立项 · 2026-10-14
+> 状态：阶段 2 服务域与验收已完成（2026-10-23）；唯一结构遗留是 P1 #9 plugins crate 抽离。
+> 证据：`docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md`。
 > 父计划：`rust-unified-host.md` §阶段 2；前置：阶段 1（子 spec `rust-u1-runtime-lib.md`，验收报告 `docs/reports/rust-u1-runtime-library-2026-10-14.md`）
 > 参考实现：ZCode-rs `apps/zcode-cli-rust`（Host 与服务分层）、`apps/zcode-host`（若同构即对照）；对标仓库质量结论见 `docs/reports/rust-impl-quality-comparison-2026-10-14.md`
 
@@ -105,9 +106,9 @@ stdio 上单条有序队列：日志与控制消息共用一条写者（避免�
 
 | 顺序 | 域                                                     | 交付判定（每域统一）                                                                                                                       |
 | ---- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 3    | settings                                               | 唯一写者；Node/Rust 双 Host 交替写读演练通过（同文件同格式）                                                                               |
+| 3    | settings                                               | 唯一写者；TS 写出的冻结 `setting.json` 单向读入通过（同文件同格式）；交替写读仅作灰度期回归                                                |
 | 4    | workspace（git/terminal/watcher/媒体预览）             | 桌面 E2E 交互热路径场景通过；无 Node 残留子进程                                                                                            |
-| 5    | sessions + tasks + tasks_index                         | Node Host vs Rust Host 场景双跑差分全绿；tasks-index DDL 字节冻结 + checksum                                                               |
+| 5    | sessions + tasks + tasks_index                         | Rust Host 对冻结 goldens 全绿（TS 仅作冻结前 oracle）；tasks-index DDL 字节冻结 + checksum                                                 |
 | 6    | providers                                              | 模型请求差分（含 Registry 快照）全绿                                                                                                       |
 | 7    | extensions（skills/plugins/hooks/mcp/commands/memory） | 文件系统视图与 TS 逐字段对照（含 hooks 信任锁）                                                                                            |
 | 8    | automation（cron）                                     | 无窗口调度场景：窗口全关仍在跑；调度事件顺序与 TS 一致                                                                                     |
@@ -175,7 +176,7 @@ TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与
 | 契约清单 `--check`                     | 清单与实现漂移即失败（负向验证：故意删一个 method 判失败）                                                                                                   |
 | 双链路                                 | u2a 内先以 `runtime-link=embedded`（阶段 1 `embed::spawn`）+ 最小 settings 读取跑通；child 链路同场景等价                                                    |
 
-## 8. 风险
+## 9. 风险
 
 | 风险                     | 对策                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------- |

@@ -68,5 +68,7 @@ deleteAutomationRun({runId, workspacePath, workspaceIdentity?}): void
 - Rust 单测/RPC e2e：`rpc_automation.rs` 覆盖 6 个成员 + create/update 往返；
   `automation::cron` 单测覆盖 cron/分钟锚点/一次性过期拒绝；
   `automation_dispatch::tests` 覆盖 run 终态按 runId 过滤与错误透传。
-- 真实客户端/TS 差分：待 §5 scheduler 收口后补。
+- 真实客户端/TS 差分：`packages/desktop/test/rustHostAutomationParity.test.ts`（2026-10-23）——同一
+  tasks-index 库上，TS `AutomationService` 与真实 `@escode/client` 连 Rust Host 交替创建/暂停/
+  改名/删除，双方 `list` 逐字段全等；Rust 生成的行 TS 可原样读回。
 - 负向验证：删除 `escode-agent.listAutomations` 的 Implemented 登记，contract 必须失败。

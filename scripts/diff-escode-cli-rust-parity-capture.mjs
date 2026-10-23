@@ -8,7 +8,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 const finish =
   'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4}}\n\ndata: [DONE]\n\n';
@@ -206,6 +206,15 @@ export async function runSide(options) {
       ESCODE_SESSION_DB_PATH: join(storage, "node.sqlite"),
       ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinFile,
       ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFile,
+      // 修复：Node 以入口文件所在目录发现随包官方插件并自动 seed；Rust 只在二进制目录 / cwd
+      // 找候选，本场景两者都没有插件资产，导致 Rust 缺 skills（system prompt 少
+      // Session-specific guidance 段、模型请求 messages 少一条）。差分夹具把两侧指到同一 base，
+      // 与 escode-cli-rust-* 差分用例的既有做法一致。
+      ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+      // 官方插件的 JS MCP 服务（node_repl 等）经 Node 宿主运行；两侧必须拿到同一宿主路径，
+      // 否则 Rust 侧的 runtime manifest 不改写，模型工具面会比 Node 少。
+      ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
       ESCODE_WORKSPACE_IDENTITY: workspace,
     },
   });

@@ -26,7 +26,6 @@ import { createNodeProviderRuntimePathEnv } from "@escode/provider-node";
 import {
   LogLevel,
   SESSION_ENTRY_BASH_SHELL_SELECTION,
-  SESSION_ENTRY_MODEL_SELECTION,
   type LogContext,
   type Logger,
   type LoggerFactory,

@@ -1,10 +1,10 @@
 # Rust 阶段 2：`providers` 域设计（rust-unified-host.md 子 spec，优先序 6）
 
-> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；`testModelConnectivity` 已交付（§10）；P5a/P5b 与 Endpoint 动态解析已交付（§11/§12）；`provider-provisioning-target.apply` 登记为非缺口（§13）；P6 待做。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
+> 状态：P1（`model-selection.getView`）、P2（`provider-settings.getView/refresh`）、P3（Personal 写入面 10 法 + `resolveModelConfig`）、P4（`onDidChange`）已交付 · 2026-10-15；`testModelConnectivity` 已交付（§10）；P5a/P5b 与 Endpoint 动态解析已交付（§11/§12）；P6（`credential` 3/3、`client-config` 2/2、`client-scenes` 1/1）已交付（2026-10-23 由契约清单确认）；`provider-provisioning-target.apply` 登记为非缺口（§13）。决策按 §4 的推荐执行（用户 2026-10-15 确认）。
 > TS 真相源：`packages/provider/src/**`（4829 行，领域逻辑）、`packages/provider-node/src/**`（1895 行，文件/锁/下载）、
 > `packages/services/src/model-provider/**`（5303 行，Facade 服务、账号、套餐可用性）、`packages/shared/src/{model-config,model-selection*}.ts`。
 
-## 1. 涉及的 channel（23 个成员，均未实现）
+## 1. 涉及的 channel（23 个成员；2026-10-23 已全部实现或登记为非缺口）
 
 | channel                           | 成员数                        | 依赖的核心能力                                                                                   |
 | --------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -209,7 +209,7 @@ Main 侧 `buildRustHostProviderEnv`（`desktopRuntimeEnv.ts`）经 `rustHostMana
 验收：`builtin_source_tests.rs` 12 项（含 TS 生成的 Endpoint 哈希向量）；`rustHostBuiltinActive.test.ts` 7 种 Active 场景下 `getView` 与 TS 全等、两端 Active 语义相同；
 `rustHostProvider.test.ts` 在新二进制上仍通过；负向验证：同 revision 冲突改选 Active → 单测失败。
 **验证**：套餐族删除提交后工作区 TS 测试恢复可跑；`rustHostBuiltinActive.test.ts` 与 `rustHostProvider.test.ts` 在真实工作区通过；`pnpm typecheck`、`pnpm lint`（0 error）、`architecture:check --changed` 通过。
-**仍待做**：Endpoint 切换（需 Main↔Host 控制消息）；P5b（Remote 下载 + 刷新租约，依赖 `client-config`）；`ESCODE_TEST_*` 平台覆盖未对齐。
+**仍待做**：`ESCODE_TEST_*` 平台覆盖未对齐（Endpoint 切换与 P5b 已在 §12 交付）。
 
 ## 12. P5b：Remote 下载 + 刷新租约 + Endpoint 动态解析
 

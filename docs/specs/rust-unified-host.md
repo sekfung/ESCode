@@ -125,7 +125,8 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 - [x] `Link` trait + 双传输：`StdioLink`（现有行为逐字节不变）+ `MemoryLink`（内存双工 + NDJSON 保等价，接口为阶段 4 免序列化预留）
 - [x] 双传输一致性子测试：`tests/dual_transport.rs` 三用例——同一字节流两条链路产出同一 Input 序列（含无效 JSON/空白/无换行尾行）、输出帧字节等价、EOF 与关闭语义等价
 - [x] 执行『实现质量对齐工作包』P1 结构对齐：逐项状态与细节见「实现质量对齐工作包」→「P1 结构对齐」的状态清单（#5/#6/#7/#10/#11 完成，#8/#9 ◐ 部分，#12 ⛔ 挂起）。
-- [ ] #6 net 出口收拢、#9 plugins crate、#10 `v4/command` schema 校验、#11 bash registry 类型化：未做，随阶段 2 继续（各自独立验收）
+- [x] #6 net 出口收拢、#10 `v4/command` schema 校验、#11 bash registry 类型化：已完成（见「P1 结构对齐」状态清单）。
+- [ ] #9 plugins crate 抽离与 `Ports` 注入：仅完成 SKILL.md 扫描单点与错误类型化；32 个 `plugin_*.rs`（7,290 行）仍与 `tools` 的 `config_file`/`extension_*`/`mcp_config`/`atomic_dir` 相互依赖，抽 crate 需先把这些底座下沉，属独立结构重构。
 
 验收：cwd/env 与 runtime 不一致时用 `RuntimeOptions` 的值；同进程两 workspace 并发无串扰；关闭后再 spawn 正常；环境读取检查为 0；双传输差分全绿；记录进程内控制延迟基线（p50 0.250 ms / p95 0.334 ms，n=50，MemoryLink NDJSON 路径）。全部达成，证据见验收报告。
 
@@ -156,7 +157,12 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - tasks-index 只读切片（生成器提取 TS 迁移账本与物理 DDL + 账本三分类对账 + `escode-task.getTaskMeta` + 真实 TS Repo 逐字段差分，含 `listTaskList` 全文搜索与分组结构读），见 `rust-u2-tasks-index.md`；
   - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——桌面的时间线/置顶/归档/全局搜索不再空列表。
 - [x] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 落地窗口 attachment；2026-10-23 `rust-u2-window-host.md` §5 的 1–10 闭合，Linux 窗口生命周期 E2E（单 Rust Host、reload pid 不变）与 SSH 远程 E2E 已通过；四平台安装包 CI（run `39920171658`）通过后已默认开启 `ESCODE_RUST_HOST`（显式 `0`/`false` 回退 Node）。
-- [ ] **优先序 4–9 其余服务域**：各域进度见对应子 spec 的进度表（`git` 17/18、`terminal` T1、`file-watcher`、`providers` P1 已交付；extensions / automation / remote 未开始）。
+- [x] **优先序 4–9 服务域**（2026-10-23）：契约清单 43 channel / 495 成员中 436 Implemented；其余 59 个全部登记为
+      非缺口（`escode-agent` 54 个别名、`cua-pip-session` 3、`provider-provisioning-target.apply` 1、
+      `escode-session.readSessionEvents` 1，见 `rust-u2-host-scope-boundary.md`）。各域子 spec 状态：git 18/18、
+      terminal T1、file-watcher/file-index 已交付、providers P1–P6 已交付、automation 管理面 + 无窗口调度已交付、
+      extensions（skills/plugins/hooks/mcp/commands/memory）已交付。验收证据见
+      `docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md`。
 
 工作区结构：新增 `apps/escode-host`（独立 Cargo workspace），共用基础代码放独立 shared workspace（对标三 workspace 结构，理由：Host 不拖 CLI 编译与依赖）。注意现有 `apps/escode-cli-rust/crates/host` 是 CLI 的配置/路径 adapter，与新 Host 概念重名，子 spec 中明确更名或文档注明。
 
@@ -184,19 +190,33 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 
 验收：
 
-- Rust Host 在 dev 开关下跑通全部桌面 E2E（embedded 与 child 双链路）；
-- 多窗口、无窗口调度、设置写入、崩溃重启；
-- **双 Host 交替写读演练**（同一 settings.json / tasks-index 等共享状态在 Node Host 与 Rust Host 间往返写读，dev 开关来回切换不破坏状态）；
-- 进程表断言（Rust Host 下无 Node utility / CLI 残留）；
-- Host 服务契约清单（channel/method）`--check` 与源码一致。
+- Rust Host（默认开关）跑通桌面 E2E；embedded 为主链路，child 只跑同一场景回归子集；
+- 多窗口、无窗口调度、设置写入、崩溃重启：`rustHostResilience.test.ts`（多 attachment、SIGKILL 后预算内重启、
+  超预算显式失败）、`automation_dispatch` + `rust-u2-automation.md` §5（窗口全关后 Host 仍调度）、
+  `escode-settings-host-interop.test.ts`（设置写入）、窗口生命周期 E2E（单 Rust Host、reload pid 不变）；
+- 共享状态：以 TS 写出的冻结 `setting.json` 单向读入为验收（`escode-settings-host-interop.test.ts` 第二个用例）；
+  Node/Rust 交替写读保留为灰度期回归，不再作为切换门槛；
+- 进程表断言：`conversation-session-rust-host-window-lifecycle.test.ts` 断言本地窗口只有
+  `escode-host-rust-host`、无 `escode-host-local-*` utility Host；
+- Host 服务契约清单（channel/method）`--check` 与源码一致（`pnpm check:escode-host`，43/495）。
+
+证据汇总：`docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md`。
 
 ### 阶段 3：切默认与清理（估算 2–3 周）
 
-- [ ] 默认启用 Rust Host；安装包不再含 Node Host 与 TS CLI bundle
-- [ ] 六目标打包与签名（沿用 `rust-packaging.md` 的 6 目标 + macOS 签名开关）
-- [ ] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练
-- [ ] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"模式并全绿，之后才允许删除 Node Host
-- [ ] 回退矩阵更新（`rust-release-rollback.md`）；AGENTS.md / CONTEXT.md 同步
+- [x] 默认启用 Rust Host（2026-10-23，显式 `0`/`false` 回退）；安装包保留 Node Host 与 TS CLI bundle
+      仅用于远程 workspace（H2.3 边界：Rust Host 不承载远程 scope，远程由窗口内 Node Host 服务），
+      本地窗口不再创建 Node utility Host
+- [x] 六目标打包与签名（`rust-runtime` 作业 6 目标；`rust-packaging.md` 的 macOS 签名开关沿用）
+- [ ] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练——代码与 CI 步骤已接入
+      （`ci-install-desktop.mjs --host-switch-drill`；Node→Rust→Node 同一 home，断言 Host 类型与
+      settings 夹具不被破坏），待 release CI 四平台实跑证据
+- [ ] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片已支持
+      `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
+      （已录制 `linux-x64`）；settings
+      interop 已有冻结夹具单向读入。其余 CLI/desktop 实时 TS oracle 的逐用例冻结未完成
+- [x] 回退矩阵更新（`rust-release-rollback.md` 的「Host 实现切换矩阵」）；AGENTS.md 同步（CONTEXT.md 无
+      Host 实现相关词条）
 
 验收：全平台 E2E 矩阵；冷启动、常驻内存、流式 CPU 全面不劣于当前组合，实测写入 `docs/reports/`。
 

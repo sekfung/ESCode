@@ -153,3 +153,29 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 
 该用例把上述差异写成**契约**：出现新的差异键即失败，从而在后续改动中持续守住功能对齐。
 新增能力位必须同步更新本表与用例。
+
+## Host 实现切换矩阵（阶段 3，2026-10-23）
+
+本文件上文描述的是 **Agent runtime**（Rust CLI / Node CLI）的切换面。Host 进程本身另有独立开关：
+
+| 范围                             | 默认                            | 显式回退                           | 说明                                                                             |
+| -------------------------------- | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| 本地 workspace 窗口              | Rust Host（`apps/escode-host`） | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级                       |
+| 远程 workspace（SSH/WSL/Docker） | 窗口内独立 Node Host            | 不提供 Rust Host 远程 scope        | Rust Host 不承载远程 workspace；远程由连接注册表管理，不静默回退到本地 Rust Host |
+| Agent runtime（本地/远程）       | Rust CLI                        | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                                         |
+
+回退步骤（Host）：
+
+1. 设置 `ESCODE_RUST_HOST=0`（远程 workspace 不受影响，仍走窗口内 Node Host）；
+2. 重启 App；
+3. 确认窗口主进程日志出现 `forked host process for (local-`，且没有 `[rust-host] started`。
+
+数据边界：Host 只读写既有设置文件与 tasks-index；切换 Host 实现不迁移、不改写这两类文件。安装包演练
+`node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill` 复用同一 home 依次以
+Node Host → Rust Host → Node Host 启动，断言每次 Host 类型正确，并校验冻结设置夹具（含未知键）在切换后
+未被破坏。release 工作流的 `installed` 四平台作业执行该演练（`.github/workflows/release.yml`）。
+
+golden freeze（阶段 3）：Host parity 切片已支持冻结 Node 侧观察（`scripts/diff-escode-cli-rust-parity.mjs --record`）
+与只跑 Rust 的判定（`--golden`），冻结资产在 `scripts/fixtures/parity/`；settings interop 增加
+“TS 写出的冻结 `setting.json` → Rust 单向读入”用例。其余 CLI/desktop 实时 TS oracle 的逐用例冻结仍待完成，
+在清零前不删除 Node Host / TS CLI（远程 workspace 仍需 Node Host）。
