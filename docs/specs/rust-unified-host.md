@@ -208,11 +208,14 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       仅用于远程 workspace（H2.3 边界：Rust Host 不承载远程 scope，远程由窗口内 Node Host 服务），
       本地窗口不再创建 Node utility Host
 - [x] 六目标打包与签名（`rust-runtime` 作业 6 目标；`rust-packaging.md` 的 macOS 签名开关沿用）
-- [ ] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练——代码与 CI 步骤已接入
+- [x] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练——代码与 CI 步骤已接入
       （`ci-install-desktop.mjs --host-switch-drill`；Node→Rust→Node 同一 home，断言 Host 类型与
-      settings 夹具不被破坏）。2026-10-24 已用当前源码重建的 linux-x64 包本地跑通
-      `node → rust → node`（见 phase2/3 报告 §2.2）；**待 release CI 四平台实跑证据**后勾选。
-      本次本地演练同时修复了 `yazl`/`buffer-crc32` 打包闭包与 Node settings 未知键丢弃问题。
+      settings 夹具不被破坏）。2026-10-24 release run `40022683157`
+      （https://github.com/sekfung/ESCode/actions/runs/40022683157，head `f5ef4608`）四平台
+      `installed` 全部 success；四个作业的日志均出现
+      `host switch and rollback drill passed: node → rust → node, settings preserved`。
+      本轮同时修复了 `yazl`/`buffer-crc32` 打包闭包、Node settings 未知键丢弃、drill userData
+      单实例隔离与 RUSTSEC-2026-0386（tokio 1.53.3）。
 - [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
       `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
       （已录制 `linux-x64`；`rust-runtime-ci.yml` 的 linux-x64 已切为 `--golden` 阻塞门禁，

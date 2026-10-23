@@ -92,8 +92,22 @@ Rust Host 不承载远程 scope。
 - 验证命令：
   `ESCODE_INSTALLED_APP=.../linux-unpacked/escode-preview ESCODE_INSTALLED_GLM=.../linux-unpacked/resources/glm node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill`
   结果：`host switch and rollback drill passed: node → rust → node, settings preserved`。
-- **四平台 release CI 实跑证据仍待**（本机离线）；阶段 3 该条保持未勾选，直到
-  `.github/workflows/release.yml` 的 `installed` 矩阵在可访问 GitHub 的环境运行通过。
+- **四平台 release CI 实跑证据（2026-10-24）**：
+  - run `40022683157`（https://github.com/sekfung/ESCode/actions/runs/40022683157，
+    head `f5ef4608`）结论 **success**；`installed (win-x64 / mac-arm64 / mac-x64 / linux-x64)`
+    全部 success。
+  - 四个作业日志均包含
+    `host switch and rollback drill passed: node → rust → node, settings preserved`，
+    且每次 `launch drill 1/3 node`、`2/3 rust`、`3/3 node` 的 Host 类型断言通过。
+  - `desktop (mac-arm64)` 首轮被 runner 取消（`bundle desktop` 中途），用
+    `gh run rerun 40022683157 --failed` 重跑后 success；最终矩阵完整。
+  - Windows 首次 drill 卡在 Node 模式：drill 与安装检查共用默认 `userData`，前一个实例的
+    单实例锁尚未释放时 `requestSingleInstanceLock` 返回 false，`app.quit()` 后进程因
+    crashReporter 等句柄不退出，数据库 startup 永远没有终态。drill 现在设置独立的
+    `ESCODE_DESKTOP_USER_DATA_DIR` / `ESCODE_DESKTOP_SESSION_DATA_DIR`，并在每次启动前等待
+    旧进程退出；Windows 诊断与四平台正式 run 均通过。
+  - 同轮 `rust-runtime-ci` 的 cargo-deny 暴露 RUSTSEC-2026-0386；
+    `tokio 1.53.1 → 1.53.3` 修复，checks 三平台恢复 success。
 
 ### 2.3 golden freeze
 
@@ -135,7 +149,8 @@ Rust Host 不承载远程 scope。
     Node 密文 + Rust 解密/往返；automation/mcp-oauth 的 Node 写→Rust 读改为冻结 Node 观察
     - Rust 写读；migration/import 的 TS store 造数改为 gzip SQLite seed
       （`escode-cli-rust-legacy-seed.ts`，路径用占位符重写）。
-- **未完成**：installed 四平台 Node→Rust→Node 演练的 release CI 实跑证据（见 2.2）。
+- **installed 四平台演练已完成**：release CI run `40022683157` 的四个 `installed` 作业全部
+  success，node→rust→node 与 settings 保留断言均通过（见 2.2）。
 
 ### 2.4 回退矩阵与文档
 
@@ -147,7 +162,7 @@ Rust Host 不承载远程 scope。
 ## 3. 结论
 
 阶段 2 的服务域迁移、验收项与 P1 #9 结构重构均已完成。
-阶段 3 已完成默认开关、六目标打包、回退矩阵、Host parity/settings 切片，以及
-desktop Host 与 CLI 确定性 oracle 的 golden freeze（linux-x64 parity 已切 CI 阻塞门禁；
-CLI 156 个文件正常跑只启动 Rust）；installed 演练已用当前源码重建的 linux-x64 包本地跑通
-（`node → rust → node, settings preserved`），仅剩 release CI 四平台实跑证据。
+阶段 3 已完成默认开关、六目标打包、回退矩阵、Host parity/settings 切片、desktop Host 与
+CLI oracle 的 golden freeze，以及 installed 四平台 Node→Rust→Node 真机演练
+（release run `40022683157` 四平台全绿，`settings preserved`）。
+平台专属 CLI golden 的录制/校验仍在收口（Windows/macOS 差异已在 CI 中逐项修复）。

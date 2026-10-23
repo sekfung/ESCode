@@ -174,8 +174,9 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 `node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill` 复用同一 home 依次以
 Node Host → Rust Host → Node Host 启动，断言每次 Host 类型正确，并校验冻结设置夹具（含未知键）在切换后
 未被破坏。release 工作流的 `installed` 四平台作业执行该演练（`.github/workflows/release.yml`）。
-2026-10-24 已用当前源码重建的 linux-x64 包本地跑通（`host switch and rollback drill passed`）；
-四平台 CI 证据待可访问 GitHub 的环境运行后勾选。
+2026-10-24 release CI run `40022683157` 的 `installed` 四平台作业全部 success，四个日志均出现
+`host switch and rollback drill passed: node → rust → node, settings preserved`；
+本地 linux-x64 当前源码包也已跑通。
 
 golden freeze（阶段 3）：Host parity 切片已支持冻结 Node 侧观察（`scripts/diff-escode-cli-rust-parity.mjs --record`）
 与只跑 Rust 的判定（`--golden`），冻结资产在 `scripts/fixtures/parity/`；settings interop 增加
