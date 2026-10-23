@@ -237,11 +237,21 @@ if (hostSwitchDrill) {
   await sleep(3_000);
   const drillHome = mkdtempSync(join(temp, "escode-drill-home-"));
   const drillCwd = mkdtempSync(join(temp, "escode-drill-cwd-"));
+  // 单实例锁在 app.getPath("userData") 下；安装检查/上一次启动使用默认 userData，
+  // 与 drill 的 Node 首次启动重叠时 requestSingleInstanceLock 会失败并 app.quit()，
+  // 进程因 crashReporter 等句柄不退出，表现为数据库 startup 永远没有终态。
+  // drill 使用独立 userData（settings/DB 仍在 drillHome），避免跨步骤单实例串扰。
+  const drillUserData = mkdtempSync(join(temp, "escode-drill-user-data-"));
   const settingsDir = join(drillHome, ".escode", "v2");
   mkdirSync(settingsDir, { recursive: true });
   const settingsFile = join(settingsDir, "setting.json");
   copyFileSync(resolve("packages/services/tests/fixtures/settings-frozen.json"), settingsFile);
-  const drillEnv = () => ({ HOME: drillHome, USERPROFILE: drillHome });
+  const drillEnv = () => ({
+    HOME: drillHome,
+    USERPROFILE: drillHome,
+    ESCODE_DESKTOP_USER_DATA_DIR: drillUserData,
+    ESCODE_DESKTOP_SESSION_DATA_DIR: join(drillUserData, "session"),
+  });
   for (const [index, mode] of ["node", "rust", "node"].entries()) {
     await launchApp({
       expectRustHost: mode === "rust",
