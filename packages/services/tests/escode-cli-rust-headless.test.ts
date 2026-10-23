@@ -143,7 +143,7 @@ async function observe(kind: Runtime) {
       errors.push({
         args: args.join(" "),
         code: result.code,
-        stderrFirst: result.stderr.split("\n")[0],
+        stderrFirst: result.stderr.split("\n")[0] ?? "",
         stdout: result.stdout,
       });
     }

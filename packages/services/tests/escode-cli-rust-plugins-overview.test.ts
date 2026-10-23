@@ -173,6 +173,10 @@ async function observe(kind: Runtime) {
     const scrub = (value: unknown) =>
       JSON.parse(JSON.stringify(value).replaceAll(JSON.stringify(root).slice(1, -1), "<root>"));
     for (const item of result.installedPlugins ?? []) delete item.hookDetails;
+    // rea 是可选随包插件：本地 bundle 有、CI 的 agent bundle 未必有。
+    result.diagnostics = (result.diagnostics ?? []).filter(
+      (item: any) => !String(item.message).includes("/zcode-plugins-official/rea/"),
+    );
     const known = JSON.parse(
       await readFile(join(root, ".escode", "cli", "plugins", "known_marketplaces.json"), "utf8"),
     );

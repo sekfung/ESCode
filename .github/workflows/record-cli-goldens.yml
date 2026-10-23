@@ -1,0 +1,60 @@
+# 一次性录制：在 macOS/Windows runner 上把 CLI 差分用例的 Node 侧观察写成平台专属 golden。
+# 产物由 Actions artifact 上传，人工挑选 darwin-*/win32-* 文件提交；Linux 使用仓库内通用 golden。
+name: record cli goldens
+
+on:
+  push:
+    branches: ["feat/host-switch-drill-evidence"]
+    paths:
+      - .github/workflows/record-cli-goldens.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    name: record (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/escode-cli-rust
+            apps/escode-host
+          cache-on-failure: true
+      - uses: taiki-e/install-action@nextest
+      - run: pnpm install --frozen-lockfile
+      # 录制模式不启动 Node 回放；测试仍会跑 Node 侧 oracle 并写入平台专属 golden。
+      - run: pnpm test:escode-cli-rust
+        shell: bash
+        continue-on-error: true
+        env:
+          ESCODE_RECORD_CLI_GOLDEN: "1"
+          ESCODE_GOLDEN_PLATFORM: "1"
+          ESCODE_TEST_SHARD: "1/1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cli-golden-${{ matrix.os }}
+          path: packages/services/tests/fixtures/cli-golden
+          if-no-files-found: warn

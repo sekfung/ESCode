@@ -29,7 +29,11 @@ export function canonical<T>(value: T, parentKey?: string): T {
     return (
       value
         .replace(/Today's date is \d{4}-\d{2}-\d{2}\./g, "Today's date is <DATE>.")
+        .replace(/^(- Platform: ).*$/gm, "$1<platform>")
         .replace(/^(- OS Version: ).*$/gm, "$1<os>")
+        // macOS 的临时目录是 /var/folders/.../T/；与 Linux /tmp/ 归一，避免同一条观察跨平台漂移。
+        .replace(/\/var\/folders\/[^/\s]+\/[^/\s]+\/T\//g, "/tmp/")
+        .replace(/Shell cwd was reset to .*/g, "Shell cwd was reset to <cwd>")
         // bash 的局部化错误文案（中文/英文）在 golden 与 CI 间不稳定；归一为同一占位。
         .replace(
           /(?:\/bin\/)?bash: (?:第 \d+ 行：|line \d+:)?\s*cd: missing-dir: .*/g,
@@ -49,6 +53,9 @@ export function canonical<T>(value: T, parentKey?: string): T {
           // CPU 派生的并发上限随 runner 核数变化；Node/Rust 两侧同法归一为占位符。
           if (key === "concurrencyCeiling" || key === "ceiling") return [key, "<concurrency>"];
           if (parentKey === "concurrency" && key === "cap") return [key, "<concurrency>"];
+          if (parentKey === "caps" && key === "maxConcurrency") return [key, "<concurrency>"];
+          if (key === "x-client-language" || key === "x-client-timezone" || key === "x-os-version")
+            return [key, "<env>"];
           return [key, canonical(item, key)];
         }),
     ) as T;
@@ -56,16 +63,31 @@ export function canonical<T>(value: T, parentKey?: string): T {
   return value;
 }
 
+const platformKey = `${process.platform}-${process.arch}`;
+
 function paths(name: string) {
-  const base = join(goldenDir, `${suite}.${name}.json`);
-  return { plain: base, gzip: `${base}.gz` };
+  const stem = join(goldenDir, `${suite}.${name}`);
+  return {
+    // 平台专属观察优先：system prompt/路径/shell 错误等是环境事实，不能跨 OS 共用。
+    platformPlain: `${stem}.${platformKey}.json`,
+    platformGzip: `${stem}.${platformKey}.json.gz`,
+    plain: `${stem}.json`,
+    gzip: `${stem}.json.gz`,
+  };
+}
+
+function loadExisting(file: ReturnType<typeof paths>): string | undefined {
+  if (existsSync(file.platformGzip)) return file.platformGzip;
+  if (existsSync(file.platformPlain)) return file.platformPlain;
+  if (existsSync(file.gzip)) return file.gzip;
+  if (existsSync(file.plain)) return file.plain;
+  return undefined;
 }
 
 /** 该 key 是否已有冻结观察（录制模式恒为 true，便于首次录制）。 */
 export function hasGolden(name: string): boolean {
   if (recording) return true;
-  const file = paths(name);
-  return existsSync(file.plain) || existsSync(file.gzip);
+  return loadExisting(paths(name)) !== undefined;
 }
 
 /** 超过 1 MiB 的观察（如内联附件正文）用 gzip 存储，避免仓库膨胀。 */

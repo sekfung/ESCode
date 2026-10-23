@@ -31,6 +31,9 @@ export async function copyLegacySeed(
     db.prepare(
       "UPDATE session SET workspace_id=replace(workspace_id, ?, ?), directory=replace(directory, ?, ?), path=replace(path, ?, ?)",
     ).run(WORKSPACE, paths.workspace, WORKSPACE, paths.workspace, WORKSPACE, paths.workspace);
+    // JSON 文本列里的路径必须按 JSON 字符串转义替换：Windows 反斜杠直接写入
+    // 会产出 invalid escape（migration-scale 在 Windows CI 上即因此导入失败）。
+    const jsonEscape = (value: string) => JSON.stringify(value).slice(1, -1);
     for (const [table, column] of [
       ["message", "data"],
       ["part", "data"],
@@ -39,9 +42,9 @@ export async function copyLegacySeed(
     ] as const) {
       db.prepare(`UPDATE ${table} SET ${column}=replace(replace(${column}, ?, ?), ?, ?)`).run(
         WORKSPACE,
-        paths.workspace,
+        jsonEscape(paths.workspace),
         ROOT,
-        paths.root,
+        jsonEscape(paths.root),
       );
     }
   } finally {

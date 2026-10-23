@@ -88,17 +88,20 @@ async function observe(kind: Runtime) {
           name: plugin.name,
           version: plugin.version,
         })),
-      diagnostics: (result.diagnostics as any[]).map((item) => ({
-        code: item.code,
-        severity: item.severity,
-        pluginId: item.pluginId,
-        // JSON 语法错误的文案来自各自的解析器（V8 vs serde），只比对 code；其余文案逐字比对。
-        message:
-          item.code === "plugin_manifest_invalid" &&
-          !/^(Invalid plugin name|Manifest must be)/.test(item.message)
-            ? "<parse error>"
-            : scrub(item.message),
-      })),
+      diagnostics: (result.diagnostics as any[])
+        // rea 是可选随包插件：本地 bundle 有、CI 的 agent bundle 未必有。
+        .filter((item) => !String(item.message).includes("/zcode-plugins-official/rea/"))
+        .map((item) => ({
+          code: item.code,
+          severity: item.severity,
+          pluginId: item.pluginId,
+          // JSON 语法错误的文案来自各自的解析器（V8 vs serde），只比对 code；其余文案逐字比对。
+          message:
+            item.code === "plugin_manifest_invalid" &&
+            !/^(Invalid plugin name|Manifest must be)/.test(item.message)
+              ? "<parse error>"
+              : scrub(item.message),
+        })),
       schemaErrors: h.schemaErrors,
     };
     await h.close();
