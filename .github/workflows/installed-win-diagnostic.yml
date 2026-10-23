@@ -4,7 +4,7 @@ name: installed win diagnostic
 
 on:
   push:
-    branches: ["feat/host-switch-drill-evidence"]
+    branches: ["diag/**"]
     paths:
       - .github/workflows/installed-win-diagnostic.yml
       - scripts/ci-install-desktop.mjs
@@ -28,7 +28,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 40002774280 -n desktop-win-x64 -D installer
+        run: gh run download 40011600132 -n desktop-win-x64 -D installer
       - name: install and launch
         shell: bash
         run: node scripts/ci-install-desktop.mjs installer
