@@ -69,10 +69,13 @@ async function observe(kind: "node" | "rust") {
     // 应用级统计（v4/usage/stats）：耗时类字段两侧不同，抹成 0 / null 只比结构与计数。
     const timing =
       /^(generatedAt|avgTimeToFirstTokenMs|avgTurnDurationMs|longestSessionMs|avgDurationMs)$/;
+    // 7d 窗口的起止日期随录制日期变化；统计结构与计数仍需逐字段比较。
+    const dateKey = /^(startDate|endDate|date)$/;
     const stats = JSON.parse(
       JSON.stringify(
         await h.client.request("v4/usage/stats", { range: "7d", timeZone: "UTC" }, parse),
-        (key, value) => (timing.test(key) ? (value === null ? null : 0) : value),
+        (key, value) =>
+          timing.test(key) ? (value === null ? null : 0) : dateKey.test(key) ? "<date>" : value,
       ),
     );
     await h.close();

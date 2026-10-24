@@ -135,6 +135,9 @@ jobs:
           cache-on-failure: true
       # 测试运行器：重试、慢测试超时与 JUnit 配置见 apps/escode-cli-rust/.config/nextest.toml。
       - uses: taiki-e/install-action@nextest
+      # PDF 页渲染用例（Read 工具）依赖 poppler；golden 在本地以同一工具录制。
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: pnpm install --frozen-lockfile
       # 生成资产漂移检查、cargo test/nextest、App 集成套件（针对 Rust 二进制）。
       - run: pnpm test:escode-cli-rust

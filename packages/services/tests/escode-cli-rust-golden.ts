@@ -10,7 +10,7 @@
 //
 // `suite` 取当前测试文件名（去掉 `escode-cli-rust-` 前缀与 `.test.ts`），保证跨文件 key 不冲突。
 import { deepEqual } from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
@@ -68,6 +68,7 @@ const platformKey = `${process.platform}-${process.arch}`;
 function paths(name: string) {
   const stem = join(goldenDir, `${suite}.${name}`);
   return {
+    stem,
     // 平台专属观察优先：system prompt/路径/shell 错误等是环境事实，不能跨 OS 共用。
     platformPlain: `${stem}.${platformKey}.json`,
     platformGzip: `${stem}.${platformKey}.json.gz`,
@@ -79,6 +80,13 @@ function paths(name: string) {
 function loadExisting(file: ReturnType<typeof paths>): string | undefined {
   if (existsSync(file.platformGzip)) return file.platformGzip;
   if (existsSync(file.platformPlain)) return file.platformPlain;
+  // macOS runner 的 test 进程与 Node 运行时可能一个是 x64、一个是 arm64；
+  // 精确 arch 未命中时回退到同 OS 的任意平台文件，避免错用 Linux 通用 golden。
+  const prefix = `${file.stem}.${process.platform}-`;
+  const family = readdirSync(goldenDir).find(
+    (name) => name.startsWith(prefix) && (name.endsWith(".json") || name.endsWith(".json.gz")),
+  );
+  if (family) return join(goldenDir, family);
   if (existsSync(file.gzip)) return file.gzip;
   if (existsSync(file.plain)) return file.plain;
   return undefined;

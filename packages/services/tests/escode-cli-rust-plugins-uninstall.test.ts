@@ -124,6 +124,7 @@ async function observe(kind: Runtime) {
     const listed = async () =>
       ((await h.client.request("plugins/list", { workspace }, z.any())) as any).plugins
         .map((plugin: any) => plugin.id)
+        .filter((id: string) => id !== "rea@zcode-plugins-official")
         .sort();
     const observation: Record<string, unknown> = {};
     observation.uninstallInstalled = await call("plugins/uninstall", {
