@@ -58,7 +58,7 @@ export function canonical<T>(value: T, parentKey?: string): T {
             return [key, "<env>"];
           // 路径字段统一分隔符：Windows 观察与 Linux 录制值可直接比较。
           if (/Path$/.test(key) && typeof item === "string")
-            return [key, item.replaceAll("\\", "/")];
+            return [key, (canonical(item) as string).replaceAll("\\", "/")];
           return [key, canonical(item, key)];
         }),
     ) as T;
