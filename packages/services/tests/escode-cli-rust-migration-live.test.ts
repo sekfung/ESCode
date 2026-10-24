@@ -117,6 +117,16 @@ test("Rust imports a session written by the real Node runtime and preserves its 
   // seed 里的占位路径换成本次 root：导入按 workspace（cwd）筛选会话。
   const seed = new DatabaseSync(join(root, "ts.sqlite"));
   try {
+    // 先替换 workspace 整段：seed 录制在 Linux，占位符后是 "/workspace"；
+    // Windows 回放必须换成 join(root,"workspace") 的反斜杠形式，否则 workspace 匹配失败。
+    const workspace = join(root, "workspace");
+    rewritePaths(
+      seed,
+      `${ROOT_PLACEHOLDER}/workspace`,
+      workspace,
+      `${ROOT_PLACEHOLDER_JSON}/workspace`,
+      JSON.stringify(workspace).slice(1, -1),
+    );
     rewritePaths(
       seed,
       ROOT_PLACEHOLDER,
