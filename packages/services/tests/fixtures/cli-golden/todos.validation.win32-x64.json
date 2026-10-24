@@ -1,0 +1,24 @@
+{
+  "invalid": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+  ],
+  "normalized": [
+    {
+      "content": "   ",
+      "status": "pending",
+      "priority": "medium"
+    },
+    {
+      "content": "任务",
+      "status": "pending",
+      "priority": "medium"
+    }
+  ]
+}

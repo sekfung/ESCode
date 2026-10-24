@@ -1,0 +1,181 @@
+{
+  "write": {
+    "type": "create"
+  },
+  "replaceAll": [
+    {
+      "finalContent": "alpha\nalpha\n",
+      "output": {
+        "oldString": "beta",
+        "newString": "alpha",
+        "originalFile": "alpha\nbeta\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "exact",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "finalContent": "new\nnew\n",
+      "output": {
+        "oldString": "alpha",
+        "newString": "new",
+        "originalFile": "alpha\nalpha\n",
+        "userModified": false,
+        "replaceAll": true,
+        "matchStrategy": "exact",
+        "matchCandidateCount": 2
+      }
+    }
+  ],
+  "fuzzy": [
+    {
+      "failed": false,
+      "matchStrategy": "quote_normalized",
+      "message": null,
+      "finalContent": "say “yo” it's it’s\n",
+      "output": {
+        "oldString": "say “hi”",
+        "newString": "say “yo” it's",
+        "originalFile": "say “hi” it’s\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "quote_normalized",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "line_number_prefix_stripped",
+      "message": null,
+      "finalContent": "a\nB\nC\n",
+      "output": {
+        "oldString": "b\nc",
+        "newString": "B\nC",
+        "originalFile": "a\nb\nc\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "line_number_prefix_stripped",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "escape_normalized",
+      "message": null,
+      "finalContent": "x\ny\n",
+      "output": {
+        "oldString": "x\ty",
+        "newString": "x\ny",
+        "originalFile": "x\ty\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "escape_normalized",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "unicode_escape_normalized",
+      "message": null,
+      "finalContent": "cafe\n",
+      "output": {
+        "oldString": "café",
+        "newString": "cafe",
+        "originalFile": "café\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "unicode_escape_normalized",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "line_trimmed",
+      "message": null,
+      "finalContent": "kept\nrest\n",
+      "output": {
+        "oldString": "  keep  \n  me",
+        "newString": "kept",
+        "originalFile": "  keep  \n  me\nrest\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "line_trimmed",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "block_anchor",
+      "message": null,
+      "finalContent": "s\n",
+      "output": {
+        "oldString": "start\n  middle line one\nend",
+        "newString": "s",
+        "originalFile": "start\n  middle line one\nend\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "block_anchor",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": false,
+      "matchStrategy": "exact",
+      "message": null,
+      "finalContent": "stay\n",
+      "output": {
+        "oldString": "drop",
+        "newString": "",
+        "originalFile": "drop\nstay\n",
+        "userModified": false,
+        "replaceAll": false,
+        "matchStrategy": "exact",
+        "matchCandidateCount": 1
+      }
+    },
+    {
+      "failed": true,
+      "matchStrategy": null,
+      "message": "Found 2 matches of the string to replace, but replace_all is false. To replace all occurrences, set replace_all to true. To replace only one occurrence, please provide more context to uniquely identify the instance.\nString: a \nb",
+      "finalContent": " a\nb\n  a\nb\n",
+      "output": null
+    },
+    {
+      "failed": true,
+      "matchStrategy": null,
+      "message": "Found 2 matches of the string to replace, but replace_all is false. To replace all occurrences, set replace_all to true. To replace only one occurrence, please provide more context to uniquely identify the instance.\nString: dup",
+      "finalContent": "dup dup\n",
+      "output": null
+    },
+    {
+      "failed": false,
+      "matchStrategy": "unicode_escape_normalized",
+      "message": null,
+      "finalContent": "d d\n",
+      "output": {
+        "oldString": "dup",
+        "newString": "d",
+        "originalFile": "dup dup\n",
+        "userModified": false,
+        "replaceAll": true,
+        "matchStrategy": "unicode_escape_normalized",
+        "matchCandidateCount": 2
+      }
+    },
+    {
+      "failed": true,
+      "matchStrategy": null,
+      "message": "String to replace not found in file.\nString: a\nb",
+      "finalContent": "  a\n b\n",
+      "output": null
+    },
+    {
+      "failed": true,
+      "matchStrategy": null,
+      "message": "String to replace not found in file.\nString: missing",
+      "finalContent": "nothing\n",
+      "output": null
+    }
+  ]
+}

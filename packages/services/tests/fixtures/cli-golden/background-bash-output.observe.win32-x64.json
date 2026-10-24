@@ -1,0 +1,23 @@
+{
+  "running": {
+    "kind": "output",
+    "workId": "<work>",
+    "status": "running",
+    "output": "first\n",
+    "truncated": false,
+    "outputPath": "bg-1-stdout.log"
+  },
+  "settled": {
+    "kind": "output",
+    "workId": "<work>",
+    "status": "completed",
+    "output": "first\nsecond\n",
+    "truncated": false,
+    "outputPath": "bg-1-stdout.log"
+  },
+  "unknown": {
+    "kind": "unavailable",
+    "workId": "exec_unknown"
+  },
+  "schemaErrors": []
+}

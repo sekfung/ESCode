@@ -1,0 +1,33 @@
+{
+  "invalid": 0,
+  "events": [
+    [
+      "turn-started",
+      "string",
+      null,
+      null,
+      null
+    ],
+    [
+      "tool-scheduled",
+      "string",
+      "bash-1",
+      "Bash",
+      null
+    ],
+    [
+      "tool-started",
+      "string",
+      "bash-1",
+      "Bash",
+      null
+    ],
+    [
+      "turn-completed",
+      "string",
+      null,
+      null,
+      null
+    ]
+  ]
+}

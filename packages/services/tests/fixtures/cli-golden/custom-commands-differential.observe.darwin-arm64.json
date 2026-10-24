@@ -1,0 +1,174 @@
+{
+  "catalog": [
+    {
+      "name": "goal",
+      "description": "Show or set the current session goal.",
+      "inputHint": "/goal [pause|resume|clear|replace <objective>|<objective>]",
+      "source": "builtin"
+    },
+    {
+      "name": "compact",
+      "description": "Compact the current conversation with optional instructions.",
+      "inputHint": "/compact [instructions]",
+      "source": "builtin"
+    },
+    {
+      "name": "init",
+      "description": "Create or update workspace AGENTS.md instructions.",
+      "inputHint": "/init [notes]",
+      "source": "builtin"
+    },
+    {
+      "name": "plan",
+      "description": "Switch to Plan mode and optionally send a task.",
+      "inputHint": "/plan [task]",
+      "source": "builtin"
+    },
+    {
+      "name": "broken",
+      "description": "Before !`exit 3` after",
+      "inputHint": "/broken",
+      "source": "custom"
+    },
+    {
+      "name": "gen",
+      "description": "Gen desc",
+      "inputHint": "/gen",
+      "source": "custom"
+    },
+    {
+      "name": "plugged",
+      "description": "From plugin",
+      "inputHint": "/plugged",
+      "source": "custom"
+    },
+    {
+      "name": "review",
+      "description": "Review a file",
+      "inputHint": "/review <file> [focus]",
+      "source": "custom"
+    },
+    {
+      "name": "team:notes",
+      "description": "Team notes",
+      "inputHint": "/team:notes",
+      "source": "custom"
+    },
+    {
+      "name": "userwide",
+      "description": "User wide command",
+      "inputHint": "/userwide",
+      "source": "custom"
+    }
+  ],
+  "snapshotCatalog": [
+    {
+      "description": "Show or set the current session goal.",
+      "inputHint": "/goal [pause|resume|clear|replace <objective>|<objective>]",
+      "name": "goal",
+      "source": "builtin"
+    },
+    {
+      "description": "Compact the current conversation with optional instructions.",
+      "inputHint": "/compact [instructions]",
+      "name": "compact",
+      "source": "builtin"
+    },
+    {
+      "description": "Create or update workspace AGENTS.md instructions.",
+      "inputHint": "/init [notes]",
+      "name": "init",
+      "source": "builtin"
+    },
+    {
+      "description": "Switch to Plan mode and optionally send a task.",
+      "inputHint": "/plan [task]",
+      "name": "plan",
+      "source": "builtin"
+    },
+    {
+      "description": "Before !`exit 3` after",
+      "inputHint": "/broken",
+      "name": "broken",
+      "source": "custom"
+    },
+    {
+      "description": "Gen desc",
+      "inputHint": "/gen",
+      "name": "gen",
+      "source": "custom"
+    },
+    {
+      "description": "From plugin",
+      "inputHint": "/plugged",
+      "name": "plugged",
+      "source": "custom"
+    },
+    {
+      "description": "Review a file",
+      "inputHint": "/review <file> [focus]",
+      "name": "review",
+      "source": "custom"
+    },
+    {
+      "description": "Team notes",
+      "inputHint": "/team:notes",
+      "name": "team:notes",
+      "source": "custom"
+    },
+    {
+      "description": "User wide command",
+      "inputHint": "/userwide",
+      "name": "userwide",
+      "source": "custom"
+    }
+  ],
+  "turns": [
+    {
+      "input": "/review src/a.ts 'error paths'",
+      "model": "Run custom command /review.\nCommand source: project/escode.\n\nReview src/a.ts focusing on error paths.\nShell: shell-ok",
+      "row": "/review src/a.ts 'error paths'"
+    },
+    {
+      "input": "/team:notes a b",
+      "model": "Run custom command /team:notes.\nCommand source: project/escode.\n\n# Team notes\nSummarize a b",
+      "row": "/team:notes a b"
+    },
+    {
+      "input": "/nosuch x",
+      "model": "/nosuch x",
+      "row": "/nosuch x"
+    },
+    {
+      "input": "/init",
+      "model": "You are running ESCode's built-in /init command.\n\nYour task is to create or update a concise workspace instruction file for future ESCode agents.\n\nTarget:\n- Workspace directory: <cwd>\n- Instruction file: <cwd>/AGENTS.md\n- Existing hidden instruction candidates: <cwd>/.escode/AGENTS.md and <cwd>/.agents/AGENTS.md\n- File name must be exactly AGENTS.md.\n- This command targets the current workspace only. Do not write ~/.escode/AGENTS.md.\n\n\nProcess:\n1. First check whether .escode/AGENTS.md or .agents/AGENTS.md exists in the workspace. If either exists, tell the user they already have an instructions file, mention the path found, and stop without creating a new AGENTS.md.\n2. Inspect the repository before writing. Prefer Read, Glob, Grep, and safe Bash commands such as ls, find, git status, and package-manager script inspection.\n3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.\n4. If AGENTS.md does not exist, create it at the workspace root.\n5. Keep the file practical and short enough for future agents to read quickly.\n6. Include only project-specific facts future ESCode agents would otherwise miss.\n7. Ask the user only if a repository-specific decision cannot be inferred and would materially change the file.\n\nRecommended AGENTS.md content:\n- Repository purpose and major directories.\n- Build, typecheck, lint, and focused test commands discovered from the repo.\n- Architecture boundaries and layer rules that matter for edits.\n- Coding conventions, import/path rules, logging rules, UI/design rules, and platform compatibility constraints if present.\n- Known gotchas for desktop app, web, remote, stdio, protocols, or agent runtime if this repo has them.\n- Any documentation files that agents should read before changing sensitive areas.\n\nAfter creating or editing AGENTS.md, summarize the main sections you wrote and mention the file path.",
+      "row": "/init"
+    },
+    {
+      "input": "/gen x",
+      "model": "Run custom command /gen.\nCommand source: user/plugin.\n\nGenerated for x",
+      "row": "/gen x"
+    },
+    {
+      "input": "/plugged",
+      "model": "Run custom command /plugged.\nCommand source: user/plugin.\n\nPlugin body",
+      "row": "/plugged"
+    },
+    {
+      "input": "/userwide",
+      "model": "Run custom command /userwide.\nCommand source: user/agents.\n\nUser wide command",
+      "row": "/userwide"
+    }
+  ],
+  "failure": {
+    "ack": {
+      "status": "failed",
+      "reasonCode": "fault.command.executionFailed",
+      "message": "Custom command /broken shell expansion failed.\nCommand: exit 3\nExit: 3\nDetails: status=failed",
+      "revisionAtDecision": 0
+    },
+    "rows": 0
+  },
+  "brokenRequested": false,
+  "schemaErrors": []
+}

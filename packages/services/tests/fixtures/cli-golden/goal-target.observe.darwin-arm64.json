@@ -1,0 +1,17 @@
+{
+  "hasTarget": true,
+  "target": {
+    "sessionIdType": "string",
+    "targetIdType": "string",
+    "objective": "implement and verify",
+    "summaryTitle": "implement and verify",
+    "status": "complete",
+    "tokenBudget": null,
+    "tokensUsedType": "number",
+    "timeUsedSecondsType": "number",
+    "activeRunStartedAtMsType": "object",
+    "activeRunLastSeenAtMsType": "object",
+    "createdAtType": "number",
+    "updatedAtType": "number"
+  }
+}

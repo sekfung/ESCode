@@ -1,0 +1,24 @@
+{
+  "starts": 2,
+  "replacementKeptRunning": true,
+  "ownerPathReleased": true,
+  "lifecycle": [
+    {
+      "type": "spawn",
+      "runtimeGeneration": 1
+    },
+    {
+      "type": "exit",
+      "runtimeGeneration": 1,
+      "exitCode": 0,
+      "signal": null,
+      "terminationKind": "unexpected",
+      "runtimeReady": false,
+      "stderrLineCount": 0
+    },
+    {
+      "type": "spawn",
+      "runtimeGeneration": 2
+    }
+  ]
+}

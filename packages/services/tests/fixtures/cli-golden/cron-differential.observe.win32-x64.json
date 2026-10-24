@@ -1,0 +1,74 @@
+{
+  "title": "每天9点 digest",
+  "manualTools": [
+    "{\"automation\":{\"automationId\":\"auto_1\",\"title\":\"每天9点 digest\",\"cronExpr\":\"0 9 * * *\",\"prompt\":\"digest\",\"enabled\":true,\"lifecycleStatus\":\"active\",\"nextRunAt\":1767000000000,\"runCount\":0,\"recurring\":true,\"scheduleRule\":{\"unit\":\"daily\",\"interval\":1,\"hour\":9,\"minute\":0,\"anchorAt\":1766000000000}},\"message\":\"Created automation auto_1.\"}",
+    "{\"automations\":[{\"automationId\":\"auto_1\",\"title\":\"每天9点 digest\",\"cronExpr\":\"0 9 * * *\",\"prompt\":\"digest\",\"enabled\":true,\"lifecycleStatus\":\"active\",\"nextRunAt\":1767000000000,\"runCount\":0,\"recurring\":true,\"scheduleRule\":{\"unit\":\"daily\",\"interval\":1,\"hour\":9,\"minute\":0,\"anchorAt\":1766000000000}}]}",
+    "{\"automation\":{\"automationId\":\"auto_1\",\"title\":\"每天10点 digest\",\"cronExpr\":\"0 10 * * *\",\"prompt\":\"digest\",\"enabled\":true,\"lifecycleStatus\":\"active\",\"nextRunAt\":1767000000000,\"runCount\":0,\"recurring\":true,\"scheduleRule\":{\"unit\":\"daily\",\"interval\":1,\"hour\":9,\"minute\":0,\"anchorAt\":1766000000000}},\"message\":\"Updated automation auto_1.\"}",
+    "{\"deleted\":true,\"id\":\"auto_1\",\"message\":\"Deleted automation auto_1.\"}"
+  ],
+  "hostManual": [
+    {
+      "method": "automation/checkTaskBinding",
+      "params": {
+        "targetTaskId": "<session>"
+      }
+    },
+    {
+      "method": "automation/create",
+      "params": {
+        "cronExpr": "0 9 * * *",
+        "prompt": "digest",
+        "title": "每天9点 digest",
+        "recurring": true,
+        "modelSelection": {
+          "providerId": "personal:fixture",
+          "modelId": "model-a",
+          "options": {
+            "reasoningLevel": "low"
+          }
+        },
+        "mode": "yolo",
+        "targetTaskId": "<session>"
+      }
+    },
+    {
+      "method": "automation/list",
+      "params": {}
+    },
+    {
+      "method": "automation/update",
+      "params": {
+        "automationId": "auto_1",
+        "title": "每天10点 digest",
+        "cronExpr": "0 10 * * *"
+      }
+    },
+    {
+      "method": "automation/delete",
+      "params": {
+        "automationId": "auto_1"
+      }
+    }
+  ],
+  "automationTools": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "ExitPlanMode",
+    "Read",
+    "Skill",
+    "TaskOutput",
+    "TaskStop",
+    "TodoRead",
+    "TodoWrite",
+    "WebFetch",
+    "Write",
+    "SendMessage",
+    "ReadSessionContext"
+  ],
+  "automationResult": "CronCreate is not allowed while running a scheduled automation.",
+  "schemaErrors": []
+}

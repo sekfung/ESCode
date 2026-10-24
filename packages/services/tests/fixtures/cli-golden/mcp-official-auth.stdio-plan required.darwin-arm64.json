@@ -1,0 +1,63 @@
+{
+  "status": "connected",
+  "messages": [
+    {
+      "method": "server/discover",
+      "meta": {
+        "ok": false,
+        "reason": "official_auth_plan_required"
+      }
+    },
+    {
+      "method": "initialize",
+      "meta": {
+        "ok": false,
+        "reason": "official_auth_plan_required"
+      }
+    },
+    {
+      "method": "notifications/initialized",
+      "meta": {
+        "ok": false,
+        "reason": "official_auth_plan_required"
+      }
+    },
+    {
+      "method": "tools/list",
+      "meta": {
+        "ok": false,
+        "reason": "official_auth_plan_required"
+      }
+    }
+  ],
+  "hostRequests": [
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    },
+    {
+      "mcpKey": "local",
+      "pluginId": "official-stdio@inline",
+      "requestId": "<id>",
+      "targetOrigin": "https://zcode.z.ai",
+      "workspace": "<workspace>"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "blockingRead": "<retrieval_status>success</retrieval_status>\n\n<task_id><id></task_id>\n\n<task_type>local_dynamic_workflow</task_type>\n\n<status>completed</status>\n\n<output>\n{\n  \"count\": 1\n}\n</output>",
+  "unknownRun": "<tool_use_error>No task found with ID: <id></tool_use_error>",
+  "requestCount": 5,
+  "schemaErrors": []
+}

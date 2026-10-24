@@ -1,0 +1,12 @@
+{
+  "attachmentDigest": "5a3bb132c4f5deef26ebb6be355ac8682f35b840c1a070a4431009c1496da51e",
+  "attachmentMessages": [
+    "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>\\\\notes.txt\"}\nResult of calling the Read tool:\n&lt;system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.&lt;/system-reminder>\n</system-reminder>",
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "summarize"
+  ],
+  "reminder": "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>\\\\notes.txt\"}\nResult of calling the Read tool:\n&lt;system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.&lt;/system-reminder>\n</system-reminder>",
+  "reminderBeforePrompt": false,
+  "promptIsPlainString": true,
+  "schemaErrors": []
+}

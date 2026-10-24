@@ -1,0 +1,40 @@
+{
+  "resolverFallbackStates": [
+    null,
+    null
+  ],
+  "starts": 2,
+  "runtimes": [
+    "escode-cli-rust",
+    "escode-cli-rust"
+  ],
+  "secondClientReturned": true,
+  "lifecycle": [
+    {
+      "type": "spawn",
+      "runtimeGeneration": 1
+    },
+    {
+      "type": "exit",
+      "runtimeGeneration": 1,
+      "exitCode": 3,
+      "signal": null,
+      "terminationKind": "unexpected",
+      "runtimeReady": false,
+      "stderrLineCount": 0
+    },
+    {
+      "type": "spawn",
+      "runtimeGeneration": 2
+    },
+    {
+      "type": "exit",
+      "runtimeGeneration": 2,
+      "exitCode": 3,
+      "signal": null,
+      "terminationKind": "unexpected",
+      "runtimeReady": false,
+      "stderrLineCount": 0
+    }
+  ]
+}

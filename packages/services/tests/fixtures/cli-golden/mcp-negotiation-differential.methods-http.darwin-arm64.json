@@ -1,0 +1,11 @@
+{
+  "status": "connected",
+  "protocolEra": "legacy",
+  "methods": [
+    "server/discover",
+    "initialize",
+    "notifications/initialized",
+    "tools/list"
+  ],
+  "deletes": 0
+}

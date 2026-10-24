@@ -1,0 +1,410 @@
+{
+  "requests": 3,
+  "messages": [
+    [
+      {
+        "role": "user",
+        "content": "<system-reminder>\nThe following skills are available for use with the Skill tool:\n\n- browser-use:control-browser: Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ESCode, including browser/web-UI automation, rendered-page scraping, front... (also loadable as control-browser) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/control-browser/SKILL.md)\n- browser-use:web-gui-tester: Use the browser automation tooling available in the session to test web frontends interactively in a purely GUI-based, black-box manner: simulate real user clicks, text input, scrolling, and other actions; use screenshots for visual verification and... (also loadable as web-gui-tester) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/web-gui-tester/SKILL.md)\n- documents:docx: Complete DOCX document creation, editing, and analysis capabilities with support for revisions, comments, formatting preservation, and text extraction. Also handles Word format conversion: legacy .doc → .docx, DOCX → PDF, DOCX → images (PNG/JPG) for... (also loadable as docx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/documents/0.1.8/skills/docx/SKILL.md)\n- escode-guide:diagnosing-commands: Use to diagnose and fix ESCode custom slash-command (/command) configuration problems in the ESCode client. Applies when a command is missing, is overridden by a higher-precedence command of the same name, has a frontmatter parse error, is dropped f... (also loadable as diagnosing-commands) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-commands/SKILL.md)\n- escode-guide:diagnosing-hooks: Use to diagnose and fix ESCode hook configuration problems in the ESCode client. Applies when a hook does not trigger, an event name is wrong, a matcher does not match a tool name, a script is not executable, template variables are not expanded, a t... (also loadable as diagnosing-hooks) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-hooks/SKILL.md)\n- escode-guide:diagnosing-mcp: Use to diagnose and fix ESCode MCP (Model Context Protocol) server configuration problems in the ESCode client. Applies when an MCP server will not connect, its tools (mcp__server__tool) do not appear, it shows as disabled or failed, connections tim... (also loadable as diagnosing-mcp) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-mcp/SKILL.md)\n- escode-guide:diagnosing-plugins: Use to diagnose and fix ESCode plugin and marketplace problems in the ESCode client. Applies when a plugin is not listed, adding a marketplace or installing a plugin fails, a plugin is enabled but its skills or commands are missing, a built-in plugi... (also loadable as diagnosing-plugins) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-plugins/SKILL.md)\n- escode-guide:diagnosing-skills: Use to diagnose and fix ESCode skill configuration problems in the ESCode client. Applies when a skill is not discovered, is installed but does not trigger automatically, is shadowed by a higher-precedence skill of the same name, is disabled by conf... (also loadable as diagnosing-skills) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-skills/SKILL.md)\n- escode-guide:escode-configuration-guide: Use when configuring ESCode's extension resources (MCP servers, slash commands, skills, hooks, and plugins) or instruction files such as AGENTS.md in the ESCode client. Explains where each resource is configured at the user and workspace scope, the ... (also loadable as escode-configuration-guide) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/escode-configuration-guide/SKILL.md)\n- pdf:pdf: Professional PDF toolkit covering four production workflows: reports, creative visuals, academic LaTeX, and existing PDF processing. Routes automatically by document type and supports reports, posters, papers, resumes, extraction, merging, splitting... (also loadable as pdf) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/pdf/0.1.8/skills/pdf/SKILL.md)\n- plugin-creator:plugin-creator: Create or update ESCode plugin source and a local test marketplace, then guide the user to add, install, update and try it in the app. Use for new plugins or changes to an existing plugin's capabilities, manifest or local distribution. (also loadable as plugin-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/plugin-creator/0.1.1/skills/plugin-creator/SKILL.md)\n- presentations:pptx: Use this skill any time a presentation file is the primary input or output. Covers: creating new .pptx decks from scratch or from an outline/document (pptxgenjs / python-pptx); editing and restyling an existing .pptx; reading and extracting text/str... (also loadable as pptx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/presentations/0.1.8/skills/pptx/SKILL.md)\n- serial:serial-port: Use when the user asks to talk to a device over a serial port / UART / COM port in the ESCode Desktop app — flashing firmware and checking boot logs, sending AT commands, or verifying device responses. (also loadable as serial-port) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/serial/0.1.0/skills/serial-port/SKILL.md)\n- skill-creator:skill-creator: Create new skills, edit existing skills, and iterate wording. Use when writing SKILL.md from scratch, improving existing skills, turning repeated workflows into reusable skills, or refining skill descriptions to improve trigger reliability. (also loadable as skill-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/skill-creator/0.1.0/skills/skill-creator/SKILL.md)\n- spreadsheets:xlsx: Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file; create a new spreadsheet from scratch or from other data s... (also loadable as xlsx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/spreadsheets/0.1.8/skills/xlsx/SKILL.md)\n- usb:usb-capture: Use when a USB device on this machine misbehaves and the answer is on the wire — a smart-card / ID-card reader that will not read (CCID, APDU, PC/SC), a keyboard, mouse, gamepad or other HID device with wrong or missing input, a USB drive or USB-SAT... (also loadable as usb-capture) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/usb/0.1.0/skills/usb-capture/SKILL.md)\n- visualize:visualize: Create visualizations and interactive tools directly in conversation. Proactively use to show how something works; explore 'what happens when', 'what changes', or 'help me understand'; compare or inspect; create simulations, maps, charts, graphs, an... (also loadable as visualize) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/visualize/0.1.0/skills/visualize/SKILL.md)\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAs you answer the user's questions, you can use the following context:\n# currentDate\nToday's date is <date>.\n\n      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.\n</system-reminder>\n"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nSessionStart hook additional context: \n#1\nsession context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nUserPromptSubmit hook additional context: \n#1\nprompt context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- Explore: Read-only search agent for broad fan-out searches - when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: Read, Bash, WebFetch, WebSearch, TodoWrite)\n- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)\n- pdf:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- presentations:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- spreadsheets:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "hello"
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": "<system-reminder>\nThe following skills are available for use with the Skill tool:\n\n- browser-use:control-browser: Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ESCode, including browser/web-UI automation, rendered-page scraping, front... (also loadable as control-browser) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/control-browser/SKILL.md)\n- browser-use:web-gui-tester: Use the browser automation tooling available in the session to test web frontends interactively in a purely GUI-based, black-box manner: simulate real user clicks, text input, scrolling, and other actions; use screenshots for visual verification and... (also loadable as web-gui-tester) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/web-gui-tester/SKILL.md)\n- documents:docx: Complete DOCX document creation, editing, and analysis capabilities with support for revisions, comments, formatting preservation, and text extraction. Also handles Word format conversion: legacy .doc → .docx, DOCX → PDF, DOCX → images (PNG/JPG) for... (also loadable as docx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/documents/0.1.8/skills/docx/SKILL.md)\n- escode-guide:diagnosing-commands: Use to diagnose and fix ESCode custom slash-command (/command) configuration problems in the ESCode client. Applies when a command is missing, is overridden by a higher-precedence command of the same name, has a frontmatter parse error, is dropped f... (also loadable as diagnosing-commands) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-commands/SKILL.md)\n- escode-guide:diagnosing-hooks: Use to diagnose and fix ESCode hook configuration problems in the ESCode client. Applies when a hook does not trigger, an event name is wrong, a matcher does not match a tool name, a script is not executable, template variables are not expanded, a t... (also loadable as diagnosing-hooks) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-hooks/SKILL.md)\n- escode-guide:diagnosing-mcp: Use to diagnose and fix ESCode MCP (Model Context Protocol) server configuration problems in the ESCode client. Applies when an MCP server will not connect, its tools (mcp__server__tool) do not appear, it shows as disabled or failed, connections tim... (also loadable as diagnosing-mcp) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-mcp/SKILL.md)\n- escode-guide:diagnosing-plugins: Use to diagnose and fix ESCode plugin and marketplace problems in the ESCode client. Applies when a plugin is not listed, adding a marketplace or installing a plugin fails, a plugin is enabled but its skills or commands are missing, a built-in plugi... (also loadable as diagnosing-plugins) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-plugins/SKILL.md)\n- escode-guide:diagnosing-skills: Use to diagnose and fix ESCode skill configuration problems in the ESCode client. Applies when a skill is not discovered, is installed but does not trigger automatically, is shadowed by a higher-precedence skill of the same name, is disabled by conf... (also loadable as diagnosing-skills) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-skills/SKILL.md)\n- escode-guide:escode-configuration-guide: Use when configuring ESCode's extension resources (MCP servers, slash commands, skills, hooks, and plugins) or instruction files such as AGENTS.md in the ESCode client. Explains where each resource is configured at the user and workspace scope, the ... (also loadable as escode-configuration-guide) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/escode-configuration-guide/SKILL.md)\n- pdf:pdf: Professional PDF toolkit covering four production workflows: reports, creative visuals, academic LaTeX, and existing PDF processing. Routes automatically by document type and supports reports, posters, papers, resumes, extraction, merging, splitting... (also loadable as pdf) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/pdf/0.1.8/skills/pdf/SKILL.md)\n- plugin-creator:plugin-creator: Create or update ESCode plugin source and a local test marketplace, then guide the user to add, install, update and try it in the app. Use for new plugins or changes to an existing plugin's capabilities, manifest or local distribution. (also loadable as plugin-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/plugin-creator/0.1.1/skills/plugin-creator/SKILL.md)\n- presentations:pptx: Use this skill any time a presentation file is the primary input or output. Covers: creating new .pptx decks from scratch or from an outline/document (pptxgenjs / python-pptx); editing and restyling an existing .pptx; reading and extracting text/str... (also loadable as pptx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/presentations/0.1.8/skills/pptx/SKILL.md)\n- serial:serial-port: Use when the user asks to talk to a device over a serial port / UART / COM port in the ESCode Desktop app — flashing firmware and checking boot logs, sending AT commands, or verifying device responses. (also loadable as serial-port) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/serial/0.1.0/skills/serial-port/SKILL.md)\n- skill-creator:skill-creator: Create new skills, edit existing skills, and iterate wording. Use when writing SKILL.md from scratch, improving existing skills, turning repeated workflows into reusable skills, or refining skill descriptions to improve trigger reliability. (also loadable as skill-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/skill-creator/0.1.0/skills/skill-creator/SKILL.md)\n- spreadsheets:xlsx: Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file; create a new spreadsheet from scratch or from other data s... (also loadable as xlsx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/spreadsheets/0.1.8/skills/xlsx/SKILL.md)\n- usb:usb-capture: Use when a USB device on this machine misbehaves and the answer is on the wire — a smart-card / ID-card reader that will not read (CCID, APDU, PC/SC), a keyboard, mouse, gamepad or other HID device with wrong or missing input, a USB drive or USB-SAT... (also loadable as usb-capture) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/usb/0.1.0/skills/usb-capture/SKILL.md)\n- visualize:visualize: Create visualizations and interactive tools directly in conversation. Proactively use to show how something works; explore 'what happens when', 'what changes', or 'help me understand'; compare or inspect; create simulations, maps, charts, graphs, an... (also loadable as visualize) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/visualize/0.1.0/skills/visualize/SKILL.md)\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAs you answer the user's questions, you can use the following context:\n# currentDate\nToday's date is <date>.\n\n      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.\n</system-reminder>\n"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nSessionStart hook additional context: \n#1\nsession context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nUserPromptSubmit hook additional context: \n#1\nprompt context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- Explore: Read-only search agent for broad fan-out searches - when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: Read, Bash, WebFetch, WebSearch, TodoWrite)\n- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)\n- pdf:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- presentations:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- spreadsheets:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "hello"
+      },
+      {
+        "role": "assistant",
+        "content": "first answer"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nStop hook additional context: \n#1\nkeep going\n</system-reminder>"
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": "<system-reminder>\nThe following skills are available for use with the Skill tool:\n\n- browser-use:control-browser: Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ESCode, including browser/web-UI automation, rendered-page scraping, front... (also loadable as control-browser) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/control-browser/SKILL.md)\n- browser-use:web-gui-tester: Use the browser automation tooling available in the session to test web frontends interactively in a purely GUI-based, black-box manner: simulate real user clicks, text input, scrolling, and other actions; use screenshots for visual verification and... (also loadable as web-gui-tester) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/browser-use/0.5.1/skills/web-gui-tester/SKILL.md)\n- documents:docx: Complete DOCX document creation, editing, and analysis capabilities with support for revisions, comments, formatting preservation, and text extraction. Also handles Word format conversion: legacy .doc → .docx, DOCX → PDF, DOCX → images (PNG/JPG) for... (also loadable as docx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/documents/0.1.8/skills/docx/SKILL.md)\n- escode-guide:diagnosing-commands: Use to diagnose and fix ESCode custom slash-command (/command) configuration problems in the ESCode client. Applies when a command is missing, is overridden by a higher-precedence command of the same name, has a frontmatter parse error, is dropped f... (also loadable as diagnosing-commands) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-commands/SKILL.md)\n- escode-guide:diagnosing-hooks: Use to diagnose and fix ESCode hook configuration problems in the ESCode client. Applies when a hook does not trigger, an event name is wrong, a matcher does not match a tool name, a script is not executable, template variables are not expanded, a t... (also loadable as diagnosing-hooks) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-hooks/SKILL.md)\n- escode-guide:diagnosing-mcp: Use to diagnose and fix ESCode MCP (Model Context Protocol) server configuration problems in the ESCode client. Applies when an MCP server will not connect, its tools (mcp__server__tool) do not appear, it shows as disabled or failed, connections tim... (also loadable as diagnosing-mcp) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-mcp/SKILL.md)\n- escode-guide:diagnosing-plugins: Use to diagnose and fix ESCode plugin and marketplace problems in the ESCode client. Applies when a plugin is not listed, adding a marketplace or installing a plugin fails, a plugin is enabled but its skills or commands are missing, a built-in plugi... (also loadable as diagnosing-plugins) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-plugins/SKILL.md)\n- escode-guide:diagnosing-skills: Use to diagnose and fix ESCode skill configuration problems in the ESCode client. Applies when a skill is not discovered, is installed but does not trigger automatically, is shadowed by a higher-precedence skill of the same name, is disabled by conf... (also loadable as diagnosing-skills) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/diagnosing-skills/SKILL.md)\n- escode-guide:escode-configuration-guide: Use when configuring ESCode's extension resources (MCP servers, slash commands, skills, hooks, and plugins) or instruction files such as AGENTS.md in the ESCode client. Explains where each resource is configured at the user and workspace scope, the ... (also loadable as escode-configuration-guide) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/escode-guide/0.3.0/skills/escode-configuration-guide/SKILL.md)\n- pdf:pdf: Professional PDF toolkit covering four production workflows: reports, creative visuals, academic LaTeX, and existing PDF processing. Routes automatically by document type and supports reports, posters, papers, resumes, extraction, merging, splitting... (also loadable as pdf) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/pdf/0.1.8/skills/pdf/SKILL.md)\n- plugin-creator:plugin-creator: Create or update ESCode plugin source and a local test marketplace, then guide the user to add, install, update and try it in the app. Use for new plugins or changes to an existing plugin's capabilities, manifest or local distribution. (also loadable as plugin-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/plugin-creator/0.1.1/skills/plugin-creator/SKILL.md)\n- presentations:pptx: Use this skill any time a presentation file is the primary input or output. Covers: creating new .pptx decks from scratch or from an outline/document (pptxgenjs / python-pptx); editing and restyling an existing .pptx; reading and extracting text/str... (also loadable as pptx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/presentations/0.1.8/skills/pptx/SKILL.md)\n- serial:serial-port: Use when the user asks to talk to a device over a serial port / UART / COM port in the ESCode Desktop app — flashing firmware and checking boot logs, sending AT commands, or verifying device responses. (also loadable as serial-port) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/serial/0.1.0/skills/serial-port/SKILL.md)\n- skill-creator:skill-creator: Create new skills, edit existing skills, and iterate wording. Use when writing SKILL.md from scratch, improving existing skills, turning repeated workflows into reusable skills, or refining skill descriptions to improve trigger reliability. (also loadable as skill-creator) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/skill-creator/0.1.0/skills/skill-creator/SKILL.md)\n- spreadsheets:xlsx: Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file; create a new spreadsheet from scratch or from other data s... (also loadable as xlsx) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/spreadsheets/0.1.8/skills/xlsx/SKILL.md)\n- usb:usb-capture: Use when a USB device on this machine misbehaves and the answer is on the wire — a smart-card / ID-card reader that will not read (CCID, APDU, PC/SC), a keyboard, mouse, gamepad or other HID device with wrong or missing input, a USB drive or USB-SAT... (also loadable as usb-capture) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/usb/0.1.0/skills/usb-capture/SKILL.md)\n- visualize:visualize: Create visualizations and interactive tools directly in conversation. Proactively use to show how something works; explore 'what happens when', 'what changes', or 'help me understand'; compare or inspect; create simulations, maps, charts, graphs, an... (also loadable as visualize) (file: <root>/.escode/cli/plugins/cache/zcode-plugins-official/visualize/0.1.0/skills/visualize/SKILL.md)\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAs you answer the user's questions, you can use the following context:\n# currentDate\nToday's date is <date>.\n\n      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.\n</system-reminder>\n"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nSessionStart hook additional context: \n#1\nsession context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nUserPromptSubmit hook additional context: \n#1\nprompt context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- Explore: Read-only search agent for broad fan-out searches - when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: Read, Bash, WebFetch, WebSearch, TodoWrite)\n- general-purpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)\n- pdf:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- presentations:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n- spreadsheets:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "hello"
+      },
+      {
+        "role": "assistant",
+        "content": "first answer"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nStop hook additional context: \n#1\nkeep going\n</system-reminder>"
+      },
+      {
+        "role": "assistant",
+        "content": "second answer"
+      },
+      {
+        "role": "user",
+        "content": "<system-reminder>\nUserPromptSubmit hook additional context: \n#1\nprompt context\n</system-reminder>"
+      },
+      {
+        "role": "user",
+        "content": "after"
+      }
+    ]
+  ],
+  "stdin": [
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "model",
+        "permission_mode",
+        "sessionId",
+        "session_id",
+        "source",
+        "timestamp",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "SessionStart",
+      "source": "startup",
+      "model": "string"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "prompt",
+        "sessionId",
+        "session_id",
+        "timestamp",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "UserPromptSubmit",
+      "prompt": "hello",
+      "model": "undefined"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "last_assistant_message",
+        "mode",
+        "permission_mode",
+        "responsePreview",
+        "responseText",
+        "sessionId",
+        "session_id",
+        "stopHookActive",
+        "stop_hook_active",
+        "timestamp",
+        "toolCallCount",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "Stop",
+      "responseText": "first answer",
+      "stopHookActive": false,
+      "toolCallCount": 0,
+      "model": "undefined"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "last_assistant_message",
+        "mode",
+        "permission_mode",
+        "responsePreview",
+        "responseText",
+        "sessionId",
+        "session_id",
+        "stopHookActive",
+        "stop_hook_active",
+        "timestamp",
+        "toolCallCount",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "Stop",
+      "responseText": "second answer",
+      "stopHookActive": true,
+      "toolCallCount": 0,
+      "model": "undefined"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "prompt",
+        "sessionId",
+        "session_id",
+        "timestamp",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "UserPromptSubmit",
+      "prompt": "please block me",
+      "model": "undefined"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "mode",
+        "permission_mode",
+        "prompt",
+        "sessionId",
+        "session_id",
+        "timestamp",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "UserPromptSubmit",
+      "prompt": "after",
+      "model": "undefined"
+    },
+    {
+      "keys": [
+        "cwd",
+        "hookEventName",
+        "hook_event_name",
+        "last_assistant_message",
+        "mode",
+        "permission_mode",
+        "responsePreview",
+        "responseText",
+        "sessionId",
+        "session_id",
+        "stopHookActive",
+        "stop_hook_active",
+        "timestamp",
+        "toolCallCount",
+        "traceId",
+        "transcriptPath",
+        "transcript_path",
+        "turnId"
+      ],
+      "hookEventName": "Stop",
+      "responseText": "third answer",
+      "stopHookActive": false,
+      "toolCallCount": 0,
+      "model": "undefined"
+    }
+  ],
+  "rows": [
+    {
+      "kind": "turnHeader"
+    },
+    {
+      "kind": "userInput",
+      "text": "hello"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "SessionStart",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "success",
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "UserPromptSubmit",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "success",
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "assistantText",
+      "text": "first answer"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "Stop",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "blocked",
+          "keep going",
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "assistantText",
+      "text": "second answer"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "Stop",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "success",
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "turnHeader"
+    },
+    {
+      "kind": "userInput",
+      "text": "please block me"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "UserPromptSubmit",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "blocked",
+          "prompt rejected",
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "turnHeader"
+    },
+    {
+      "kind": "userInput",
+      "text": "after"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "UserPromptSubmit",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "success",
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "kind": "assistantText",
+      "text": "third answer"
+    },
+    {
+      "kind": "hookInvocation",
+      "hookEventName": "Stop",
+      "state": "completed",
+      "lane": "assistantWork",
+      "executions": [
+        [
+          "completed",
+          "success",
+          null,
+          true
+        ]
+      ]
+    }
+  ],
+  "lastError": null,
+  "schemaErrors": []
+}

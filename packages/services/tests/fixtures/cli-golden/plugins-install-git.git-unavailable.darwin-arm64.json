@@ -1,0 +1,13 @@
+{
+  "gitplain": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_git_unavailable",
+        "message": "System Git is required for plugin source /tmp/escode-plugin-src-<tmp>, but git is unavailable on this Agent Host. Install Git on the Agent Host, or use a public GitHub HTTPS or verified ZIP source."
+      }
+    ]
+  },
+  "schemaErrors": []
+}

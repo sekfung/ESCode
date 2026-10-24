@@ -1,0 +1,78 @@
+{
+  "fresh": {
+    "session": {
+      "sessionKind": "interactive",
+      "title": "",
+      "hasTitleSource": false,
+      "titleSource": null,
+      "mode": "build",
+      "status": "idle",
+      "createdAtType": "number",
+      "updatedAtType": "number",
+      "traceIdType": "string",
+      "hasTarget": true,
+      "target": null,
+      "model": {
+        "providerId": "personal:fixture",
+        "modelId": "model-a"
+      },
+      "modelKeys": [
+        "modelId",
+        "providerId"
+      ],
+      "workspaceKeys": [
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "parentSessionId": null
+    },
+    "settings": {
+      "modelCurrent": {
+        "providerId": "personal:fixture",
+        "modelId": "model-a",
+        "options": {
+          "reasoningLevel": "low"
+        }
+      },
+      "thoughtCurrent": "low"
+    }
+  },
+  "warm": {
+    "session": {
+      "sessionKind": "interactive",
+      "title": "hello",
+      "hasTitleSource": true,
+      "titleSource": "first_input",
+      "mode": "yolo",
+      "status": "idle",
+      "createdAtType": "number",
+      "updatedAtType": "number",
+      "traceIdType": "string",
+      "hasTarget": true,
+      "target": null,
+      "model": {
+        "providerId": "personal:fixture",
+        "modelId": "model-a"
+      },
+      "modelKeys": [
+        "modelId",
+        "providerId"
+      ],
+      "workspaceKeys": [
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "parentSessionId": null
+    },
+    "settings": {
+      "modelCurrent": {
+        "providerId": "personal:fixture",
+        "modelId": "model-a",
+        "options": {
+          "reasoningLevel": "low"
+        }
+      },
+      "thoughtCurrent": "low"
+    }
+  }
+}

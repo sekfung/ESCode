@@ -1,0 +1,89 @@
+{
+  "updateById": {
+    "dependencyClosure": [
+      "tool@acme"
+    ],
+    "installedPlugins": [
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "version": "1.1.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\tool\\1.1.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "updateByMarket": {
+    "dependencyClosure": [
+      "tool@acme",
+      "other@acme"
+    ],
+    "installedPlugins": [
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "version": "1.1.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\tool\\1.1.0",
+        "installedAt": "<time>"
+      },
+      {
+        "id": "other@acme",
+        "name": "other",
+        "marketplace": "acme",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\other\\1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "updateAll": {
+    "dependencyClosure": [
+      "tool@acme",
+      "other@acme"
+    ],
+    "installedPlugins": [
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "version": "1.1.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\tool\\1.1.0",
+        "installedAt": "<time>"
+      },
+      {
+        "id": "other@acme",
+        "name": "other",
+        "marketplace": "acme",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\other\\1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "updateNone": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": []
+  },
+  "installedFile": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"tool@acme\",\n      \"name\": \"tool\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.1.0\",\n      \"installPath\": \"<root>\\\\.escode\\\\cli\\\\plugins\\\\cache\\\\acme\\\\tool\\\\1.1.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": \"./plugins/tool\",\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"other@acme\",\n      \"name\": \"other\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.0.0\",\n      \"installPath\": \"<root>\\\\.escode\\\\cli\\\\plugins\\\\cache\\\\acme\\\\other\\\\1.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": \"./plugins/other\",\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+  "cancelUnknown": {
+    "operationId": "nope",
+    "cancelled": false
+  },
+  "schemaErrors": []
+}

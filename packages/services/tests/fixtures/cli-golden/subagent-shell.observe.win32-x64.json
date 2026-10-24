@@ -1,0 +1,14 @@
+{
+  "preferenceRequests": [
+    {
+      "session": "parent",
+      "scope": "runtime-materialization"
+    },
+    {
+      "session": "parent",
+      "scope": "user-execution"
+    }
+  ],
+  "childBash": "Microsoft Windows [Version 10.0.26100.33650]",
+  "schemaErrors": []
+}

@@ -1,0 +1,55 @@
+{
+  "name": "plugin:official-fixture:search",
+  "status": {
+    "status": "failed",
+    "failureKind": "connection_failed",
+    "serverRequestId": "srv-2",
+    "toolCount": 0
+  },
+  "hostRequests": [
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    },
+    {
+      "mcpKey": "search",
+      "pluginId": "official-fixture@inline",
+      "requestId": "<id>",
+      "targetOrigin": "<origin>",
+      "workspace": {
+        "workspaceKey": "<cwd>",
+        "workspacePath": "<cwd>"
+      }
+    }
+  ],
+  "server": [
+    {
+      "http": "POST",
+      "method": "server/discover",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    },
+    {
+      "http": "POST",
+      "method": "server/discover",
+      "headers": {
+        "authorization": "Bearer identity-jwt",
+        "x-bigmodel-authorization": "Bearer plan-jwt",
+        "bigmodel-target-type": "PERSONAL",
+        "x-custom": "static",
+        "x-request-id": null
+      }
+    }
+  ]
+}

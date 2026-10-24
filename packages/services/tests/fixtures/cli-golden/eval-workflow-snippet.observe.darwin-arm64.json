@@ -1,0 +1,12 @@
+{
+  "results": {
+    "ev-gate": "<tool_use_error>EvalWorkflowSnippet needs the `dynamic-workflows` skill loaded in this session before it accepts a script. Call the Skill tool with skill \"dynamic-workflows\" first — it carries the facade declarations the script is checked against, the authoring rules and this tool's full contract — then call EvalWorkflowSnippet again. Nothing was started.</tool_use_error>",
+    "ev-both": "<tool_use_error>Provide exactly one snippet source: `code` for the snippet inline, or `path` for a file holding it. Passing both, or neither, is ambiguous.</tool_use_error>",
+    "ev-diag": "The snippet has errors:\nL1:C7 Type 'string' is not assignable to type 'number'.\n\nNOTE: The snippet was NOT executed — fix the errors above and call the tool again.",
+    "ev-file": "The snippet has errors:\nsnippet.ts:L1:C7 Type 'number' is not assignable to type 'string'.\n\nNOTE: The snippet was NOT executed — fix the errors above and call the tool again.",
+    "ev-ok": "The snippet completed in <n>ms.\nReturn value:\n{\n  \"total\": 3,\n  \"tags\": [\n    \"a\",\n    \"b\"\n  ]\n}\n\nLogs:\n- first\n- second",
+    "ev-throw": "The snippet failed (DriverError): boom\n\nLogs:\n- before",
+    "ev-void": "The snippet completed in <n>ms.\nIt returned no value.\n\nLogs:\n- only a log"
+  },
+  "schemaErrors": []
+}

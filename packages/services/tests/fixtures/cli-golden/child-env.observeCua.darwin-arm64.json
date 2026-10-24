@@ -1,0 +1,13 @@
+{
+  "definitions": [
+    "mcp__node_repl__js"
+  ],
+  "env": {
+    "ESCODE_CUA_PERMISSION_BROKER_SOCKET": null,
+    "ESCODE_CUA_PLUGIN_AUTHORITY": null,
+    "ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER": null,
+    "ESCODE_CUA_NODE_REPL_HOST": "1",
+    "ESCODE_PLUGIN_ID": "computer-use@zcode-plugins-official",
+    "OTEL_SERVICE_NAME": null
+  }
+}

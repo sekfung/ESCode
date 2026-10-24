@@ -1,0 +1,10 @@
+{
+  "writeRows": [
+    "cancelled"
+  ],
+  "childToolResult": "Auto mode is reserved but not implemented yet",
+  "parentToolResults": [
+    "child done\nagentId: agent_UUID (use SendMessage with to: 'agent_UUID' to continue this agent)\n<usage>subagent_tokens: 28\ntool_uses: 1\nduration_ms: N</usage>"
+  ],
+  "schemaErrors": []
+}

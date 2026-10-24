@@ -1,0 +1,97 @@
+{
+  "conflict": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Workspace marketplace declaration \"acme\" conflicts with an existing Host source. Remove the existing marketplace or use a different marketplace id before materializing it.",
+        "severity": "error",
+        "pluginId": "acme"
+      }
+    ]
+  },
+  "known": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_unsupported_component",
+        "message": "Plugin component is diagnostic-only in this ESCode runtime: lspServers",
+        "severity": "warning",
+        "pluginId": "tool@acme"
+      }
+    ]
+  },
+  "knownBroken": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Unsupported or missing plugin source: ./plugins/missing",
+        "severity": "error",
+        "pluginId": "broken@acme"
+      }
+    ]
+  },
+  "knownMissing": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_not_found",
+        "message": "Plugin not found: ghost@acme",
+        "severity": "error"
+      }
+    ]
+  },
+  "declared": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": []
+  },
+  "declaredMissing": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_not_found",
+        "message": "Plugin not found: ghost@decl",
+        "severity": "error",
+        "pluginId": "ghost@decl"
+      }
+    ]
+  },
+  "declaredWrongId": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace declaration id mismatch: expected wrong, received other",
+        "severity": "error",
+        "pluginId": "wrong"
+      }
+    ]
+  },
+  "unknownMarket": {
+    "dependencyClosure": [],
+    "installedPlugins": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace not found: nowhere",
+        "severity": "error"
+      }
+    ]
+  },
+  "nothingWritten": {
+    "installed": null,
+    "markets": [
+      "acme"
+    ],
+    "cache": []
+  },
+  "schemaErrors": []
+}

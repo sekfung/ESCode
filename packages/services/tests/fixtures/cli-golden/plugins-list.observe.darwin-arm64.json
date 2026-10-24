@@ -1,0 +1,657 @@
+{
+  "plugins": [
+    {
+      "id": "alpha@inline",
+      "name": "alpha",
+      "enabled": true,
+      "source": "inline",
+      "marketplace": "inline",
+      "description": "Alpha plugin",
+      "version": "1.2.3",
+      "author": "Alpha Author",
+      "authorUrl": "https://example.com/alpha",
+      "homepage": "https://example.com/alpha/home",
+      "skillRootCount": 1,
+      "commandRootCount": 1,
+      "skillCount": 2,
+      "declaredMcpServerNames": [
+        "alpha_mcp"
+      ],
+      "mcpServerNames": [
+        "plugin:alpha:alpha_mcp"
+      ],
+      "components": [
+        {
+          "kind": "agent",
+          "items": [
+            {
+              "name": "reviewer",
+              "description": "Reviews code"
+            }
+          ]
+        },
+        {
+          "kind": "command",
+          "items": [
+            {
+              "name": "review",
+              "description": "Review something"
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "one",
+              "description": "First skill"
+            },
+            {
+              "name": "two"
+            }
+          ]
+        },
+        {
+          "kind": "mcp",
+          "items": [
+            {
+              "name": "alpha_mcp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beta@inline",
+      "name": "beta",
+      "enabled": false,
+      "source": "inline",
+      "marketplace": "inline",
+      "description": "Beta plugin",
+      "version": "0.1.0",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "x"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "serial@zcode-plugins-official",
+      "name": "serial",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Read and write the serial port opened in the ESCode Desktop window: wait for boot logs after flashing, send AT commands and verify responses.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "serial-port",
+              "description": "Use when the user asks to talk to a device over a serial port / UART / COM port in the ESCode Desktop app — flashing firmware and checking boot logs, sending AT commands, or verifying device responses."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "usb@zcode-plugins-official",
+      "name": "usb",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Analyze USB traffic for the agent: smart-card readers (CCID/APDU), HID devices, and mass storage (MSC/SCSI). Decoding a .pcapng works offline on every platform; live capture is Windows-only and ships with the app.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [
+        "usb"
+      ],
+      "mcpServerNames": [
+        "plugin:usb:usb"
+      ],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "usb-capture",
+              "description": "Use when a USB device on this machine misbehaves and the answer is on the wire — a smart-card / ID-card reader that will not read (CCID, APDU, PC/SC), a keyboard, mouse, gamepad or other HID device with wrong or missing input, a USB drive or USB-SATA disk that fails to read, write or mount (mass storage, SCSI), or a device that does not enumerate at all. Also use when the user hands over a .pcapng / .pcap USB capture to analyze. Not for serial/UART ports (use the serial-port skill) and not for network traffic (use the REA tshark path)."
+            }
+          ]
+        },
+        {
+          "kind": "mcp",
+          "items": [
+            {
+              "name": "usb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "visualize@zcode-plugins-official",
+      "name": "visualize",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Create interactive explanations, charts and design previews in ESCode conversations.",
+      "version": "0.1.0",
+      "author": "ESCode",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "visualize",
+              "description": "Create visualizations and interactive tools directly in conversation. Proactively use to show how something works; explore 'what happens when', 'what changes', or 'help me understand'; compare or inspect; create simulations, maps, charts, graphs, and mockups. Use standard tools for static scientific figures."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "node-repl-host@zcode-plugins-official",
+      "name": "node-repl-host",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Shared node_repl runtime host for ESCode official capabilities. Not user-facing: it carries no skill and appears in no marketplace listing; Browser Use and Computer Use enable it and contribute their own skills, docs and runtime assets.",
+      "version": "0.6.1",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": []
+    },
+    {
+      "id": "android-emulator@zcode-plugins-official",
+      "name": "android-emulator",
+      "enabled": false,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Provides Android development workflows and emulator automation for ESCode.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [
+        "android-emulator"
+      ],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "command",
+          "items": [
+            {
+              "name": "android-dev",
+              "description": "Start the Android emulator development loop."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "android-dev",
+              "description": "Build, run, inspect, and lightly automate Android apps with the android-emulator MCP tools."
+            }
+          ]
+        },
+        {
+          "kind": "mcp",
+          "items": [
+            {
+              "name": "android-emulator"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "browser-use@zcode-plugins-official",
+      "name": "browser-use",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Built-in browser automation runtime and guidance for Desktop IAB and explicitly enabled CLI-managed headless CDP: open, navigate, inspect, click, type, screenshot, record workspace WebM videos, and verify web pages and local dev targets.",
+      "version": "0.5.1",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 2,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "control-browser",
+              "description": "Use when opening, navigating, inspecting, testing, clicking, typing, filling, screenshotting, or verifying web pages and local HTTP targets (localhost, 127.0.0.1, ::1) inside ESCode, including browser/web-UI automation, rendered-page scraping, frontend checks, and visible page-state reading. Prefer this over Computer Use for anything that stays inside a web page, unless the user explicitly asks for Computer Use. Main agent only."
+            },
+            {
+              "name": "web-gui-tester",
+              "description": "Use the browser automation tooling available in the session to test web frontends interactively in a purely GUI-based, black-box manner: simulate real user clicks, text input, scrolling, and other actions; use screenshots for visual verification and read-only DOM inspection for cross-validation; and produce a final test report. Suitable for verifying whether web functionality works correctly, reproducing frontend bugs, checking interaction feedback and layout styling, or conducting exploratory testing of a page. Use this skill when the user asks to test a webpage/frontend feature, verify UI behavior, reproduce a page bug, or provides only a URL and asks you to “test it.”"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documents@zcode-plugins-official",
+      "name": "documents",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "DOCX document production skills, published as an official ESCode plugin.",
+      "version": "0.1.8",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "agent",
+          "items": [
+            {
+              "name": "visual-judge",
+              "description": "THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "docx",
+              "description": "Complete DOCX document creation, editing, and analysis capabilities with support for revisions, comments, formatting preservation, and text extraction. Also handles Word format conversion: legacy .doc → .docx, DOCX → PDF, DOCX → images (PNG/JPG) for visual review or previews, and DOCX → Markdown/plain text extraction. Use for creating new documents, modifying content, handling revisions, adding comments, other professional Word document tasks, or when the user asks to convert, export, or render a Word document to another format (e.g. 'Word转PDF', 'doc转docx', 'export this docx as PDF/images')."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pdf@zcode-plugins-official",
+      "name": "pdf",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "PDF document production skills, published as an official ESCode plugin.",
+      "version": "0.1.8",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "agent",
+          "items": [
+            {
+              "name": "visual-judge",
+              "description": "THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "pdf",
+              "description": "Professional PDF toolkit covering four production workflows: reports, creative visuals, academic LaTeX, and existing PDF processing. Routes automatically by document type and supports reports, posters, papers, resumes, extraction, merging, splitting, and form filling. Use this skill for any conversion whose output is a PDF: Office → PDF (.docx/.doc/.pptx/.ppt/.xlsx/.xls/.odt/.odp/.ods/.rtf/.csv/.txt → PDF), HTML → PDF, and LaTeX/.tex → PDF; also PDF → images, PDF → text, and PDF → tables when reading a PDF apart. Trigger when the user asks to convert, export, render, print, or turn a file into a PDF, or to merge/split/extract from one — including phrasings like 'Word转PDF', 'PPT转PDF', 'Excel转PDF', 'html转pdf', '导出为PDF', 'save/export as PDF', or 'PDF转图片/文字'."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "presentations@zcode-plugins-official",
+      "name": "presentations",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "PPTX presentation production skills, published as an official ESCode plugin.",
+      "version": "0.1.8",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "agent",
+          "items": [
+            {
+              "name": "visual-judge",
+              "description": "THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "pptx",
+              "description": "Use this skill any time a presentation file is the primary input or output. Covers: creating new .pptx decks from scratch or from an outline/document (pptxgenjs / python-pptx); editing and restyling an existing .pptx; reading and extracting text/structure from a deck (markitdown); and rendering a deck to PDF (LibreOffice) or to per-slide PNG images (pdftoppm) for previews, thumbnails, or visual review. Trigger when the user references a .pptx file by name or path, says 'make/build a deck, slides, presentation, PPT, 幻灯片, 演示文稿, 汇报/路演材料', or asks to convert, export, render, or preview slides as PDF or images (e.g. 'PPT转PDF', 'ppt导出图片', 'turn these slides into a PDF')."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spreadsheets@zcode-plugins-official",
+      "name": "spreadsheets",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "XLSX spreadsheet production skills, published as an official ESCode plugin.",
+      "version": "0.1.8",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "agent",
+          "items": [
+            {
+              "name": "visual-judge",
+              "description": "THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, chart; for anything else, do not use it. Use it *instead of* looking at the page images yourself, never in addition: pick one gate — spawn visual-judge, or (only if visual-judge is unavailable) inspect the images yourself — and do not pre-screen the pages before dispatching, because a preliminary look followed by a visual-judge call duplicates the same review and wastes a full render pass. Its bar is user acceptance: it judges everything the user will see on its assigned pages — visual asset quality and layout & composition — and returns one JSON verdict line per page (pass/fail + evidence-backed issues; a clean programmatic/script check is no cover and no substitute). It is read-only and edits nothing; it can only Read pre-rendered page PNGs (never pptx/docx/HTML/PDF opened as images), so render the pages to PNG, hand visual-judge the paths, and act on its verdicts — those verdicts are the visual gate's result, not an input to your own re-judging. Dispatch grouping, what to pass in, and the repair loop follow the delivery protocol's visual gate in your system prompt."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "xlsx",
+              "description": "Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file; create a new spreadsheet from scratch or from other data sources; analyze data and output results as an Excel file with charts; convert between tabular file formats (CSV/TSV/JSON/PDF-table → XLSX, or XLSX → CSV/JSON); clean, merge, pivot, or transform tabular data. Trigger especially when the user references a spreadsheet file by name or path, says 'make a table/report/model', mentions Excel/CSV/数据分析/报表/汇总, asks to convert or export a spreadsheet (e.g. 'csv转excel', 'json转表格', 'export as CSV'), or wants data visualization inside a spreadsheet."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "image-search@zcode-plugins-official",
+      "name": "image-search",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Official ESCode image search MCP server for finding illustrations and reference images.",
+      "version": "0.1.1",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [
+        "image_search"
+      ],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "mcp",
+          "items": [
+            {
+              "name": "image_search"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ios-simulator@zcode-plugins-official",
+      "name": "ios-simulator",
+      "enabled": false,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Provides iOS development workflows and simulator automation for ESCode.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [
+        "ios-simulator"
+      ],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "command",
+          "items": [
+            {
+              "name": "ios-dev",
+              "description": "Start the iOS simulator development loop."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "ios-dev",
+              "description": "Build, run, inspect, and lightly automate iOS simulator apps with the ios-simulator MCP tools."
+            }
+          ]
+        },
+        {
+          "kind": "mcp",
+          "items": [
+            {
+              "name": "ios-simulator"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restore-legacy-sessions@zcode-plugins-official",
+      "name": "restore-legacy-sessions",
+      "enabled": false,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Select and restore legacy ACP-era ESCode sessions into the new ESCode task and session store.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "command",
+          "items": [
+            {
+              "name": "restore-legacy-sessions",
+              "description": "Select and restore a legacy ESCode session."
+            }
+          ]
+        },
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "restore-legacy-sessions",
+              "description": "Use when ESCode needs to inspect, plan, or execute restoration of old ACP-era ESCode sessions from ~/.escode/v2/sessions into the new ESCode task/session stores. Trigger when the user wants to choose a previous agent, select a workspace to restore, pick a specific historical conversation, dry-run legacy session migration, or reason about tasks-index.sqlite and ~/.escode/cli/db/db.sqlite consistency."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "plugin-creator@zcode-plugins-official",
+      "name": "plugin-creator",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Develop and validate ESCode plugins through a local dev marketplace, installation, trials and updates.",
+      "version": "0.1.1",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "plugin-creator",
+              "description": "Create or update ESCode plugin source and a local test marketplace, then guide the user to add, install, update and try it in the app. Use for new plugins or changes to an existing plugin's capabilities, manifest or local distribution."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "skill-creator@zcode-plugins-official",
+      "name": "skill-creator",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Create, edit, and iterate local ESCode skills.",
+      "version": "0.1.0",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 1,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "skill-creator",
+              "description": "Create new skills, edit existing skills, and iterate wording. Use when writing SKILL.md from scratch, improving existing skills, turning repeated workflows into reusable skills, or refining skill descriptions to improve trigger reliability."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escode-guide@zcode-plugins-official",
+      "name": "escode-guide",
+      "enabled": true,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "ESCode usage and self-diagnosis guide: teaches agents and users how to configure MCP servers, commands, skills, hooks, and plugins, and how to locate and fix configuration problems for each.",
+      "version": "0.3.0",
+      "author": "Z.ai",
+      "skillRootCount": 1,
+      "commandRootCount": 0,
+      "skillCount": 6,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "diagnosing-commands",
+              "description": "Use to diagnose and fix ESCode custom slash-command (/command) configuration problems in the ESCode client. Applies when a command is missing, is overridden by a higher-precedence command of the same name, has a frontmatter parse error, is dropped for having an empty body, has an invalid name, does not substitute $ARGUMENTS/$1, uses a colon rather than a slash for nested names, has a misspelled frontmatter key, or disappears because the plugin providing it is disabled. Provides the discovery order, how to inspect commands in the client, common pitfalls, and a step-by-step localization and repair workflow."
+            },
+            {
+              "name": "diagnosing-hooks",
+              "description": "Use to diagnose and fix ESCode hook configuration problems in the ESCode client. Applies when a hook does not trigger, an event name is wrong, a matcher does not match a tool name, a script is not executable, template variables are not expanded, a timeout unit is mistaken (seconds versus milliseconds), the command and process field styles are mixed, a hook's JSON output fails validation, a hook blocks the session unexpectedly, or configuration-file hooks are not enabled. Provides configuration sources, the hooks.json schema, how to inspect hooks in the client, and a step-by-step localization and repair workflow."
+            },
+            {
+              "name": "diagnosing-mcp",
+              "description": "Use to diagnose and fix ESCode MCP (Model Context Protocol) server configuration problems in the ESCode client. Applies when an MCP server will not connect, its tools (mcp__server__tool) do not appear, it shows as disabled or failed, connections time out, a command cannot be found, template variables are not expanded, or a server defined in a configuration file has no effect. Provides configuration locations, how to inspect status in Settings, common pitfalls, and a step-by-step localization and repair workflow."
+            },
+            {
+              "name": "diagnosing-plugins",
+              "description": "Use to diagnose and fix ESCode plugin and marketplace problems in the ESCode client. Applies when a plugin is not listed, adding a marketplace or installing a plugin fails, a plugin is enabled but its skills or commands are missing, a built-in plugin still appears after being disabled, a plugin is not enabled as expected, a plugin.json manifest has a parse error, a plugin name is invalid, a dependency is unresolved or blocked across marketplaces, or a sensitive configuration value cannot be entered in the interface. Provides the plugin lifecycle, manifest schema, how to manage plugins in the client, and a step-by-step localization and repair workflow."
+            },
+            {
+              "name": "diagnosing-skills",
+              "description": "Use to diagnose and fix ESCode skill configuration problems in the ESCode client. Applies when a skill is not discovered, is installed but does not trigger automatically, is shadowed by a higher-precedence skill of the same name, is disabled by configuration, has a SKILL.md frontmatter error, fails to load because its description is too long, or disappears because the plugin providing it is disabled. Provides the discovery order, how to inspect skills in the client, common pitfalls, and a step-by-step localization and repair workflow."
+            },
+            {
+              "name": "escode-configuration-guide",
+              "description": "Use when configuring ESCode's extension resources (MCP servers, slash commands, skills, hooks, and plugins) or instruction files such as AGENTS.md in the ESCode client. Explains where each resource is configured at the user and workspace scope, the discovery order, precedence, and merge rules, plus guidance on which location to choose. Use when someone asks how to add an MCP server, command, skill, hook, plugin, or AGENTS.md instructions, where a configuration file lives, why a configuration is not taking effect, or needs routing to a specific diagnostic skill."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "computer-use@zcode-plugins-official",
+      "name": "computer-use",
+      "enabled": false,
+      "source": "official",
+      "marketplace": "zcode-plugins-official",
+      "description": "Computer Use: automate desktop apps with mouse, keyboard, and UI element control.",
+      "version": "0.6.4",
+      "author": "Z.ai",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": [
+        {
+          "kind": "skill",
+          "items": [
+            {
+              "name": "computer-use",
+              "description": "Use when a task needs a native desktop app's own UI or the OS. For anything inside a web page, use Browser Use. Main agent only."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ghost@some-market",
+      "name": "ghost",
+      "enabled": true,
+      "source": "missing",
+      "marketplace": "some-market",
+      "skillRootCount": 0,
+      "commandRootCount": 0,
+      "skillCount": 0,
+      "declaredMcpServerNames": [],
+      "mcpServerNames": [],
+      "components": []
+    }
+  ],
+  "listedTotal": 20,
+  "missingRequired": [],
+  "schemaErrors": []
+}

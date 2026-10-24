@@ -1,0 +1,115 @@
+{
+  "gitplain": {
+    "closure": [
+      "gitplain@acme"
+    ],
+    "installed": [
+      {
+        "id": "gitplain@acme",
+        "name": "gitplain",
+        "marketplace": "acme",
+        "version": "1.1.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/gitplain/1.1.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "gitref": {
+    "closure": [
+      "gitref@acme"
+    ],
+    "installed": [
+      {
+        "id": "gitref@acme",
+        "name": "gitref",
+        "marketplace": "acme",
+        "version": "2.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/gitref/2.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "gitsha": {
+    "closure": [
+      "gitsha@acme"
+    ],
+    "installed": [
+      {
+        "id": "gitsha@acme",
+        "name": "gitsha",
+        "marketplace": "acme",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/gitsha/1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "subdir": {
+    "closure": [
+      "subdir@acme"
+    ],
+    "installed": [
+      {
+        "id": "subdir@acme",
+        "name": "subdir",
+        "marketplace": "acme",
+        "version": "0.3.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/subdir/0.3.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "missingsub": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin source subdirectory does not exist: nope"
+      }
+    ]
+  },
+  "badrepo": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "<git failure>"
+      }
+    ]
+  },
+  "nourl": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin Git URL source requires a non-empty url"
+      }
+    ]
+  },
+  "installedFile": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"gitplain@acme\",\n      \"name\": \"gitplain\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.1.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/gitplain/1.1.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"git\",\n        \"url\": \"<root>/repos/tool\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"gitref@acme\",\n      \"name\": \"gitref\",\n      \"marketplace\": \"acme\",\n      \"version\": \"2.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/gitref/2.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"git\",\n        \"url\": \"<root>/repos/tool\",\n        \"ref\": \"v2\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"gitsha@acme\",\n      \"name\": \"gitsha\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/gitsha/1.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"git\",\n        \"url\": \"<root>/repos/tool\",\n        \"sha\": \"<sha>\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"subdir@acme\",\n      \"name\": \"subdir\",\n      \"marketplace\": \"acme\",\n      \"version\": \"0.3.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/subdir/0.3.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"git-subdir\",\n        \"url\": \"<root>/repos/tool\",\n        \"path\": \"packages/sub\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+  "cache": {
+    "gitplain/1.1.0/.escode-plugin/plugin.json": "2ab61001acef038b",
+    "gitplain/1.1.0/packages/sub/.escode-plugin/plugin.json": "41e6685bdc19d391",
+    "gitref/2.0.0/.escode-plugin/plugin.json": "180aa6230c6b103d",
+    "gitref/2.0.0/packages/sub/.escode-plugin/plugin.json": "41e6685bdc19d391",
+    "gitsha/1.0.0/.escode-plugin/plugin.json": "d45507bd546d6034",
+    "gitsha/1.0.0/packages/sub/.escode-plugin/plugin.json": "41e6685bdc19d391",
+    "subdir/0.3.0/.escode-plugin/plugin.json": "41e6685bdc19d391"
+  },
+  "schemaErrors": []
+}

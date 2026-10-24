@@ -1,0 +1,24 @@
+{
+  "stopStatus": "accepted",
+  "stoppedKinds": [
+    "turnHeader",
+    "userInput",
+    "assistantText"
+  ],
+  "stoppedHeaderStates": [
+    "completedInterrupted"
+  ],
+  "finalKinds": [
+    "turnHeader",
+    "userInput",
+    "assistantText",
+    "turnHeader",
+    "userInput",
+    "assistantText"
+  ],
+  "finalHeaderStates": [
+    "completedInterrupted",
+    "completedSuccess"
+  ],
+  "schemaErrors": []
+}

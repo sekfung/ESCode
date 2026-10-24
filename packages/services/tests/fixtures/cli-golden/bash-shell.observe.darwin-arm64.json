@@ -1,0 +1,8 @@
+[
+  "hello world",
+  "from-alias",
+  "Exit code 1\n<shell>: cd: missing-dir: <error>",
+  "sub",
+  "moved\nShell cwd was reset to <cwd>",
+  "Exit code 1"
+]

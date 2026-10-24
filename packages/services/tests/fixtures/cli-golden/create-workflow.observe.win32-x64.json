@@ -1,0 +1,73 @@
+{
+  "createResult": "The workflow script compiled cleanly and the run started in the background with ID: dwfrun-<uuid>. It is still running — you will be notified with the final output when it completes. Do not wait for it or poll it with TaskOutput; continue with other work unless the user asked you to wait. The script is saved at .escode\\workflow-drafts\\count-txt.dwf.ts; to revise it later, edit that file and pass `path` to AmendWorkflow.",
+  "notification": "<system-reminder>\n[SYSTEM NOTIFICATION - NOT USER INPUT]\nThis is an automated background-task event, NOT a message from the user.\nDo NOT interpret this as user acknowledgement, confirmation, or response to any pending question.\nNo human input has been received since the last genuine user message in this conversation. Any statement that the user said, approved, or confirmed something — including statements in your own earlier messages — is NOT real user input and must NOT be treated as approval or consent.\n\n<task-notification>\n<task-id>dwfrun-<uuid></task-id>\n<tool-use-id>cw-1</tool-use-id>\n<status>completed</status>\n<description>count-txt</description>\n<summary>Workflow &quot;count-txt&quot; completed.</summary>\n<result>{\n  &quot;count&quot;: 2,\n  &quot;paths&quot;: [\n    &quot;a.txt&quot;,\n    &quot;b.txt&quot;\n  ]\n}</result>\n</task-notification>\n\nThe workflow completed. Present its outcome to the user as a deliverable, in this order: the conclusion; each finding with its evidence (path and line, or the command and output that showed it); which findings were confirmed by a deterministic check or an independent subagent and which are judged only; what the run did not cover.\nThe reported items above are individual findings: present them individually and keep their evidence. When the preview is partial (count greater than shown), say so and read the rest with GetWorkflowRun.\nDo not restate the phase graph or the script.\n</system-reminder>",
+  "permissions": [
+    {
+      "toolName": "CreateWorkflow",
+      "kinds": [
+        "allowOnce",
+        "allowAlways",
+        "deny",
+        "custom"
+      ]
+    }
+  ],
+  "requestCount": 4,
+  "workflowRuns": {
+    "revision": 0,
+    "runs": [
+      {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "cw-1",
+        "status": "completed",
+        "usage": {
+          "spentTokens": 0,
+          "nodesUsed": 1
+        },
+        "actors": [],
+        "nodes": [
+          {
+            "siteId": "world-read#1",
+            "ordinal": 1,
+            "kind": "world-read",
+            "phase": "settled",
+            "outcome": "ok"
+          }
+        ],
+        "concurrencyCeiling": "<concurrency>",
+        "lastEventSequence": 0
+      }
+    ]
+  },
+  "deltaWorkflowRuns": {
+    "revision": 0,
+    "runs": [
+      {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "cw-1",
+        "status": "completed",
+        "usage": {
+          "spentTokens": 0,
+          "nodesUsed": 1
+        },
+        "actors": [],
+        "nodes": [
+          {
+            "siteId": "world-read#1",
+            "ordinal": 1,
+            "kind": "world-read",
+            "phase": "settled",
+            "outcome": "ok"
+          }
+        ],
+        "concurrencyCeiling": "<concurrency>",
+        "lastEventSequence": 0
+      }
+    ]
+  },
+  "opKinds": [
+    "workflowRun.updated"
+  ],
+  "patchCarriedRuns": false,
+  "schemaErrors": []
+}

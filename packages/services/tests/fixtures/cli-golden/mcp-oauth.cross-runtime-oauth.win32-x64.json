@@ -1,0 +1,201 @@
+{
+  "authorized": {
+    "pending": {
+      "status": "connecting",
+      "transport": "http",
+      "toolCount": 0,
+      "updatedAt": "<time>",
+      "authorization": {
+        "type": "oauth_authorization_code",
+        "authorizationUrl": {
+          "endpoint": "<as>/authorize",
+          "params": {
+            "response_type": "code",
+            "client_id": "client-4",
+            "code_challenge": "<random>",
+            "code_challenge_method": "S256",
+            "redirect_uri": "http://127.0.0.1:<port>/oauth/callback/mcp/secure",
+            "state": "<random>",
+            "resource": "<as>/mcp"
+          }
+        },
+        "startedAt": "<time>"
+      }
+    },
+    "page": {
+      "status": 200,
+      "text": "Authorization successful! You may close this window and return to the CLI."
+    },
+    "settled": {
+      "status": "connected",
+      "toolCount": 1
+    }
+  },
+  "authorizeLog": [
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": null
+    },
+    {
+      "kind": "resource-metadata",
+      "path": "/.well-known/oauth-protected-resource/mcp"
+    },
+    {
+      "kind": "as-metadata",
+      "path": "/.well-known/oauth-authorization-server"
+    },
+    {
+      "kind": "register",
+      "metadata": {
+        "client_name": "ESCode secure",
+        "grant_types": [
+          "authorization_code",
+          "refresh_token"
+        ],
+        "redirect_uris": [
+          "http://127.0.0.1:<port>/oauth/callback/mcp/secure"
+        ],
+        "response_types": [
+          "code"
+        ],
+        "application_type": "native"
+      }
+    },
+    {
+      "kind": "authorize",
+      "params": {
+        "response_type": "code",
+        "client_id": "client-4",
+        "code_challenge": "<random>",
+        "code_challenge_method": "S256",
+        "redirect_uri": "http://127.0.0.1:<port>/oauth/callback/mcp/secure",
+        "state": "<random>",
+        "resource": "<as>/mcp"
+      }
+    },
+    {
+      "kind": "token",
+      "params": {
+        "grant_type": "authorization_code",
+        "code": "code-5",
+        "code_verifier": "<random>",
+        "redirect_uri": "http://127.0.0.1:<port>/oauth/callback/mcp/secure",
+        "resource": "<as>/mcp",
+        "client_id": "client-4"
+      },
+      "auth": null
+    },
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": "at-1"
+    },
+    {
+      "kind": "mcp",
+      "method": "notifications/initialized",
+      "token": "at-1"
+    },
+    {
+      "kind": "mcp",
+      "method": "tools/list",
+      "token": "at-1"
+    }
+  ],
+  "reused": {
+    "status": "connected",
+    "toolCount": 1
+  },
+  "reuseLog": [
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": "at-1"
+    },
+    {
+      "kind": "mcp",
+      "method": "notifications/initialized",
+      "token": "at-1"
+    },
+    {
+      "kind": "mcp",
+      "method": "tools/list",
+      "token": "at-1"
+    }
+  ],
+  "refreshed": {
+    "status": "connected",
+    "toolCount": 1
+  },
+  "refreshLog": [
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": "at-1"
+    },
+    {
+      "kind": "token",
+      "params": {
+        "grant_type": "refresh_token",
+        "refresh_token": "rt-1",
+        "resource": "<as>/mcp",
+        "client_id": "client-4"
+      },
+      "auth": null
+    },
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": "at-2"
+    },
+    {
+      "kind": "mcp",
+      "method": "notifications/initialized",
+      "token": "at-2"
+    },
+    {
+      "kind": "mcp",
+      "method": "tools/list",
+      "token": "at-2"
+    }
+  ],
+  "rejected": {
+    "status": "connecting",
+    "toolCount": 0,
+    "authorization": "oauth_authorization_code"
+  },
+  "rejectedLog": [
+    {
+      "kind": "mcp",
+      "method": "initialize",
+      "token": "at-2"
+    },
+    {
+      "kind": "token",
+      "params": {
+        "grant_type": "refresh_token",
+        "refresh_token": "rt-2",
+        "resource": "<as>/mcp",
+        "client_id": "client-4"
+      },
+      "auth": null
+    },
+    {
+      "kind": "register",
+      "metadata": {
+        "application_type": "native",
+        "client_name": "ESCode secure",
+        "grant_types": [
+          "authorization_code",
+          "refresh_token"
+        ],
+        "redirect_uris": [
+          "http://127.0.0.1:<port>/oauth/callback/mcp/secure"
+        ],
+        "response_types": [
+          "code"
+        ]
+      }
+    }
+  ]
+}

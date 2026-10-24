@@ -1,0 +1,94 @@
+{
+  "shape": [
+    {
+      "kind": "turn.started",
+      "memoryEnabled": false,
+      "hasSource": true
+    },
+    {
+      "kind": "model.request.status",
+      "memoryEnabled": false,
+      "status": "model_request_started",
+      "hasSource": true
+    },
+    {
+      "kind": "stream.chunk",
+      "memoryEnabled": false,
+      "channel": "text",
+      "firstChunk": true,
+      "hasSource": true
+    },
+    {
+      "kind": "tool.lifecycle",
+      "memoryEnabled": false,
+      "phase": "scheduled",
+      "toolName": "TodoRead",
+      "hasSource": true
+    },
+    {
+      "kind": "tool.lifecycle",
+      "memoryEnabled": false,
+      "phase": "started",
+      "toolName": "TodoRead",
+      "hasSource": true
+    },
+    {
+      "kind": "tool.lifecycle",
+      "memoryEnabled": false,
+      "phase": "completed",
+      "toolName": "TodoRead",
+      "hasSource": true
+    },
+    {
+      "kind": "model.request.status",
+      "memoryEnabled": false,
+      "status": "model_request_completed",
+      "hasSource": true
+    },
+    {
+      "kind": "usage.delta",
+      "memoryEnabled": false,
+      "inputTokens": 100,
+      "outputTokens": 7,
+      "totalTokens": 107,
+      "hasSource": true
+    },
+    {
+      "kind": "model.request.status",
+      "memoryEnabled": false,
+      "status": "model_request_started",
+      "hasSource": true
+    },
+    {
+      "kind": "stream.chunk",
+      "memoryEnabled": false,
+      "channel": "text",
+      "firstChunk": false,
+      "hasSource": true
+    },
+    {
+      "kind": "model.request.status",
+      "memoryEnabled": false,
+      "status": "model_request_completed",
+      "hasSource": true
+    },
+    {
+      "kind": "usage.delta",
+      "memoryEnabled": false,
+      "inputTokens": 100,
+      "outputTokens": 7,
+      "totalTokens": 107,
+      "hasSource": true
+    },
+    {
+      "kind": "turn.terminal",
+      "memoryEnabled": false,
+      "status": "success",
+      "toolCallCount": 1,
+      "resultType": "success",
+      "hasSource": true
+    }
+  ],
+  "invalid": [],
+  "schemaErrors": []
+}

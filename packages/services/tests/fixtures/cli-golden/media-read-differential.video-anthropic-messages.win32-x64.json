@@ -1,0 +1,60 @@
+{
+  "tail": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "call-1",
+          "content": "[Attached video/mp4: Read video]",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "type": "text",
+          "text": "Tool result media from Read:"
+        },
+        {
+          "type": "video",
+          "source": {
+            "type": "base64",
+            "media_type": "video/mp4",
+            "data": "AAAAFGZ0eXBpc29tAAACAA=="
+          }
+        }
+      ]
+    }
+  ],
+  "read": {
+    "name": "Read",
+    "description": "Reads a file from the local filesystem.\n\n- `file_path` must be an absolute path.\n- Reads up to 2000 lines by default.\n- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters\n- Results are returned using cat -n format, with line numbers starting at 1\n- Reads images (PNG, JPG, …) and presents them visually.\n- Reads videos (MP4, MOV, WEBM, …) and presents them as video input (subject to ESCode's video input limit).\n- Reading a directory, a missing file, or an empty file returns an error or system reminder rather than content.\n- Do NOT re-read a file you just edited to verify — Edit/Write would have errored if the change failed, and the harness tracks file state for you.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "The absolute path to the file to read"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "description": "The number of lines to read. Only provide if the file is too large to read at once."
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  "schemaErrors": []
+}

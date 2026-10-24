@@ -1,0 +1,73 @@
+{
+  "pending": {
+    "pendingCount": 1,
+    "digest": "string"
+  },
+  "requestAck": [
+    "accepted",
+    null
+  ],
+  "review": {
+    "keys": [
+      "bundleDigest",
+      "createdAt",
+      "deadlineAt",
+      "generation",
+      "interactionId",
+      "items",
+      "kind",
+      "reviewFlowId",
+      "runId",
+      "sessionId",
+      "sourceFiles",
+      "summary",
+      "taskId",
+      "warningCode",
+      "workspaceIdentity",
+      "workspaceLabel"
+    ],
+    "summary": {
+      "eventCount": 1,
+      "hookCount": 1,
+      "pendingCount": 1
+    },
+    "warningCode": "workspace_hooks_execute_code",
+    "items": [
+      {
+        "event": "UserPromptSubmit",
+        "type": "process",
+        "trustState": "pending_trust",
+        "configuredEnabled": true
+      }
+    ]
+  },
+  "respondAck": [
+    "accepted",
+    null
+  ],
+  "settled": {
+    "admission": null,
+    "review": null
+  },
+  "contexts": [
+    0,
+    1
+  ],
+  "hookRows": [
+    {
+      "hookEventName": "UserPromptSubmit",
+      "state": "completed",
+      "sources": [
+        "project"
+      ]
+    },
+    {
+      "hookEventName": "UserPromptSubmit",
+      "state": "completed",
+      "sources": [
+        "project"
+      ]
+    }
+  ],
+  "schemaErrors": []
+}

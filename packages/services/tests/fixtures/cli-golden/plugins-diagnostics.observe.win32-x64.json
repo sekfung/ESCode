@@ -1,0 +1,86 @@
+{
+  "plugins": [
+    {
+      "id": "ok@inline",
+      "name": "ok",
+      "version": "0.0.0"
+    },
+    {
+      "id": "claude@inline",
+      "name": "claude",
+      "version": "2.0.0"
+    },
+    {
+      "id": "dup@inline",
+      "name": "dup",
+      "version": "0.0.0"
+    },
+    {
+      "id": "extras@inline",
+      "name": "extras",
+      "version": "0.0.0"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "plugin_manifest_invalid",
+      "severity": "error",
+      "message": "<parse error>"
+    },
+    {
+      "code": "plugin_manifest_invalid",
+      "severity": "error",
+      "message": "Manifest must be a JSON object"
+    },
+    {
+      "code": "plugin_manifest_invalid",
+      "severity": "error",
+      "message": "Invalid plugin name: Bad Name"
+    },
+    {
+      "code": "plugin_manifest_not_found",
+      "severity": "error",
+      "message": "Plugin manifest not found: <root>\\plugins\\no-manifest"
+    },
+    {
+      "code": "plugin_manifest_invalid",
+      "severity": "error",
+      "message": "Invalid plugin name: "
+    },
+    {
+      "code": "plugin_duplicate_id",
+      "severity": "warning",
+      "pluginId": "dup@inline",
+      "message": "Duplicate plugin ignored: dup@inline"
+    },
+    {
+      "code": "plugin_unsupported_component",
+      "severity": "warning",
+      "pluginId": "extras@inline",
+      "message": "Plugin component is diagnostic-only in this ESCode runtime: lspServers"
+    },
+    {
+      "code": "plugin_unsupported_component",
+      "severity": "warning",
+      "pluginId": "extras@inline",
+      "message": "Plugin component is diagnostic-only in this ESCode runtime: settings"
+    },
+    {
+      "code": "plugin_root_not_found",
+      "severity": "warning",
+      "message": "Plugin root does not exist: <root>\\plugins\\missing-root"
+    },
+    {
+      "code": "plugin_variable_missing",
+      "severity": "error",
+      "pluginId": "image-search@zcode-plugins-official",
+      "message": "Missing environment variable: ESCODE_BASE_URL"
+    },
+    {
+      "code": "plugin_root_not_found",
+      "severity": "warning",
+      "message": "Plugin root does not exist: <root>\\.escode\\cli\\plugins\\cache\\zcode-plugins-official\\rea\\0.1.0"
+    }
+  ],
+  "schemaErrors": []
+}

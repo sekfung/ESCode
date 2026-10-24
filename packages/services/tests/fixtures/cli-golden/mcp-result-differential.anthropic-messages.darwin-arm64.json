@@ -1,0 +1,123 @@
+{
+  "results": [
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": "a\n\nb",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": "x\n\nStructured content:\n{\n  \"k\": 1\n}",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": "MCP tool returned an error:\nbad",
+            "is_error": true,
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": [
+              {
+                "type": "text",
+                "text": "see"
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "text",
+                "text": "[MCP audio content omitted: audio/wav]"
+              },
+              {
+                "type": "text",
+                "text": "MCP resource content:\n{\n  \"uri\": \"file:///x.txt\",\n  \"text\": \"hi\"\n}"
+              }
+            ],
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": "{\n  \"content\": []\n}",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "call-1",
+            "content": "MCP image content saved instead of being inlined: image/png, base64=208 KiB, inlineLimit=200 KiB.\nArtifact: <artifacts>/<session>/call-1-tool-result-<uuid>.png\nArtifact URI: escode-artifact://<session>/tool-result-<uuid>",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      }
+    ]
+  ],
+  "artifacts": [
+    true
+  ],
+  "written": [
+    true
+  ],
+  "schemaErrors": []
+}

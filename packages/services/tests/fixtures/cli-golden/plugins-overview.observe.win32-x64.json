@@ -1,0 +1,657 @@
+{
+  "result": {
+    "marketplaces": [
+      {
+        "id": "acme",
+        "name": "Acme",
+        "source": {
+          "source": "github",
+          "repo": "acme/market"
+        },
+        "description": "Acme plugins",
+        "lastUpdated": "2026-02-02T00:00:00.000Z",
+        "pluginCount": 3,
+        "isOfficial": false,
+        "featured": [
+          "tool"
+        ]
+      },
+      {
+        "id": "broken",
+        "name": "broken",
+        "source": {
+          "source": "url",
+          "url": "https://example.invalid/m.json"
+        },
+        "pluginCount": 3,
+        "isOfficial": false,
+        "refreshFailure": {
+          "code": "marketplace_refresh_failed",
+          "failedAt": "2026-03-03T00:00:00.000Z",
+          "message": "fetch failed"
+        }
+      },
+      {
+        "id": "zcode-plugins-official",
+        "name": "zcode-plugins-official",
+        "source": {
+          "source": "url",
+          "url": "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json"
+        },
+        "description": "Official ESCode plugins marketplace: built-in and community plugins for ESCode.",
+        "pluginCount": 17,
+        "isOfficial": true
+      },
+      {
+        "id": "claude-plugins-official",
+        "name": "claude-plugins-official",
+        "source": {
+          "source": "github",
+          "repo": "anthropics/claude-plugins-official"
+        },
+        "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+        "pluginCount": 0,
+        "isOfficial": true
+      },
+      {
+        "id": "declared",
+        "name": "declared",
+        "source": {
+          "source": "directory",
+          "path": "<root>\\.escode\\cli\\markets\\declared"
+        },
+        "pluginCount": 0,
+        "isOfficial": false
+      }
+    ],
+    "availablePlugins": [
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "description": "Tool from catalog",
+        "version": "1.2.0",
+        "installed": true,
+        "componentTypes": [
+          "agent",
+          "skill"
+        ],
+        "listing": {
+          "displayName": "Tool",
+          "descriptionI18n": {
+            "zh": "工具"
+          },
+          "author": "Acme",
+          "authorUrl": "https://acme.example",
+          "examplePrompts": [
+            "do it"
+          ],
+          "requiresPaidPlan": true
+        }
+      },
+      {
+        "id": "pinned@acme",
+        "name": "pinned",
+        "marketplace": "acme",
+        "installed": true,
+        "componentTypes": [
+          "mcp"
+        ]
+      },
+      {
+        "id": "zipped@acme",
+        "name": "zipped",
+        "marketplace": "acme",
+        "installed": false,
+        "componentTypes": []
+      },
+      {
+        "id": "serial@zcode-plugins-official",
+        "name": "serial",
+        "marketplace": "zcode-plugins-official",
+        "description": "Read and write the serial port opened in the ESCode Desktop window: wait for boot logs after flashing, send AT commands and verify responses.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Serial Port",
+          "displayNameI18n": {
+            "zh-CN": "串口调试"
+          },
+          "descriptionI18n": {
+            "zh-CN": "让 Agent 读写本机串口：烧录后等待启动日志、发送 AT 指令并验证响应。"
+          },
+          "category": "developer-tools",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "usb@zcode-plugins-official",
+        "name": "usb",
+        "marketplace": "zcode-plugins-official",
+        "description": "Analyze USB traffic for the agent: smart-card readers (CCID/APDU), HID devices, and mass storage (MSC/SCSI). Decoding a .pcapng works offline on every platform; live capture is Windows-only and ships with the app.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "USB Capture",
+          "displayNameI18n": {
+            "zh-CN": "USB 抓包分析"
+          },
+          "descriptionI18n": {
+            "zh-CN": "抓取并解码本机 USB 报文：智能卡读卡器（CCID/APDU）、HID 设备、大容量存储（MSC/SCSI）。离线分析不需要特权。"
+          },
+          "category": "developer-tools",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "visualize@zcode-plugins-official",
+        "name": "visualize",
+        "marketplace": "zcode-plugins-official",
+        "description": "Create interactive explanations, charts and design previews in ESCode conversations.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Visualize",
+          "displayNameI18n": {
+            "zh-CN": "交互视图"
+          },
+          "descriptionI18n": {
+            "zh-CN": "在对话中创建交互图表、解释和设计预览。"
+          },
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "node-repl-host@zcode-plugins-official",
+        "name": "node-repl-host",
+        "marketplace": "zcode-plugins-official",
+        "description": "Shared node_repl runtime host for ESCode official capabilities. Not user-facing: it carries no skill and appears in no marketplace listing; Browser Use and Computer Use enable it and contribute their own skills, docs and runtime assets.",
+        "version": "0.6.1",
+        "installed": false,
+        "componentTypes": []
+      },
+      {
+        "id": "android-emulator@zcode-plugins-official",
+        "name": "android-emulator",
+        "marketplace": "zcode-plugins-official",
+        "description": "Provides Android development workflows and emulator automation for ESCode.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Android Emulator",
+          "displayNameI18n": {
+            "zh-CN": "Android 模拟器"
+          },
+          "descriptionI18n": {
+            "zh-CN": "提供 Android 开发工作流与模拟器自动化能力。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/android-emulator/icon.png",
+          "category": "developer-tools",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "browser-use@zcode-plugins-official",
+        "name": "browser-use",
+        "marketplace": "zcode-plugins-official",
+        "description": "Built-in browser automation runtime and guidance for Desktop IAB and explicitly enabled CLI-managed headless CDP: open, navigate, inspect, click, type, screenshot, record workspace WebM videos, and verify web pages and local dev targets.",
+        "version": "0.5.1",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Browser Use",
+          "displayNameI18n": {
+            "zh-CN": "浏览器操作"
+          },
+          "descriptionI18n": {
+            "zh-CN": "操作 ESCode 内置浏览器，检查网页并验证交互。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/browser-use/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "documents@zcode-plugins-official",
+        "name": "documents",
+        "marketplace": "zcode-plugins-official",
+        "description": "DOCX document production skills, published as an official ESCode plugin.",
+        "version": "0.1.8",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Documents",
+          "displayNameI18n": {
+            "zh-CN": "Word文档"
+          },
+          "descriptionI18n": {
+            "zh-CN": "创建、编辑与审阅Word文档（DOCX）。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "pdf@zcode-plugins-official",
+        "name": "pdf",
+        "marketplace": "zcode-plugins-official",
+        "description": "PDF document production skills, published as an official ESCode plugin.",
+        "version": "0.1.8",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "PDF",
+          "displayNameI18n": {
+            "zh-CN": "PDF"
+          },
+          "descriptionI18n": {
+            "zh-CN": "创建、编辑与审阅PDF（PDF）。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "presentations@zcode-plugins-official",
+        "name": "presentations",
+        "marketplace": "zcode-plugins-official",
+        "description": "PPTX presentation production skills, published as an official ESCode plugin.",
+        "version": "0.1.8",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Presentations",
+          "displayNameI18n": {
+            "zh-CN": "演示文档"
+          },
+          "descriptionI18n": {
+            "zh-CN": "创建、编辑与审阅演示文档（PPTX）。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "spreadsheets@zcode-plugins-official",
+        "name": "spreadsheets",
+        "marketplace": "zcode-plugins-official",
+        "description": "XLSX spreadsheet production skills, published as an official ESCode plugin.",
+        "version": "0.1.8",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Spreadsheets",
+          "displayNameI18n": {
+            "zh-CN": "电子表格"
+          },
+          "descriptionI18n": {
+            "zh-CN": "创建、编辑与审阅电子表格（XLSX）。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/document-skills/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "image-search@zcode-plugins-official",
+        "name": "image-search",
+        "marketplace": "zcode-plugins-official",
+        "description": "Official ESCode image search MCP server for finding illustrations and reference images.",
+        "version": "0.1.1",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Image Search",
+          "displayNameI18n": {
+            "zh-CN": "搜图"
+          },
+          "descriptionI18n": {
+            "zh-CN": "查找插图与参考配图。"
+          },
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "ios-simulator@zcode-plugins-official",
+        "name": "ios-simulator",
+        "marketplace": "zcode-plugins-official",
+        "description": "Provides iOS development workflows and simulator automation for ESCode.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "iOS Simulator",
+          "displayNameI18n": {
+            "zh-CN": "iOS 模拟器"
+          },
+          "descriptionI18n": {
+            "zh-CN": "提供 iOS 开发工作流与模拟器自动化能力。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/ios-simulator/icon.png",
+          "category": "developer-tools",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "restore-legacy-sessions@zcode-plugins-official",
+        "name": "restore-legacy-sessions",
+        "marketplace": "zcode-plugins-official",
+        "description": "Select and restore legacy ACP-era ESCode sessions into the new ESCode task and session store.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Restore Legacy Sessions",
+          "displayNameI18n": {
+            "zh-CN": "恢复旧版会话"
+          },
+          "descriptionI18n": {
+            "zh-CN": "将旧版会话恢复为 ESCode 任务与会话记录。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/restore-legacy-sessions/icon.png",
+          "category": "utilities",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "plugin-creator@zcode-plugins-official",
+        "name": "plugin-creator",
+        "marketplace": "zcode-plugins-official",
+        "description": "Develop and validate ESCode plugins through a local dev marketplace, installation, trials and updates.",
+        "version": "0.1.1",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Plugin Creator",
+          "displayNameI18n": {
+            "zh-CN": "插件创建器"
+          },
+          "descriptionI18n": {
+            "zh-CN": "开发、校验 ESCode 插件，完成本地 dev 市场安装、试用与更新。"
+          },
+          "category": "utilities",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "skill-creator@zcode-plugins-official",
+        "name": "skill-creator",
+        "marketplace": "zcode-plugins-official",
+        "description": "Create, edit, and iterate local ESCode skills.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Skill Creator",
+          "displayNameI18n": {
+            "zh-CN": "技能创建器"
+          },
+          "descriptionI18n": {
+            "zh-CN": "创建、编辑和验证可复用的 ESCode 技能。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/skill-creator/icon.png",
+          "category": "utilities",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "escode-guide@zcode-plugins-official",
+        "name": "escode-guide",
+        "marketplace": "zcode-plugins-official",
+        "description": "ESCode usage and self-diagnosis guide: teaches agents and users how to configure MCP servers, commands, skills, hooks, and plugins, and how to locate and fix configuration problems for each.",
+        "version": "0.3.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "ESCode Guide",
+          "displayNameI18n": {
+            "zh-CN": "ESCode 使用指南"
+          },
+          "descriptionI18n": {
+            "zh-CN": "提供 ESCode 配置指南与插件、技能、MCP、命令和钩子诊断。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/escode-guide/icon.png",
+          "category": "utilities",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai",
+          "examplePrompts": [
+            "How do I configure MCP servers in ESCode?",
+            "Diagnose my current ESCode setup"
+          ],
+          "examplePromptsI18n": {
+            "zh-CN": [
+              "ESCode 里怎么配置 MCP 服务器？",
+              "帮我诊断当前的 ESCode 配置"
+            ]
+          }
+        }
+      },
+      {
+        "id": "computer-use@zcode-plugins-official",
+        "name": "computer-use",
+        "marketplace": "zcode-plugins-official",
+        "description": "Computer Use: automate desktop apps with mouse, keyboard, and UI element control.",
+        "version": "0.6.4",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "Computer Use",
+          "displayNameI18n": {
+            "zh-CN": "电脑控制"
+          },
+          "descriptionI18n": {
+            "zh-CN": "自动化桌面应用：智能体驱动鼠标、键盘与界面元素，代你完成实际任务。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/escode-cua/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      },
+      {
+        "id": "rea@zcode-plugins-official",
+        "name": "rea",
+        "marketplace": "zcode-plugins-official",
+        "description": "Reverse engineer binaries, applications and runtime behavior with REA through one MCP server.",
+        "version": "0.1.0",
+        "installed": false,
+        "componentTypes": [],
+        "listing": {
+          "displayName": "REA",
+          "displayNameI18n": {
+            "zh-CN": "REA 逆向分析"
+          },
+          "descriptionI18n": {
+            "zh-CN": "通过一个 MCP 服务逆向分析二进制文件、应用程序与运行时行为。"
+          },
+          "category": "developer-tools",
+          "homepage": "https://github.com/morluto/rea",
+          "author": "morluto",
+          "authorUrl": "https://github.com/morluto/rea",
+          "examplePrompts": [
+            "Explain how this app's search feature works, with evidence.",
+            "Compare these two builds and tell me what changed."
+          ],
+          "examplePromptsI18n": {
+            "zh-CN": [
+              "解释这个应用的搜索功能是怎么实现的，并给出证据。",
+              "对比这两个构建版本，告诉我改了什么。"
+            ]
+          }
+        }
+      }
+    ],
+    "installedPlugins": [
+      {
+        "id": "tool@acme",
+        "name": "tool",
+        "marketplace": "acme",
+        "description": "Installed tool",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\tool\\1.0.0",
+        "installedAt": "2026-01-01T00:00:00.000Z",
+        "componentTypes": [
+          "agent",
+          "skill"
+        ],
+        "updateStatus": "update-available",
+        "latestVersion": "1.2.0",
+        "listing": {
+          "displayName": "Tool",
+          "descriptionI18n": {
+            "zh": "工具"
+          },
+          "author": "Acme",
+          "authorUrl": "https://acme.example",
+          "examplePrompts": [
+            "do it"
+          ],
+          "requiresPaidPlan": true
+        }
+      },
+      {
+        "id": "pinned@acme",
+        "name": "pinned",
+        "marketplace": "acme",
+        "version": "0.0.0",
+        "enabled": false,
+        "scope": "workspace",
+        "installPath": "<root>\\.escode\\cli\\plugins\\cache\\acme\\pinned\\0.0.0",
+        "installedAt": "2026-01-02T00:00:00.000Z",
+        "updateStatus": "update-available",
+        "latestVersion": "bbbbbbb"
+      }
+    ],
+    "restorableBuiltins": [
+      {
+        "id": "browser-use@zcode-plugins-official",
+        "name": "browser-use",
+        "marketplace": "zcode-plugins-official",
+        "version": "0.5.1",
+        "installed": false,
+        "listing": {
+          "displayName": "Browser Use",
+          "displayNameI18n": {
+            "zh-CN": "浏览器操作"
+          },
+          "descriptionI18n": {
+            "zh-CN": "操作 ESCode 内置浏览器，检查网页并验证交互。"
+          },
+          "icon": "https://cdn-zcode.z.ai/zcode/official-plugin/assets/browser-use/icon.png",
+          "category": "productivity",
+          "author": "Z.ai",
+          "authorUrl": "https://z.ai"
+        }
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "plugin_variable_missing",
+        "message": "Missing environment variable: ESCODE_BASE_URL",
+        "severity": "error",
+        "pluginId": "image-search@zcode-plugins-official"
+      },
+      {
+        "code": "plugin_root_not_found",
+        "message": "Plugin root does not exist: <root>\\.escode\\cli\\plugins\\cache\\zcode-plugins-official\\rea\\0.1.0",
+        "severity": "warning"
+      },
+      {
+        "code": "plugin_root_not_found",
+        "message": "Plugin root does not exist: <root>\\.escode\\cli\\plugins\\cache\\acme\\pinned\\0.0.0",
+        "severity": "warning"
+      },
+      {
+        "code": "plugin_marketplace_declaration_reserved",
+        "message": "Workspace marketplace declaration \"zcode-plugins-official\" uses a reserved official id and was ignored. Use a different marketplace id for project declarations.",
+        "severity": "warning",
+        "pluginId": "zcode-plugins-official"
+      },
+      {
+        "code": "marketplace_refresh_failed",
+        "message": "fetch failed",
+        "severity": "error",
+        "pluginId": "broken"
+      }
+    ],
+    "capability": {
+      "supported": true
+    }
+  },
+  "known": {
+    "version": 1,
+    "marketplaces": [
+      {
+        "id": "acme",
+        "name": "Acme",
+        "source": {
+          "source": "github",
+          "repo": "acme/market"
+        },
+        "description": "Acme plugins",
+        "lastUpdated": "2026-02-02T00:00:00.000Z",
+        "pluginCount": 9
+      },
+      {
+        "id": "broken",
+        "name": "broken",
+        "source": {
+          "source": "url",
+          "url": "https://example.invalid/m.json"
+        },
+        "pluginCount": 3,
+        "lastRefreshFailure": {
+          "code": "marketplace_refresh_failed",
+          "failedAt": "2026-03-03T00:00:00.000Z",
+          "message": "fetch failed"
+        }
+      },
+      {
+        "id": "zcode-plugins-official",
+        "source": {
+          "source": "url",
+          "url": "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json"
+        },
+        "name": "zcode-plugins-official",
+        "description": "Official ESCode plugins marketplace: built-in and community plugins for ESCode.",
+        "pluginCount": 0
+      },
+      {
+        "id": "claude-plugins-official",
+        "source": {
+          "source": "github",
+          "repo": "anthropics/claude-plugins-official"
+        },
+        "name": "claude-plugins-official",
+        "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+        "pluginCount": 0
+      }
+    ]
+  },
+  "schemaErrors": []
+}

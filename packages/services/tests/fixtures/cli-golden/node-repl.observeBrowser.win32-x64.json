@@ -1,0 +1,83 @@
+{
+  "toolResult": "{\"browsers\":[\"iab-1\"],\"tabs\":[\"https://example.com/\"]}",
+  "browserRequests": [
+    {
+      "method": "interaction/browserList",
+      "keys": [
+        "clientMode",
+        "requestId",
+        "sessionContext",
+        "sessionId",
+        "turnId",
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "command": null,
+      "session": true,
+      "turn": true,
+      "clientMode": "desktop-continuous",
+      "sessionContext": "live",
+      "workspace": true
+    },
+    {
+      "method": "interaction/browserList",
+      "keys": [
+        "clientMode",
+        "requestId",
+        "sessionContext",
+        "sessionId",
+        "turnId",
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "command": null,
+      "session": true,
+      "turn": true,
+      "clientMode": "desktop-continuous",
+      "sessionContext": "live",
+      "workspace": true
+    },
+    {
+      "method": "interaction/browserExecute",
+      "keys": [
+        "browserGeneration",
+        "browserId",
+        "clientMode",
+        "command",
+        "requestId",
+        "sessionContext",
+        "sessionId",
+        "turnId",
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "command": "list",
+      "session": true,
+      "turn": true,
+      "clientMode": "desktop-continuous",
+      "sessionContext": "live",
+      "workspace": true
+    },
+    {
+      "method": "interaction/browserExecute",
+      "keys": [
+        "browserGeneration",
+        "browserId",
+        "clientMode",
+        "command",
+        "requestId",
+        "sessionContext",
+        "sessionId",
+        "turnId",
+        "workspaceKey",
+        "workspacePath"
+      ],
+      "command": "turnEnded",
+      "session": true,
+      "turn": true,
+      "clientMode": "desktop-continuous",
+      "sessionContext": "live",
+      "workspace": true
+    }
+  ]
+}

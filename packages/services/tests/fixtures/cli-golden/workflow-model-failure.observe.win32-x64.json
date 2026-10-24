@@ -1,0 +1,46 @@
+{
+  "actorRetried": false,
+  "status": "stopped",
+  "stop": null,
+  "run": {
+    "runId": "dwfrun-<uuid>",
+    "toolCallId": "cw-1",
+    "status": "stopped",
+    "stopReason": "provider",
+    "usage": {
+      "spentTokens": 0,
+      "nodesUsed": 1
+    },
+    "error": "Subagent counter hit a permanent model-side error (rate_limited [1308]): quota exhausted",
+    "resumable": true,
+    "actors": [
+      {
+        "siteId": "actor#1",
+        "ordinal": 1,
+        "name": "counter",
+        "sessionId": "sess_<runId><uuid>-actor_1_1",
+        "status": "completed"
+      }
+    ],
+    "nodes": [
+      {
+        "siteId": "ask#1",
+        "ordinal": 1,
+        "kind": "ask",
+        "phase": "settled",
+        "outcome": "cancelled",
+        "actorSiteId": "actor#1",
+        "actorOrdinal": 1,
+        "instructionsHead": "How many items are there? Answer with a total."
+      }
+    ],
+    "concurrency": {
+      "key": "personal:fixture/model-a",
+      "cap": "<concurrency>",
+      "ceiling": "<concurrency>"
+    },
+    "concurrencyCeiling": "<concurrency>",
+    "lastEventSequence": 0
+  },
+  "schemaErrors": []
+}

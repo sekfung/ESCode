@@ -1,0 +1,42 @@
+{
+  "lifecycle": [
+    {
+      "kind": "permission.lifecycle",
+      "phase": "requested",
+      "toolCallId": "w-1",
+      "toolName": "Write",
+      "hasRequestId": true,
+      "hasChild": false
+    },
+    {
+      "kind": "permission.lifecycle",
+      "phase": "resolved",
+      "toolCallId": "w-1",
+      "decision": "allow",
+      "hasRequestId": true,
+      "hasChild": false
+    },
+    {
+      "kind": "subagent.lifecycle",
+      "phase": "spawned",
+      "hasRequestId": false,
+      "agentType": "general-purpose",
+      "background": false,
+      "status": "running",
+      "parentToolCallId": "a-1",
+      "hasChild": true
+    },
+    {
+      "kind": "subagent.lifecycle",
+      "phase": "stopped",
+      "hasRequestId": false,
+      "agentType": "general-purpose",
+      "background": false,
+      "status": "completed",
+      "parentToolCallId": "a-1",
+      "hasChild": true
+    }
+  ],
+  "invalid": [],
+  "schemaErrors": []
+}

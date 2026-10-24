@@ -1,0 +1,224 @@
+{
+  "unchanged": {
+    "status": "failed",
+    "reasonCode": "fault.command.workflowRunSettingsRejected.unchanged",
+    "message": "workflow run settings rejected: unchanged",
+    "result": null
+  },
+  "notFound": {
+    "status": "failed",
+    "reasonCode": "fault.command.workflowRunSettingsRejected.not_found",
+    "message": "workflow run settings rejected: not_found",
+    "result": null
+  },
+  "modelUnavailable": {
+    "status": "failed",
+    "reasonCode": "fault.command.workflowRunSettingsRejected.model_unavailable",
+    "message": "No configured model matches `personal:fixture/nope`. Available models:\npersonal:fixture/model-a [current]\npersonal:fixture/model-b\n\nPass one of these ids, or call ListModels.",
+    "result": null
+  },
+  "supersede": {
+    "status": "accepted",
+    "reasonCode": null,
+    "message": null,
+    "result": {
+      "type": "amendWorkflowRunSettings",
+      "runId": "dwfrun-<uuid>",
+      "toolCallId": "settings-<uuid>",
+      "supersededRunId": "dwfrun-<uuid>"
+    }
+  },
+  "notConfigurable": {
+    "status": "failed",
+    "reasonCode": "fault.command.workflowRunSettingsRejected.not_configurable",
+    "message": "workflow run settings rejected: not_configurable",
+    "result": null
+  },
+  "retune": {
+    "status": "accepted",
+    "reasonCode": null,
+    "message": null,
+    "result": {
+      "type": "amendWorkflowRunSettings",
+      "runId": "dwfrun-<uuid>",
+      "toolCallId": "settings-<uuid>"
+    }
+  },
+  "settingsRows": [
+    {
+      "kind": "turnHeader",
+      "origin": "workflowLaunch",
+      "executionKind": "controlOnly",
+      "state": "completedSuccess",
+      "text": null,
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": true,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": false,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "settings-<uuid>",
+        "display": {
+          "kind": "create_workflow",
+          "ok": true,
+          "errorCount": 0,
+          "diagnostics": [],
+          "causalityGraph": {
+            "steps": [
+              {
+                "id": "ask#1",
+                "kind": "ask",
+                "label": "counter",
+                "line": 3,
+                "column": 30,
+                "lane": "actor#1"
+              }
+            ],
+            "lanes": [
+              {
+                "id": "actor#1",
+                "name": "counter",
+                "line": 2,
+                "column": 17
+              }
+            ],
+            "participants": [
+              {
+                "id": "unphased:actor#1",
+                "phase": "unphased",
+                "lane": "actor#1",
+                "steps": [
+                  "ask#1"
+                ]
+              }
+            ],
+            "handoffs": [],
+            "sink": [
+              "ask#1"
+            ]
+          }
+        },
+        "amend": {
+          "predecessorRunId": "dwfrun-<uuid>",
+          "subagentModel": {
+            "to": "personal:fixture/model-b$high"
+          },
+          "ceiling": "<concurrency>"
+        }
+      }
+    },
+    {
+      "kind": "userInput",
+      "origin": "workflowLaunch",
+      "executionKind": null,
+      "state": null,
+      "text": "Changed the settings of workflow run dwfrun-<uuid> from the GUI: its subagents now run on personal:fixture/model-b$high. The same script continues as run dwfrun-<uuid>, which supersedes run dwfrun-<uuid> and imports everything run dwfrun-<uuid> finished as cache. Progress and results arrive as background notifications; do not amend, resume or restart it.",
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": false,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": true,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "settings-<uuid>",
+        "display": {
+          "kind": "create_workflow",
+          "ok": true,
+          "errorCount": 0,
+          "diagnostics": [],
+          "causalityGraph": {
+            "steps": [
+              {
+                "id": "ask#1",
+                "kind": "ask",
+                "label": "counter",
+                "line": 3,
+                "column": 30,
+                "lane": "actor#1"
+              }
+            ],
+            "lanes": [
+              {
+                "id": "actor#1",
+                "name": "counter",
+                "line": 2,
+                "column": 17
+              }
+            ],
+            "participants": [
+              {
+                "id": "unphased:actor#1",
+                "phase": "unphased",
+                "lane": "actor#1",
+                "steps": [
+                  "ask#1"
+                ]
+              }
+            ],
+            "handoffs": [],
+            "sink": [
+              "ask#1"
+            ]
+          }
+        },
+        "amend": {
+          "predecessorRunId": "dwfrun-<uuid>",
+          "subagentModel": {
+            "to": "personal:fixture/model-b$high"
+          },
+          "ceiling": "<concurrency>"
+        }
+      }
+    },
+    {
+      "kind": "turnHeader",
+      "origin": "workflowLaunch",
+      "executionKind": "controlOnly",
+      "state": "completedSuccess",
+      "text": null,
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": true,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": false,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "settings-<uuid>",
+        "amend": {
+          "maxConcurrency": {
+            "to": 1
+          },
+          "ceiling": "<concurrency>"
+        }
+      }
+    },
+    {
+      "kind": "userInput",
+      "origin": "workflowLaunch",
+      "executionKind": null,
+      "state": null,
+      "text": "Changed the settings of workflow run dwfrun-<uuid> from the GUI: at most 1 of its subagents run at once. Run dwfrun-<uuid> keeps running under the new limit; nothing was stopped and no new run was started. Progress and results arrive as background notifications; do not amend, resume or restart it.",
+      "hasClientId": false,
+      "hasActiveMs": false,
+      "hasHistoryRoundCount": false,
+      "hasEndedAt": false,
+      "sourceCommandIdPresent": true,
+      "rootSourceCommandIdSameAsSource": true,
+      "workflowLaunch": {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "settings-<uuid>",
+        "amend": {
+          "maxConcurrency": {
+            "to": 1
+          },
+          "ceiling": "<concurrency>"
+        }
+      }
+    }
+  ],
+  "schemaErrors": []
+}

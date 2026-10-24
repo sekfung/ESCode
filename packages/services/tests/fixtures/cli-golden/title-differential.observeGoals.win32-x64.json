@@ -1,0 +1,93 @@
+{
+  "headers": [
+    {
+      "origin": "userInput",
+      "executionKind": "controlOnly",
+      "activeMs": "undefined"
+    },
+    {
+      "origin": "goalContinuation",
+      "executionKind": "agent",
+      "activeMs": "number",
+      "historyRoundCount": 1
+    }
+  ],
+  "goalRows": [
+    [
+      0,
+      "turnHeader",
+      "userInput",
+      "controlOnly",
+      "completedSuccess",
+      null
+    ],
+    [
+      0,
+      "userInput",
+      "realUser",
+      "",
+      "",
+      {
+        "canEdit": true,
+        "editDisposition": "rewind"
+      }
+    ],
+    [
+      1,
+      "turnHeader",
+      "goalContinuation",
+      "agent",
+      "completedSuccess",
+      null
+    ],
+    [
+      1,
+      "assistantText",
+      "",
+      "",
+      "complete",
+      {
+        "canFork": true
+      }
+    ],
+    [
+      1,
+      "timelineMarker",
+      "goalVerify",
+      "",
+      "",
+      null
+    ]
+  ],
+  "titles": [
+    "fix it",
+    "refactor the parser module for clarity",
+    "tidy up",
+    "warm up the session first"
+  ],
+  "first": {
+    "meta": {
+      "title": "Parser refactor",
+      "titleSource": "generated"
+    },
+    "status": "verified",
+    "summaryTitle": "Parser refactor"
+  },
+  "later": {
+    "meta": {
+      "title": "Warmup session",
+      "titleSource": "generated"
+    },
+    "status": "verified",
+    "summaryTitle": "Quick fix"
+  },
+  "empty": {
+    "meta": {
+      "title": "tidy up",
+      "titleSource": "generated"
+    },
+    "status": "verified",
+    "summaryTitle": "tidy up"
+  },
+  "schemaErrors": []
+}

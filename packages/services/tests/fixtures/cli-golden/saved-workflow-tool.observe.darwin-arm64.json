@@ -1,0 +1,20 @@
+{
+  "tool": "<saved_workflows count=\"1\">\n<workflow name=\"review\" scope=\"project\">\n  Review the pull request end to end.\n  When to use: When a pull request is open\n  arg pr (string, required) — PR number or URL\n  arg depth (number, default 3)\n</workflow>\n</saved_workflows>",
+  "display": {
+    "kind": "saved_workflow_list",
+    "workflows": [
+      {
+        "name": "review",
+        "description": "Review the pull request end to end.",
+        "whenToUse": "When a pull request is open",
+        "scope": "project",
+        "path": "<workspace>/.escode/workflows/review.dwf.ts",
+        "argNames": [
+          "pr",
+          "depth"
+        ]
+      }
+    ]
+  },
+  "status": "success"
+}

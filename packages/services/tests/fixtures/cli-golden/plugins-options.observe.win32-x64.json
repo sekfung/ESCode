@@ -1,0 +1,183 @@
+{
+  "listMerged": [
+    {
+      "id": "alpha@inline",
+      "enabled": true,
+      "source": "inline",
+      "skillCount": 1,
+      "enabledSource": "user",
+      "optionSources": {
+        "region": "workspace",
+        "apiKey": "user"
+      },
+      "rootSource": "user",
+      "configuredOptions": {
+        "region": "eu"
+      },
+      "userConfig": {
+        "apiKey": {
+          "type": "string",
+          "title": "API key",
+          "sensitive": true
+        },
+        "region": {
+          "type": "string",
+          "title": "Region"
+        }
+      }
+    },
+    {
+      "id": "beta@inline",
+      "enabled": false,
+      "source": "inline",
+      "skillCount": 0,
+      "enabledSource": "workspace",
+      "rootSource": "workspace"
+    }
+  ],
+  "listUser": [
+    {
+      "id": "alpha@inline",
+      "enabled": true,
+      "source": "inline",
+      "skillCount": 1,
+      "enabledSource": "user",
+      "optionSources": {
+        "region": "user",
+        "apiKey": "user"
+      },
+      "rootSource": "user",
+      "configuredOptions": {
+        "region": "us"
+      },
+      "userConfig": {
+        "apiKey": {
+          "type": "string",
+          "title": "API key",
+          "sensitive": true
+        },
+        "region": {
+          "type": "string",
+          "title": "Region"
+        }
+      }
+    }
+  ],
+  "configureWorkspace": {
+    "pluginId": "alpha",
+    "diagnostics": []
+  },
+  "afterWorkspaceConfigure": {
+    "user": "{\"plugins\":{\"dirs\":[\"<root>\\\\plugins\\\\alpha\"],\"enabledPlugins\":{\"alpha@inline\":true},\"options\":{\"alpha@inline\":{\"region\":\"us\",\"apiKey\":\"secret\"}}}}",
+    "workspace": "{\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>\\\\plugins\\\\beta\"\n    ],\n    \"enabledPlugins\": {\n      \"beta@inline\": false\n    },\n    \"options\": {\n      \"alpha@inline\": {\n        \"region\": \"ap\",\n        \"tier\": 2,\n        \"flag\": false\n      }\n    }\n  }\n}\n"
+  },
+  "configureInvalidRejected": true,
+  "configureUserDry": {
+    "pluginId": "alpha@inline",
+    "diagnostics": []
+  },
+  "configureUserClear": {
+    "pluginId": "alpha@inline",
+    "diagnostics": []
+  },
+  "afterUserConfigure": {
+    "user": "{\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>\\\\plugins\\\\alpha\"\n    ],\n    \"enabledPlugins\": {\n      \"alpha@inline\": true\n    },\n    \"options\": {\n      \"alpha@inline\": {\n        \"region\": \"us\"\n      }\n    }\n  }\n}\n",
+    "workspace": "{\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>\\\\plugins\\\\beta\"\n    ],\n    \"enabledPlugins\": {\n      \"beta@inline\": false\n    },\n    \"options\": {\n      \"alpha@inline\": {\n        \"region\": \"ap\",\n        \"tier\": 2,\n        \"flag\": false\n      }\n    }\n  }\n}\n"
+  },
+  "configureUnknown": {
+    "error": "Plugin not found: nope"
+  },
+  "listAfterConfigure": [
+    {
+      "id": "alpha@inline",
+      "enabled": true,
+      "source": "inline",
+      "skillCount": 1,
+      "enabledSource": "user",
+      "optionSources": {
+        "region": "workspace",
+        "tier": "workspace",
+        "flag": "workspace"
+      },
+      "rootSource": "user",
+      "configuredOptions": {
+        "region": "ap",
+        "tier": 2,
+        "flag": false
+      },
+      "userConfig": {
+        "apiKey": {
+          "type": "string",
+          "title": "API key",
+          "sensitive": true
+        },
+        "region": {
+          "type": "string",
+          "title": "Region"
+        }
+      }
+    },
+    {
+      "id": "beta@inline",
+      "enabled": false,
+      "source": "inline",
+      "skillCount": 0,
+      "enabledSource": "workspace",
+      "rootSource": "workspace"
+    }
+  ],
+  "resetBetaWorkspace": {
+    "pluginId": "beta@inline",
+    "diagnostics": []
+  },
+  "resetAlphaUser": {
+    "pluginId": "alpha@inline",
+    "diagnostics": []
+  },
+  "resetGhostUser": {
+    "pluginId": "ghost@inline",
+    "diagnostics": []
+  },
+  "afterReset": {
+    "user": "{\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>\\\\plugins\\\\alpha\"\n    ],\n    \"enabledPlugins\": {},\n    \"options\": {}\n  }\n}\n",
+    "workspace": "{\n  \"plugins\": {\n    \"dirs\": [\n      \"<root>\\\\plugins\\\\beta\"\n    ],\n    \"enabledPlugins\": {},\n    \"options\": {\n      \"alpha@inline\": {\n        \"region\": \"ap\",\n        \"tier\": 2,\n        \"flag\": false\n      }\n    }\n  }\n}\n"
+  },
+  "listAfterReset": [
+    {
+      "id": "alpha@inline",
+      "enabled": true,
+      "source": "inline",
+      "skillCount": 1,
+      "optionSources": {
+        "region": "workspace",
+        "tier": "workspace",
+        "flag": "workspace"
+      },
+      "rootSource": "user",
+      "configuredOptions": {
+        "region": "ap",
+        "tier": 2,
+        "flag": false
+      },
+      "userConfig": {
+        "apiKey": {
+          "type": "string",
+          "title": "API key",
+          "sensitive": true
+        },
+        "region": {
+          "type": "string",
+          "title": "Region"
+        }
+      }
+    },
+    {
+      "id": "beta@inline",
+      "enabled": true,
+      "source": "inline",
+      "skillCount": 0,
+      "rootSource": "workspace"
+    }
+  ],
+  "schemaErrors": []
+}

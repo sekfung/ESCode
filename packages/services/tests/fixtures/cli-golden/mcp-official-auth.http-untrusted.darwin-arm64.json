@@ -1,0 +1,11 @@
+{
+  "name": "plugin:official-fixture:search",
+  "status": {
+    "status": "failed",
+    "failureKind": "official_origin_untrusted",
+    "serverRequestId": null,
+    "toolCount": 0
+  },
+  "hostRequests": [],
+  "server": []
+}

@@ -1,0 +1,5 @@
+{
+  "running": "<retrieval_status>not_ready</retrieval_status>\n\n<task_id><task></task_id>\n\n<task_type>local_bash</task_type>\n\n<status>running</status>",
+  "settled": "<retrieval_status>success</retrieval_status>\n\n<task_id><task></task_id>\n\n<task_type>local_bash</task_type>\n\n<status>completed</status>\n\n<exit_code>0</exit_code>\n\n<output>\nline one\nline two\n</output>",
+  "schemaErrors": []
+}

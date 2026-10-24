@@ -1,0 +1,52 @@
+{
+  "independentPlanState": true,
+  "interactionKind": "userInput",
+  "payload": {
+    "kind": "userInput",
+    "prompt": "Tool ExitPlanMode requires user interaction",
+    "freeText": true,
+    "schema": {
+      "interaction": "plan_approval",
+      "toolName": "ExitPlanMode"
+    },
+    "questions": [
+      {
+        "question": "Tool ExitPlanMode requires user interaction",
+        "header": "Plan",
+        "options": [
+          {
+            "value": "approve",
+            "label": "Approve",
+            "description": "Exit plan mode and start implementation."
+          }
+        ]
+      }
+    ]
+  },
+  "order": [
+    [
+      "reminder:full",
+      "user:plan it"
+    ],
+    [
+      "reminder:full",
+      "user:plan it",
+      "tool:The plan was not approved by the user.",
+      "user:add tests first"
+    ]
+  ],
+  "firstRequestReminders": [
+    "<system-reminder>\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (i"
+  ],
+  "laterRequestReminders": [
+    [
+      "<system-reminder>\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (i"
+    ]
+  ],
+  "toolResult": "The plan was not approved by the user.",
+  "lastUserText": "add tests first",
+  "requestCount": 2,
+  "planRowStatus": "cancelled",
+  "finalPlanEnabled": true,
+  "schemaErrors": []
+}

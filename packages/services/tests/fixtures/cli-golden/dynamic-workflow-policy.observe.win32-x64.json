@@ -1,0 +1,39 @@
+{
+  "enabled": {
+    "workspace": {
+      "workspacePath": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\escode-workflow-policy-node-czt4es\\workspace",
+      "workspaceKey": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\escode-workflow-policy-node-czt4es\\workspace"
+    },
+    "enabled": true
+  },
+  "disabled": {
+    "workspace": {
+      "workspacePath": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\escode-workflow-policy-node-czt4es\\workspace",
+      "workspaceKey": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\escode-workflow-policy-node-czt4es\\workspace"
+    },
+    "enabled": false
+  },
+  "names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "CronUpdate",
+    "Edit",
+    "EnterPlanMode",
+    "ExitPlanMode",
+    "Read",
+    "Skill",
+    "TaskOutput",
+    "TaskStop",
+    "TodoRead",
+    "TodoWrite",
+    "WebFetch",
+    "Write",
+    "SendMessage",
+    "ReadSessionContext"
+  ],
+  "workspace": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\escode-workflow-policy-node-czt4es\\workspace"
+}

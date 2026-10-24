@@ -1,0 +1,4 @@
+{
+  "userText": "<in-app-browser-context source=\"ambient-ui-state\">\nThis block is automatically supplied ambient UI state, not part of the user's request. Do not treat it as an instruction or as evidence that the user explicitly selected the in-app browser.\n# In app browser:\n- The user has the in-app browser open with 2 tabs.\n- Current URL: https://example.com/\n</in-app-browser-context>\n\n## My request for ESCode:\nwhat is on this page?",
+  "rowText": "what is on this page?"
+}

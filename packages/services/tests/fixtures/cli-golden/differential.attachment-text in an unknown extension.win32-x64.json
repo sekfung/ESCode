@@ -1,0 +1,10 @@
+{
+  "attachmentDigest": "a51c93e0bd71754bf446611a93a1a13b836b4a51cdff05666b6a6864bd145638",
+  "attachmentMessages": [
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "[{\"text\":\"summarize\",\"type\":\"text\"},{\"text\":\"Attached application/octet-stream: <CWD>\\\\notes.dat\\nThe file was sent by local path because the file is not a known text attachment.\\nUse the available file reading tools if you need to inspect the file contents.\",\"type\":\"text\"}]"
+  ],
+  "reminderBeforePrompt": false,
+  "promptIsPlainString": false,
+  "schemaErrors": []
+}

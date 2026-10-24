@@ -1,0 +1,108 @@
+{
+  "runs": {
+    "runs": [
+      {
+        "runId": "dwfrun-<uuid>",
+        "toolCallId": "cw-1",
+        "label": "count-txt",
+        "updatedAt": 0,
+        "status": "completed",
+        "resumable": false
+      }
+    ]
+  },
+  "events": {
+    "events": [
+      {
+        "sequence": 0,
+        "type": "run-started",
+        "payload": {
+          "runId": "dwfrun-<uuid>",
+          "caps": {
+            "maxConcurrency": "<concurrency>"
+          }
+        }
+      },
+      {
+        "sequence": 1,
+        "type": "run-launched",
+        "payload": {
+          "inputId": "<uuid>",
+          "toolCallId": "cw-1",
+          "parentSessionId": "sess_<uuid>",
+          "subagentPermissionMode": "yolo",
+          "scriptPath": "<root>/workspace/.escode/workflow-drafts/count-txt.dwf.ts"
+        }
+      },
+      {
+        "sequence": 2,
+        "type": "node-queued",
+        "payload": {
+          "instance": {
+            "siteId": "world-read#1",
+            "ordinal": 1
+          },
+          "kind": "world-read"
+        }
+      }
+    ],
+    "hasMore": true
+  },
+  "artifacts": {
+    "artifacts": [
+      {
+        "id": "report",
+        "kind": "markdown",
+        "title": "Count report",
+        "contentType": "text/markdown",
+        "version": 1,
+        "versions": [
+          {
+            "version": 1,
+            "title": "Count report",
+            "contentType": "text/markdown",
+            "bytes": 9,
+            "uri": "escode-artifact://sess_<uuid>/tool-result-<uuid>",
+            "publishedAt": 0
+          }
+        ],
+        "itemCount": 0
+      }
+    ]
+  },
+  "read": {
+    "dataBase64": "IyBGb3VuZCAx",
+    "mediaType": "text/markdown",
+    "totalBytes": 9,
+    "nextOffset": null
+  },
+  "workspaceNodes": {
+    "nodes": [
+      {
+        "siteId": "world-read#1",
+        "ordinal": 1,
+        "kind": "world-read",
+        "op": "glob",
+        "args": [
+          "*.txt"
+        ],
+        "status": "completed",
+        "summary": {
+          "resultBytes": 9,
+          "resultCount": 1
+        },
+        "createdAt": 0,
+        "updatedAt": 0
+      }
+    ]
+  },
+  "nodeResult": {
+    "status": "completed",
+    "result": [
+      "a.txt"
+    ],
+    "truncated": false,
+    "totalBytes": 9
+  },
+  "schemaErrors": []
+}

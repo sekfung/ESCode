@@ -1,0 +1,11 @@
+{
+  "ack": "accepted",
+  "parent": {
+    "session": "build",
+    "permission": "build"
+  },
+  "child": {
+    "session": "yolo",
+    "permission": "yolo"
+  }
+}

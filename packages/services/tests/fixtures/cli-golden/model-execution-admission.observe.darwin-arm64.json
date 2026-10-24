@@ -1,0 +1,5 @@
+{
+  "status": "failed",
+  "reasonCode": "activePrompt",
+  "message": "Core prompt admission rejected: turn_not_steerable"
+}

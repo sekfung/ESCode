@@ -1,0 +1,18 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "describe"
+    },
+    {
+      "mime": "image/jpeg",
+      "width": 2000,
+      "height": 83
+    },
+    {
+      "type": "text",
+      "text": "[Image: source: <cwd>\\wide.png]"
+    }
+  ],
+  "schemaErrors": []
+}

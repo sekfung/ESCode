@@ -1,0 +1,43 @@
+{
+  "begins": [
+    {
+      "uploadId": "upload-1",
+      "state": "staging",
+      "nextChunkIndex": 0
+    },
+    {
+      "uploadId": "upload-1",
+      "state": "staging",
+      "nextChunkIndex": 0
+    }
+  ],
+  "chunkSteps": [
+    {
+      "error": "fault.attachment.chunkGap"
+    },
+    {
+      "value": {
+        "uploadId": "upload-1",
+        "nextChunkIndex": 1
+      }
+    },
+    {
+      "value": {
+        "uploadId": "upload-1",
+        "nextChunkIndex": 1
+      }
+    },
+    {
+      "error": "fault.attachment.chunkConflict"
+    },
+    {
+      "value": {
+        "uploadId": "upload-1",
+        "nextChunkIndex": 2
+      }
+    }
+  ],
+  "putBytes": [
+    "你好 Rust"
+  ]
+}

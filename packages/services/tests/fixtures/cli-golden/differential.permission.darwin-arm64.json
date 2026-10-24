@@ -1,0 +1,42 @@
+{
+  "payloadKeys": [
+    "detail",
+    "freeText",
+    "fullAccessOption",
+    "kind",
+    "options",
+    "summary",
+    "toolCallId",
+    "toolName"
+  ],
+  "optionIds": [
+    "allowOnce",
+    "allowAlways",
+    "deny"
+  ],
+  "optionKinds": [
+    "allowOnce",
+    "allowAlways",
+    "deny"
+  ],
+  "optionLabels": [
+    "Allow once",
+    "Always allow in this project",
+    "Deny"
+  ],
+  "toolName": "Write",
+  "summary": "Tool has side effects and requires approval",
+  "fullAccessOption": {
+    "optionId": "fullAccess",
+    "label": "Full access",
+    "kind": "custom",
+    "response": {
+      "decision": "deny",
+      "reason": "Full access requires V4 approval"
+    }
+  },
+  "toolStatuses": [
+    "cancelled"
+  ],
+  "schemaErrors": []
+}

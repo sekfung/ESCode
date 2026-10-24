@@ -1,0 +1,19 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "describe"
+    },
+    {
+      "mime": "image/jpeg",
+      "width": 2000,
+      "height": 83
+    },
+    {
+      "type": "text",
+      "text": "[Image: source: <derived>]"
+    }
+  ],
+  "derivedMatchesUpload": true,
+  "schemaErrors": []
+}

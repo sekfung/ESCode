@@ -1,0 +1,12 @@
+{
+  "attachmentDigest": "4a7aefdba6e8bf5ee46436dd4e6c12112b82a4c26bfa0e64f343178b90aa65e8",
+  "attachmentMessages": [
+    "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>\\\\notes.txt\"}\nResult of calling the Read tool:\n1\ta\n2\tb\n3\t\n</system-reminder>",
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "summarize"
+  ],
+  "reminder": "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>\\\\notes.txt\"}\nResult of calling the Read tool:\n1\ta\n2\tb\n3\t\n</system-reminder>",
+  "reminderBeforePrompt": false,
+  "promptIsPlainString": true,
+  "schemaErrors": []
+}

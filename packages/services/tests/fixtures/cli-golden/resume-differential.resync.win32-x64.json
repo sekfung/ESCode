@@ -1,0 +1,21 @@
+{
+  "withBase": {
+    "ackMode": "resume",
+    "payloadKind": "deltas",
+    "deliveryKind": "recovery",
+    "fromBase": true
+  },
+  "forced": {
+    "ackMode": "snapshot",
+    "payloadKind": "snapshot",
+    "deliveryKind": "recovery",
+    "fromBase": null
+  },
+  "nullBase": {
+    "ackMode": "snapshot",
+    "payloadKind": "snapshot",
+    "deliveryKind": "recovery",
+    "fromBase": null
+  },
+  "schemaErrors": []
+}

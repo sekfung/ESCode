@@ -1,0 +1,121 @@
+{
+  "builtinId": "serial@zcode-plugins-official",
+  "builtin": {
+    "result": {
+      "stableId": "serial@zcode-plugins-official",
+      "status": "ready",
+      "marketplace": "zcode-plugins-official",
+      "pluginName": "serial",
+      "sourceTrust": "official",
+      "diagnostics": []
+    },
+    "progress": []
+  },
+  "untrusted": {
+    "result": {
+      "stableId": "tool@acme",
+      "status": "unavailable",
+      "diagnostics": [
+        {
+          "code": "plugin_suggested_reference_untrusted_source",
+          "message": "推荐插件不是受信任的官方 zcode-plugins-official 来源",
+          "severity": "error",
+          "pluginId": "tool@acme"
+        }
+      ]
+    },
+    "progress": []
+  },
+  "malformed": {
+    "result": {
+      "stableId": "bad id@zcode-plugins-official",
+      "status": "unavailable",
+      "diagnostics": [
+        {
+          "code": "plugin_suggested_reference_untrusted_source",
+          "message": "推荐插件不是受信任的官方 zcode-plugins-official 来源",
+          "severity": "error",
+          "pluginId": "bad id@zcode-plugins-official"
+        }
+      ]
+    },
+    "progress": []
+  },
+  "noName": {
+    "result": {
+      "stableId": "@zcode-plugins-official",
+      "status": "unavailable",
+      "diagnostics": [
+        {
+          "code": "plugin_suggested_reference_untrusted_source",
+          "message": "推荐插件不是受信任的官方 zcode-plugins-official 来源",
+          "severity": "error",
+          "pluginId": "@zcode-plugins-official"
+        }
+      ]
+    },
+    "progress": []
+  },
+  "missing": {
+    "result": {
+      "stableId": "cdnplug@zcode-plugins-official",
+      "status": "missing",
+      "marketplace": "zcode-plugins-official",
+      "pluginName": "cdnplug",
+      "sourceTrust": "official",
+      "icon": "https://icons/cdn.png",
+      "listing": {
+        "displayName": "CDN Plug",
+        "icon": " https://icons/cdn.png "
+      },
+      "diagnostics": []
+    },
+    "progress": [
+      {
+        "operationId": "op-5",
+        "state": "refreshing"
+      }
+    ]
+  },
+  "notListed": {
+    "result": {
+      "stableId": "ghost@zcode-plugins-official",
+      "status": "unavailable",
+      "diagnostics": [
+        {
+          "code": "plugin_suggested_reference_not_listed",
+          "message": "刷新后的官方目录中未找到该插件",
+          "severity": "error",
+          "pluginId": "ghost@zcode-plugins-official"
+        }
+      ]
+    },
+    "progress": [
+      {
+        "operationId": "op-6",
+        "state": "refreshing"
+      }
+    ]
+  },
+  "refreshFailed": {
+    "result": {
+      "stableId": "ghost2@zcode-plugins-official",
+      "status": "unavailable",
+      "diagnostics": [
+        {
+          "code": "marketplace_refresh_failed",
+          "message": "Failed to fetch marketplace: 500 Internal Server Error",
+          "severity": "error",
+          "pluginId": "ghost2@zcode-plugins-official"
+        }
+      ]
+    },
+    "progress": [
+      {
+        "operationId": "op-7",
+        "state": "refreshing"
+      }
+    ]
+  },
+  "schemaErrors": []
+}

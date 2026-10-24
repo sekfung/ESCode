@@ -1,0 +1,132 @@
+{
+  "observed": {
+    "listProject": {
+      "workflows": [
+        {
+          "name": "review",
+          "description": "Review the diff",
+          "scope": "project",
+          "path": "<workspace>/.escode/workflows/review.dwf.ts"
+        }
+      ],
+      "invalid": [],
+      "dir": "<workspace>/.escode/workflows"
+    },
+    "listGlobal": {
+      "workflows": [],
+      "invalid": [],
+      "dir": "<root>/.escode/workflows"
+    },
+    "get": {
+      "ok": true,
+      "name": "review",
+      "path": "<workspace>/.escode/workflows/review.dwf.ts",
+      "scope": "project",
+      "meta": {
+        "description": "Review the diff"
+      },
+      "script": "export default async () => {\n  return 1;\n}\n"
+    },
+    "getMissing": {
+      "ok": false,
+      "reason": "not_found"
+    },
+    "getBadName": {
+      "ok": false,
+      "reason": "invalid_name",
+      "detail": "workflow names may only contain letters, digits, '.', '-' and '_', and must be 1-64 characters"
+    },
+    "updateMeta": {
+      "ok": true,
+      "path": "<workspace>/.escode/workflows/review.dwf.ts"
+    },
+    "getAfterUpdate": {
+      "ok": true,
+      "name": "review",
+      "path": "<workspace>/.escode/workflows/review.dwf.ts",
+      "scope": "project",
+      "meta": {
+        "description": "Updated review",
+        "whenToUse": "When a PR is open"
+      },
+      "script": "export default async () => {\n  return 1;\n}\n"
+    },
+    "reviewBytes": "/* escode-workflow\ndescription: Updated review\nwhenToUse: When a PR is open\n*/\nexport default async () => {\n  return 1;\n}\n",
+    "updateMetaInvalid": {
+      "ok": false
+    },
+    "listProjectWithGlobal": {
+      "workflows": [
+        {
+          "name": "review",
+          "description": "Updated review",
+          "whenToUse": "When a PR is open",
+          "scope": "project",
+          "path": "<workspace>/.escode/workflows/review.dwf.ts"
+        }
+      ],
+      "invalid": [],
+      "dir": "<workspace>/.escode/workflows"
+    },
+    "listGlobalWithGlobal": {
+      "workflows": [
+        {
+          "name": "global-only",
+          "description": "Global only",
+          "scope": "global",
+          "path": "<root>/.escode/workflows/global-only.dwf.ts"
+        }
+      ],
+      "invalid": [],
+      "dir": "<root>/.escode/workflows"
+    },
+    "move": {
+      "ok": true,
+      "from": "<root>/.escode/workflows/global-only.dwf.ts",
+      "to": "<workspace>/.escode/workflows/global-only.dwf.ts"
+    },
+    "getMoved": {
+      "ok": true,
+      "name": "global-only",
+      "path": "<workspace>/.escode/workflows/global-only.dwf.ts",
+      "scope": "project",
+      "meta": {
+        "description": "Global only"
+      },
+      "script": "export default async () => {\n  return 1;\n}\n"
+    },
+    "moveAgain": {
+      "ok": false,
+      "reason": "not_found"
+    },
+    "moveTargetExists": {
+      "ok": false,
+      "reason": "target_exists",
+      "path": "<workspace>/.escode/workflows/review.dwf.ts"
+    },
+    "moveBadName": {
+      "ok": false,
+      "reason": "invalid_name",
+      "detail": "workflow names may only contain letters, digits, '.', '-' and '_', and must be 1-64 characters"
+    },
+    "deleteReview": {
+      "ok": true,
+      "path": "<workspace>/.escode/workflows/review.dwf.ts"
+    },
+    "deleteAgain": {
+      "ok": false,
+      "reason": "not_found"
+    },
+    "deleteBadName": {
+      "ok": false,
+      "reason": "invalid_name"
+    }
+  },
+  "projectFiles": [
+    "global-only.dwf.ts"
+  ],
+  "globalFiles": [
+    "review.dwf.ts"
+  ],
+  "movedFile": "/* escode-workflow\ndescription: Global only\n*/\nexport default async () => {\n  return 1;\n}\n"
+}

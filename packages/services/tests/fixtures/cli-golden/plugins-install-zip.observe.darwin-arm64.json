@@ -1,0 +1,139 @@
+{
+  "zipped": {
+    "closure": [
+      "zipped@acme"
+    ],
+    "installed": [
+      {
+        "id": "zipped@acme",
+        "name": "zipped",
+        "marketplace": "acme",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/zipped/1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "redirected": {
+    "closure": [
+      "redirected@acme"
+    ],
+    "installed": [
+      {
+        "id": "redirected@acme",
+        "name": "redirected",
+        "marketplace": "acme",
+        "version": "2.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/redirected/2.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "withpath": {
+    "closure": [
+      "withpath@acme"
+    ],
+    "installed": [
+      {
+        "id": "withpath@acme",
+        "name": "withpath",
+        "marketplace": "acme",
+        "version": "1.0.0",
+        "enabled": true,
+        "scope": "user",
+        "installPath": "<root>/.escode/cli/plugins/cache/acme/withpath/1.0.0",
+        "installedAt": "<time>"
+      }
+    ],
+    "diagnostics": []
+  },
+  "badsha": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin zip sha256 mismatch: expected=0000000000000000000000000000000000000000000000000000000000000000, actual=f0c0f5957985a3cf7f156429b259eb093b7b5958a78755cf2106c4102b4d6c90"
+      }
+    ]
+  },
+  "mismatch": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin manifest name 'other' does not match marketplace entry 'mismatch'"
+      }
+    ]
+  },
+  "multi": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin manifest not found: multi@acme"
+      }
+    ]
+  },
+  "nohttps": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin zip source URL must be HTTPS: http://example.invalid/p.zip"
+      }
+    ]
+  },
+  "denied": {
+    "closure": [],
+    "installed": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Plugin zip source header is not allowed: Authorization"
+      }
+    ]
+  },
+  "installedFile": "{\n  \"version\": 1,\n  \"plugins\": [\n    {\n      \"id\": \"zipped@acme\",\n      \"name\": \"zipped\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/zipped/1.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"url\",\n        \"type\": \"zip\",\n        \"url\": \"http://127.0.0.1:<port>/zipped.zip\",\n        \"sha256\": \"f0c0f5957985a3cf7f156429b259eb093b7b5958a78755cf2106c4102b4d6c90\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"redirected@acme\",\n      \"name\": \"redirected\",\n      \"marketplace\": \"acme\",\n      \"version\": \"2.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/redirected/2.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"url\",\n        \"type\": \"zip\",\n        \"url\": \"http://127.0.0.1:<port>/redirect\",\n        \"sha256\": \"b05380e6bb0ee611fa580022ab607faf1b5fb00df70bc3993a24fbcbad540765\",\n        \"headers\": {\n          \"X-Market\": \"acme\"\n        }\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    },\n    {\n      \"id\": \"withpath@acme\",\n      \"name\": \"withpath\",\n      \"marketplace\": \"acme\",\n      \"version\": \"1.0.0\",\n      \"installPath\": \"<root>/.escode/cli/plugins/cache/acme/withpath/1.0.0\",\n      \"installedAt\": \"<time>\",\n      \"updatedAt\": \"<time>\",\n      \"scope\": \"user\",\n      \"source\": {\n        \"source\": \"url\",\n        \"type\": \"zip\",\n        \"url\": \"http://127.0.0.1:<port>/withpath.zip\",\n        \"sha256\": \"8ee0bb9d25e585223f8c937f771a0c42f320e03f40ccc446166f8165036d134f\",\n        \"path\": \"pkg/inner\"\n      },\n      \"cacheTransactionId\": \"<uuid>\"\n    }\n  ]\n}\n",
+  "cache": {
+    "redirected/2.0.0/.escode-plugin/plugin.json": "2d16f8c40680bf7d",
+    "withpath/1.0.0/.escode-plugin/plugin.json": "fe8c146e5e26feee",
+    "zipped/1.0.0/.escode-plugin/plugin.json": "4dbff32f84b53d89",
+    "zipped/1.0.0/skills/s/SKILL.md": "81e678c9d6670ec7"
+  },
+  "requests": [
+    {
+      "path": "/zipped.zip"
+    },
+    {
+      "path": "/redirect",
+      "market": "acme"
+    },
+    {
+      "path": "/redirected.zip",
+      "market": "acme"
+    },
+    {
+      "path": "/withpath.zip"
+    },
+    {
+      "path": "/zipped.zip"
+    },
+    {
+      "path": "/mismatch.zip"
+    },
+    {
+      "path": "/multi.zip"
+    }
+  ],
+  "schemaErrors": []
+}

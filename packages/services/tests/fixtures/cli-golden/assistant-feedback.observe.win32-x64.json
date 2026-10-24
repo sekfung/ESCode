@@ -1,0 +1,38 @@
+{
+  "like": {
+    "status": "accepted",
+    "reasonCode": null,
+    "feedback": "like"
+  },
+  "likeAgain": {
+    "status": "accepted",
+    "reasonCode": null,
+    "feedback": "like"
+  },
+  "dislike": {
+    "status": "accepted",
+    "reasonCode": null,
+    "feedback": "dislike"
+  },
+  "clear": {
+    "status": "accepted",
+    "reasonCode": null,
+    "feedback": null
+  },
+  "userRow": {
+    "status": "rejected",
+    "reasonCode": "guard.actionUnavailable",
+    "feedback": null
+  },
+  "missing": {
+    "status": "stale",
+    "reasonCode": "proto.staleTarget",
+    "feedback": null
+  },
+  "final": {
+    "status": "accepted",
+    "reasonCode": null,
+    "feedback": "like"
+  },
+  "restored": "like"
+}

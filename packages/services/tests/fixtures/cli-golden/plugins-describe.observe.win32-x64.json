@@ -1,0 +1,234 @@
+{
+  "full": {
+    "components": [
+      {
+        "kind": "agent",
+        "items": [
+          {
+            "name": "reviewer",
+            "description": "Reviews code"
+          },
+          {
+            "name": "blank"
+          },
+          {
+            "name": "helper",
+            "description": "Helps"
+          }
+        ]
+      },
+      {
+        "kind": "command",
+        "items": [
+          {
+            "name": "ship",
+            "description": "Ship it now\nSecond"
+          },
+          {
+            "name": "plain"
+          },
+          {
+            "name": "lint",
+            "description": "Line one\n  indented"
+          }
+        ]
+      },
+      {
+        "kind": "skill",
+        "items": [
+          {
+            "name": "alpha",
+            "description": "First skill"
+          },
+          {
+            "name": "beta"
+          },
+          {
+            "name": "rootskill"
+          }
+        ]
+      },
+      {
+        "kind": "hook",
+        "items": [
+          {
+            "name": "SessionStart"
+          },
+          {
+            "name": "PreToolUse"
+          },
+          {
+            "name": "Stop"
+          }
+        ]
+      },
+      {
+        "kind": "mcp",
+        "items": [
+          {
+            "name": "fromFile"
+          },
+          {
+            "name": "inline"
+          }
+        ]
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "plugin_hook_invalid",
+        "message": "Duplicate plugin hooks file ignored: ./hooks/hooks.json",
+        "severity": "warning",
+        "pluginId": "full@acme"
+      },
+      {
+        "code": "plugin_hook_read_failed",
+        "message": "Plugin hooks file not found: ./hooks/missing.json",
+        "severity": "error",
+        "pluginId": "full@acme"
+      },
+      {
+        "code": "plugin_component_path_invalid",
+        "message": "Plugin hooks path escapes plugin root: ../escape.json",
+        "severity": "error",
+        "pluginId": "full@acme"
+      },
+      {
+        "code": "plugin_hook_unsupported_event",
+        "message": "Plugin hook event is not supported by this ESCode runtime: Bogus",
+        "severity": "warning",
+        "pluginId": "full@acme"
+      },
+      {
+        "code": "plugin_hook_unsupported_event",
+        "message": "Plugin hook event is not supported by this ESCode runtime: Weird",
+        "severity": "warning",
+        "pluginId": "full@acme"
+      },
+      {
+        "code": "plugin_hook_invalid",
+        "message": "Plugin hooks file must contain a hooks object",
+        "severity": "error",
+        "pluginId": "full@acme"
+      }
+    ],
+    "metadata": {
+      "author": "Ada",
+      "authorUrl": "https://ada.dev",
+      "homepage": "https://full.dev",
+      "version": "1.2.3"
+    }
+  },
+  "loose": {
+    "components": [
+      {
+        "kind": "command",
+        "items": [
+          {
+            "name": "go"
+          }
+        ]
+      },
+      {
+        "kind": "hook",
+        "items": [
+          {
+            "name": "Stop"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "homepage": "https://loose.dev",
+      "version": "3.0.0"
+    }
+  },
+  "bare": {
+    "components": [
+      {
+        "kind": "command",
+        "items": [
+          {
+            "name": "run"
+          }
+        ]
+      }
+    ]
+  },
+  "badname": {
+    "components": [
+      {
+        "kind": "skill",
+        "items": [
+          {
+            "name": "one"
+          }
+        ]
+      }
+    ]
+  },
+  "inst": {
+    "components": [
+      {
+        "kind": "command",
+        "items": [
+          {
+            "name": "hello",
+            "description": "Hi"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "author": "Bob",
+      "version": "0.9.0"
+    }
+  },
+  "gone": {
+    "components": [
+      {
+        "kind": "command",
+        "items": [
+          {
+            "name": "fallback"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "version": "0.0.0"
+    }
+  },
+  "nodir": {
+    "components": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Unsupported or missing plugin source: ./plugins/nodir",
+        "severity": "error",
+        "pluginId": "nodir@acme"
+      }
+    ]
+  },
+  "ghost": {
+    "components": [],
+    "diagnostics": [
+      {
+        "code": "plugin_not_found",
+        "message": "Plugin not found: ghost@acme",
+        "severity": "error"
+      }
+    ]
+  },
+  "unknownMarket": {
+    "components": [],
+    "diagnostics": [
+      {
+        "code": "plugin_marketplace_invalid",
+        "message": "Marketplace not found: nowhere",
+        "severity": "error"
+      }
+    ]
+  },
+  "schemaErrors": []
+}

@@ -1,0 +1,1413 @@
+{
+  "files": [
+    "escode-2026-10-23.jsonl"
+  ],
+  "entries": [
+    {
+      "timestamp": "2026-10-23T23:38:33.040Z",
+      "level": "info",
+      "event": "escode_protocol.startup.started",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol agent startup started",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 0,
+      "status": "started",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "startupKind": "escode_protocol_agent",
+        "version": "0.16.9",
+        "stage": "start",
+        "totalDurationMs": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.043Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 1,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "checking",
+        "elapsedMs": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.044Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 2,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "checking",
+        "elapsedMs": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.045Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 3,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "checking",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 0,
+          "committedCount": 0
+        },
+        "elapsedMs": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.046Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 4,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 0,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 2,
+        "completed": 0,
+        "total": 22,
+        "migrationId": "0001_base_session_store"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.046Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 5,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 1,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 2,
+        "completed": 1,
+        "total": 22,
+        "migrationId": "0002_local_setting"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.047Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 6,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 2,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 3,
+        "completed": 2,
+        "total": 22,
+        "migrationId": "0003_backfill_permission_local_setting"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.047Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 7,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 3,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 3,
+        "completed": 3,
+        "total": 22,
+        "migrationId": "0004_session_target"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.047Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 8,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 4,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 3,
+        "completed": 4,
+        "total": 22,
+        "migrationId": "0005_session_target_accounting"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.048Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 9,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 5,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 3,
+        "completed": 5,
+        "total": 22,
+        "migrationId": "0006_input_history_attachments"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.048Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 10,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 6,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 4,
+        "completed": 6,
+        "total": 22,
+        "migrationId": "0007_workflow_script_runtime"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.048Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 11,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 7,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 4,
+        "completed": 7,
+        "total": 22,
+        "migrationId": "0008_workflow_definition_scope"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.049Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 12,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 8,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 5,
+        "completed": 8,
+        "total": 22,
+        "migrationId": "0009_session_title_metadata"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.049Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 13,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 9,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 5,
+        "completed": 9,
+        "total": 22,
+        "migrationId": "0010_usage_observability"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.050Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 14,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 10,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 6,
+        "completed": 10,
+        "total": 22,
+        "migrationId": "0011_session_target_summary_title"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.050Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 15,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 11,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 6,
+        "completed": 11,
+        "total": 22,
+        "migrationId": "0012_session_trace_id"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.051Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 16,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 12,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 7,
+        "completed": 12,
+        "total": 22,
+        "migrationId": "0013_session_target_active_run_accounting"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.051Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 17,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 13,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 7,
+        "completed": 13,
+        "total": 22,
+        "migrationId": "0014_message_part_sequence"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.052Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 18,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 14,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 8,
+        "completed": 14,
+        "total": 22,
+        "migrationId": "0015_message_part_sequence_backfill_and_guard"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.052Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 19,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 15,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 8,
+        "completed": 15,
+        "total": 22,
+        "migrationId": "0016_session_input_ledger"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.053Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 20,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 16,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 9,
+        "completed": 16,
+        "total": 22,
+        "migrationId": "0017_session_input_start_now_delivery"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.054Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 21,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 17,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 10,
+        "completed": 17,
+        "total": 22,
+        "migrationId": "0018_session_input_failed_status"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.055Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 22,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 18,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 11,
+        "completed": 18,
+        "total": 22,
+        "migrationId": "0019_dwf_journal"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.056Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 23,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 19,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 12,
+        "completed": 19,
+        "total": 22,
+        "migrationId": "0020_provider_model_selection"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.059Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 24,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 20,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 15,
+        "completed": 20,
+        "total": 22,
+        "migrationId": "0021_official_glm_selection"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.059Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 25,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "migrating",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 21,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 15,
+        "completed": 21,
+        "total": 22,
+        "migrationId": "0022_backfilled_session_reasoning"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.060Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 26,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "committing",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 22,
+          "committedCount": 0,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 16
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.061Z",
+      "level": "info",
+      "event": "escode_protocol.startup.storage_state",
+      "module": "bootstrap.escode_protocol",
+      "message": "SQLite startup state",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "schemaVersion": 1,
+        "attemptId": "c91b9f06-1d75-4d11-8125-47f478f42212",
+        "sequence": 27,
+        "databaseId": "101a4ea2539006e1ed7099eb99c5c3bc2cb4b4d1b74bc538aa51705cf517d006",
+        "databaseKind": "session",
+        "phase": "ready",
+        "migration": {
+          "kind": "initialize",
+          "executedCount": 22,
+          "committedCount": 22,
+          "lastAppliedMigrationId": null
+        },
+        "elapsedMs": 17
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.089Z",
+      "level": "info",
+      "event": "escode_protocol.provider_registry.ready",
+      "module": "bootstrap.escode_protocol",
+      "message": "Worker Provider Registry 已就绪",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "accountRevision": "account:[\"escode-builtin:31:19a318db8565c5c90f101bd94bc1b2d15e17fb7d90250fc364d6851c9cad8c4c\",[],null]",
+        "configRevision": "[\"escode-builtin:31:19a318db8565c5c90f101bd94bc1b2d15e17fb7d90250fc364d6851c9cad8c4c\",\"5bc65dc77f66a74f6bac0df7929af0b78c79685322a9f637f00d979c4d5d14e2\"]",
+        "providerCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.092Z",
+      "level": "info",
+      "event": "escode_protocol.startup.completed",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol agent startup completed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 52,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "startupKind": "escode_protocol_agent",
+        "stage": "total",
+        "totalDurationMs": 52
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.092Z",
+      "level": "info",
+      "event": "log.retention.cleanup.scheduled",
+      "module": "adapters.logging",
+      "message": "Log retention cleanup scheduled",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "status": "waiting",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "delayMs": 60000,
+        "logDir": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli/log",
+        "retentionDays": 7
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.095Z",
+      "level": "info",
+      "event": "escode_protocol.session_create.started",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol session/create started",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "status": "started",
+      "context": {
+        "hasInitialModel": false,
+        "hasInitialThoughtLevel": false,
+        "persistence": "deferred",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "workspacePath": "/tmp/escode-file-log-node-ZKNfZp/workspace"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.097Z",
+      "level": "info",
+      "event": "escode_protocol.create_record.mcp_config",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol createRecord MCP config",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "rootTraceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+        "paramMcpServerCount": 0,
+        "runtimeHasMcpConfig": false,
+        "runtimeMcpServerCount": 0,
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "workspacePath": "/tmp/escode-file-log-node-ZKNfZp/workspace"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.098Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.started",
+      "module": "bootstrap",
+      "message": "ESCode app startup started",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 0,
+      "status": "started",
+      "context": {
+        "startupKind": "escode_app",
+        "hasInjectedModelAdapter": false,
+        "resume": false,
+        "stage": "start",
+        "totalDurationMs": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.098Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.config.completed",
+      "module": "bootstrap",
+      "message": "ESCode app configuration loaded",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 1,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "configSourceEnv": true,
+        "configSourceProject": false,
+        "configSourceUser": false,
+        "stage": "load_config",
+        "totalDurationMs": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.351Z",
+      "level": "warn",
+      "module": "bootstrap.official_plugin_cache",
+      "message": "Official plugin cache operation degraded",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "attempts": 1,
+        "degraded": true,
+        "errorCode": "ESCODE_PLUGIN_SEED_INCOMPLETE",
+        "missingSeedPaths": [
+          "dist/mcp/server.js"
+        ],
+        "operation": "seed_plugin",
+        "pluginId": "rea@zcode-plugins-official",
+        "targetRoot": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli/plugins/cache/zcode-plugins-official/rea/0.1.0"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.369Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.plugins.completed",
+      "module": "bootstrap",
+      "message": "ESCode plugins resolved",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 271,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "commandRootCount": 0,
+        "diagnosticCount": 2,
+        "enabledPluginCount": 13,
+        "hookCount": 0,
+        "mcpServerCount": 1,
+        "pluginCount": 17,
+        "pluginStorageRoot": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli/plugins",
+        "skillRootCount": 11,
+        "stage": "resolve_plugins",
+        "totalDurationMs": 271
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.375Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.runtime_config.completed",
+      "module": "bootstrap",
+      "message": "ESCode runtime configuration resolved",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 6,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "mcpEnabled": true,
+        "memoryEnabled": false,
+        "memoryExtractionEnabled": true,
+        "memoryRoot": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli/memories/projects/workspace-2135f89c46809e97/memory",
+        "memoryUse": true,
+        "mode": "build",
+        "runtimeFeatureBrowserUse": true,
+        "runtimeFeatureNodeRepl": false,
+        "workingDirectory": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "stage": "resolve_runtime_config",
+        "totalDurationMs": 277
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.377Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.storage.completed",
+      "module": "bootstrap",
+      "message": "ESCode storage adapters initialized",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 2,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "hasInjectedArtifactStore": false,
+        "hasInjectedSessionStore": true,
+        "cliStorageRoot": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli",
+        "storageRoot": "/tmp/escode-file-log-node-ZKNfZp/.escode",
+        "stage": "initialize_storage",
+        "totalDurationMs": 279
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.378Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.mcp.completed",
+      "module": "bootstrap",
+      "message": "ESCode MCP adapter initialized",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 1,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "hasInjectedMcpPort": false,
+        "mcpEnabled": true,
+        "mcpServerCount": 2,
+        "trustedMcpServerCount": 2,
+        "stage": "initialize_mcp",
+        "totalDurationMs": 280
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.383Z",
+      "level": "info",
+      "event": "mcp.server.connect.started",
+      "module": "adapters.mcp",
+      "message": "MCP server connection started",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "status": "started",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "plugin:usb:usb",
+        "timeoutMs": 30000,
+        "transport": "stdio"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "mcp.pool.connection.created",
+      "module": "adapters.mcp.pool",
+      "message": "MCP pooled connection created",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "plugin:usb:usb",
+        "transport": "stdio"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "mcp.pool.lease.acquired",
+      "module": "adapters.mcp.pool",
+      "message": "MCP connection lease acquired",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpLeaseId": "2:sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+        "mcpServerName": "plugin:usb:usb",
+        "refCount": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "mcp.server.connect.started",
+      "module": "adapters.mcp",
+      "message": "MCP server connection started",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "status": "started",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "node_repl",
+        "timeoutMs": 600000,
+        "transport": "stdio"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "mcp.pool.connection.created",
+      "module": "adapters.mcp.pool",
+      "message": "MCP pooled connection created",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "node_repl",
+        "transport": "stdio"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "mcp.pool.lease.acquired",
+      "module": "adapters.mcp.pool",
+      "message": "MCP connection lease acquired",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpLeaseId": "2:sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+        "mcpServerName": "node_repl",
+        "refCount": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.384Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.runtime.completed",
+      "module": "bootstrap",
+      "message": "ESCode runtime constructed",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 7,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "hasInjectedModelAdapter": false,
+        "stage": "create_runtime",
+        "totalDurationMs": 287
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.385Z",
+      "level": "info",
+      "event": "bootstrap.app.startup.completed",
+      "module": "bootstrap",
+      "message": "ESCode app startup completed",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 287,
+      "status": "completed",
+      "context": {
+        "startupKind": "escode_app",
+        "workingDirectory": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "stage": "total",
+        "totalDurationMs": 287
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.385Z",
+      "level": "info",
+      "event": "log.retention.cleanup.scheduled",
+      "module": "adapters.logging",
+      "message": "Log retention cleanup scheduled",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "status": "waiting",
+      "context": {
+        "delayMs": 60000,
+        "logDir": "/tmp/escode-file-log-node-ZKNfZp/.escode/cli/log",
+        "retentionDays": 7
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.420Z",
+      "level": "info",
+      "event": "escode_protocol.session_create.completed",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol session/create completed",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 325,
+      "status": "completed",
+      "context": {
+        "hasInitialModel": false,
+        "hasInitialThoughtLevel": false,
+        "persistence": "deferred",
+        "recordCreateDurationMs": 324,
+        "rootTraceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+        "snapshotDurationMs": 0,
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "workspacePath": "/tmp/escode-file-log-node-ZKNfZp/workspace"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.424Z",
+      "level": "info",
+      "event": "dynamic_workflow.service.closing",
+      "module": "bootstrap.app",
+      "message": "Dynamic workflow run service closing",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "liveRunCount": 0,
+        "parentSessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.424Z",
+      "level": "info",
+      "event": "dynamic_workflow.service.closed",
+      "module": "bootstrap.app",
+      "message": "Dynamic workflow run service closed",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "parentSessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+        "stoppedRunCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.424Z",
+      "level": "info",
+      "event": "mcp.pool.lease.released",
+      "module": "adapters.mcp.pool",
+      "message": "MCP connection lease released",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpLeaseId": "2:sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+        "mcpServerName": "plugin:usb:usb",
+        "refCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.424Z",
+      "level": "info",
+      "event": "mcp.pool.lease.released",
+      "module": "adapters.mcp.pool",
+      "message": "MCP connection lease released",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpLeaseId": "2:sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+        "mcpServerName": "node_repl",
+        "refCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.528Z",
+      "level": "info",
+      "event": "mcp.server.closed",
+      "module": "adapters.mcp",
+      "message": "MCP server closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 103,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "plugin:usb:usb"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.server.closed",
+      "module": "adapters.mcp",
+      "message": "MCP server closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "node_repl"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.server.closed",
+      "module": "adapters.mcp",
+      "message": "MCP server closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "plugin:usb:usb"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.server.closed",
+      "module": "adapters.mcp",
+      "message": "MCP server closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "node_repl"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.adapter.closed",
+      "module": "adapters.mcp",
+      "message": "MCP adapter closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "serverCount": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.adapter.closed",
+      "module": "adapters.mcp",
+      "message": "MCP adapter closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "serverCount": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.556Z",
+      "level": "info",
+      "event": "mcp.pool.connection.closed",
+      "module": "adapters.mcp.pool",
+      "message": "MCP pooled connection closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 131,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "beb24867-3838-4501-b3b9-1dded63e99b1",
+        "mcpIsolation": "session",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "plugin:usb:usb"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.557Z",
+      "level": "info",
+      "event": "mcp.pool.connection.closed",
+      "module": "adapters.mcp.pool",
+      "message": "MCP pooled connection closed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "durationMs": 132,
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol",
+        "mcpConnectionId": "39196e51-b7bf-45e6-8e83-53a873643d12",
+        "mcpIsolation": "workspace",
+        "workspaceKey": "/tmp/escode-file-log-node-ZKNfZp/workspace",
+        "mcpServerName": "node_repl"
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.557Z",
+      "level": "info",
+      "event": "mcp.startup.completed",
+      "module": "core.runtime",
+      "message": "MCP startup completed",
+      "traceId": "203f0be8-dca1-4396-987e-bd684a6f21a7",
+      "spanId": "977d0bb9-88b3-49",
+      "sessionId": "sess_e4313a67-3095-45de-92d1-cbd0082989d2",
+      "durationMs": 174,
+      "status": "completed",
+      "context": {
+        "serverCount": 2,
+        "statusCounts": {},
+        "toolCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-23T23:38:33.591Z",
+      "level": "info",
+      "event": "escode_protocol.shutdown.completed",
+      "module": "bootstrap.escode_protocol",
+      "message": "ESCode Protocol agent shutdown completed",
+      "traceId": "47e70e8c-e6ea-4ff9-a4c4-40dcbd3e0d57",
+      "spanId": "0bfa3a0b-4cdf-46",
+      "status": "completed",
+      "context": {
+        "entrypoint": "escode_protocol"
+      }
+    }
+  ]
+}

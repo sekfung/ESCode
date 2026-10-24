@@ -1,0 +1,24 @@
+{
+  "keys": [
+    "client_mode",
+    "delivery_kind",
+    "parent_span_id",
+    "runtime_scope",
+    "session_id",
+    "span_id",
+    "trace_id",
+    "turn_id",
+    "workspace_key",
+    "workspace_path"
+  ],
+  "nestedEqualsFlat": true,
+  "sessionMatches": true,
+  "turnPresent": true,
+  "runtimeScope": "main",
+  "workspace": true,
+  "clientMode": [
+    "desktop-continuous",
+    "desktop-continuous"
+  ],
+  "spanLength": 16
+}

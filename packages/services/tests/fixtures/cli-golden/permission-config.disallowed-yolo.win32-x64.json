@@ -1,0 +1,7 @@
+{
+  "status": "success",
+  "toolResult": "File created successfully at: out.txt (file state is current in your context — no need to Read it back)",
+  "file": "written",
+  "prompts": 0,
+  "schemaErrors": []
+}
