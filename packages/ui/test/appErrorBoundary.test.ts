@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppErrorBoundary, ScopedErrorBoundary } from "@/ErrorBoundary.js";
 
 afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -67,5 +69,30 @@ describe("AppErrorBoundary", () => {
     };
 
     expect(renderToStaticMarkup(boundary.render())).toBe("");
+  });
+
+  it("生产构建下把崩溃根因写入桌面日志桥", () => {
+    // 修复原因：生产构建里普通 logger.error 整体 no-op，导出的现场日志只剩 componentStack、
+    // 没有 error.message；错误边界崩溃是低频事件，必须走 lifecycle 诊断通道留下根因。
+    vi.stubEnv("PROD", true);
+    const bridgeLog = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("window", { escode: { log: bridgeLog } });
+
+    const boundary = new ScopedErrorBoundary({
+      children: createElement("div", null, "ok"),
+      scope: "workspace-chat",
+    });
+    vi.spyOn(boundary, "setState").mockImplementation(() => {});
+    boundary.componentDidCatch(new Error("Objects are not valid as a React child"), {
+      componentStack: "\n    at button",
+    });
+
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(bridgeLog).toHaveBeenCalledWith("error", [
+      "[ScopedErrorBoundary:workspace-chat] React subtree crashed:",
+      expect.objectContaining({ message: "Objects are not valid as a React child" }),
+      "\n    at button",
+    ]);
   });
 });
