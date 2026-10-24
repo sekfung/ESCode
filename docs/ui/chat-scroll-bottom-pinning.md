@@ -58,6 +58,7 @@ V4 timeline 维护一个显式吸底状态机：
 - 自动吸底使用 `scrollRef.current.scrollTop = scrollHeight - clientHeight`，避免流式输出期间连续 smooth scroll 造成抖动。
 - 用户点击“回到底部”或提交需要定位到最新消息的 prompt 时，使用 instant `scrollTop` 写入并立即进入吸底状态；同一处理内必须同步提交当前 session 的吸底记忆，不能等待后续 `scroll` 或 scope cleanup，确保紧接着切换 session 仍按“吸底”恢复。
 - `scroll` 事件只有在关联到真实用户滚动输入时才允许改变吸底意图；组件自身贴底以及 virtualizer/折叠/测高造成的 `scrollTop` 变化只更新几何账目，不改变 `FOLLOWING / DETACHED`。用户向上滚动的输入在浏览器派发 `scroll` 之前先登记，因此与 terminal commit 同帧时也能优先解除跟随。
+- 吸底写入本身会推动虚拟列表继续测高，导致下一个 commit 的滚动指标再次变化。目录视口这类 UI 派生态（`activeQueryRowId` 等）不得在 layout commit 内同步 `setState`，否则每次 commit 都在末尾续排同步任务，嵌套更新超过 50 次后 React 抛 #185 并让错误边界接管整块聊天区。`ConversationTimeline` 把目录视口更新合并为一次微任务提交；同步写入 `scrollTop` 本身仍留在 layout 阶段以保持绘制前贴底。
 - 滚动记忆只保存 renderer-local 的阅读位置和吸底意图；切到别的 task 后后台继续流式输出时，原本吸底的 task 切回必须重新吸到底部，避免旧 `scrollTop` 被当成用户阅读历史位置。
 - 用户滚动、scope 变化和 timeline 卸载都会保存当前状态；scope 变化使用 React before-mutation snapshot 读取旧 DOM，并对账尚未派发的上滚/下滚，避免快速“滚动后切走”被新会话 DOM 覆盖或误存为吸底。
 - 会话恢复时 rows 可能晚于 session scope 到达；“回到底部”按钮可见性必须在 rows/测高就绪后重新对账。只要恢复意图是离底且已有可滚动内容，就必须提供按钮；不得因为恢复瞬间 `rowCount=0` 而永久隐藏，也不得出现视口明显离底但逻辑仍显示为吸底的状态。

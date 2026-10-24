@@ -82,6 +82,9 @@ const animationFrames = new Map<number, FrameRequestCallback>();
 const scheduledMicrotasks: Array<() => void> = [];
 const nativeQueueMicrotask = globalThis.queueMicrotask;
 let mountedRoot: Root | null = null;
+// 测高未收敛场景的驱动钩子：每次写 scrollTop 时推进一档内容高度，
+// 模拟「贴底后虚拟列表测高把底部继续往下推」的连续 commit。
+let onScrollTopWrite: ((value: number) => void) | null = null;
 
 function createMinimalElement(ownerDocument: Document, tagName = "div"): TestElement {
   let scrollTop = 0;
@@ -162,6 +165,7 @@ function createMinimalElement(ownerDocument: Document, tagName = "div"): TestEle
     scrollTop: {
       get: () => scrollTop,
       set: (value: number) => {
+        onScrollTopWrite?.(Number(value) || 0);
         // 与浏览器一致：赋值按当前内容高度钳制。
         scrollTop = Math.min(
           Math.max(Number(value) || 0, 0),
@@ -295,6 +299,7 @@ const ROWS_B_TAIL = [userInputRow(101), userInputRow(102), userInputRow(103)];
 
 beforeEach(() => {
   clearChatSessionScrollMemoryForTest();
+  onScrollTopWrite = null;
   layout.clientHeight = 300;
   layout.scrollHeight = 1200;
   nextFrameId = 1;
@@ -424,5 +429,41 @@ describe("会话切换滚动恢复（ZCT 复现）", () => {
     // 回归前实现：prepend 锚定把"钳制瞬间恰好在视口里的那一行"当作阅读锚点平移
     //（900 + 18800 = 19700），落点漂到接近底部/任意历史处，保存位置永久丢失。
     expect(timeline.scrollTop).toBe(12000);
+  });
+
+  it("恢复测高未收敛时，贴底 layout effect 不得同步 setState 成 React #185", () => {
+    const container = installMinimalDom();
+    mountedRoot = createRoot(container);
+    // 2026-10-25 生产崩溃（React #185）的最小复现：贴底写入会推动虚拟列表继续测高，
+    // 内容高度因此在一个 commit 内又变高；底部锚定 layout effect 在下一个 commit 再次
+    // 贴底 → syncTurnNavigatorViewport。修复前这里同步 setState，每次 commit 末尾都续排
+    // 同步任务，嵌套更新超过 50 次后 React 抛 #185（整块聊天区被错误边界接管）。
+    // 修复后目录视口合并成一次微任务提交，级联仍在推进，但不再计入嵌套更新。
+    let growthSteps = 0;
+    const growthCap = 60;
+    const growthStepPx = 10;
+    layout.scrollHeight = 1200;
+    onScrollTopWrite = () => {
+      if (growthSteps >= growthCap) return;
+      growthSteps += 1;
+      layout.scrollHeight += growthStepPx;
+    };
+    try {
+      // 修复前：这个 act 内部就会因 50 次嵌套同步更新抛 React #185。
+      act(() => renderTimeline(mountedRoot!, "session-a", KEY_A, ROWS_A));
+      const timeline = findByTestId(container, TID_V4_TIMELINE)!;
+      // 修复后：每次微任务提交推进一档测高；60 档 ≫ React 的 50 次嵌套更新上限。
+      for (let guard = 0; guard < 300 && growthSteps < growthCap; guard += 1) {
+        act(() => flushScheduledMicrotasks());
+      }
+      act(() => {
+        flushAnimationFrame();
+        flushScheduledMicrotasks();
+      });
+      expect(growthSteps).toBe(growthCap);
+      expect(timeline.scrollTop).toBe(layout.scrollHeight - layout.clientHeight);
+    } finally {
+      onScrollTopWrite = null;
+    }
   });
 });

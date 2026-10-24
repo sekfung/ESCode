@@ -247,6 +247,12 @@ function getUnitHeightCacheKey(unit: ConversationTurnRenderUnit | undefined): st
   return unit?.key;
 }
 
+interface TurnNavigatorViewportState {
+  scrollOffsetPx: number;
+  viewportHeightPx: number;
+  activeQueryRowId: number | undefined;
+}
+
 export interface ConversationTimelineProps {
   rows: readonly ConversationRow[];
   /** CLI 权威 queue 中等待 model-step 注入的 guide；只改变 renderer 落位。 */
@@ -467,11 +473,18 @@ function ConversationTimelineImpl({
     heightCacheRef.current = new TimelineRowHeightCache();
   }
   const [backToBottomVisible, setBackToBottomVisible] = useState(false);
-  const [turnNavigatorViewport, setTurnNavigatorViewport] = useState({
+  const [turnNavigatorViewport, setTurnNavigatorViewport] = useState<TurnNavigatorViewportState>({
     scrollOffsetPx: 0,
     viewportHeightPx: 0,
-    activeQueryRowId: undefined as number | undefined,
+    activeQueryRowId: undefined,
   });
+  // 修复 React #185：目录视口的同步 setState 由多个 layout effect 在 commit 内触发；
+  // 会话切换/恢复测高未收敛时每个 commit 的滚动指标都不同，会不断在 commit 末尾续排
+  // 同步任务，嵌套更新超过 50 次后 React 抛 #185。这里合并成一次微任务提交：
+  // 目录视口是 UI 派生态（位置优先读 virtualizer，仅 activeQueryRowId 依赖此 state），
+  // 微任务仍在绘制前落地，但不再属于 layout commit，嵌套计数不会累加。
+  const pendingTurnNavigatorViewportRef = useRef<TurnNavigatorViewportState | null>(null);
+  const turnNavigatorViewportFlushScheduledRef = useRef(false);
   const [turnNavigatorContainerWidthPx, setTurnNavigatorContainerWidthPx] = useState(0);
   const turnNavigatorJumpFrameRef = useRef<number | null>(null);
   const turnNavigatorHydrationAttemptRef = useRef<{
@@ -857,13 +870,24 @@ function ConversationTimelineImpl({
           viewportHeightPx: element.clientHeight,
         }),
       };
-      setTurnNavigatorViewport((current) =>
-        current.scrollOffsetPx === nextViewport.scrollOffsetPx &&
-        current.viewportHeightPx === nextViewport.viewportHeightPx &&
-        current.activeQueryRowId === nextViewport.activeQueryRowId
-          ? current
-          : nextViewport,
-      );
+      pendingTurnNavigatorViewportRef.current = nextViewport;
+      if (turnNavigatorViewportFlushScheduledRef.current) return;
+      turnNavigatorViewportFlushScheduledRef.current = true;
+      // 只保留最后一次测量结果；同一帧内多次 layout effect / scroll 回调只提交一次，
+      // 避免把「吸底 → 测高 → 再吸底」的同步级联变成 50+ 次嵌套同步更新。
+      scheduleMicrotask(() => {
+        turnNavigatorViewportFlushScheduledRef.current = false;
+        const pendingViewport = pendingTurnNavigatorViewportRef.current;
+        if (!pendingViewport) return;
+        pendingTurnNavigatorViewportRef.current = null;
+        setTurnNavigatorViewport((current) =>
+          current.scrollOffsetPx === pendingViewport.scrollOffsetPx &&
+          current.viewportHeightPx === pendingViewport.viewportHeightPx &&
+          current.activeQueryRowId === pendingViewport.activeQueryRowId
+            ? current
+            : pendingViewport,
+        );
+      });
     },
     [syncMessageLayerMask],
   );
