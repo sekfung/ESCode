@@ -143,12 +143,18 @@ Rust Host 不承载远程 scope。
   - 其余文件中的 TS 源码 oracle（工具 schema/handler、凭据、提示词、迁移/导入 legacy DB）
     改为冻结 JSON 或 gzip SQLite seed（`escode-cli-rust-legacy-seed.ts`），不再静态 import TS 源码。
   - 例外（非确定性 parity 门禁）：`long-history-bench`、`real-data-rehearsal`、
-    `real-provider-bench` 默认跳过并依赖真实 provider/数据库；`shell-resume-notice` 仅 Windows
-    启用，golden 需在 Windows runner 重录一次。
+    `real-provider-bench` 默认跳过并依赖真实 provider/数据库；`shell-resume-notice` 等仅
+    Windows 启用的用例已由 record run `40040325646` 写入 `win32-x64` 平台 golden。
   - 冻结时的等价替代（原 Node 观察均保留在 golden）：凭据的 Node↔Rust 交叉解密改为冻结
     Node 密文 + Rust 解密/往返；automation/mcp-oauth 的 Node 写→Rust 读改为冻结 Node 观察
     - Rust 写读；migration/import 的 TS store 造数改为 gzip SQLite seed
       （`escode-cli-rust-legacy-seed.ts`，路径用占位符重写）。
+- 平台专属 golden：record run `40040325646` 在 macos-latest / win32-x64 重跑 CLI 套件，
+  `nodeOracle` 优先加载 `<suite>.<case>.<platform>-<arch>.json`（精确 arch 未命中时回退同 OS
+  家族）；Linux 继续使用通用 golden，test 作业安装 `poppler-utils` 对齐 PDF 录制环境。
+- 跨平台 CI：`rust-runtime-ci` run `40055867063`（head `63dee1c3`）**success**——checks/bench
+  三平台、test 九个 shard（ubuntu/macos/windows）全部通过。macOS shard 1 的
+  `file_watcher` 时序用例偶发失败，rerun 后 success（与 golden 无关）。
 - **installed 四平台演练已完成**：release CI run `40022683157` 的四个 `installed` 作业全部
   success，node→rust→node 与 settings 保留断言均通过（见 2.2）。
 
@@ -163,6 +169,6 @@ Rust Host 不承载远程 scope。
 
 阶段 2 的服务域迁移、验收项与 P1 #9 结构重构均已完成。
 阶段 3 已完成默认开关、六目标打包、回退矩阵、Host parity/settings 切片、desktop Host 与
-CLI oracle 的 golden freeze，以及 installed 四平台 Node→Rust→Node 真机演练
-（release run `40022683157` 四平台全绿，`settings preserved`）。
-平台专属 CLI golden 的录制/校验仍在收口（Windows/macOS 差异已在 CI 中逐项修复）。
+CLI oracle 的 golden freeze（含 macOS/Windows 平台专属 golden），以及 installed 四平台
+Node→Rust→Node 真机演练（release run `40022683157` 四平台全绿，`settings preserved`）。
+跨平台 golden CI：`rust-runtime-ci` run `40055867063` 九 shard + checks/bench 全绿。
