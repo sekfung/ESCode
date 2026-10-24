@@ -161,6 +161,11 @@ export interface RustHostLogBatch {
 export async function startRustHost(options: StartRustHostOptions): Promise<RustHostHandle> {
   const child = spawn(options.binary, options.args ?? [], {
     stdio: ["pipe", "pipe", "inherit"],
+    // 修复 Windows 上 Host 被控制台控制事件终止（exit code 0xC000013A = STATUS_CONTROL_C_EXIT）：
+    // escode-host 是 console 子系统程序，不隐藏时 Windows 会为它创建控制台窗口；关闭该窗口或
+    // Ctrl+C 都会直接杀掉 Host。与仓库内其它 Windows helper 的 spawn 保持一致。
+    // stderr 仍走 inherit，Host 结构化日志丢弃时的 stderr 镜像不受影响。
+    windowsHide: true,
     env: {
       ...process.env,
       ...options.env,

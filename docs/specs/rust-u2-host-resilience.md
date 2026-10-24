@@ -117,6 +117,7 @@ TS Host 的 agent 子进程崩溃时，协议客户端在 transport 关闭时拒
 - 退避期间的 `ensureStarted()` 等待同一个重启 Promise（single-flight），不另起进程。
 - 重启拉起失败也计一次；用完次数即 `failed`。
 - 计数器的时钟与定时器可注入（测试用），默认 `Date.now` 与 `setTimeout`。
+- Windows 上 `startRustHost` 以 `windowsHide: true` 拉起：`escode-host` 是 console 子系统程序，不隐藏时 Windows 会为它创建控制台窗口，关闭该窗口或 Ctrl+C 会以 `0xC000013A`（`STATUS_CONTROL_C_EXIT`）终止 Host——在 Main 看来是一次“意外退出”，会消耗重启预算。stderr 仍走 `inherit`，不丢失 Host 日志的 stderr 镜像。
 
 状态机：
 
