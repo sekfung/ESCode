@@ -114,20 +114,25 @@ export async function nodeOracle<T>(name: string, run: () => Promise<T>): Promis
     recordedThisRun.set(key, value);
     const json = `${JSON.stringify(value, null, 2)}\n`;
     await mkdir(goldenDir, { recursive: true });
+    // 录制工作流（ESCODE_GOLDEN_PLATFORM=1）写平台专属文件；本地默认写通用文件。
+    const platformOnly = process.env.ESCODE_GOLDEN_PLATFORM === "1";
+    const plain = platformOnly ? file.platformPlain : file.plain;
+    const gzip = platformOnly ? file.platformGzip : file.gzip;
     if (json.length > 1024 * 1024) {
-      await writeFile(file.gzip, gzipSync(Buffer.from(json)));
+      await writeFile(gzip, gzipSync(Buffer.from(json)));
     } else {
-      await writeFile(file.plain, json);
+      await writeFile(plain, json);
     }
     return value;
   }
-  if (existsSync(file.gzip)) {
-    return canonical(JSON.parse(gunzipSync(await readFile(file.gzip)).toString("utf8")) as T);
-  }
-  if (!existsSync(file.plain)) {
+  const existing = loadExisting(file);
+  if (!existing) {
     throw new Error(
-      `Missing CLI golden ${file.plain}; run once with ESCODE_RECORD_CLI_GOLDEN=1 to record.`,
+      `Missing CLI golden ${file.plain} (or ${file.platformPlain}); run once with ESCODE_RECORD_CLI_GOLDEN=1 to record.`,
     );
   }
-  return canonical(JSON.parse(await readFile(file.plain, "utf8")) as T);
+  if (existing.endsWith(".gz")) {
+    return canonical(JSON.parse(gunzipSync(await readFile(existing)).toString("utf8")) as T);
+  }
+  return canonical(JSON.parse(await readFile(existing, "utf8")) as T);
 }
