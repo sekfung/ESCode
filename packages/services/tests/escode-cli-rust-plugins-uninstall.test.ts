@@ -113,7 +113,11 @@ async function observe(kind: Runtime) {
       }
     };
     // 文件原文里的路径是一次 JSON 转义；再经 scrub 的 JSON.stringify 会变成两次，先按原文替换。
-    const raw = (text: string) => text.replaceAll(JSON.stringify(root).slice(1, -1), "<root>");
+    const raw = (text: string) =>
+      text
+        .replaceAll(JSON.stringify(root).slice(1, -1), "<root>")
+        // 文件原文里的 Windows 路径是双反斜杠；统一成正斜杠后与 Linux 录制值可比。
+        .replaceAll("\\\\", "/");
     const files = async () => ({
       installed: scrub(raw(await readFile(join(storage, "installed_plugins.json"), "utf8"))),
       user: scrub(raw(await readFile(userConfigPath, "utf8"))),

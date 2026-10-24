@@ -38,8 +38,11 @@ function rewritePaths(
     for (const column of columns) {
       // 只改文本列：数值列不会被路径命中，但 replace() 会把它们临时转成文本。
       if (column.type && !/text/i.test(column.type)) continue;
+      // data/payload 是 JSON 文本：即使命中 raw 占位符，也必须写入 JSON 转义后的路径，
+      // 否则 Windows 反斜杠会产成 invalid escape。
+      const isJson = column.name === "data" || column.name === "payload";
       for (const [needle, replacement] of [
-        [from, to],
+        [from, isJson ? jsonTo : to],
         [jsonFrom, jsonTo],
       ] as const) {
         if (!needle) continue;
