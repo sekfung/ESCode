@@ -19,6 +19,14 @@ export const NORMALIZATION = [
     replacement: "<ROOT>",
   },
   {
+    id: "os-version",
+    order: "text",
+    pattern: "- OS Version: [^\\\\]+",
+    replacement: "- OS Version: <OS>",
+    reason:
+      "系统内核版本随 runner/机器变化，不属于协议契约；Platform 与 Shell 仍保留用于跨平台判定",
+  },
+  {
     id: "uuid",
     order: "text",
     pattern: "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -87,11 +95,9 @@ function sortValue(value) {
 }
 
 function applyTextFieldRules(line, sideRoot) {
-  let out = line
-    .split(sideRoot)
-    .join("<ROOT>")
-    .split(sideRoot.replaceAll("\\", "\\\\"))
-    .join("<ROOT>");
+  let out = sideRoot
+    ? line.split(sideRoot).join("<ROOT>").split(sideRoot.replaceAll("\\", "\\\\")).join("<ROOT>")
+    : line;
   for (const rule of TEXT_RULES.slice(1)) {
     out = out.replace(new RegExp(rule.pattern, "g"), rule.replacement);
   }

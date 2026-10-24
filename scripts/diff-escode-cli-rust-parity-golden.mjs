@@ -20,6 +20,8 @@ export function resolveGoldenFile({ root, scenario, explicit }) {
 
 export function goldenPayload(side) {
   return {
+    // 录制侧临时根：--golden 重新归一 raw frames 时用它替换 <ROOT>。
+    root: side.root,
     exitCode: side.exitCode,
     signal: side.signal,
     startupMs: side.startupMs,
@@ -65,7 +67,12 @@ export async function loadGolden({ file, scenario }) {
     throw new Error(`golden 场景不匹配：${golden.scenario} != ${scenario}`);
   }
   return {
-    side: { ...golden.node, root: null, golden: true, bundleSha256: golden.nodeBundleSha256 },
+    side: {
+      ...golden.node,
+      root: golden.node.root ?? null,
+      golden: true,
+      bundleSha256: golden.nodeBundleSha256,
+    },
     recordedAt: golden.recordedAt,
   };
 }

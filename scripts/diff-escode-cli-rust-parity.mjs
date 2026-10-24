@@ -116,7 +116,7 @@ for (const side of values.golden ? ["rust"] : ["node", "rust"]) {
       `modelRequests ${sides[side].modelRequests.length}，startup ${sides[side].startupMs}ms`,
   );
 }
-for (const side of Object.values(sides)) {
+function normalizeSide(side) {
   // 运行期标识符映射按侧独立（同一侧内一致），跨侧错位仍可见。
   const tokenMap = new Map();
   side.framesNormalized = side.frames.map((line) => normalizeLine(line, side.root, tokenMap));
@@ -142,6 +142,7 @@ for (const side of Object.values(sides)) {
     ),
   );
 }
+for (const side of Object.values(sides)) normalizeSide(side);
 
 if (values.record) {
   await recordGolden({
@@ -156,6 +157,9 @@ if (values.record) {
 if (values.golden) {
   const loaded = await loadGolden({ file: goldenFile, scenario });
   sides.node = loaded.side;
+  // 冻结资产里的 raw frames/modelRequests 必须按当前 NORMALIZATION 重新归一；
+  // 否则新增/修改的规则不会作用于已录制的 golden。
+  normalizeSide(sides.node);
   console.log(
     `[parity] golden: frames ${sides.node.frames.length}，` +
       `modelRequests ${sides.node.modelRequests.length}，录制于 ${loaded.recordedAt}`,
