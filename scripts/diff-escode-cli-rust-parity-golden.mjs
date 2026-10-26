@@ -11,10 +11,14 @@ function paths(scenario) {
   };
 }
 
-/** 显式 --golden-file 优先；否则优先当前平台文件，再回退通用名。 */
-export function resolveGoldenFile({ root, scenario, explicit }) {
+/**
+ * 显式 --golden-file 优先；--record 必须写当前平台文件（否则首次录制会落到通用名，
+ * 平台门禁永远不出现）；--golden 优先当前平台文件，再回退通用名。
+ */
+export function resolveGoldenFile({ root, scenario, explicit, record = false }) {
   if (explicit) return explicit;
   const { platform, fallback } = paths(scenario);
+  if (record) return resolve(root, platform);
   return resolve(root, existsSync(resolve(root, platform)) ? platform : fallback);
 }
 

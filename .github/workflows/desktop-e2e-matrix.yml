@@ -1,0 +1,85 @@
+# 桌面端跨平台 E2E 矩阵（阶段 3 验收）
+#
+# 目的：回答「GUI 是否真的在各平台可用」，与 installed 作业（安装包启动/切换演练）区分。
+# 用例清单与判定口径见 docs/testing/desktop-e2e-ci-matrix.md。
+name: desktop e2e matrix
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: "逗号分隔的 spec 清单（相对 packages/desktop）；留空用仓库默认矩阵"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: desktop-e2e-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 与 rust-runtime-ci 一致的慢 runner 放宽值（fixture 请求/关闭预算）。
+  ESCODE_TEST_REQUEST_MS: "60000"
+  ESCODE_TEST_EXIT_MS: "15000"
+  # 矩阵只跑正式目录下的 spec，不收 manual-review/pending。
+  ESCODE_E2E_MAX_INSTANCES: "1"
+  ESCODE_E2E_SPEC: >-
+    ${{ inputs.specs != '' && inputs.specs ||
+    './test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-lifecycle.test.ts,./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts' }}
+
+jobs:
+  e2e:
+    name: desktop e2e (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      # Windows：Defender 实时扫描会拖慢大量小文件读写并短暂占用刚关闭的文件（EBUSY）。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: e2e-matrix
+          cache-on-failure: true
+      # Linux 无图形会话：WDIO 的 autoXvfb 会按需启动 Xvfb；显式安装以免依赖镜像预装。
+      - name: linux display tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      # 非打包 E2E 的 Agent bundle 与 Rust Host debug 二进制由仓库脚本产出；
+      # wdio onPrepare 也会在缺失时自举，这里先建一次让失败点更明确。
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug)
+        run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # onPrepare 会先跑 build:no-runtime-assets（tsup + vite），再启动 Electron。
+      - name: run curated desktop E2E
+        run: pnpm --filter @escode/desktop test:e2e:serial
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-e2e-${{ matrix.os }}
+          path: |
+            packages/desktop/.e2e-artifacts
+            packages/desktop/.e2e-home
+          if-no-files-found: warn

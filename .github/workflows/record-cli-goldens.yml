@@ -50,13 +50,16 @@ jobs:
       - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
       # 不在录制前跑实时双跑：frames 的 fromSeq/批次顺序随 Node 运行调度变化（已知欠账 T-4），
       # 实时双跑会间歇性产生新差异，不能作为冻结前置条件。先录制（golden 在比较前落盘），
-      # 再用只跑 Rust 的 --golden 对刚录的观察验证；验证通过即说明该 golden 可用于阻塞门禁。
+      # 再冻结当前平台的欠账基线，最后用只跑 Rust 的 --golden 验证；验证通过即说明该 golden
+      # 可用于阻塞门禁。欠账指纹按平台分文件：Windows/macOS 的帧批次与 seq 编号与 Linux 不同。
       - name: Record CLI parity golden (session-baseline)
         shell: bash
         continue-on-error: true
         run: node scripts/diff-escode-cli-rust-parity.mjs --record
+      - name: Freeze this platform's known-debt baseline
+        shell: bash
+        run: node scripts/diff-escode-cli-rust-parity.mjs --golden --update-baseline
       - name: Verify recorded golden (Rust-only gate)
-        if: always()
         shell: bash
         run: node scripts/diff-escode-cli-rust-parity.mjs --golden
       # 录制模式不启动 Node 回放；测试仍会跑 Node 侧 oracle 并写入平台专属 golden。
@@ -71,7 +74,9 @@ jobs:
         if: always()
         with:
           name: parity-golden-${{ matrix.os }}
-          path: scripts/fixtures/parity
+          path: |
+            scripts/fixtures/parity
+            scripts/diff-escode-cli-rust-parity.baseline.*.json
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()

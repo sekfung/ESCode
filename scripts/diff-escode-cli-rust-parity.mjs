@@ -25,6 +25,7 @@
 // 依赖产物：`apps/escode-cli/packages/cli/dist/escode.cjs`（scripts/build-desktop-agent-cli.mjs
 // 或 CLI 包构建）与 Rust 二进制（cargo build --release）。
 
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -80,9 +81,16 @@ const approvedFile = resolve(
   root,
   values.approved ?? "scripts/diff-escode-cli-rust-parity.approved.json",
 );
+// 欠账指纹按平台分文件：同一场景在 Windows/macOS/Linux 上的帧批次与 seq 编号不同
+// （T-4 投递层欠账），共享一份基线会让新平台每帧都成为"新差异"。
+// `--update-baseline` 写当前平台文件；判定优先平台文件，缺失时回退通用文件（linux-x64 现状）。
+const platformBaseline = `scripts/diff-escode-cli-rust-parity.baseline.${process.platform}-${process.arch}.json`;
 const baselineFile = resolve(
   root,
-  values.baseline ?? "scripts/diff-escode-cli-rust-parity.baseline.json",
+  values.baseline ??
+    (values["update-baseline"] || existsSync(resolve(root, platformBaseline))
+      ? platformBaseline
+      : "scripts/diff-escode-cli-rust-parity.baseline.json"),
 );
 const scenario = values.scenario;
 if (scenario !== "session-baseline") throw new Error(`未知场景 ${scenario}`);
@@ -91,6 +99,7 @@ const goldenFile = resolveGoldenFile({
   root,
   scenario,
   explicit: values["golden-file"],
+  record: values.record,
 });
 
 const approved = JSON.parse(await readFile(approvedFile, "utf8"));
