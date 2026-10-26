@@ -251,9 +251,12 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   `docs/reports/rust-stage3-acceptance-2026-10-26.md`。
 - 指标覆盖边界：安装包 harness 覆盖冷启动、空闲内存/CPU、退出回收与进程布局；首条消息首段与
   4 路流式 CPU 由 `packages/desktop/test/e2e/perf/app-perf-streaming.perf.ts` 覆盖（4 路并发固定
-  SSE，Electron 主进程子树全进程 CPU + 「点击→首段可见」延迟，Node/Rust 各跑一遍）。CI 结果：
-  PR run `40287649972` 的 `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU
-  中位数 109.0% vs 134.8%。
+  SSE，Electron 主进程子树全进程 CPU + 「点击→首段可见」延迟，Node/Rust 各跑一遍）；多 workspace
+  （N=1/4/8）与 8 workspace 优雅退出由 `app-perf-workspaces.perf.ts` 覆盖（每个 workspace 真实跑
+  一轮会话后取内存斜率；`app.quit()` 到主进程消失计退出）。CI 结果：PR run `40287649972` 的
+  `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU 中位数 109.0% vs 134.8%。
+  本地首测的多 workspace 斜率 Node 6.43 / Rust 7.02 MiB/ws、退出 2169 / 2183 ms——两项均未达到
+  §5 的 ≤2.5 MiB 与 ≤0.2 s 初始目标，原因与口径差异记在验收报告 §5.2，作为后续独立工作包。
 - parity golden：`record-cli-goldens.yml` 增加 CLI parity 录制（先落盘 golden → 冻结本平台欠账
   基线 → 只跑 Rust 的 `--golden` 验证；不把实时双跑作为前置条件，frames 批次顺序是已登记欠账）。
   `--record` 必写 `<platform>-<arch>` 文件，欠账基线也按平台分文件（Windows 帧批次与 Linux 不同）。

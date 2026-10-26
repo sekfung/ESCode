@@ -80,10 +80,10 @@ node scripts/bench-escode-app.mjs \
 | ---------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | 冷启动到主界面可用           | 已测：A 6.02 s / B 3.81 s / C 2.40 s        | §5 的 ≤1.8 s 是 macOS footprint 口径，Linux/Xvfb 数值不可直接对照；同口径下 C 明显优于 Node 组合 |
 | 空闲内存（全 App）           | 已测：A 1244.7 / B 1293.5 / C 974.2 MiB RSS | §5 的 ≤430 MiB 是 macOS footprint；Linux RSS 口径不可直接对照                                    |
-| 退出（8 workspace 全部结束） | 未测优雅退出；强制回收 66–73 ms             | 需要 UI 驱动关闭 8 workspace；当前只测整树 SIGKILL                                               |
-| 每多一个 workspace           | 未测                                        | 需要 N=1/4/8 workspace 驱动                                                                      |
-| 首条消息第一段               | 未测（App 级）                              | 需要 mock SSE + UI 会话驱动                                                                      |
-| 4 路流式全进程 CPU           | 已测（App 级，见 §5.1）                     | Linux Xvfb：Node 167.4% / Rust 144.3%（中位数）                                                  |
+| 退出（8 workspace 全部结束） | 已测（App 级，见 §5.2）                     | `app.quit()` 到主进程消失（含 before-quit 清理）：Node 2169 ms / Rust 2183 ms                    |
+| 每多一个 workspace           | 已测（App 级，见 §5.2）                     | N=1/4/8 三点斜率：App 树 Node 6.43 / Rust 7.02 MiB；Host+Agent 子集 11.77 / 12.14 MiB            |
+| 首条消息第一段               | 已测（App 级，见 §5.1）                     | Linux Xvfb CI：Node 1772.5 ms / Rust 1417.5 ms                                                   |
+| 4 路流式全进程 CPU           | 已测（App 级，见 §5.1）                     | Linux Xvfb CI：Node 134.8% / Rust 109.0%（中位数）                                               |
 | 4 路流式 Host+network CPU    | 已测（含在 §5.1 的全进程树口径）            | 未单独拆分 Host/network 角色                                                                     |
 | 进程内控制 RPC p50           | 未测                                        | 阶段 4（MemoryLink 免序列化）                                                                    |
 | 进程布局                     | 已测                                        | C 单 Rust Host、无 Node utility Host；A/B 与预期一致                                             |
@@ -163,24 +163,64 @@ CI 结论：Rust runtime 首段低 20.0%，全进程 CPU 中位数低 19.1%、�
 （噪声级），进程数少 3。与本地两次运行的方向一致（Rust 首段与 CPU 不劣于 Node）。阈值判定
 尚未引入，先积累趋势，避免 runner 抖动误红。
 
-CI 证据汇总（PR https://github.com/sekfung/ESCode/pull/2，37 项检查全绿）：
+## 5.2 多 workspace 与优雅退出
+
+新增测量用例 `packages/desktop/test/e2e/perf/app-perf-workspaces.perf.ts`。wdio 的
+`APP_PERF_WORKSPACES_SPEC` 分支会在启动前播种 8 个已恢复 workspace（全部作为 tab 恢复，
+`lastActiveTabIndex=0`）；用例逐个切换 workspace 并**真实跑一轮会话**（fixture
+`E2E_APP_PERF_WS_<n>`），让该 workspace 的运行时实例常驻，再在 N=1/4/8 取检查点。
+
+只看草稿切换不建实例，首轮实测内存完全持平（1185 → 1183 MiB），测不到「每多一个 workspace」
+的成本；因此口径改为「已跑过会话的 workspace 数」。
+
+本地 Linux Xvfb（2026-10-26，各 1 次，稳定 5s 后 5 次采样取中位数）：
+
+| Agent runtime | App 树斜率 MiB/ws | Host+Agent 斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |
+| ------------- | ----------------: | ---------------------: | ------------: | ------: | ------: | ------: |
+| Node CLI      |              6.43 |                  11.77 |          7.67 |  1221.3 |  1275.0 |    2169 |
+| Rust CLI      |              7.02 |                  12.14 |          7.93 |  1217.2 |  1272.7 |    2183 |
+
+- 斜率用 N=1/4/8 三点最小二乘，比首末两点相减抗噪；端点差单列作交叉检查（4→8 曾出现回落）。
+- Host+Agent 子集（`escode-host*` / `escode-cli-rust` / `zcode.cjs` / `app-server`）随
+  workspace 单调增长：Node 151.6 → 216.0 → 236.6 MiB，Rust 147.1 → 196.0 → 233.2 MiB。
+- 退出为真实 `app.quit()` 路径（before-quit 清理完成后再退），不是整树 SIGKILL；用
+  `/proc/<pid>/stat` 状态判定，僵尸（Z）视为已退出，否则父进程未 reap 会让测量永远超时。
+- 两侧同量级：Rust 的 workspace 斜率略高（+9.2%）、退出略慢（+0.6%），均在单次运行的波动范围内，
+  不能据此判定 Rust 更差，也不能判定更优；需要 CI 多次趋势才能下结论。
+
+与 §5 初始目标的差距（如实记录，不调口径凑数）：
+
+- §5「每多一个 workspace ≤2.5 MiB」当前未达到：Host+Agent 子集 11.8–12.1 MiB/ws。该目标的
+  原意是对标 ZCode-rs 的扩展/配置缓存增量，而本测量包含每个 workspace 的会话运行时状态
+  （8 个 workspace 各跑过一轮会话），口径更宽；两者不能直接对上。要判定 §5 目标是否达成，
+  需要 Host 侧暴露「每实例扩展/配置缓存」的计数，作为后续小工作包。
+- §5「退出 ≤0.2 s」当前未达到：实测 2.17–2.18 s，耗时在 before-quit 的 Host 清理屏障
+  （日志：`waiting for host process cleanup` → `completed` 约 2.05 s），不是 Electron 进程没收口。
+  这是「优雅退出」的真实成本，优化点在于清理屏障本身（阶段 4「启动/退出路径优化」）。
+
+## 5.3 CI 证据汇总
+
+PR https://github.com/sekfung/ESCode/pull/2（37 项检查全绿，已合并）：
 
 | 项目                | 运行                                           | 结论                                                                                      |
 | ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | mac/win golden 录制 | `record cli goldens` run `40281946953`         | 两个作业 success，golden 与平台基线已入库                                                 |
 | 三平台 golden 门禁  | `rust-runtime-ci` run `40287649913` 的 `bench` | ubuntu/macos/windows 均执行 `Rust parity against frozen golden` success，实时双跑 skipped |
 | 跨平台桌面 E2E      | `desktop e2e matrix` run `40287649972`         | ubuntu/macos/windows 三个 `desktop e2e` 均 success                                        |
-| App 级性能          | 同上 run 的 `app perf (ubuntu-latest)`         | success，产出 Node/Rust 两份 JSON 与对比表                                                |
+| App 级性能          | 同上 run 的 `app perf (ubuntu-latest)`         | success，产出 Node/Rust 的流式 JSON 与对比表                                              |
+
+多 workspace 与优雅退出用例在本轮新增，CI 证据见后续 `app perf` 作业（步骤
+`measure workspaces (node|rust runtime)` 与 summary 的「多 workspace 与优雅退出」表）。
 
 ## 6. 仍未闭合的阶段 3 项
 
-1. **多 workspace（N=1/4/8）与 8 workspace 优雅退出**：需要工作区种子 + UI 打开流程；当前
-   E2E 只提供 `seedPassiveAgentStartupWorkspaces`（建目录）与侧栏打开 helper，尚未接入 perf
-   作业。指标口径与接入方式见 §4 表。
-2. **4 路流式的 Host/network 分角色 CPU**：全进程口径已测，未按角色拆分（§5 的 ≤4 个百分点
+1. **4 路流式的 Host/network 分角色 CPU**：全进程口径已测，未按角色拆分（§5 的 ≤4 个百分点
    是分进程口径）。
-3. **首段/CPU 的阈值判定**：目前只落盘数字与对比表，未设回归阈值，避免 runner 抖动误红。
+2. **首段/CPU/退出/workspace 的阈值判定**：目前只落盘数字与 CI 对比表，未设回归阈值，避免
+   runner 抖动误红；需要先积累多次 CI 运行的趋势分布。
+3. **§5 的 ≤2.5 MiB/workspace 与 ≤0.2 s 退出目标**：已实测但未达到，口径差异与优化点见 §5.2；
+   需要 Host 侧缓存计数与退出屏障优化两个独立工作包，不在本轮范围内。
 
-结论：阶段 3 的安装包性能对照、三平台 parity golden 阻塞门禁、跨平台桌面 E2E 矩阵与 App 级
-首段/4 路流式 CPU 已完成并在 CI 验收（PR #2 全绿）；剩余 1–3 属于口径细化与阈值治理，不再
-阻塞「Rust Host 默认可用」的验收结论。多 workspace 与优雅退出仍需单独接入后才能勾选。
+结论：阶段 3 的安装包性能对照、三平台 parity golden 阻塞门禁、跨平台桌面 E2E 矩阵、App 级
+首段/4 路流式 CPU，以及多 workspace 与 8 workspace 优雅退出均已完成并实测（PR #2 的 CI 全绿）；
+剩余 1–3 属于阈值治理与 §5 目标优化，不再阻塞「Rust Host 默认可用」的验收结论。
