@@ -28,12 +28,40 @@ ESCODE_E2E_SPEC='./test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-life
 
 `workflow_dispatch` 的 `specs` 输入可覆盖清单用于定位问题；矩阵验收仍以默认清单为准。
 
+## App 级性能作业（app-perf）
+
+同一 workflow 的 `app-perf` 作业在 ubuntu-latest 上跑
+`./test/e2e/perf/app-perf-streaming.perf.ts`，对 Node 与 Rust 两种 Agent runtime 各跑一遍：
+
+```bash
+E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,\
+packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json \
+ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
+  xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+    --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+```
+
+- `.perf.ts` 不进默认 E2E spec 发现，避免性能数字波动让功能套件变红。
+- 测量项：4 路并发流式下的「点击 → 首段可见」延迟、Electron 主进程子树（含 Host 与 Agent）
+  的 CPU/工作集，以及 `app.getAppMetrics()` 的 Electron 口径对照。
+- 结果写入 `$ESCODE_E2E_ARTIFACT_DIR/app-perf-streaming.<runtime>.<platform>-<arch>.json`，
+  作业 summary 输出 Node/Rust 对比表。当前只记录趋势，不做阈值判定。
+
+## 覆盖矩阵（阶段 3 验收）
+
+| 平台           | 桌面 GUI 可用             | Host 拓扑                         | App 级性能                                     |
+| -------------- | ------------------------- | --------------------------------- | ---------------------------------------------- |
+| ubuntu-latest  | smoke + session-lifecycle | Rust Host 单进程、reload pid 不变 | 首段 + 4 路流式（Node/Rust 各一次）            |
+| windows-latest | smoke + session-lifecycle | 同上                              | —（读数只与同平台历史比较，暂只在 Linux 采集） |
+| macos-latest   | smoke + session-lifecycle | 同上                              | —                                              |
+
+**未覆盖**：多 workspace（N=1/4/8）与 8 workspace 优雅退出；Host/network 分角色 CPU。
+这两项需要工作区种子 + UI 打开流程与分角色采样，尚未接入本 workflow。
+
 ## 不在本矩阵内
 
 - `manual-review/pending` 的候选用例：需要人工 review 后才能转正。
 - 需要真实 provider / 真实 SSH / 真实账号的用例。
-- App 级性能指标（首段、4 路流式 CPU、多 workspace、优雅退出）：需要会话驱动与采样，
-  见 `docs/reports/rust-stage3-acceptance-2026-10-26.md` 的未闭合项。
 - Docker `replay-isolated` suite：由 `test:e2e:container` 单独承接。
 
 ## 已知边界

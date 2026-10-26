@@ -83,3 +83,84 @@ jobs:
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home
           if-no-files-found: warn
+
+  # App 级性能测量（docs/specs/rust-unified-host.md §5）：首段延迟 + 4 路并发流式 CPU。
+  # 只在 Linux 跑：CPU/内存读数只与同平台历史比较才有意义，且 Xvfb 环境可重复。
+  app-perf:
+    name: app perf (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: app-perf
+          cache-on-failure: true
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug) and Rust runtime (release)
+        run: |
+          cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+          cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+      # 同一负载跑 Node 与 Rust 两种 Agent runtime：阶段 3 要证明 Rust 组合不劣于当前组合。
+      - name: measure (node runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: node
+          ESCODE_AGENT_SERVER_RUNTIME: node
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      - name: measure (rust runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: rust
+          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
+          ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      - name: summarize app perf
+        if: always()
+        run: |
+          node - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require("node:fs");
+          const dir = "packages/desktop/.e2e-artifacts/app-perf";
+          const rows = fs.existsSync(dir)
+            ? fs.readdirSync(dir).filter((name) => /^app-perf-streaming\..*\.json$/.test(name))
+            : [];
+          console.log("### App 级性能（linux-x64，4 路并发流式）\n");
+          console.log("| runtime | 首段中位数 ms | 首段最大 ms | 流式 CPU 中位数 % | 流式峰值 % | 工作集中位数 MiB | 空闲工作集 MiB |");
+          console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
+          for (const name of rows) {
+            const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
+            console.log(
+              `| ${data.runtimeLabel} | ${data.firstSegmentMs.median} | ${data.firstSegmentMs.max} | ` +
+                `${data.streaming.cpuPercentMedian.toFixed(1)} | ${data.streaming.cpuPercentMax.toFixed(1)} | ` +
+                `${data.streaming.workingSetMiBMedian.toFixed(1)} | ${data.idle.workingSetMiB.toFixed(1)} |`,
+            );
+          }
+          console.log("\n口径：点击发送到该 lane 首个 assistant 文本可见；CPU 为 `app.getAppMetrics()` 全 App 求和，500ms 采样。");
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-perf
+          path: packages/desktop/.e2e-artifacts/app-perf
+          if-no-files-found: warn

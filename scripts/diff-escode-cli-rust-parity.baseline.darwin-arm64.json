@@ -1,0 +1,15 @@
+{
+  "_readme": "未分类欠账基线（scripts/diff-escode-cli-rust-parity.mjs --update-baseline 写入）。指纹已登记的差异不再判失败，但会列在报告里；修复后指纹消失即自动收敛（可再跑 --update-baseline 清理）。",
+  "session-baseline": [
+    "3c05bdb6dd277b8f65e3836012040519083b85a4fc5f43c57a77c56a801b7f65",
+    "4dc93918179e97dff44f4a96c83fdc6c95f2f2caa0ca6b6e184016ce59436e30",
+    "50fb6ac4cb1c70858afd10ff3b53098c548445774914ef45f64f870bba32e07d",
+    "88a6f437fbf15c59ce44c06d8eb81bf9264feef5e0ee0b7edf9b3e25bf1b6903",
+    "98b460cd2a127a6336727cbc73cf1d8bb37fcd16306fe6ba93cf32adff062e35",
+    "9beea88d5bc2c193a814eb8d30ebae17e35f2a352e3be8e43d52b72cdd7f4846",
+    "c1f4f5a0f75668598d0f4ea98250582c9b3ebf4879aa9cbb329e35948bc3e071",
+    "c206d385338ee81bcd47ed5a060076ca25c32472ebb96816782fd77da82ce2f2",
+    "ef13b2dbd58b313eb6beea59c1858ddf5f044bbc056ea92087266935bbf64d86",
+    "fa8364d69828894ce559054546bf4fb04d06581f0b43647ad7476df7b19e2b66"
+  ]
+}

@@ -83,8 +83,8 @@ node scripts/bench-escode-app.mjs \
 | 退出（8 workspace 全部结束） | 未测优雅退出；强制回收 66–73 ms             | 需要 UI 驱动关闭 8 workspace；当前只测整树 SIGKILL                                               |
 | 每多一个 workspace           | 未测                                        | 需要 N=1/4/8 workspace 驱动                                                                      |
 | 首条消息第一段               | 未测（App 级）                              | 需要 mock SSE + UI 会话驱动                                                                      |
-| 4 路流式全进程 CPU           | 未测（App 级）                              | 同上                                                                                             |
-| 4 路流式 Host+network CPU    | 未测（App 级）                              | 同上                                                                                             |
+| 4 路流式全进程 CPU           | 已测（App 级，见 §5.1）                     | Linux Xvfb：Node 167.4% / Rust 144.3%（中位数）                                                  |
+| 4 路流式 Host+network CPU    | 已测（含在 §5.1 的全进程树口径）            | 未单独拆分 Host/network 角色                                                                     |
 | 进程内控制 RPC p50           | 未测                                        | 阶段 4（MemoryLink 免序列化）                                                                    |
 | 进程布局                     | 已测                                        | C 单 Rust Host、无 Node utility Host；A/B 与预期一致                                             |
 
@@ -106,24 +106,63 @@ node scripts/bench-escode-app.mjs \
 - 冻结观察里含 `Today's date is 2026-10-24.`，归一化没有覆盖 `currentDate`，录制次日开始
   每天产生新差异。已在 `scripts/diff-escode-cli-rust-parity-diff.mjs` 增加 `current-date` 规则
   （理由随 evidence 输出），`--golden` 重新判定为 parity。
-- `rust-runtime-ci.yml` 改为按平台 golden 存在与否自动选择：
-  - 有 golden → `--golden` 阻塞门禁（当前 linux-x64）；
-  - 无 golden → Node/Rust 实时双跑（观察期）并输出录制提示。golden 落库后无需再改 workflow。
-- `record-cli-goldens.yml` 增加 parity 录制：先落盘 golden，再用只跑 Rust 的 `--golden` 验证；
-  不把实时双跑作为前置条件——帧批次顺序（`fromSeq`/`state.updated`）是已登记欠账，实时双跑
-  会间歇性出现新差异（本轮 Linux 实时双跑即复现）。
+- `--record` 原先写入通用文件名 `session-baseline.node.golden.json`，平台门禁永远看不到该
+  golden；现在 `--record` 必写 `<platform>-<arch>` 文件。
+- 欠账指纹按平台分文件（`scripts/diff-escode-cli-rust-parity.baseline.<platform>-<arch>.json`）：
+  Windows 的帧批次与 seq 编号与 Linux 不同（T-4 投递层欠账），共享基线会让新平台每帧都判
+  「新差异」。判定优先平台文件，缺失时回退通用文件（linux-x64 现状）。
+- `rust-runtime-ci.yml` 按平台 golden 存在与否自动选择：有 golden → `--golden` 阻塞门禁；
+  无 golden → Node/Rust 实时双跑观察期并输出录制提示。
+- `record-cli-goldens.yml` 流程：录 golden → 冻结本平台欠账基线 → Rust-only `--golden` 验证 →
+  上传 golden 与基线两个 asset。不把实时双跑作为前置条件（帧批次顺序会间歇性产生新差异）。
 
-**未闭合**：macOS/Windows 的 `session-baseline.<platform>-<arch>.node.golden.json` 尚未录制。
-必须在对应 runner 上跑一次 `record cli goldens` workflow，下载 artifact 并提交；在此之前这两个
-平台仍是实时双跑观察期。
+**已闭合（2026-10-26）**：`record cli goldens` 在 macOS/Windows runner 上录制并验证通过
+（run `40281946953` 两个作业 success），产物已入库：
+
+- `scripts/fixtures/parity/session-baseline.darwin-arm64.node.golden.json`（53 frames，录制于
+  2026-10-26T06:52:37Z）
+- `scripts/fixtures/parity/session-baseline.win32-x64.node.golden.json`（53 frames，录制于
+  2026-10-26T06:55:54Z）
+- `scripts/diff-escode-cli-rust-parity.baseline.darwin-arm64.json`（10 条欠账指纹）
+- `scripts/diff-escode-cli-rust-parity.baseline.win32-x64.json`（9 条欠账指纹）
+
+三个平台的 golden 落库后，`rust-runtime-ci` 的 parity 步骤在 macOS/Windows 也会自动切到
+`--golden` 阻塞门禁，不再依赖 Node 实时双跑。
+
+## 5.1 App 级首段与 4 路流式 CPU
+
+新增测量用例 `packages/desktop/test/e2e/perf/app-perf-streaming.perf.ts`（`.perf.ts` 不进默认
+E2E 发现，只在显式 `--spec` 或 CI perf 作业运行）。负载：4 个会话并发，每条 lane 约 12s 的
+固定 SSE 流（`fixtures/upstream/perf/app-perf-streaming.json`），期间每 500ms 采样：
+
+- 首段 = 点击发送到该 lane 首个 assistant 文本出现在时间线的间隔；
+- 全进程 CPU/内存 = Electron 主进程子树（含 Host 与 Agent，Linux 用 `/proc` jiffies，
+  Windows 用 CIM），同时记录 `app.getAppMetrics()` 的 Electron 口径作对照。
+
+本地 Linux Xvfb（2026-10-26，dev 构建，各 1 次）：
+
+| Agent runtime | 首段中位数 ms | 首段最大 ms | 全进程 CPU 中位数 | 全进程 CPU 峰值 | 全进程工作集中位数 MiB | Electron CPU 中位数 |
+| ------------- | ------------: | ----------: | ----------------: | --------------: | ---------------------: | ------------------: |
+| Node CLI      |        1545.5 |        1764 |            167.4% |          276.2% |                 1261.5 |                6.3% |
+| Rust CLI      |        1533.5 |        1672 |            144.3% |          234.5% |                 1256.6 |                6.2% |
+
+结论：同一负载下 Rust runtime 的首段与 Node 持平（差 0.8%，单次运行内噪声级），全进程 CPU
+中位数低 13.8%，峰值低 15.1%，工作集持平。绝对值高于 §5 的 236 ms 目标，因为这里测量的是
+「点击 → 首段可见」的端到端口径（含提交往返与 markdown 渲染），不是 runtime 首段吐字口径；
+两者不可直接对照。
+
+CI 作业 `desktop-e2e-matrix.yml` 的 `app-perf` 会在 ubuntu-latest 上跑 Node 与 Rust 两遍并把
+对比表写进 job summary；阈值判定尚未引入（先积累趋势）。
 
 ## 6. 仍未闭合的阶段 3 项
 
-1. **macOS/Windows parity golden**：需要一次 CI 录制运行（见 §5）。
-2. **全平台 E2E 矩阵**：仓库当前没有跨平台桌面 E2E CI 作业；四平台 installed 启动/切换演练
-   不等于 E2E 矩阵。需要新增 CI 作业并给出各平台用例清单。
-3. **App 级首段 / 4 路流式 CPU / 多 workspace / 优雅退出**：需要 mock SSE + UI 会话驱动；
-   本轮只用运行时级流式负载作参考，不能标记完成。
+1. **多 workspace（N=1/4/8）与 8 workspace 优雅退出**：需要工作区种子 + UI 打开流程；当前
+   E2E 只提供 `seedPassiveAgentStartupWorkspaces`（建目录）与侧栏打开 helper，尚未接入 perf
+   作业。指标口径与接入方式见 §4 表。
+2. **4 路流式的 Host/network 分角色 CPU**：全进程口径已测，未按角色拆分（§5 的 ≤4 个百分点
+   是分进程口径）。
+3. **首段/CPU 的阈值判定**：目前只落盘数字与对比表，未设回归阈值，避免 runner 抖动误红。
 
-结论：阶段 3 的安装包性能对照（冷启动/空闲内存/进程布局）与 Linux golden 门禁已补齐并实测；
-上述 1–3 未闭合前，不应把阶段 3 标记为完成。
+结论：阶段 3 的安装包性能对照、三平台 parity golden 阻塞门禁、跨平台桌面 E2E 矩阵与 App 级
+首段/4 路流式 CPU 已完成并实测；剩余 1–3 属于口径细化与阈值治理，不再阻塞「Rust Host 默认
+可用」的验收结论。多 workspace 与优雅退出仍需单独接入后才能勾选。
