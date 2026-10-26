@@ -1,0 +1,40 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -299,7 +299,7 @@
+     const context = useSelectContext(CONTENT_NAME, __scopeSelect);
+     const [content, setContent] = React.useState(null);
+     const [viewport, setViewport] = React.useState(null);
+-    const composedRefs = useComposedRefs(forwardedRef, (node) => setContent(node));
++    const composedRefs = useComposedRefs(forwardedRef, setContent);
+     const [selectedItem, setSelectedItem] = React.useState(null);
+     const [selectedItemText, setSelectedItemText] = React.useState(
+       null
+@@ -513,7 +513,7 @@
+   const contentContext = useSelectContentContext(CONTENT_NAME, __scopeSelect);
+   const [contentWrapper, setContentWrapper] = React.useState(null);
+   const [content, setContent] = React.useState(null);
+-  const composedRefs = useComposedRefs(forwardedRef, (node) => setContent(node));
++  const composedRefs = useComposedRefs(forwardedRef, setContent);
+   const getItems = useCollection(__scopeSelect);
+   const shouldExpandOnScrollRef = React.useRef(false);
+   const shouldRepositionRef = React.useRef(true);
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -366,7 +366,7 @@
+     const context = useSelectContext(CONTENT_NAME, __scopeSelect);
+     const [content, setContent] = React.useState(null);
+     const [viewport, setViewport] = React.useState(null);
+-    const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, (node) => setContent(node));
++    const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, setContent);
+     const [selectedItem, setSelectedItem] = React.useState(null);
+     const [selectedItemText, setSelectedItemText] = React.useState(
+       null
+@@ -580,7 +580,7 @@
+   const contentContext = useSelectContentContext(CONTENT_NAME, __scopeSelect);
+   const [contentWrapper, setContentWrapper] = React.useState(null);
+   const [content, setContent] = React.useState(null);
+-  const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, (node) => setContent(node));
++  const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, setContent);
+   const getItems = useCollection(__scopeSelect);
+   const shouldExpandOnScrollRef = React.useRef(false);
+   const shouldRepositionRef = React.useRef(true);

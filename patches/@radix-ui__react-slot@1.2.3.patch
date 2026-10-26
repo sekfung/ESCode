@@ -1,0 +1,48 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,6 +1,6 @@
+ // src/slot.tsx
+ import * as React from "react";
+-import { composeRefs } from "@radix-ui/react-compose-refs";
++import { composeRefs, useComposedRefs } from "@radix-ui/react-compose-refs";
+ import { Fragment as Fragment2, jsx } from "react/jsx-runtime";
+ // @__NO_SIDE_EFFECTS__
+ function createSlot(ownerName) {
+@@ -31,11 +31,17 @@
+ function createSlotClone(ownerName) {
+   const SlotClone = React.forwardRef((props, forwardedRef) => {
+     const { children, ...slotProps } = props;
++    // escode patch (React #185): React 19 re-invokes callback refs when their identity
++    // changes. Composing a new ref inline on every render detaches/attaches refs each
++    // commit; when the ref is a state setter (Radix Tooltip onTriggerChange / Popper
++    // onAnchorChange) that schedules an endless null<->node update loop. Memoize the
++    // composed ref so it keeps a stable identity while its inputs are stable.
++    const childrenRef = React.isValidElement(children) ? getElementRef(children) : void 0;
++    const composedRef = useComposedRefs(forwardedRef, childrenRef);
+     if (React.isValidElement(children)) {
+-      const childrenRef = getElementRef(children);
+       const props2 = mergeProps(slotProps, children.props);
+       if (children.type !== React.Fragment) {
+-        props2.ref = forwardedRef ? composeRefs(forwardedRef, childrenRef) : childrenRef;
++        props2.ref = forwardedRef ? composedRef : childrenRef;
+       }
+       return React.cloneElement(children, props2);
+     }
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -71,11 +71,13 @@
+ function createSlotClone(ownerName) {
+   const SlotClone = React.forwardRef((props, forwardedRef) => {
+     const { children, ...slotProps } = props;
++    // escode patch (React #185): memoize the composed ref; see dist/index.mjs.
++    const childrenRef = React.isValidElement(children) ? getElementRef(children) : void 0;
++    const composedRef = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, childrenRef);
+     if (React.isValidElement(children)) {
+-      const childrenRef = getElementRef(children);
+       const props2 = mergeProps(slotProps, children.props);
+       if (children.type !== React.Fragment) {
+-        props2.ref = forwardedRef ? (0, import_react_compose_refs.composeRefs)(forwardedRef, childrenRef) : childrenRef;
++        props2.ref = forwardedRef ? composedRef : childrenRef;
+       }
+       return React.cloneElement(children, props2);
+     }

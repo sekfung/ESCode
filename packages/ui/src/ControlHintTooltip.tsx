@@ -77,6 +77,7 @@ export function ControlHintTooltip({
   const childRef = isTriggerElement ? children.props.ref : undefined;
   // Radix Tooltip/Dropdown/Popper 的 asChild trigger 会在 ref 变化时同步 setState。
   // 这里必须稳定 callback ref 身份，否则每次 render 都会触发 ref detach/attach 并形成更新循环。
+  const hasTriggerRef = childRef !== undefined || triggerRef !== undefined;
   const composedTriggerRef = useCallback(
     (value: HTMLElement | null) => {
       setRef(childRef, value);
@@ -89,7 +90,9 @@ export function ControlHintTooltip({
       // 以前额外包一层 span，Radix Tooltip/Select/Popover 多层 asChild 组合时，
       // 事件和 ref 会落到不同 DOM 上，触发 SlotClone 渲染栈错误。这里直接合到真实触发器。
       className: cn("shrink-0", children.props.className, triggerClassName),
-      ref: composedTriggerRef,
+      // 没有调用方 ref 时不要注入 ref：Radix SlotClone 会对带 ref 的 child 组装额外
+      // composed ref，多一层 ref 身份来源，放大 asChild 触发器的 detach/attach 更新。
+      ...(hasTriggerRef ? { ref: composedTriggerRef } : {}),
     })
   ) : (
     <span

@@ -1,0 +1,40 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -44,7 +44,7 @@
+     const [cornerHeight, setCornerHeight] = React2.useState(0);
+     const [scrollbarXEnabled, setScrollbarXEnabled] = React2.useState(false);
+     const [scrollbarYEnabled, setScrollbarYEnabled] = React2.useState(false);
+-    const composedRefs = useComposedRefs(forwardedRef, (node) => setScrollArea(node));
++    const composedRefs = useComposedRefs(forwardedRef, setScrollArea);
+     const direction = useDirection(dir);
+     return /* @__PURE__ */ jsx(
+       ScrollAreaProvider,
+@@ -454,7 +454,7 @@
+   } = props;
+   const context = useScrollAreaContext(SCROLLBAR_NAME, __scopeScrollArea);
+   const [scrollbar, setScrollbar] = React2.useState(null);
+-  const composeRefs = useComposedRefs(forwardedRef, (node) => setScrollbar(node));
++  const composeRefs = useComposedRefs(forwardedRef, setScrollbar);
+   const rectRef = React2.useRef(null);
+   const prevWebkitUserSelectRef = React2.useRef("");
+   const viewport = context.viewport;
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -89,7 +89,7 @@
+     const [cornerHeight, setCornerHeight] = React2.useState(0);
+     const [scrollbarXEnabled, setScrollbarXEnabled] = React2.useState(false);
+     const [scrollbarYEnabled, setScrollbarYEnabled] = React2.useState(false);
+-    const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, (node) => setScrollArea(node));
++    const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, setScrollArea);
+     const direction = (0, import_react_direction.useDirection)(dir);
+     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+       ScrollAreaProvider,
+@@ -499,7 +499,7 @@
+   } = props;
+   const context = useScrollAreaContext(SCROLLBAR_NAME, __scopeScrollArea);
+   const [scrollbar, setScrollbar] = React2.useState(null);
+-  const composeRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, (node) => setScrollbar(node));
++  const composeRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, setScrollbar);
+   const rectRef = React2.useRef(null);
+   const prevWebkitUserSelectRef = React2.useRef("");
+   const viewport = context.viewport;

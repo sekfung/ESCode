@@ -1,0 +1,22 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -22,7 +22,7 @@
+   const onMountAutoFocus = useCallbackRef(onMountAutoFocusProp);
+   const onUnmountAutoFocus = useCallbackRef(onUnmountAutoFocusProp);
+   const lastFocusedElementRef = React.useRef(null);
+-  const composedRefs = useComposedRefs(forwardedRef, (node) => setContainer(node));
++  const composedRefs = useComposedRefs(forwardedRef, setContainer);
+   const focusScope = React.useRef({
+     paused: false,
+     pause() {
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -58,7 +58,7 @@
+   const onMountAutoFocus = (0, import_react_use_callback_ref.useCallbackRef)(onMountAutoFocusProp);
+   const onUnmountAutoFocus = (0, import_react_use_callback_ref.useCallbackRef)(onUnmountAutoFocusProp);
+   const lastFocusedElementRef = React.useRef(null);
+-  const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, (node) => setContainer(node));
++  const composedRefs = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, setContainer);
+   const focusScope = React.useRef({
+     paused: false,
+     pause() {

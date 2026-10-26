@@ -1,0 +1,40 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -636,6 +636,8 @@
+         onPointerGraceIntentChange(null);
+       };
+     }, [pointerGraceTimerRef, onPointerGraceIntentChange]);
++    // escode patch (React #185): stable ref identity; inline composeRefs reattached every commit.
++    const composedTriggerRef = useComposedRefs(forwardedRef, subContext.onTriggerChange);
+     return /* @__PURE__ */ jsx(MenuAnchor, { asChild: true, ...scope, children: /* @__PURE__ */ jsx(
+       MenuItemImpl,
+       {
+@@ -645,7 +647,7 @@
+         "aria-controls": subContext.contentId,
+         "data-state": getOpenState(context.open),
+         ...props,
+-        ref: composeRefs(forwardedRef, subContext.onTriggerChange),
++        ref: composedTriggerRef,
+         onClick: (event) => {
+           props.onClick?.(event);
+           if (props.disabled || event.defaultPrevented) return;
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -703,6 +703,8 @@
+         onPointerGraceIntentChange(null);
+       };
+     }, [pointerGraceTimerRef, onPointerGraceIntentChange]);
++    // escode patch (React #185): stable ref identity; see index.mjs.
++    const composedTriggerRef = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, subContext.onTriggerChange);
+     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MenuAnchor, { asChild: true, ...scope, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+       MenuItemImpl,
+       {
+@@ -712,7 +714,7 @@
+         "aria-controls": subContext.contentId,
+         "data-state": getOpenState(context.open),
+         ...props,
+-        ref: (0, import_react_compose_refs.composeRefs)(forwardedRef, subContext.onTriggerChange),
++        ref: composedTriggerRef,
+         onClick: (event) => {
+           props.onClick?.(event);
+           if (props.disabled || event.defaultPrevented) return;

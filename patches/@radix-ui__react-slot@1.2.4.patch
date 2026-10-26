@@ -1,0 +1,44 @@
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,6 +1,6 @@
+ // src/slot.tsx
+ import * as React from "react";
+-import { composeRefs } from "@radix-ui/react-compose-refs";
++import { composeRefs, useComposedRefs } from "@radix-ui/react-compose-refs";
+ import { Fragment as Fragment2, jsx } from "react/jsx-runtime";
+ var REACT_LAZY_TYPE = Symbol.for("react.lazy");
+ var use = React[" use ".trim().toString()];
+@@ -45,11 +45,13 @@
+     if (isLazyComponent(children) && typeof use === "function") {
+       children = use(children._payload);
+     }
++    // escode patch (React #185): memoize composed ref; see @radix-ui/react-slot patch.
++    const childrenRef = React.isValidElement(children) ? getElementRef(children) : void 0;
++    const composedRef = useComposedRefs(forwardedRef, childrenRef);
+     if (React.isValidElement(children)) {
+-      const childrenRef = getElementRef(children);
+       const props2 = mergeProps(slotProps, children.props);
+       if (children.type !== React.Fragment) {
+-        props2.ref = forwardedRef ? composeRefs(forwardedRef, childrenRef) : childrenRef;
++        props2.ref = forwardedRef ? composedRef : childrenRef;
+       }
+       return React.cloneElement(children, props2);
+     }
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -85,11 +85,13 @@
+     if (isLazyComponent(children) && typeof use === "function") {
+       children = use(children._payload);
+     }
++    // escode patch (React #185): memoize composed ref; see @radix-ui/react-slot patch.
++    const childrenRef = React.isValidElement(children) ? getElementRef(children) : void 0;
++    const composedRef = (0, import_react_compose_refs.useComposedRefs)(forwardedRef, childrenRef);
+     if (React.isValidElement(children)) {
+-      const childrenRef = getElementRef(children);
+       const props2 = mergeProps(slotProps, children.props);
+       if (children.type !== React.Fragment) {
+-        props2.ref = forwardedRef ? (0, import_react_compose_refs.composeRefs)(forwardedRef, childrenRef) : childrenRef;
++        props2.ref = forwardedRef ? composedRef : childrenRef;
+       }
+       return React.cloneElement(children, props2);
+     }
