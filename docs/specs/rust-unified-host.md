@@ -88,6 +88,9 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - **真实 A/B 基线已跑**（3 轮交错，2026-10-14），报告 `docs/reports/rust-app-perf-baseline-2026-10-14.md`：App 口径（electron 主进程子树）A 1419.6 / B 1293.6 MiB 工作集、私有提交 1102.2 / 974.5 MiB，B 不劣于 A。
   - 就绪判定修正为「electron 主进程 + renderer 按进程名在场」（旧判定被 dev 的 concurrently 参数含 "electron" 误触发，实测 electron 在 dev 约 t≈173 s 才出现，前三次候选轮数据作废）。
   - §5 八项指标逐项记录，未覆盖 5 项的接入条件已列（多 workspace / 首段 / 优雅退出 / 进程内 RPC / 4 路流式）；三平台 CI 维持 CLI 级 `bench-escode-cli-node-rust.mjs`（Electron 需图形会话，App 级 CI 接入待阶段 2 后评估虚拟显示方案）。
+  - 2026-10-26：安装包口径 harness（`--installed-app/--installed-glm`、日志级就绪、
+    `xvfb-run`）已落地，A/B/C 实测见 `docs/reports/rust-stage3-acceptance-2026-10-26.md`；
+    App 级 CI 作业与首段/4 路流式会话驱动仍未接入。
 - [x] unwrap/expect 基线快照（按 crate 计数，作为渐进清零的进度表）——`docs/reports/rust-unwrap-baseline-2026-10-14.md`
 - [x] 修红完成：全部越界拆分（历史 3 处 + fmt 折行新增 14 处，均为模块外迁）；boundary/fmt/clippy/全工作区测试全绿；附带修复 wiki 的 Windows `\\?\` realpath 历史 bug；`docs/rust-migration.md` 过期表述已更新
 - [x] 差分基础设施垂直切片（2026-10-14 完成）：`scripts/diff-escode-cli-rust-parity.mjs`（+ `-capture`/`-diff`/`-report` 模块）打通「Node 捕获 → golden → 双跑差分 → evidence 报告」全链路。
@@ -218,8 +221,9 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       单实例隔离与 RUSTSEC-2026-0386（tokio 1.53.3）。
 - [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
       `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
-      （已录制 `linux-x64`；`rust-runtime-ci.yml` 的 linux-x64 已切为 `--golden` 阻塞门禁，
-      其余平台录制对应平台 golden 前保留实时双跑）；settings interop 已有冻结夹具单向读入。
+      （已录制 `linux-x64`；`rust-runtime-ci.yml` 按平台 golden 存在与否自动切换 `--golden` 阻塞门禁，
+      缺失时保留实时双跑观察期；2026-10-26 修复 `currentDate` 未归一导致的 golden 次日失效）；
+      settings interop 已有冻结夹具单向读入。
       desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
       `import @escode/services` / `services/src/*`；TS 观察冻结为
       `packages/desktop/test/fixtures/golden/*.oracle.json`（大 JSON 用 gzip）+ seed 库，
@@ -236,6 +240,30 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       Host 实现相关词条）
 
 验收：全平台 E2E 矩阵；冷启动、常驻内存、流式 CPU 全面不劣于当前组合，实测写入 `docs/reports/`。
+
+**验收补齐（2026-10-26 起）**
+
+- 性能测量：`scripts/bench-escode-app.mjs` 的配置语义修正为
+  A=Node Host + Node CLI、B=Node Host + Rust CLI、C=Rust Host + 内嵌 runtime；新增
+  `--installed-app/--installed-glm` 安装包模式（可用 `ESCODE_INSTALLED_APP/ESCODE_INSTALLED_GLM`
+  传入），就绪信号取主进程日志（数据库终态 + `[bench-ready]` 首屏加载），每轮隔离
+  HOME/userData/dataBaseDir。Linux 无 `DISPLAY` 时经 `xvfb-run` 启动。结果写入
+  `docs/reports/rust-stage3-acceptance-2026-10-26.md`。
+- 指标覆盖边界：安装包 harness 覆盖冷启动、空闲内存/CPU、退出回收与进程布局；首条消息首段与
+  4 路流式 CPU 由 `packages/desktop/test/e2e/perf/app-perf-streaming.perf.ts` 覆盖（4 路并发固定
+  SSE，Electron 主进程子树全进程 CPU + 「点击→首段可见」延迟，Node/Rust 各跑一遍）。CI 结果：
+  PR run `40287649972` 的 `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU
+  中位数 109.0% vs 134.8%。
+- parity golden：`record-cli-goldens.yml` 增加 CLI parity 录制（先落盘 golden → 冻结本平台欠账
+  基线 → 只跑 Rust 的 `--golden` 验证；不把实时双跑作为前置条件，frames 批次顺序是已登记欠账）。
+  `--record` 必写 `<platform>-<arch>` 文件，欠账基线也按平台分文件（Windows 帧批次与 Linux 不同）。
+  `rust-runtime-ci.yml` 在平台 golden 存在时自动走 `--golden` 阻塞门禁。macOS/Windows golden 由
+  对应 runner 录制并已入库（run `40281946953`）；三平台门禁在 PR run `40287649913` 全部
+  `--golden` success，实时双跑 skipped。
+- 全平台 E2E 矩阵：新增 `.github/workflows/desktop-e2e-matrix.yml`，用例清单见
+  `docs/testing/desktop-e2e-ci-matrix.md`（smoke、WebDriver target、Rust Host 拓扑），三平台
+  在 PR run `40287649972` 全部 success。多 workspace（N=1/4/8）与 8 workspace 优雅退出仍未接入。
+- 阶段 3 验收证据汇总：`docs/reports/rust-stage3-acceptance-2026-10-26.md` §5–§6。
 
 ### 阶段 4：超越项（与阶段 2–3 并行，收尾 +2 周）
 

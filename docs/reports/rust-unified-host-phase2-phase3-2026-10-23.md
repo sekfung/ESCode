@@ -172,3 +172,16 @@ Rust Host 不承载远程 scope。
 CLI oracle 的 golden freeze（含 macOS/Windows 平台专属 golden），以及 installed 四平台
 Node→Rust→Node 真机演练（release run `40022683157` 四平台全绿，`settings preserved`）。
 跨平台 golden CI：`rust-runtime-ci` run `40055867063` 九 shard + checks/bench 全绿。
+
+## 4. 验收补齐（2026-10-26）
+
+后续补齐记录见 `docs/reports/rust-stage3-acceptance-2026-10-26.md`：
+
+- 安装包口径 A/B/C 交错测量已完成：C（Rust Host + 内嵌 runtime）冷启动 2.40 s、App RSS
+  974.2 MiB、无 Node utility Host；A（Node Host + Node CLI）分别为 6.02 s / 1244.7 MiB / 2 个
+  Node Host 进程。
+- Linux parity golden 因 `currentDate` 未归一化而实际失效（录制次日即产生新差异），已修复并
+  重新判定 parity；CI 改为按平台 golden 存在与否自动切换 `--golden` 阻塞门禁。
+- **仍未闭合**：macOS/Windows parity golden 需一次对应 runner 的录制运行；跨平台桌面 E2E CI
+  矩阵尚不存在；App 级首段 / 4 路流式 CPU / 多 workspace / 优雅退出需要新的会话驱动。
+  因此本报告结论中的“阶段 3 已完成”应读作“主体已完成，验收未全部闭合”。

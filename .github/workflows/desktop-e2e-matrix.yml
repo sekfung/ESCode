@@ -1,0 +1,177 @@
+# 桌面端跨平台 E2E 矩阵（阶段 3 验收）
+#
+# 目的：回答「GUI 是否真的在各平台可用」，与 installed 作业（安装包启动/切换演练）区分。
+# 用例清单与判定口径见 docs/testing/desktop-e2e-ci-matrix.md。
+name: desktop e2e matrix
+
+on:
+  push:
+    branches: [main, dev]
+  # PR 门禁：只在与桌面端、E2E 或本 workflow 相关的改动上运行，避免每个 PR 都跑重矩阵。
+  pull_request:
+    paths:
+      - "packages/desktop/**"
+      - "packages/ui/**"
+      - ".github/workflows/desktop-e2e-matrix.yml"
+      - "scripts/bench-escode-app*"
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: "逗号分隔的 spec 清单（相对 packages/desktop）；留空用仓库默认矩阵"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: desktop-e2e-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 与 rust-runtime-ci 一致的慢 runner 放宽值（fixture 请求/关闭预算）。
+  ESCODE_TEST_REQUEST_MS: "60000"
+  ESCODE_TEST_EXIT_MS: "15000"
+  # 矩阵只跑正式目录下的 spec，不收 manual-review/pending。
+  ESCODE_E2E_MAX_INSTANCES: "1"
+  ESCODE_E2E_SPEC: >-
+    ${{ inputs.specs != '' && inputs.specs ||
+    './test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-lifecycle.test.ts,./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts' }}
+
+jobs:
+  e2e:
+    name: desktop e2e (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      # Windows：Defender 实时扫描会拖慢大量小文件读写并短暂占用刚关闭的文件（EBUSY）。
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: e2e-matrix
+          cache-on-failure: true
+      # Linux 无图形会话：WDIO 的 autoXvfb 会按需启动 Xvfb；显式安装以免依赖镜像预装。
+      - name: linux display tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      # 非打包 E2E 的 Agent bundle 与 Rust Host debug 二进制由仓库脚本产出；
+      # wdio onPrepare 也会在缺失时自举，这里先建一次让失败点更明确。
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug)
+        run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # onPrepare 会先跑 build:no-runtime-assets（tsup + vite），再启动 Electron。
+      - name: run curated desktop E2E
+        run: pnpm --filter @escode/desktop test:e2e:serial
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-e2e-${{ matrix.os }}
+          path: |
+            packages/desktop/.e2e-artifacts
+            packages/desktop/.e2e-home
+          if-no-files-found: warn
+
+  # App 级性能测量（docs/specs/rust-unified-host.md §5）：首段延迟 + 4 路并发流式 CPU。
+  # 只在 Linux 跑：CPU/内存读数只与同平台历史比较才有意义，且 Xvfb 环境可重复。
+  app-perf:
+    name: app perf (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: app-perf
+          cache-on-failure: true
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      # 直接调 wdio（不经 test:e2e 的 pretest）时 e2e-report 的 node 产物不会自动构建，
+      # 报告钩子会因 @escode/e2e-report/dist-node 缺失而失败。
+      - name: build e2e report node entry
+        run: pnpm --filter @escode/e2e-report build:node
+      - name: build Rust Host (debug) and Rust runtime (release)
+        run: |
+          cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+          cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+      # 同一负载跑 Node 与 Rust 两种 Agent runtime：阶段 3 要证明 Rust 组合不劣于当前组合。
+      - name: measure (node runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: node
+          ESCODE_AGENT_SERVER_RUNTIME: node
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      - name: measure (rust runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: rust
+          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
+          ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      - name: summarize app perf
+        if: always()
+        run: |
+          node - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require("node:fs");
+          const dir = "packages/desktop/.e2e-artifacts/app-perf";
+          const rows = fs.existsSync(dir)
+            ? fs.readdirSync(dir).filter((name) => /^app-perf-streaming\..*\.json$/.test(name))
+            : [];
+          console.log("### App 级性能（linux-x64，4 路并发流式）\n");
+          console.log("| runtime | 首段中位数 ms | 首段最大 ms | 流式 CPU 中位数 % | 流式峰值 % | 工作集中位数 MiB | 空闲工作集 MiB |");
+          console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
+          for (const name of rows) {
+            const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
+            console.log(
+              `| ${data.runtimeLabel} | ${data.firstSegmentMs.median} | ${data.firstSegmentMs.max} | ` +
+                `${data.streaming.cpuPercentMedian.toFixed(1)} | ${data.streaming.cpuPercentMax.toFixed(1)} | ` +
+                `${data.streaming.workingSetMiBMedian.toFixed(1)} | ${data.idle.workingSetMiB.toFixed(1)} |`,
+            );
+          }
+          console.log("\n口径：点击发送到该 lane 首个 assistant 文本可见；CPU 为 `app.getAppMetrics()` 全 App 求和，500ms 采样。");
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-perf
+          path: packages/desktop/.e2e-artifacts/app-perf
+          if-no-files-found: warn
