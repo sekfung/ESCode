@@ -216,7 +216,7 @@ runner 与运行负载；**只有同一次运行内的 Node/Rust 相对比较有
 
 ## 5.3 CI 证据汇总
 
-PR https://github.com/sekfung/ESCode/pull/2（37 项检查全绿，已合并）：
+PR https://github.com/sekfung/ESCode/pull/2（37 项检查全绿，已合并）与 PR #3（本项补测）：
 
 | 项目                | 运行                                           | 结论                                                                                      |
 | ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -224,6 +224,7 @@ PR https://github.com/sekfung/ESCode/pull/2（37 项检查全绿，已合并）�
 | 三平台 golden 门禁  | `rust-runtime-ci` run `40287649913` 的 `bench` | ubuntu/macos/windows 均执行 `Rust parity against frozen golden` success，实时双跑 skipped |
 | 跨平台桌面 E2E      | `desktop e2e matrix` run `40287649972`         | ubuntu/macos/windows 三个 `desktop e2e` 均 success                                        |
 | App 级性能          | 同上 run 的 `app perf (ubuntu-latest)`         | success，产出 Node/Rust 的流式 JSON 与对比表                                              |
+| 多 workspace/退出   | PR #3 run `40311878638` 的 `app perf`          | success；Host+Agent 斜率 Node 6.16 / Rust 6.89 MiB/ws，退出 2167 / 2166 ms                |
 
 多 workspace 与优雅退出用例在本轮新增，CI 证据见后续 `app perf` 作业（步骤
 `measure workspaces (node|rust runtime)` 与 summary 的「多 workspace 与优雅退出」表）。
