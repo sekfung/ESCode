@@ -25,7 +25,9 @@ import { isProcessAlive, sampleProcessTree } from "./app-perf-process-tree.js";
 // - 「退出」= 主进程 `app.quit()` 调用到主进程 pid 消失（僵尸视为已退出）的间隔。
 
 const WORKSPACE_COUNT = 8;
-const CHECKPOINTS = [1, 4, 8] as const;
+// 每个 workspace 都取检查点：单次运行的 App RSS 受 renderer GC 影响大（本地 Node 6.43 vs
+// CI 1.10 MiB/ws），三点斜率的方差无法支撑结论；8 点的最小二乘明显更稳，成本只多约 1 分钟。
+const CHECKPOINTS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SETTLE_MS = 5_000;
 const SAMPLES = 5;
 const EXIT_TIMEOUT_MS = 30_000;
@@ -195,9 +197,11 @@ describe("APP-PERF: workspace 增量与优雅退出", () => {
       settleMs: SETTLE_MS,
       sampleCount: SAMPLES,
       checkpoints,
-      // 主指标：最小二乘斜率（App 全进程树 / Host+Agent 子集）。
-      perWorkspaceMiB: slope(points.map((point) => ({ x: point.x, y: point.app }))),
+      // 主指标：Host+Agent 子集斜率（§5「每多一个 workspace」的成本来源）。
       perWorkspaceHostMiB: slope(points.map((point) => ({ x: point.x, y: point.host }))),
+      // 参考：App 全进程树斜率。总 RSS 由 renderer 主导，8 点实测在第 3 个 workspace 出现
+      // GC 回落，斜率可能为负，不能当作 per-workspace 成本（保留用于观察总体趋势）。
+      perWorkspaceAppTreeMiB: slope(points.map((point) => ({ x: point.x, y: point.app }))),
       // 端点差仅作交叉检查：8 个 workspace 的内存不一定单调，端点差会受噪声放大。
       perWorkspaceEndpointMiB: (last.workingSetMiB - first.workingSetMiB) / (WORKSPACE_COUNT - 1),
       exitMs,
@@ -215,8 +219,8 @@ describe("APP-PERF: workspace 增量与优雅退出", () => {
           (checkpoint) =>
             `${checkpoint.workspaceCount}:${checkpoint.workingSetMiB.toFixed(1)}MiB/tabs=${checkpoint.openTabs}/procs=${checkpoint.processCount}`,
         )
-        .join(" ")}; perWorkspace=${result.perWorkspaceMiB.toFixed(2)}MiB ` +
-        `(host+agent=${result.perWorkspaceHostMiB.toFixed(2)}MiB, endpoint=${result.perWorkspaceEndpointMiB.toFixed(2)}MiB); ` +
+        .join(" ")}; perWorkspace host+agent=${result.perWorkspaceHostMiB.toFixed(2)}MiB ` +
+        `(appTree=${result.perWorkspaceAppTreeMiB.toFixed(2)}MiB, endpoint=${result.perWorkspaceEndpointMiB.toFixed(2)}MiB); ` +
         `exit=${exitMs}ms`,
     );
 

@@ -33,10 +33,10 @@ ESCODE_E2E_SPEC='./test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-life
 同一 workflow 的 `app-perf` 作业在 ubuntu-latest 上跑两个性能用例，对 Node 与 Rust 两种 Agent
 runtime 各跑一遍：
 
-| 用例                          | 测量                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| `app-perf-streaming.perf.ts`  | 4 路并发流式的「点击 → 首段可见」延迟、全进程树 CPU/工作集                 |
-| `app-perf-workspaces.perf.ts` | N=1/4/8 已跑过会话的 workspace 内存斜率、8 workspace `app.quit()` 退出耗时 |
+| 用例                          | 测量                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `app-perf-streaming.perf.ts`  | 4 路并发流式的「点击 → 首段可见」延迟、全进程树 CPU/工作集                |
+| `app-perf-workspaces.perf.ts` | N=1..8 已跑过会话的 workspace 内存斜率、8 workspace `app.quit()` 退出耗时 |
 
 ```bash
 E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,\

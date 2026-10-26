@@ -80,8 +80,8 @@ node scripts/bench-escode-app.mjs \
 | ---------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | 冷启动到主界面可用           | 已测：A 6.02 s / B 3.81 s / C 2.40 s        | §5 的 ≤1.8 s 是 macOS footprint 口径，Linux/Xvfb 数值不可直接对照；同口径下 C 明显优于 Node 组合 |
 | 空闲内存（全 App）           | 已测：A 1244.7 / B 1293.5 / C 974.2 MiB RSS | §5 的 ≤430 MiB 是 macOS footprint；Linux RSS 口径不可直接对照                                    |
-| 退出（8 workspace 全部结束） | 已测（App 级，见 §5.2）                     | `app.quit()` 到主进程消失（含 before-quit 清理）：Node 2169 ms / Rust 2183 ms                    |
-| 每多一个 workspace           | 已测（App 级，见 §5.2）                     | N=1/4/8 三点斜率：App 树 Node 6.43 / Rust 7.02 MiB；Host+Agent 子集 11.77 / 12.14 MiB            |
+| 退出（8 workspace 全部结束） | 已测（App 级，见 §5.2）                     | `app.quit()` 到主进程消失（含 before-quit 清理）：Node 2179 ms / Rust 2174 ms                    |
+| 每多一个 workspace           | 已测（App 级，见 §5.2）                     | N=1..8 八点回归，Host+Agent 子集：Node 10.44 / Rust 11.49 MiB/ws；App 树受 renderer GC 影响为负  |
 | 首条消息第一段               | 已测（App 级，见 §5.1）                     | Linux Xvfb CI：Node 1772.5 ms / Rust 1417.5 ms                                                   |
 | 4 路流式全进程 CPU           | 已测（App 级，见 §5.1）                     | Linux Xvfb CI：Node 134.8% / Rust 109.0%（中位数）                                               |
 | 4 路流式 Host+network CPU    | 已测（含在 §5.1 的全进程树口径）            | 未单独拆分 Host/network 角色                                                                     |
@@ -168,29 +168,34 @@ CI 结论：Rust runtime 首段低 20.0%，全进程 CPU 中位数低 19.1%、�
 新增测量用例 `packages/desktop/test/e2e/perf/app-perf-workspaces.perf.ts`。wdio 的
 `APP_PERF_WORKSPACES_SPEC` 分支会在启动前播种 8 个已恢复 workspace（全部作为 tab 恢复，
 `lastActiveTabIndex=0`）；用例逐个切换 workspace 并**真实跑一轮会话**（fixture
-`E2E_APP_PERF_WS_<n>`），让该 workspace 的运行时实例常驻，再在 N=1/4/8 取检查点。
+`E2E_APP_PERF_WS_<n>`），让该 workspace 的运行时实例常驻，再在 N=1..8 每个点取检查点。
 
 只看草稿切换不建实例，首轮实测内存完全持平（1185 → 1183 MiB），测不到「每多一个 workspace」
 的成本；因此口径改为「已跑过会话的 workspace 数」。
 
-本地 Linux Xvfb（2026-10-26，各 1 次，稳定 5s 后 5 次采样取中位数）：
+检查点从 3 个（1/4/8）加密到 8 个：三点斜率方差过大（Node 本地 6.43 vs CI 1.10 MiB/ws），
+单次运行不足以支撑结论。8 点的最小二乘更稳，成本只多约 1 分钟。
 
-| Agent runtime | App 树斜率 MiB/ws | Host+Agent 斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |
-| ------------- | ----------------: | ---------------------: | ------------: | ------: | ------: | ------: |
-| Node CLI      |              6.43 |                  11.77 |          7.67 |  1221.3 |  1275.0 |    2169 |
-| Rust CLI      |              7.02 |                  12.14 |          7.93 |  1217.2 |  1272.7 |    2183 |
+本地 Linux Xvfb（2026-10-26，各 1 次，稳定 5s 后 5 次采样取中位数，N=1..8 八点回归）：
 
-- 斜率用 N=1/4/8 三点最小二乘，比首末两点相减抗噪；端点差单列作交叉检查（4→8 曾出现回落）。
+| Agent runtime | Host+Agent 斜率 MiB/ws | App 树斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |
+| ------------- | ---------------------: | ----------------: | ------------: | ------: | ------: | ------: |
+| Node CLI      |                  10.44 |             -5.53 |         -7.17 |  1215.8 |  1165.6 |    2179 |
+| Rust CLI      |                  11.49 |             -6.66 |         -5.54 |  1233.7 |  1194.9 |    2174 |
+
+- **主指标是 Host+Agent 子集斜率**（§5「每多一个 workspace」的成本来源）；App 全进程树斜率
+  为负，因为总 RSS 由 renderer 主导，第 3–4 个 workspace 出现 GC 回落（1219 → 1087 MiB），
+  不能当作 per-workspace 成本，只保留观察总体趋势。
 - Host+Agent 子集（`escode-host*` / `escode-cli-rust` / `zcode.cjs` / `app-server`）随
-  workspace 单调增长：Node 151.6 → 216.0 → 236.6 MiB，Rust 147.1 → 196.0 → 233.2 MiB。
+  workspace 单调增长：Node 141.1 → 217.6 MiB，Rust 逐点递增到同量级；斜率 10.4–11.5 MiB/ws。
 - 退出为真实 `app.quit()` 路径（before-quit 清理完成后再退），不是整树 SIGKILL；用
   `/proc/<pid>/stat` 状态判定，僵尸（Z）视为已退出，否则父进程未 reap 会让测量永远超时。
-- 两侧同量级：Rust 的 workspace 斜率略高（+9.2%）、退出略慢（+0.6%），均在单次运行的波动范围内，
-  不能据此判定 Rust 更差，也不能判定更优；需要 CI 多次趋势才能下结论。
+- 两侧同量级：Rust 的 Host+Agent 斜率略高（+10.0%）、退出略快（−0.2%），均在单次运行波动内，
+  不能据此判定 Rust 更差或更优；需要 CI 多次趋势才能下结论。
 
 与 §5 初始目标的差距（如实记录，不调口径凑数）：
 
-- §5「每多一个 workspace ≤2.5 MiB」当前未达到：Host+Agent 子集 11.8–12.1 MiB/ws。该目标的
+- §5「每多一个 workspace ≤2.5 MiB」当前未达到：Host+Agent 子集 10.4–11.5 MiB/ws。该目标的
   原意是对标 ZCode-rs 的扩展/配置缓存增量，而本测量包含每个 workspace 的会话运行时状态
   （8 个 workspace 各跑过一轮会话），口径更宽；两者不能直接对上。要判定 §5 目标是否达成，
   需要 Host 侧暴露「每实例扩展/配置缓存」的计数，作为后续小工作包。

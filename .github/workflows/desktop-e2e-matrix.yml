@@ -191,19 +191,19 @@ jobs:
           }
           console.log("\n口径：点击发送到该 lane 首个 assistant 文本可见；CPU 为全进程树求和，500ms 采样。");
           console.log("\n### 多 workspace 与优雅退出（每个 workspace 跑一轮会话）\n");
-          console.log("| runtime | 增量斜率 MiB/ws | Host+Agent 斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |");
+          console.log("| runtime | Host+Agent 斜率 MiB/ws | App 树斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |");
           console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
           for (const name of workspaces) {
             const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
             const first = data.checkpoints.find((point) => point.workspaceCount === 1);
             const last = data.checkpoints.find((point) => point.workspaceCount === data.workspaceCount);
             console.log(
-              `| ${data.runtimeLabel} | ${data.perWorkspaceMiB.toFixed(2)} | ${data.perWorkspaceHostMiB.toFixed(2)} | ` +
+              `| ${data.runtimeLabel} | ${data.perWorkspaceHostMiB.toFixed(2)} | ${data.perWorkspaceAppTreeMiB.toFixed(2)} | ` +
                 `${data.perWorkspaceEndpointMiB.toFixed(2)} | ${first.workingSetMiB.toFixed(1)} | ` +
                 `${last.workingSetMiB.toFixed(1)} | ${data.exitMs} |`,
             );
           }
-          console.log("\n口径：增量斜率为 N=1/4/8 三点最小二乘；退出为 `app.quit()` 到主进程消失（含 before-quit 清理）。");
+          console.log("\n口径：斜率为 N=1..8 八个点的最小二乘；主指标是 Host+Agent 子集（App 树受 renderer GC 影响可为负）；退出为 `app.quit()` 到主进程消失（含 before-quit 清理）。");
           EOF
       - uses: actions/upload-artifact@v4
         if: always()
