@@ -443,6 +443,29 @@ describe("desktopWindowChrome", () => {
     );
   });
 
+  it("emits the bench readiness marker only when ESCODE_BENCH_READY_LOG=1", async () => {
+    const previous = process.env.ESCODE_BENCH_READY_LOG;
+    process.env.ESCODE_BENCH_READY_LOG = "1";
+    try {
+      const { createBrowserWindow } = await import("../src/main/desktopWindowChrome.js");
+      const logger = { warn: vi.fn(), info: vi.fn() };
+
+      createBrowserWindow({
+        iconPath: "icon.png",
+        preloadPath: "preload.js",
+        logger,
+      });
+      getWebContentsOnceHandler("did-finish-load")();
+
+      expect(logger.info).toHaveBeenCalledWith("[bench-ready] main window did-finish-load", {
+        webContentsId: 17,
+      });
+    } finally {
+      if (previous === undefined) delete process.env.ESCODE_BENCH_READY_LOG;
+      else process.env.ESCODE_BENCH_READY_LOG = previous;
+    }
+  });
+
   it("Linux desktop window exposes transparent corners for the renderer shell", async () => {
     stubProcessPlatform("linux");
 

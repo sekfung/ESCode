@@ -391,7 +391,7 @@ export function createBrowserWindow(options: {
   preloadPath: string;
   title?: string;
   bootstrap?: WindowBootstrapOptions;
-  logger: { warn: (...args: unknown[]) => void };
+  logger: { warn: (...args: unknown[]) => void; info?: (...args: unknown[]) => void };
   /** 桌面端设备标识符（基于 userData 路径的 SHA-256），用于 renderer 同步读取 */
   deviceMid?: string;
   /** 桌面端持久化页面缩放档位；窗口创建时先应用，避免首屏回到默认大小。 */
@@ -473,6 +473,12 @@ export function createBrowserWindow(options: {
     win.webContents.setZoomFactor(initialDesktopZoomFactor);
     syncWindowControlsOverlayForZoomLevel(win, initialDesktopZoomLevel);
     syncWindowFullscreenState(win);
+    // bench 冷启动口径：只在显式开启时输出一次首屏就绪日志，生产环境不增加日志噪音。
+    if (process.env.ESCODE_BENCH_READY_LOG === "1") {
+      options.logger.info?.("[bench-ready] main window did-finish-load", {
+        webContentsId: win.webContents.id,
+      });
+    }
   });
   win.webContents.on(
     "did-fail-load",
