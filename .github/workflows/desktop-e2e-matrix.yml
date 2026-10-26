@@ -7,6 +7,13 @@ name: desktop e2e matrix
 on:
   push:
     branches: [main, dev]
+  # PR 门禁：只在与桌面端、E2E 或本 workflow 相关的改动上运行，避免每个 PR 都跑重矩阵。
+  pull_request:
+    paths:
+      - "packages/desktop/**"
+      - "packages/ui/**"
+      - ".github/workflows/desktop-e2e-matrix.yml"
+      - "scripts/bench-escode-app*"
   workflow_dispatch:
     inputs:
       specs:
