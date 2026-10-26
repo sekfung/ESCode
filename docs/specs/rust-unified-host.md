@@ -250,14 +250,20 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   HOME/userData/dataBaseDir。Linux 无 `DISPLAY` 时经 `xvfb-run` 启动。结果写入
   `docs/reports/rust-stage3-acceptance-2026-10-26.md`。
 - 指标覆盖边界：安装包 harness 覆盖冷启动、空闲内存/CPU、退出回收与进程布局；首条消息首段与
-  4 路流式 CPU 需要 mock SSE + 会话驱动，先以运行时级流式负载
-  （`scripts/bench-escode-cli-node-rust.mjs`）作同负载对照，App 级指标在接入驱动前不得标记完成。
-- parity golden：`record-cli-goldens.yml` 增加 CLI parity 录制（先落盘 golden，再用只跑 Rust 的
-  `--golden` 验证刚录观察；不把实时双跑作为前置条件，frames 批次顺序是已登记欠账）；
-  `rust-runtime-ci.yml` 在平台 golden 存在时自动走 `--golden` 阻塞门禁，缺失时保留实时双跑并
-  输出录制提示。macOS/Windows 的 golden 必须由对应 runner 真实录制，不能由 Linux golden 代替。
-- 全平台 E2E 矩阵：仓库当前没有跨平台桌面 E2E CI 作业；四平台 installed 启动/切换演练不等于
-  E2E 矩阵，该项仍为阶段 3 未闭合项，需新增 CI 作业后补齐。
+  4 路流式 CPU 由 `packages/desktop/test/e2e/perf/app-perf-streaming.perf.ts` 覆盖（4 路并发固定
+  SSE，Electron 主进程子树全进程 CPU + 「点击→首段可见」延迟，Node/Rust 各跑一遍）。CI 结果：
+  PR run `40287649972` 的 `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU
+  中位数 109.0% vs 134.8%。
+- parity golden：`record-cli-goldens.yml` 增加 CLI parity 录制（先落盘 golden → 冻结本平台欠账
+  基线 → 只跑 Rust 的 `--golden` 验证；不把实时双跑作为前置条件，frames 批次顺序是已登记欠账）。
+  `--record` 必写 `<platform>-<arch>` 文件，欠账基线也按平台分文件（Windows 帧批次与 Linux 不同）。
+  `rust-runtime-ci.yml` 在平台 golden 存在时自动走 `--golden` 阻塞门禁。macOS/Windows golden 由
+  对应 runner 录制并已入库（run `40281946953`）；三平台门禁在 PR run `40287649913` 全部
+  `--golden` success，实时双跑 skipped。
+- 全平台 E2E 矩阵：新增 `.github/workflows/desktop-e2e-matrix.yml`，用例清单见
+  `docs/testing/desktop-e2e-ci-matrix.md`（smoke、WebDriver target、Rust Host 拓扑），三平台
+  在 PR run `40287649972` 全部 success。多 workspace（N=1/4/8）与 8 workspace 优雅退出仍未接入。
+- 阶段 3 验收证据汇总：`docs/reports/rust-stage3-acceptance-2026-10-26.md` §5–§6。
 
 ### 阶段 4：超越项（与阶段 2–3 并行，收尾 +2 周）
 

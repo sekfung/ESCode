@@ -152,7 +152,25 @@ E2E 发现，只在显式 `--spec` 或 CI perf 作业运行）。负载：4 个�
 两者不可直接对照。
 
 CI 作业 `desktop-e2e-matrix.yml` 的 `app-perf` 会在 ubuntu-latest 上跑 Node 与 Rust 两遍并把
-对比表写进 job summary；阈值判定尚未引入（先积累趋势）。
+对比表写进 job summary。CI 实测（PR run `40287649972`，ubuntu-latest，各 1 次）：
+
+| Agent runtime | 首段中位数 ms | 首段最大 ms | 全进程 CPU 中位数 | 全进程 CPU 峰值 | 全进程工作集中位数 MiB | 进程数 |
+| ------------- | ------------: | ----------: | ----------------: | --------------: | ---------------------: | -----: |
+| Node CLI      |        1772.5 |        1932 |            134.8% |          301.5% |                 1193.4 |     10 |
+| Rust CLI      |        1417.5 |        1466 |            109.0% |          211.1% |                 1207.2 |      7 |
+
+CI 结论：Rust runtime 首段低 20.0%，全进程 CPU 中位数低 19.1%、峰值低 30.0%，工作集高 1.2%
+（噪声级），进程数少 3。与本地两次运行的方向一致（Rust 首段与 CPU 不劣于 Node）。阈值判定
+尚未引入，先积累趋势，避免 runner 抖动误红。
+
+CI 证据汇总（PR https://github.com/sekfung/ESCode/pull/2，37 项检查全绿）：
+
+| 项目                | 运行                                           | 结论                                                                                      |
+| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| mac/win golden 录制 | `record cli goldens` run `40281946953`         | 两个作业 success，golden 与平台基线已入库                                                 |
+| 三平台 golden 门禁  | `rust-runtime-ci` run `40287649913` 的 `bench` | ubuntu/macos/windows 均执行 `Rust parity against frozen golden` success，实时双跑 skipped |
+| 跨平台桌面 E2E      | `desktop e2e matrix` run `40287649972`         | ubuntu/macos/windows 三个 `desktop e2e` 均 success                                        |
+| App 级性能          | 同上 run 的 `app perf (ubuntu-latest)`         | success，产出 Node/Rust 两份 JSON 与对比表                                                |
 
 ## 6. 仍未闭合的阶段 3 项
 
@@ -164,5 +182,5 @@ CI 作业 `desktop-e2e-matrix.yml` 的 `app-perf` 会在 ubuntu-latest 上跑 No
 3. **首段/CPU 的阈值判定**：目前只落盘数字与对比表，未设回归阈值，避免 runner 抖动误红。
 
 结论：阶段 3 的安装包性能对照、三平台 parity golden 阻塞门禁、跨平台桌面 E2E 矩阵与 App 级
-首段/4 路流式 CPU 已完成并实测；剩余 1–3 属于口径细化与阈值治理，不再阻塞「Rust Host 默认
-可用」的验收结论。多 workspace 与优雅退出仍需单独接入后才能勾选。
+首段/4 路流式 CPU 已完成并在 CI 验收（PR #2 全绿）；剩余 1–3 属于口径细化与阈值治理，不再
+阻塞「Rust Host 默认可用」的验收结论。多 workspace 与优雅退出仍需单独接入后才能勾选。
