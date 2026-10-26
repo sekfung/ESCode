@@ -194,12 +194,23 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       # 差分门禁（docs/specs/rust-unified-host.md §4.2 / 阶段 3 golden freeze）：
-      # - linux-x64 已录制 `scripts/fixtures/parity/session-baseline.linux-x64.node.golden.json`，
-      #   这里只跑 Rust 并对冻结 golden 判定（不再启动 Node），作为阻塞门禁；
-      # - 其余平台尚无该平台 golden，暂保留 Node/Rust 实时双跑（观察期 continue-on-error），
-      #   录制对应平台 golden 后同样切到 `--golden`。
+      # 平台 golden 存在时只跑 Rust 并对冻结观察判定（阻塞）；缺失时保留 Node/Rust 实时双跑
+      # （观察期）并输出录制提示。golden 落库后本步骤自动切换，不再需要改 workflow。
+      - name: Resolve parity golden for this platform
+        id: parity-golden
+        shell: bash
+        run: |
+          token="$(node -p "process.platform + '-' + process.arch")"
+          file="scripts/fixtures/parity/session-baseline.${token}.node.golden.json"
+          if [ -f "$file" ]; then
+            echo "mode=golden" >> "$GITHUB_OUTPUT"
+            echo "file=$file" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=live" >> "$GITHUB_OUTPUT"
+            echo "::warning file=${file}::平台 parity golden 尚未录制；本次按观察期实时双跑。用 record cli goldens workflow 录制并提交后自动切换阻塞门禁"
+          fi
       - name: Rust parity against frozen golden (session-baseline)
-        if: matrix.os == 'ubuntu-latest'
+        if: steps.parity-golden.outputs.mode == 'golden'
         shell: bash
         run: |
           node scripts/diff-escode-cli-rust-parity.mjs --golden
@@ -208,13 +219,13 @@ jobs:
             cat .escode-runtime/parity/session-baseline.report.md
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Node vs Rust parity differential (session-baseline, live oracle)
-        if: matrix.os != 'ubuntu-latest'
+        if: steps.parity-golden.outputs.mode == 'live'
         shell: bash
         continue-on-error: true
         run: |
           node scripts/diff-escode-cli-rust-parity.mjs
           {
-            echo "### parity (session-baseline, ${{ matrix.os }})"
+            echo "### parity (session-baseline, ${{ matrix.os }}, observation)"
             cat .escode-runtime/parity/session-baseline.report.md
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4

@@ -1,5 +1,7 @@
 # 一次性录制：在 macOS/Windows runner 上把 CLI 差分用例的 Node 侧观察写成平台专属 golden。
 # 产物由 Actions artifact 上传，人工挑选 darwin-*/win32-* 文件提交；Linux 使用仓库内通用 golden。
+# 同一作业也录制 session-baseline 的 CLI parity golden（scripts/fixtures/parity/），
+# 落库后 rust-runtime-ci 自动从实时双跑切到 --golden 阻塞门禁。
 name: record cli goldens
 
 on:
@@ -44,6 +46,19 @@ jobs:
           cache-on-failure: true
       - uses: taiki-e/install-action@nextest
       - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+      # 不在录制前跑实时双跑：frames 的 fromSeq/批次顺序随 Node 运行调度变化（已知欠账 T-4），
+      # 实时双跑会间歇性产生新差异，不能作为冻结前置条件。先录制（golden 在比较前落盘），
+      # 再用只跑 Rust 的 --golden 对刚录的观察验证；验证通过即说明该 golden 可用于阻塞门禁。
+      - name: Record CLI parity golden (session-baseline)
+        shell: bash
+        continue-on-error: true
+        run: node scripts/diff-escode-cli-rust-parity.mjs --record
+      - name: Verify recorded golden (Rust-only gate)
+        if: always()
+        shell: bash
+        run: node scripts/diff-escode-cli-rust-parity.mjs --golden
       # 录制模式不启动 Node 回放；测试仍会跑 Node 侧 oracle 并写入平台专属 golden。
       - run: pnpm test:escode-cli-rust
         shell: bash
@@ -52,6 +67,12 @@ jobs:
           ESCODE_RECORD_CLI_GOLDEN: "1"
           ESCODE_GOLDEN_PLATFORM: "1"
           ESCODE_TEST_SHARD: "1/1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parity-golden-${{ matrix.os }}
+          path: scripts/fixtures/parity
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:

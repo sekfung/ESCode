@@ -27,6 +27,14 @@ export const NORMALIZATION = [
       "系统内核版本随 runner/机器变化，不属于协议契约；Platform 与 Shell 仍保留用于跨平台判定",
   },
   {
+    id: "current-date",
+    order: "text",
+    pattern: "Today's date is \\d{4}-\\d{2}-\\d{2}\\.",
+    replacement: "Today's date is <DATE>.",
+    reason:
+      "系统提示的 currentDate 是运行时事实（每天变化），不属于协议契约；与 CLI golden 的 currentDate 归一保持一致，日期行位置与其余文本仍比较。修复前冻结 golden 会在录制次日产生新差异，--golden 门禁实际不可用",
+  },
+  {
     id: "uuid",
     order: "text",
     pattern: "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
