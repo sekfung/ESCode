@@ -117,6 +117,10 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-desktop-agent-cli.mjs
+      # 直接调 wdio（不经 test:e2e 的 pretest）时 e2e-report 的 node 产物不会自动构建，
+      # 报告钩子会因 @escode/e2e-report/dist-node 缺失而失败。
+      - name: build e2e report node entry
+        run: pnpm --filter @escode/e2e-report build:node
       - name: build Rust Host (debug) and Rust runtime (release)
         run: |
           cargo build --locked --manifest-path apps/escode-host/Cargo.toml
