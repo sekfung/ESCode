@@ -89,3 +89,69 @@ async fn account_update_bypasses_the_gate() {
         "账号更新后的下一轮回到闸门语义"
     );
 }
+
+#[tokio::test]
+async fn shared_registry_reuses_one_snapshot_per_path_pair() {
+    let (_dir, builtin, personal) = fixture_dir();
+    let first = Registry::shared(builtin.clone(), personal.clone())
+        .await
+        .unwrap();
+    let second = Registry::shared(builtin.clone(), personal.clone())
+        .await
+        .unwrap();
+    assert!(Arc::ptr_eq(&first, &second), "同一路径对必须复用同一份快照");
+
+    // 另一组路径（不同临时目录）不能被复用：测试与多环境隔离依赖这一点。
+    let (_other_dir, other_builtin, other_personal) = fixture_dir();
+    let other = Registry::shared(other_builtin, other_personal)
+        .await
+        .unwrap();
+    assert!(!Arc::ptr_eq(&first, &other), "不同路径对必须各自独立");
+}
+
+#[tokio::test]
+async fn shared_registry_is_recreated_after_all_owners_drop() {
+    let (_dir, builtin, personal) = fixture_dir();
+    let first = Registry::shared(builtin.clone(), personal.clone())
+        .await
+        .unwrap();
+    let weak = Arc::downgrade(&first);
+    drop(first);
+    assert!(weak.upgrade().is_none(), "最后一个实例退出后应可回收");
+
+    let second = Registry::shared(builtin, personal).await.unwrap();
+    assert!(weak.upgrade().is_none(), "缓存不得复活已回收的旧快照");
+    assert!(Arc::strong_count(&second) >= 1);
+}
+
+#[tokio::test]
+async fn shared_registry_account_is_visible_to_all_instances() {
+    let (_dir, builtin, personal) = fixture_dir();
+    let first = Registry::shared(builtin.clone(), personal.clone())
+        .await
+        .unwrap();
+    let second = Registry::shared(builtin.clone(), personal).await.unwrap();
+    let source = format!(
+        "{:x}",
+        sha2::Sha256::digest(
+            std::path::absolute(&builtin)
+                .unwrap()
+                .to_string_lossy()
+                .as_bytes()
+        )
+    );
+    let account = serde_json::json!({
+        "revision": "1",
+        "basedOnESCodeBuiltinRevision": format!("escode-builtin:1:{source}"),
+        "providers": {},
+    });
+    assert!(
+        first.refresh(Some(account.clone())).await.unwrap(),
+        "账号事实变化必须重建共享快照"
+    );
+    assert_eq!(
+        second.received_account().await,
+        Some(account),
+        "共享实例必须看到同一账号事实"
+    );
+}

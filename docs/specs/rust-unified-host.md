@@ -277,7 +277,14 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
    字节 p50 0.062–0.071 ms → 类型化 0.046–0.048 ms（低 25–33%）；端到端控制 RPC（n=200）
    类型化 p50 0.049–0.063 ms vs 字节 0.062–0.107 ms，两链路均在 ≤0.1 ms 目标内。
    双传输一致性（输入/输出/超限/关闭/背压）由 `tests/dual_transport.rs` 守护，含新增 5 例。
-2. **跨实例共享缓存**：provider 配置（FileStamp/ChangeGate 式变更检测）、模型注册表、skill/plugin 目录做成 Host 内共享的不可变快照 + 失效信号（对标仓库每实例各自缓存、extensions 每次调用重扫）。目标：每 workspace ≤2.5 MiB（其 3.7 MiB）。
+2. **跨实例共享缓存**（2026-10-26 已交付 provider/模型注册表）：`Registry::from_env_shared()`
+   在嵌入 Host 进程内按 `(builtin, personal)` 配置路径共享同一份模型表/目录快照与 HTTP 客户端池
+   （`Weak` 缓存 + 既有 FileStamp/ChangeGate 失效）。本地 N=1..8 回归：Rust 每 workspace 的
+   Host+Agent 斜率 11.49 → 5.87–7.39 MiB/ws，Node 对照 10.44 → 9.12（机器波动）。
+   契约见 `docs/specs/rust-u4-shared-cache.md`，证据见
+   `docs/reports/rust-u4-shared-cache-2026-10-26.md`。
+   **未做**：skill/plugin 目录扫描共享（项目级技能按 cwd 作用域，需目录集合 + 逐目录指纹的失效
+   契约）；§5 的 ≤2.5 MiB/workspace 仍未达到，剩余成本是会话运行时状态。
 3. **启动/退出路径优化**：Host 随 App 预热（与窗口创建并行）、非关键服务懒加载、退出快照式刷盘。目标：冷启动 ≤1.8 s、首段 ≤180 ms、退出 ≤0.2 s（其 2.01 s / 236 ms / 0.28 s）。
 4. **严格等价测试网**（见 §4，贯穿全部阶段）。
 
