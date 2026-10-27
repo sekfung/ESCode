@@ -294,7 +294,12 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
    301.0 / 409.8 ms。热态 Rust 刚好在 180 ms 目标线，冷态未达标；Rust 比 Node 慢 20–36%，
    需先做分阶段 profile 再优化。契约见 `docs/specs/rust-u4-first-segment.md`，证据见
    `docs/reports/rust-u4-first-segment-2026-10-27.md`。
-   **未做**：冷启动 ≤1.8 s（安装包口径 2.40 s，需要预热/懒加载）与首段优化。
+   **冷启动已拆分（2026-10-28）**：安装包 T0→T5 实测 3209 ms（Electron 地板 1008 ms、应用
+   main bundle ~680 ms、preload ~190 ms、renderer 初始模块图 ~700 ms）；`did-finish-load`（2.6 s）
+   比 React 首次 commit 早约 0.6 s。契约见 `docs/specs/rust-u4-startup-phases.md`，证据见
+   `docs/reports/rust-u4-startup-phases-2026-10-28.md`。本 Linux/Xvfb 地板约 1.3 s，1.8 s 目标
+   无法在该环境达成；优化项（main 懒加载 / preload 瘦身 / renderer 模块图）未实施。
+   **未做**：首段优化与冷启动三项优化。
 4. **严格等价测试网**（见 §4，贯穿全部阶段）。
 
 ### 实现质量对齐工作包（对比报告结论落地）

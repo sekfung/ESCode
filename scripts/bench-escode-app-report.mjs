@@ -39,6 +39,11 @@ export async function writeBenchReport({
       renderTable(summaryHeaders, summaryRows(summary)),
       "```",
       "",
+      ...Object.entries(summary).flatMap(([key, value]) =>
+        value.startupPhases
+          ? [`冷启动阶段（${key}，T0 进程创建 → T5 React 首次 commit）：`, "", "```", value.startupPhases, "```", ""]
+          : [],
+      ),
       "角色分解（App = 应用进程；非 App = dev 构建链/系统壳，不计入 §5「全 App」口径）：",
       "",
       "```",
