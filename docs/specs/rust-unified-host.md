@@ -289,8 +289,12 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
    （目标 ≤0.2 s 达成）。根因是控制泵等「所有写句柄释放」导致 2 s 超时；改为显式取消 + 排空、
    后台转发任务可取消、实例并发收口。契约见 `docs/specs/rust-u4-startup-exit.md`，证据见
    `docs/reports/rust-u4-exit-path-2026-10-26.md`。
-   **未做**：冷启动 ≤1.8 s（安装包口径 2.40 s，需要预热/懒加载）与首段 ≤180 ms（App 级
-   「点击→首段可见」1.38 s，口径不同，需先补 runtime 首字测量）。
+   **首段已补测（2026-10-27）**：旧口径 1.38 s 是 WebDriver 轮询误差；应用内计时（真实 submit →
+   首个 assistant 文本渲染，fixture 首字 1 ms）实测热态 Node 149.3 / Rust 179.6 ms、冷态首条
+   301.0 / 409.8 ms。热态 Rust 刚好在 180 ms 目标线，冷态未达标；Rust 比 Node 慢 20–36%，
+   需先做分阶段 profile 再优化。契约见 `docs/specs/rust-u4-first-segment.md`，证据见
+   `docs/reports/rust-u4-first-segment-2026-10-27.md`。
+   **未做**：冷启动 ≤1.8 s（安装包口径 2.40 s，需要预热/懒加载）与首段优化。
 4. **严格等价测试网**（见 §4，贯穿全部阶段）。
 
 ### 实现质量对齐工作包（对比报告结论落地）
