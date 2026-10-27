@@ -5,12 +5,20 @@ use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     path::PathBuf,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex as StdMutex, OnceLock, RwLock, Weak},
 };
 
 pub(super) type ModelKey = (String, String, String);
+
+/// 共享缓存键：决定同一份 provider 配置的路径对。
+type SharedKey = (PathBuf, PathBuf);
+
+fn shared_cache() -> &'static StdMutex<HashMap<SharedKey, Weak<Registry>>> {
+    static SHARED: OnceLock<StdMutex<HashMap<SharedKey, Weak<Registry>>>> = OnceLock::new();
+    SHARED.get_or_init(|| StdMutex::new(HashMap::new()))
+}
 #[derive(Default)]
 pub(super) struct Snapshot {
     pub(super) signature: Vec<u8>,
@@ -48,6 +56,46 @@ impl Registry {
         registry.refresh(None).await?;
         Ok(Some(registry))
     }
+
+    /// 进程内共享版本（docs/specs/rust-u4-shared-cache.md）：同一 `(builtin, personal)` 路径对
+    /// 返回同一个 `Arc`，Host 的多个嵌入实例共用一份模型表/目录快照与 HTTP 客户端池。
+    ///
+    /// 缓存只持 `Weak`：生命周期仍由各实例决定，最后一个实例退出后条目在下次查找时清理。
+    /// 失效沿用 `FileStamp` + `ChangeGate`（P1 #7），共享后同一份文件只真读一次。
+    pub async fn from_env_shared() -> Result<Option<Arc<Self>>> {
+        let builtin = escode_cli_core_api::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE");
+        let personal = escode_cli_core_api::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE");
+        if builtin.is_none() && personal.is_none() {
+            return Ok(None);
+        }
+        let builtin: PathBuf = builtin.context("Builtin config required")?.into();
+        let personal: PathBuf = personal.context("Personal config required")?.into();
+        Ok(Some(Self::shared(builtin, personal).await?))
+    }
+
+    /// 按显式路径取共享实例（`from_env_shared` 的测试/嵌入接缝）。
+    pub async fn shared(builtin: PathBuf, personal: PathBuf) -> Result<Arc<Self>> {
+        let key: SharedKey = (builtin, personal);
+        // 创建与登记在同一把同步锁内完成：并发首取不会产生两个快照。
+        let registry = {
+            let mut cache = shared_cache()
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            cache.retain(|_, weak| weak.strong_count() > 0);
+            match cache.get(&key).and_then(Weak::upgrade) {
+                Some(existing) => existing,
+                None => {
+                    let created = Arc::new(Self::new(key.0.clone(), key.1.clone()));
+                    cache.insert(key, Arc::downgrade(&created));
+                    created
+                }
+            }
+        };
+        // 刷新在锁外：多个实例并发首取时由 registry 自己的串行段收敛。
+        registry.refresh(None).await?;
+        Ok(registry)
+    }
+
     pub fn new(builtin: PathBuf, personal: PathBuf) -> Self {
         Self {
             builtin,

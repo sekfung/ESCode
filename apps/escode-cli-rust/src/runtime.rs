@@ -135,7 +135,8 @@ pub async fn build_engine(
     let question_timing = escode_cli_host::question_timing()?;
     let model_config = ModelConfig::load(config).await?;
     let registry = if model_config.is_none() {
-        Registry::from_env()
+        // 嵌入 Host 的多个 workspace 实例共用一份 provider/模型快照（阶段 4 第 2 项）。
+        Registry::from_env_shared()
             .await?
             .map(|r| r as Arc<dyn ModelRegistry>)
     } else {
