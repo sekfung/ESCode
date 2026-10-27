@@ -172,6 +172,28 @@ jobs:
         run: |
           xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
             --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
+      # 首段：应用内计时（submit 事件 → 首个 assistant 文本渲染），fixture 首字在 1ms。
+      - name: measure first segment (node runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: node
+          ESCODE_AGENT_SERVER_RUNTIME: node
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-first-segment.perf.ts
+      - name: measure first segment (rust runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: rust
+          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
+          ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-first-segment.perf.ts
       - name: summarize app perf
         if: always()
         run: |
@@ -207,6 +229,20 @@ jobs:
             );
           }
           console.log("\n口径：斜率为 N=1..8 八个点的最小二乘；主指标是 Host+Agent 子集（App 树受 renderer GC 影响可为负）；退出为 `app.quit()` 到主进程消失（含 before-quit 清理）。");
+          const firstSegments = list.filter((name) => /^app-perf-first-segment\..*\.json$/.test(name));
+          console.log("\n### 首条消息第一段（应用内计时：submit → 首个 assistant 文本）\n");
+          console.log("| runtime | 中位数 ms | 最大 ms | 采样值 ms |");
+          console.log("| --- | ---: | ---: | --- |");
+          for (const name of firstSegments) {
+            const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
+            console.log(
+              `| ${data.runtimeLabel} | ${data.firstSegmentMs.median.toFixed(1)} | ` +
+                `${data.firstSegmentMs.max.toFixed(1)} | ${data.firstSegmentMs.values
+                  .map((value) => value.toFixed(1))
+                  .join(", ")} |`,
+            );
+          }
+          console.log("\n口径：fixture 首字延迟 1ms，因此该值≈提交→渲染的 App 侧开销，不含真实模型首字延迟。");
           EOF
       - uses: actions/upload-artifact@v4
         if: always()
