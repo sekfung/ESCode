@@ -11,7 +11,13 @@ export interface ProcessTreeSample {
   at: number;
   cpuPercent: number;
   workingSetMiB: number;
-  processes: Array<{ pid: number; name: string; cpuSeconds: number; bytes: number }>;
+  processes: Array<{
+    pid: number;
+    name: string;
+    commandLine: string;
+    cpuSeconds: number;
+    bytes: number;
+  }>;
 }
 
 const isWindows = process.platform === "win32";
@@ -58,6 +64,7 @@ interface RawProcess {
   pid: number;
   ppid: number;
   name: string;
+  commandLine: string;
   bytes: number;
   cpuSeconds: number;
 }
@@ -67,7 +74,7 @@ export function readProcessTable(): RawProcess[] {
     const script = [
       "$ErrorActionPreference = 'SilentlyContinue'",
       "Get-CimInstance Win32_Process | ForEach-Object {",
-      "  [pscustomobject]@{ pid = $_.ProcessId; ppid = $_.ParentProcessId; name = $_.Name;",
+      "  [pscustomobject]@{ pid = $_.ProcessId; ppid = $_.ParentProcessId; name = $_.Name; cmd = $_.CommandLine;",
       "    workingSet = $_.WorkingSetSize; cpu = ($_.UserModeTime + $_.KernelModeTime) / 10000000 }",
       "} | ConvertTo-Json -Compress -Depth 3",
     ].join("\n");
@@ -78,6 +85,7 @@ export function readProcessTable(): RawProcess[] {
       pid: Number(row.pid),
       ppid: Number(row.ppid),
       name: String(row.name ?? ""),
+      commandLine: String(row.cmd ?? ""),
       bytes: Number(row.workingSet ?? 0),
       cpuSeconds: Number(row.cpu ?? 0),
     }));
@@ -101,6 +109,7 @@ export function readProcessTable(): RawProcess[] {
           pid: Number(pid),
           ppid: Number(ppid),
           name: command.split(/\s+/u)[0] ?? "",
+          commandLine: command,
           bytes: Number(rss) * 1024,
           cpuSeconds,
         },
@@ -150,8 +159,33 @@ export function sampleProcessTree(
     processes: tree.map((entry) => ({
       pid: entry.pid,
       name: entry.name,
+      commandLine: entry.commandLine.slice(0, 200),
       cpuSeconds: entry.cpuSeconds,
       bytes: entry.bytes,
     })),
   };
+}
+
+/**
+ * 主进程是否仍存活。僵尸（Z/defunct）视为已退出：Electron 退出后父进程（chromedriver/wdio）
+ * 未必立刻 reap，`ps` 里仍能看到 pid，按存活判断会让退出测量永远超时。
+ */
+export function isProcessAlive(pid: number): boolean {
+  if (isWindows) {
+    return readProcessTable().some((entry) => entry.pid === pid);
+  }
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+    const stateIndex = stat.lastIndexOf(")") + 2;
+    const state = stat.slice(stateIndex, stateIndex + 1);
+    return state !== "Z" && state !== "X";
+  } catch {
+    if (process.platform === "linux") return false;
+  }
+  try {
+    const output = capture("ps", ["-o", "stat=", "-p", String(pid)]).trim();
+    return output !== "" && !output.startsWith("Z");
+  } catch {
+    return false;
+  }
 }

@@ -271,6 +271,10 @@ const SMALL_AGENT_WARMUP_SPECS = [
   WORKSPACE_REMOVAL_RUNTIME_RELEASE_SPEC,
   MODEL_PROVIDER_REGRESSION_GAPS_SPEC,
 ] as const;
+// App 级性能用例：N=1/4/8 workspace 与 8 workspace 优雅退出。需要恰好 8 个已恢复 workspace
+// 且从第 1 个开始，才能按 1 → 4 → 8 逐级测量增量。
+const APP_PERF_WORKSPACES_SPEC = "app-perf-workspaces.perf.ts";
+const APP_PERF_WORKSPACE_COUNT = 8;
 const TASK_INDEX_ROW_AUTHORITY_SPEC = "conversation-session-task-index-row-authority.test.ts";
 const TASK_TITLE_MARQUEE_SPEC = "conversation-session-task-title-marquee.test.ts";
 const GROUPED_ARCHIVE_RESURRECTION_SPEC =
@@ -1907,16 +1911,19 @@ function seedE2EStartupState(specs: string[] = []) {
     specs,
     MODEL_PROVIDER_REGRESSION_GAPS_SPEC,
   );
+  const appPerfWorkspacesFixture = workerSpecsContain(specs, APP_PERF_WORKSPACES_SPEC);
   const passiveWorkspacePaths = agentWarmupFixture
     ? seedPassiveAgentStartupWorkspaces(E2E_HOME_DIR, agentWarmupScenario.workspaceCount)
-    : [];
+    : appPerfWorkspacesFixture
+      ? seedPassiveAgentStartupWorkspaces(E2E_HOME_DIR, APP_PERF_WORKSPACE_COUNT)
+      : [];
   if (modelProviderRegressionFixture) {
     // 模型回归缺口 spec 既需要 dormant workspace 切换，也需要 legacy 默认工作区
     // 供 provider/replay helper 初始化；两者都放进同一份 lastWorkspaceSession，避免
     // 测试直接绕过用户可见的侧栏入口注入 workspace。
     mkdirSync(legacyDefaultProjectPath, { recursive: true });
   }
-  if (!useFreshConversationWorkspace && !agentWarmupFixture) {
+  if (!useFreshConversationWorkspace && !agentWarmupFixture && !appPerfWorkspacesFixture) {
     // 既有 E2E 大量以一个已打开项目为前置；产品首次启动已改为 conversation，
     // 测试基线显式 seed 项目会话，避免把“老 case 的 fixture”误当成新用户默认行为。
     mkdirSync(legacyDefaultProjectPath, { recursive: true });
@@ -1945,7 +1952,7 @@ function seedE2EStartupState(specs: string[] = []) {
               ),
               lastActiveTabIndex: 0,
             }
-          : agentWarmupFixture
+          : agentWarmupFixture || appPerfWorkspacesFixture
             ? {
                 recentProjects: passiveWorkspacePaths,
                 lastWorkspaceSession: passiveWorkspacePaths.map((workspacePath) => ({
@@ -1953,7 +1960,9 @@ function seedE2EStartupState(specs: string[] = []) {
                   workspacePath,
                   workspacePurpose: "project" as const,
                 })),
-                lastActiveTabIndex: agentWarmupScenario.activeWorkspaceIndex,
+                lastActiveTabIndex: agentWarmupFixture
+                  ? agentWarmupScenario.activeWorkspaceIndex
+                  : 0,
               }
             : !useFreshConversationWorkspace
               ? {

@@ -147,19 +147,41 @@ jobs:
         run: |
           xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
             --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      # 多 workspace 与优雅退出：每个 workspace 打开后真实跑一轮会话，检查点 N=1/4/8。
+      - name: measure workspaces (node runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: node
+          ESCODE_AGENT_SERVER_RUNTIME: node
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
+      - name: measure workspaces (rust runtime)
+        env:
+          ESCODE_APP_PERF_LABEL: rust
+          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
+          ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
+          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
+            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
+          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
       - name: summarize app perf
         if: always()
         run: |
           node - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           const fs = require("node:fs");
           const dir = "packages/desktop/.e2e-artifacts/app-perf";
-          const rows = fs.existsSync(dir)
-            ? fs.readdirSync(dir).filter((name) => /^app-perf-streaming\..*\.json$/.test(name))
-            : [];
+          const list = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+          const streaming = list.filter((name) => /^app-perf-streaming\..*\.json$/.test(name));
+          const workspaces = list.filter((name) => /^app-perf-workspaces\..*\.json$/.test(name));
           console.log("### App 级性能（linux-x64，4 路并发流式）\n");
           console.log("| runtime | 首段中位数 ms | 首段最大 ms | 流式 CPU 中位数 % | 流式峰值 % | 工作集中位数 MiB | 空闲工作集 MiB |");
           console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
-          for (const name of rows) {
+          for (const name of streaming) {
             const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
             console.log(
               `| ${data.runtimeLabel} | ${data.firstSegmentMs.median} | ${data.firstSegmentMs.max} | ` +
@@ -167,7 +189,21 @@ jobs:
                 `${data.streaming.workingSetMiBMedian.toFixed(1)} | ${data.idle.workingSetMiB.toFixed(1)} |`,
             );
           }
-          console.log("\n口径：点击发送到该 lane 首个 assistant 文本可见；CPU 为 `app.getAppMetrics()` 全 App 求和，500ms 采样。");
+          console.log("\n口径：点击发送到该 lane 首个 assistant 文本可见；CPU 为全进程树求和，500ms 采样。");
+          console.log("\n### 多 workspace 与优雅退出（每个 workspace 跑一轮会话）\n");
+          console.log("| runtime | Host+Agent 斜率 MiB/ws | App 树斜率 MiB/ws | 端点差 MiB/ws | N=1 MiB | N=8 MiB | 退出 ms |");
+          console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
+          for (const name of workspaces) {
+            const data = JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
+            const first = data.checkpoints.find((point) => point.workspaceCount === 1);
+            const last = data.checkpoints.find((point) => point.workspaceCount === data.workspaceCount);
+            console.log(
+              `| ${data.runtimeLabel} | ${data.perWorkspaceHostMiB.toFixed(2)} | ${data.perWorkspaceAppTreeMiB.toFixed(2)} | ` +
+                `${data.perWorkspaceEndpointMiB.toFixed(2)} | ${first.workingSetMiB.toFixed(1)} | ` +
+                `${last.workingSetMiB.toFixed(1)} | ${data.exitMs} |`,
+            );
+          }
+          console.log("\n口径：斜率为 N=1..8 八个点的最小二乘；主指标是 Host+Agent 子集（App 树受 renderer GC 影响可为负）；退出为 `app.quit()` 到主进程消失（含 before-quit 清理）。");
           EOF
       - uses: actions/upload-artifact@v4
         if: always()

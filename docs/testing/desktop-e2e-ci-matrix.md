@@ -30,33 +30,38 @@ ESCODE_E2E_SPEC='./test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-life
 
 ## App 级性能作业（app-perf）
 
-同一 workflow 的 `app-perf` 作业在 ubuntu-latest 上跑
-`./test/e2e/perf/app-perf-streaming.perf.ts`，对 Node 与 Rust 两种 Agent runtime 各跑一遍：
+同一 workflow 的 `app-perf` 作业在 ubuntu-latest 上跑两个性能用例，对 Node 与 Rust 两种 Agent
+runtime 各跑一遍：
+
+| 用例                          | 测量                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `app-perf-streaming.perf.ts`  | 4 路并发流式的「点击 → 首段可见」延迟、全进程树 CPU/工作集                |
+| `app-perf-workspaces.perf.ts` | N=1..8 已跑过会话的 workspace 内存斜率、8 workspace `app.quit()` 退出耗时 |
 
 ```bash
 E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,\
 packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json \
 ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
   xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-    --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+    --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
 ```
 
 - `.perf.ts` 不进默认 E2E spec 发现，避免性能数字波动让功能套件变红。
-- 测量项：4 路并发流式下的「点击 → 首段可见」延迟、Electron 主进程子树（含 Host 与 Agent）
-  的 CPU/工作集，以及 `app.getAppMetrics()` 的 Electron 口径对照。
-- 结果写入 `$ESCODE_E2E_ARTIFACT_DIR/app-perf-streaming.<runtime>.<platform>-<arch>.json`，
-  作业 summary 输出 Node/Rust 对比表。当前只记录趋势，不做阈值判定。
+- workspace 用例由 wdio 的 `APP_PERF_WORKSPACES_SPEC` 分支播种 8 个已恢复 workspace；每个
+  workspace 打开后真实跑一轮会话（fixture `E2E_APP_PERF_WS_<n>`），否则测不到实例常驻成本。
+- 退出测量用 `app.quit()`（真实 before-quit 清理），僵尸进程视为已退出。
+- 结果写入 `$ESCODE_E2E_ARTIFACT_DIR/app-perf-{streaming,workspaces}.<runtime>.<platform>-<arch>.json`，
+  作业 summary 输出两张 Node/Rust 对比表。当前只记录趋势，不做阈值判定。
 
 ## 覆盖矩阵（阶段 3 验收）
 
-| 平台           | 桌面 GUI 可用             | Host 拓扑                         | App 级性能                                     |
-| -------------- | ------------------------- | --------------------------------- | ---------------------------------------------- |
-| ubuntu-latest  | smoke + session-lifecycle | Rust Host 单进程、reload pid 不变 | 首段 + 4 路流式（Node/Rust 各一次）            |
-| windows-latest | smoke + session-lifecycle | 同上                              | —（读数只与同平台历史比较，暂只在 Linux 采集） |
-| macos-latest   | smoke + session-lifecycle | 同上                              | —                                              |
+| 平台           | 桌面 GUI 可用             | Host 拓扑                         | App 级性能                                                  |
+| -------------- | ------------------------- | --------------------------------- | ----------------------------------------------------------- |
+| ubuntu-latest  | smoke + session-lifecycle | Rust Host 单进程、reload pid 不变 | 首段 + 4 路流式 + 多 workspace/优雅退出（Node/Rust 各一次） |
+| windows-latest | smoke + session-lifecycle | 同上                              | —（读数只与同平台历史比较，暂只在 Linux 采集）              |
+| macos-latest   | smoke + session-lifecycle | 同上                              | —                                                           |
 
-**未覆盖**：多 workspace（N=1/4/8）与 8 workspace 优雅退出；Host/network 分角色 CPU。
-这两项需要工作区种子 + UI 打开流程与分角色采样，尚未接入本 workflow。
+**未覆盖**：Host/network 分角色 CPU（当前是全进程树口径）、性能阈值判定（只积累趋势）。
 
 ## 不在本矩阵内
 
