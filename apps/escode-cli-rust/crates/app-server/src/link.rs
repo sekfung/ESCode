@@ -1,16 +1,19 @@
 //! 双传输 Link（docs/specs/rust-u1-runtime-lib.md §3.3）：stdio 与内存双工链路。
 //!
 //! 行切分、帧上限、dispatch、EOF/关闭语义与输出停滞看门狗全部在 [`crate::stdio::start_io`]
-//! 一条代码路径上——等价性由「同一段代码」保证。`MemoryLink` 先以 mpsc 字节通道 +
-//! NDJSON 保帧面等价，接口形状为阶段 4 免序列化直传预留。
+//! 一条代码路径上——等价性由「同一段代码」保证。`MemoryLink` 是 NDJSON 字节链路；
+//! [`TypedMemoryLink`]（docs/specs/rust-u4-memory-link.md）是阶段 4 的类型化直传：
+//! 进程内直接传 `serde_json::Value`，消除双向各一次序列化 + 解析。
 
+use std::collections::VecDeque;
 use std::io::{Read, Write};
 
+use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::contract::{Input, Output};
-use crate::stdio::start_io;
+use crate::stdio::{start_io, start_typed_io};
 
 /// 一次打开的协议流：引擎输入、输出端与写出线程收口句柄。
 pub struct Streams {
@@ -223,5 +226,111 @@ impl Write for ChannelWrite {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+/// 类型化链路的一端（调用方）：发送 `Value` 帧、按批接收 `Value`。
+/// 与 [`EmbeddedIo`] 同形，但帧面是 `serde_json::Value`，进程内不做 NDJSON 编解码。
+pub struct EmbeddedTypedIo {
+    inbound: mpsc::Sender<Value>,
+    outbound: mpsc::Receiver<Vec<Value>>,
+    pending: VecDeque<Value>,
+}
+
+/// 类型化链路的读端（帧泵独占）。
+pub struct EmbeddedTypedIoReader {
+    outbound: mpsc::Receiver<Vec<Value>>,
+    pending: VecDeque<Value>,
+}
+
+/// 类型化链路的写端（可并发进请求）。
+pub struct EmbeddedTypedIoWriter {
+    inbound: mpsc::Sender<Value>,
+}
+
+impl EmbeddedTypedIo {
+    /// 拆成读写两端（与 [`EmbeddedIo::split`] 同语义）。
+    pub fn split(self) -> (EmbeddedTypedIoReader, EmbeddedTypedIoWriter) {
+        (
+            EmbeddedTypedIoReader {
+                outbound: self.outbound,
+                pending: self.pending,
+            },
+            EmbeddedTypedIoWriter {
+                inbound: self.inbound,
+            },
+        )
+    }
+
+    /// 发送一帧；实例已收口时丢弃（与写 stdin 到已退出进程一致）。
+    pub async fn send_value(&self, value: Value) {
+        let _ = self.inbound.send(value).await;
+    }
+
+    /// 接收一帧；None = 实例 output 已关闭。
+    pub async fn frame(&mut self) -> Option<Value> {
+        loop {
+            if let Some(value) = self.pending.pop_front() {
+                return Some(value);
+            }
+            let batch = self.outbound.recv().await?;
+            self.pending.extend(batch);
+        }
+    }
+}
+
+impl EmbeddedTypedIoReader {
+    /// 接收一帧；None = 实例 output 已关闭。
+    pub async fn frame(&mut self) -> Option<Value> {
+        loop {
+            if let Some(value) = self.pending.pop_front() {
+                return Some(value);
+            }
+            let batch = self.outbound.recv().await?;
+            self.pending.extend(batch);
+        }
+    }
+}
+
+impl EmbeddedTypedIoWriter {
+    /// 发送一帧；实例已收口时丢弃。
+    pub async fn send_value(&self, value: Value) {
+        let _ = self.inbound.send(value).await;
+    }
+}
+
+/// 嵌入实例一侧的类型化内存链路（阶段 4）：进程内直接交换 `Value`，无 NDJSON。
+pub struct TypedMemoryLink {
+    inbound: mpsc::Receiver<Value>,
+    outbound: mpsc::Sender<Vec<Value>>,
+}
+
+impl TypedMemoryLink {
+    /// 建立链路两端；`capacity` 是每个方向的帧数上界（背压与 stdio 管道一致）。
+    pub fn channel(capacity: usize) -> (Self, EmbeddedTypedIo) {
+        let (inbound_tx, inbound_rx) = mpsc::channel(capacity);
+        let (outbound_tx, outbound_rx) = mpsc::channel(capacity);
+        (
+            Self {
+                inbound: inbound_rx,
+                outbound: outbound_tx,
+            },
+            EmbeddedTypedIo {
+                inbound: inbound_tx,
+                outbound: outbound_rx,
+                pending: VecDeque::new(),
+            },
+        )
+    }
+}
+
+impl Link for TypedMemoryLink {
+    fn start(
+        self: Box<Self>,
+        cancel: CancellationToken,
+        input_closed: CancellationToken,
+    ) -> Streams {
+        let Self { inbound, outbound } = *self;
+        start_typed_io(inbound, outbound, cancel, input_closed)
     }
 }

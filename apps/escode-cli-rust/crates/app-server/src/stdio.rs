@@ -68,24 +68,155 @@ where
 /// 需要按 Host 原键顺序重新解析 params 的方法（落盘时保持请求里的 key 顺序）。
 const RAW_PARAMS_METHODS: &[&str] = &["plugins/configure"];
 
+/// 类型化链路的读写线程（docs/specs/rust-u4-memory-link.md）：
+/// 输入已是 `Value`（不再解析行），输出直接转发批量 `Value`（不再序列化）。
+/// 通道容量、停滞看门狗与收口语义与 [`start_io`] 相同。
+pub(crate) fn start_typed_io(
+    mut inbound: mpsc::Receiver<Value>,
+    outbound: mpsc::Sender<Vec<Value>>,
+    cancel: CancellationToken,
+    input_closed: CancellationToken,
+) -> Streams {
+    let (in_tx, in_rx) = mpsc::channel(64);
+    let (out_tx, mut out_rx) = mpsc::channel::<Vec<Value>>(64);
+    let forward_cancel = input_closed.clone();
+    std::thread::spawn(move || {
+        while let Some(value) = inbound.blocking_recv() {
+            if frame_exceeds_limit(&value) {
+                let _ = in_tx.blocking_send(Input::TooLarge);
+                forward_cancel.cancel();
+                return;
+            }
+            if !dispatch_value(&in_tx, value) {
+                return;
+            }
+        }
+        let _ = in_tx.blocking_send(Input::Eof);
+        forward_cancel.cancel();
+    });
+    let progress = super::stdio_input::WriteProgress::default();
+    let watch_progress = progress.clone();
+    let watch_cancel = cancel.clone();
+    escode_cli_core_api::scope::Spawner::current().spawn(
+        "stdio-stall-watchdog",
+        super::stdio_input::watch_stalled_output(watch_progress, input_closed, watch_cancel),
+    );
+    let writer_thread = std::thread::spawn(move || {
+        while let Some(batch) = out_rx.blocking_recv() {
+            progress.begin();
+            let result = outbound.blocking_send(batch);
+            progress.end();
+            if result.is_err() {
+                cancel.cancel();
+                progress.finish();
+                return;
+            }
+        }
+        progress.finish();
+    });
+    Streams {
+        input: in_rx,
+        output: out_tx,
+        writer: writer_thread,
+    }
+}
+
+/// 类型化帧的 `MAX_REQUEST_BYTES` 判定：与字节链路结果一致，常态零序列化。
+///
+/// - 最小编码下界 > 限额 → 拒绝（不必精确测量）；
+/// - 最大编码上界 ≤ 限额 → 接受；
+/// - 否则序列化一次取精确长度（只有贴近限额的帧付出这次成本）。
+fn frame_exceeds_limit(value: &Value) -> bool {
+    let (min, max) = json_size_bounds(value);
+    if min > MAX_REQUEST_BYTES {
+        return true;
+    }
+    if max <= MAX_REQUEST_BYTES {
+        return false;
+    }
+    match serde_json::to_vec(value) {
+        // 字节链路把结尾换行也计入限额，这里保持同一口径。
+        Ok(bytes) => bytes.len() + 1 > MAX_REQUEST_BYTES,
+        Err(_) => true,
+    }
+}
+
+/// JSON 编码长度下界/上界的保守估计（同一遍递归）。
+fn json_size_bounds(value: &Value) -> (usize, usize) {
+    match value {
+        Value::Null => (4, 4),
+        Value::Bool(true) => (4, 4),
+        Value::Bool(false) => (5, 5),
+        // 数字至少 1 字节；f64 十进制展开远小于 32。
+        Value::Number(_) => (1, 32),
+        Value::String(text) => (
+            text.len().saturating_add(2),
+            text.len().saturating_mul(6).saturating_add(2),
+        ),
+        Value::Array(items) => {
+            let mut min = 2usize;
+            let mut max = 2usize;
+            for item in items {
+                let (item_min, item_max) = json_size_bounds(item);
+                min = min.saturating_add(item_min).saturating_add(1);
+                max = max.saturating_add(item_max).saturating_add(1);
+            }
+            (min, max)
+        }
+        Value::Object(map) => {
+            let mut min = 2usize;
+            let mut max = 2usize;
+            for (key, item) in map {
+                let (item_min, item_max) = json_size_bounds(item);
+                // key 编码 + 引号 + 冒号。
+                min = min
+                    .saturating_add(key.len())
+                    .saturating_add(item_min)
+                    .saturating_add(4);
+                max = max
+                    .saturating_add(key.len().saturating_mul(6))
+                    .saturating_add(item_max)
+                    .saturating_add(4);
+            }
+            (min, max)
+        }
+    }
+}
+
 fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
     if line.iter().all(u8::is_ascii_whitespace) {
         return true;
     }
-    let value = match serde_json::from_slice::<Value>(line) {
-        Ok(v) => v,
-        Err(_) => return tx.blocking_send(Input::Invalid).is_ok(),
-    };
+    match serde_json::from_slice::<Value>(line) {
+        Ok(value) => dispatch_frame(tx, value, Some(line)),
+        Err(_) => tx.blocking_send(Input::Invalid).is_ok(),
+    }
+}
+
+/// 类型化链路的唯一解释器（stage 4）：与 [`dispatch`] 共用同一段语义。
+/// `line` 是字节链路的原始行，只为保留 Host 原键顺序（`raw_result`/`raw_params`）；类型化链路
+/// 传 None，用 `Value::to_string()` 重编码——本工作区未启用 `preserve_order`，键序与字节链路一致。
+pub(crate) fn dispatch_value(tx: &mpsc::Sender<Input>, value: Value) -> bool {
+    if value.is_null() {
+        return tx.blocking_send(Input::Invalid).is_ok();
+    }
+    dispatch_frame(tx, value, None)
+}
+
+fn dispatch_frame(tx: &mpsc::Sender<Input>, value: Value, line: Option<&[u8]>) -> bool {
     if value.get("method").is_none()
         && let Some(id) = value["id"].as_str()
         && (value.get("result").is_some() ^ value.get("error").is_some())
     {
         // 原始 result 文本：部分工具（Cron）需要按 Host 原键顺序重新解析。
-        let raw_result = serde_json::from_slice::<
-            std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
-        >(line)
-        .ok()
-        .and_then(|reply| reply.get("result").map(|raw| raw.get().to_owned()));
+        let raw_result = match line {
+            Some(line) => serde_json::from_slice::<
+                std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
+            >(line)
+            .ok()
+            .and_then(|reply| reply.get("result").map(|raw| raw.get().to_owned())),
+            None => value.get("result").map(Value::to_string),
+        };
         return tx
             .blocking_send(Input::Response {
                 id: id.into(),
@@ -118,13 +249,18 @@ fn dispatch(tx: &mpsc::Sender<Input>, line: &[u8]) -> bool {
             )
         } else {
             let method = value["method"].as_str().unwrap_or_default().to_owned();
+            let params = value.get("params").cloned();
             serde_json::from_value::<Request>(value).map(|mut request| {
                 if RAW_PARAMS_METHODS.contains(&method.as_str()) {
-                    request.raw_params = serde_json::from_slice::<
-                        std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
-                    >(line)
-                    .ok()
-                    .and_then(|fields| fields.get("params").map(|raw| raw.get().to_owned()));
+                    request.raw_params = Some(match line {
+                        Some(line) => serde_json::from_slice::<
+                            std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
+                        >(line)
+                        .ok()
+                        .and_then(|fields| fields.get("params").map(|raw| raw.get().to_owned())),
+                        None => params.map(|params| params.to_string()),
+                    })
+                    .flatten();
                 }
                 request
             })

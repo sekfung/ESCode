@@ -143,6 +143,10 @@ impl InstanceState {
         self.writer.lock().await.send_line(line).await
     }
 
+    async fn send_json(&self, value: &Value) -> Result<()> {
+        self.writer.lock().await.send_value(value).await
+    }
+
     fn lock_early(&self) -> std::sync::MutexGuard<'_, Option<(Vec<String>, bool)>> {
         self.early
             .lock()
@@ -296,9 +300,14 @@ impl Instance {
         }
     }
 
-    /// 写入一行请求帧（只竞争写锁）。
+    /// 写入一行请求帧（只竞争写锁）。已是文本的入口（控制通道等）用它。
     pub async fn send_line(&self, line: &str) -> Result<()> {
         self.state.send_line(line).await
+    }
+
+    /// 写入一帧请求。类型化嵌入链路直接交 `Value`（阶段 4 免序列化）。
+    pub async fn send_json(&self, value: &Value) -> Result<()> {
+        self.state.send_json(value).await
     }
 
     /// 订阅出站帧（每个消费者一个）。首个订阅者先收到登记前缓冲的早期帧。
@@ -354,7 +363,7 @@ impl Instance {
         if let Some(trace) = trace {
             envelope["trace"] = trace;
         }
-        if let Err(error) = self.send_line(&envelope.to_string()).await {
+        if let Err(error) = self.send_json(&envelope).await {
             self.state.lock_pending().remove(&id);
             return Err(error);
         }

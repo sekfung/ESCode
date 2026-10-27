@@ -12,6 +12,7 @@ use std::process::Stdio;
 
 use anyhow::{Context, Result};
 use escode_cli_rust::embed::{self, RuntimeOptions};
+use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Child;
 use tokio_util::sync::CancellationToken;
@@ -48,13 +49,23 @@ pub struct RuntimeLink {
 }
 
 pub enum RuntimeReader {
+    /// 类型化嵌入链路（阶段 4）：帧面是 `Value`，不做 NDJSON 解析。
+    EmbeddedTyped(escode_cli_app_server::EmbeddedTypedIoReader),
+    /// 字节嵌入链路：保留给差分/故障注入（`embed::spawn`）。
     Embedded(escode_cli_app_server::EmbeddedIoReader),
     Child(BufReader<tokio::process::ChildStdout>),
 }
 
 pub enum RuntimeWriter {
+    EmbeddedTyped(escode_cli_app_server::EmbeddedTypedIoWriter),
     Embedded(escode_cli_app_server::EmbeddedIoWriter),
     Child(tokio::process::ChildStdin),
+}
+
+/// 出站帧：类型化链路给 `Value`；字节/child 链路给原始文本（可能是非法 JSON，按现状原样扇出）。
+pub enum RuntimeFrame {
+    Value(Value),
+    Raw(String),
 }
 
 /// 链路的生命周期句柄（存活判定与收口）。
@@ -90,11 +101,12 @@ impl RuntimeLink {
     pub fn open(link: &Link, options: RuntimeOptions) -> Result<Self> {
         match link {
             Link::Embedded => {
-                let embedded = embed::spawn(options);
+                // 阶段 4：默认走类型化直传（docs/specs/rust-u4-memory-link.md）。
+                let embedded = embed::spawn_typed(options);
                 let (reader, writer) = embedded.io.split();
                 Ok(Self {
-                    reader: RuntimeReader::Embedded(reader),
-                    writer: RuntimeWriter::Embedded(writer),
+                    reader: RuntimeReader::EmbeddedTyped(reader),
+                    writer: RuntimeWriter::EmbeddedTyped(writer),
                     lifecycle: Lifecycle::Embedded(Box::new(EmbeddedRuntime {
                         task: embedded.task,
                         cancel: embedded.cancel,
@@ -168,18 +180,47 @@ impl RuntimeLink {
 }
 
 impl RuntimeWriter {
-    /// 写入一行请求（缺换行自动补）。
-    pub async fn send_line(&mut self, line: &str) -> Result<()> {
-        let mut bytes = line.as_bytes().to_vec();
-        if bytes.last() != Some(&b'\n') {
-            bytes.push(b'\n');
-        }
+    /// 写入一帧请求。类型化链路直接交 `Value`；字节/child 链路序列化一次后写行。
+    pub async fn send_value(&mut self, value: &Value) -> Result<()> {
         match self {
+            Self::EmbeddedTyped(writer) => {
+                writer.send_value(value.clone()).await;
+                Ok(())
+            }
             Self::Embedded(writer) => {
-                writer.send_line(bytes).await;
+                writer.send_line(value.to_string().as_bytes()).await;
                 Ok(())
             }
             Self::Child(stdin) => {
+                let mut bytes = value.to_string().into_bytes();
+                bytes.push(b'\n');
+                stdin
+                    .write_all(&bytes)
+                    .await
+                    .context("Runtime child stdin closed")?;
+                stdin.flush().await.context("Runtime child flush failed")
+            }
+        }
+    }
+
+    /// 写入一行文本（控制通道等已是文本的入口）。类型化链路解析一次后直传。
+    pub async fn send_line(&mut self, line: &str) -> Result<()> {
+        match self {
+            Self::EmbeddedTyped(writer) => {
+                if let Ok(value) = serde_json::from_str::<Value>(line) {
+                    writer.send_value(value).await;
+                }
+                Ok(())
+            }
+            Self::Embedded(writer) => {
+                writer.send_line(line.as_bytes()).await;
+                Ok(())
+            }
+            Self::Child(stdin) => {
+                let mut bytes = line.as_bytes().to_vec();
+                if bytes.last() != Some(&b'\n') {
+                    bytes.push(b'\n');
+                }
                 stdin
                     .write_all(&bytes)
                     .await
@@ -191,18 +232,21 @@ impl RuntimeWriter {
 }
 
 impl RuntimeReader {
-    /// 读一行出站帧（含换行）；None = 链路关闭。
-    pub async fn line(&mut self) -> Option<String> {
+    /// 读一帧出站。类型化链路给 `Value`；字节/child 链路给原始文本。
+    pub async fn next_frame(&mut self) -> Option<RuntimeFrame> {
         match self {
+            Self::EmbeddedTyped(reader) => reader.frame().await.map(RuntimeFrame::Value),
             Self::Embedded(reader) => {
                 let bytes: Vec<u8> = reader.line().await?;
-                Some(String::from_utf8_lossy(&bytes).into_owned())
+                Some(RuntimeFrame::Raw(
+                    String::from_utf8_lossy(&bytes).into_owned(),
+                ))
             }
             Self::Child(stdout) => {
                 let mut line = String::new();
                 match stdout.read_line(&mut line).await {
                     Ok(0) | Err(_) => None,
-                    Ok(_) => Some(line),
+                    Ok(_) => Some(RuntimeFrame::Raw(line)),
                 }
             }
         }
