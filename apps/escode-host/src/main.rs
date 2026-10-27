@@ -141,6 +141,25 @@ fn forward_startup(
 }
 
 /// 控制循环：attach/detach/请求转发/关闭。
+/// 停止持有控制写句柄的后台转发任务，并给它们一个短窗口自行退出。
+///
+/// 这些任务不是控制队列的所有者，但它们的克隆会让 `ControlLoop::close` 等满 2s 超时；
+/// 显式取消后泵能立即看到队列关闭（退出路径实测从 ~2s 降到几十毫秒）。
+async fn stop_background_tasks(
+    token: &tokio_util::sync::CancellationToken,
+    tasks: &mut Vec<tokio::task::JoinHandle<()>>,
+) {
+    token.cancel();
+    for mut task in tasks.drain(..) {
+        if tokio::time::timeout(std::time::Duration::from_millis(500), &mut task)
+            .await
+            .is_err()
+        {
+            task.abort();
+        }
+    }
+}
+
 async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> {
     // window → 实例身份（attachment 路由由 Host 拥有）。
     let mut attachments: BTreeMap<String, String> = BTreeMap::new();
@@ -165,12 +184,24 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
             let _ = writer.control(ControlMessage::HostEvent { event }).await;
         });
     }));
+    // 后台转发任务共用收口信号：它们都持有控制队列写句柄，若不显式退出，
+    // `ControlLoop::close` 会等满 2s 超时再 abort（实测退出总耗时的主要来源）。
+    let background_stop = tokio_util::sync::CancellationToken::new();
+    let mut background_tasks: Vec<tokio::task::JoinHandle<()>> = Vec::new();
     // 实例生命周期 → Main 的 agent 进程事件 + CUA 操作状态。
     let events_writer = control.writer_handle();
     let lifecycle_instances = instances.clone();
     let mut lifecycle = instances.lifecycle();
-    tokio::spawn(async move {
-        while let Some(event) = lifecycle.recv().await {
+    let lifecycle_stop = background_stop.clone();
+    background_tasks.push(tokio::spawn(async move {
+        loop {
+            let event = tokio::select! {
+                _ = lifecycle_stop.cancelled() => return,
+                event = lifecycle.recv() => match event {
+                    Some(event) => event,
+                    None => return,
+                },
+            };
             match event.state {
                 escode_host_runtime::RuntimeState::Available => {
                     if let Some(pid) = event.process_id {
@@ -242,23 +273,26 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 }
             }
         }
-    });
+    }));
     let capture_writer = control.writer_handle();
-    tokio::spawn(async move {
+    let capture_stop = background_stop.clone();
+    background_tasks.push(tokio::spawn(async move {
         loop {
-            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            let Some(event) = escode_cli_net::capture::flush() else {
-                continue;
+            let cancelled = tokio::select! {
+                _ = capture_stop.cancelled() => true,
+                _ = tokio::time::sleep(std::time::Duration::from_millis(250)) => false,
             };
-            if capture_writer
-                .control(ControlMessage::HostEvent { event })
-                .await
-                .is_err()
-            {
+            // 收口时再刷一次：最后一小批网络捕获不能因为取消而丢。
+            if let Some(event) = escode_cli_net::capture::flush() {
+                let _ = capture_writer
+                    .control(ControlMessage::HostEvent { event })
+                    .await;
+            }
+            if cancelled {
                 return;
             }
         }
-    });
+    }));
     while let Some(message) = control.recv().await {
         match message {
             ControlMessage::WorkspacePrepare {
@@ -648,6 +682,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     })
                     .await;
                 let residual = instances.shutdown().await;
+                stop_background_tasks(&background_stop, &mut background_tasks).await;
                 control
                     .send(ControlMessage::Stopped {
                         residual: residual.clone(),
@@ -682,6 +717,8 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
         }
     }
     // 输入关闭（Main 退出）= 收口全部实例与传输面。
+    // 逐阶段计时：退出总耗时是阶段 4 的指标，Host 内部不保留其他可观测点。
+    let eof_started = std::time::Instant::now();
     if let Some(broker) = path_authorizer.take() {
         broker.close();
     }
@@ -691,8 +728,19 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
     for surface in rpc_surfaces.drain(..) {
         surface.shutdown().await;
     }
+    let surfaces_ms = eof_started.elapsed().as_millis();
     control.stop_pumps();
+    let instances_started = std::time::Instant::now();
     let residual = instances.shutdown().await;
+    let instances_ms = instances_started.elapsed().as_millis();
+    stop_background_tasks(&background_stop, &mut background_tasks).await;
+    escode_host_control::logging::info(
+        "host",
+        format!(
+            "eof shutdown: surfaces={surfaces_ms}ms instances={instances_ms}ms residual={}",
+            residual.len()
+        ),
+    );
     if residual.is_empty() {
         Ok(0)
     } else {
