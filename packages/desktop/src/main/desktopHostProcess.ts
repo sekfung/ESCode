@@ -122,6 +122,8 @@ export function loadWindow(
       unavailableWorkspacePath: bootstrap?.unavailableWorkspacePath,
       windowKind: bootstrap?.windowKind,
       locale: bootstrap?.locale,
+      // 冷启动阶段计时：bench 需要 T0–T5 全链路；生产不输出。
+      benchReady: process.env.ESCODE_BENCH_READY_LOG === "1" ? "1" : undefined,
     }).filter((entry): entry is [string, string] => entry[1] != null),
   );
 

@@ -319,6 +319,9 @@ async function measure(config, configKey, profileBase) {
     launched.exitMs = Date.now() - exitBegan;
   }
   launched.durationMs = Date.now() - launched.startedAt;
+  // 冷启动阶段（T0→T5）：只在安装包 + bench 标记下由 renderer 输出。
+  const startupPhase = /\[bench-startup\]\s+([^"\n]+)/.exec(output);
+  if (startupPhase) launched.startupPhases = startupPhase[1].trim();
   if (stderr.trim()) launched.stderrTail = tail(stderr);
   if (stdout.trim()) launched.stdoutTail = tail(stdout);
   return launched;
@@ -389,6 +392,7 @@ for (const [key, runs] of results) {
   summary[key] = {
     label: selected[key].label,
     readyKind: runs.at(-1)?.readyKind,
+    startupPhases: runs.at(-1)?.startupPhases,
     ...aggregate(runs),
   };
   // 末次运行的末次采样逐进程明细（诊断用：未分类进程/角色口径核对）。

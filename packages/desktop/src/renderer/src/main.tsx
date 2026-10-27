@@ -26,6 +26,7 @@ import {
   DEFAULT_LOCALE,
 } from "@escode/shared";
 import type { Locale } from "@escode/shared";
+import { reportBenchStartupPhases } from "./benchStartupPhases.js";
 import type { IServiceAccessor } from "@escode/services";
 import { createDesktopPlatform } from "./desktopPlatform.js";
 import { startPerformanceTimelineCleanup } from "./performanceTimelineCleanup.js";
@@ -326,8 +327,10 @@ function flushPendingRemoteWorkspaceServicePorts(): void {
 function StartupReadyNotifier() {
   useEffect(() => {
     // T5:React 首次 commit。供启动分阶段耗时计算 react_commit 段。
+    const reactCommitAt = Date.now();
     (window as Window & { __ESCODE_REACT_COMMIT_AT__?: number }).__ESCODE_REACT_COMMIT_AT__ =
-      Date.now();
+      reactCommitAt;
+    reportBenchStartupPhases(launchMarks, rendererStartedAt, reactCommitAt);
     // HTML 启动壳的弹出动画结束时，React 首屏可能还没 commit，直接移除壳会露出空白。
     // 这里在 React commit 后通知 index.html，再由启动壳统一判断动画和 React ready 两个条件后退场。
     window.dispatchEvent(new Event("escode-react-startup-ready"));
