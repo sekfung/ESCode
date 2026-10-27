@@ -220,17 +220,36 @@ impl Instances {
         Ok(residual)
     }
 
-    /// 全部收口（Host 退出路径）：逐个 close，返回全部残余任务/进程。
+    /// 全部收口（Host 退出路径）：**并发** close，按 identities 顺序拼残余清单。
+    ///
+    /// 实测 8 个 workspace 串行收口约 2.1 s，是退出总耗时的主要来源；实例之间没有关闭依赖
+    /// （各自 cancel + drain 自己的 runtime 与 agent 进程树），并发后总耗时≈最慢一个实例。
+    /// 残余清单仍按 identities 排序，诊断输出保持稳定。
     pub async fn shutdown(&self) -> Vec<String> {
         let identities = self.identities();
-        let mut residual = Vec::new();
-        for identity in identities {
-            match self.close(&identity).await {
-                Ok(names) => residual.extend(names),
-                Err(error) => residual.push(format!("{identity}: {error}")),
+        let closings = identities.iter().cloned().map(|identity| {
+            let instances = self.clone();
+            async move {
+                let started = std::time::Instant::now();
+                let residual = match instances.close(&identity).await {
+                    Ok(names) => names,
+                    Err(error) => vec![format!("{identity}: {error}")],
+                };
+                escode_host_control::logging::debug(
+                    "runtime-link",
+                    format!(
+                        "instance shutdown {identity} took {}ms",
+                        started.elapsed().as_millis()
+                    ),
+                );
+                (identity, residual)
             }
-        }
-        residual
+        });
+        futures_util::future::join_all(closings)
+            .await
+            .into_iter()
+            .flat_map(|(_identity, residual)| residual)
+            .collect()
     }
 
     fn starting_lock(&self, identity: &str) -> Arc<AsyncMutex<()>> {

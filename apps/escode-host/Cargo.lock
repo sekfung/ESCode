@@ -866,6 +866,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-tungstenite",
+ "tokio-util",
 ]
 
 [[package]]
@@ -947,6 +948,7 @@ dependencies = [
  "escode-cli-core-api",
  "escode-cli-rust",
  "escode-host-control",
+ "futures-util",
  "serde_json",
  "tempfile",
  "tokio",

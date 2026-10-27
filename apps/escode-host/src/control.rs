@@ -24,6 +24,8 @@ pub struct ControlLoop {
     /// `None` = 已收口（`close` 拿走最后一个句柄后队列关闭，泵写完即退）。
     writer: Option<ControlWriter>,
     pump: Option<tokio::task::JoinHandle<()>>,
+    /// 泵的显式收口信号：写句柄的克隆可能被后台任务持有更久（不变量不靠"所有 clone 都已释放"）。
+    pump_stop: tokio_util::sync::CancellationToken,
     reader: tokio::io::Lines<BufReader<tokio::io::Stdin>>,
     /// 实例身份 → 帧泵（一个实例一个泵，扇出到全部 attachment）。
     pumps: BTreeMap<String, Pump>,
@@ -37,17 +39,38 @@ struct Pump {
 impl ControlLoop {
     pub fn start() -> Result<Self> {
         let (writer, mut messages) = ControlWriter::channel(CONTROL_QUEUE_CAPACITY);
+        let pump_stop = tokio_util::sync::CancellationToken::new();
+        let stop = pump_stop.clone();
         let pump = tokio::spawn(async move {
             let mut stdout = tokio::io::stdout();
-            while let Some(message) = messages.recv().await {
-                if write_line(&mut stdout, &message).await.is_err() {
-                    return;
+            loop {
+                let message = tokio::select! {
+                    _ = stop.cancelled() => None,
+                    message = messages.recv() => message,
+                };
+                match message {
+                    Some(message) => {
+                        if write_line(&mut stdout, &message).await.is_err() {
+                            return;
+                        }
+                    }
+                    // 收口信号或队列关闭：先把已入队的帧写完（`stopped`/最后一批日志不能丢），
+                    // 再退出。此后到达的消息属于已取消的后台任务，直接丢弃。
+                    None => {
+                        while let Ok(message) = messages.try_recv() {
+                            if write_line(&mut stdout, &message).await.is_err() {
+                                return;
+                            }
+                        }
+                        return;
+                    }
                 }
             }
         });
         Ok(Self {
             writer: Some(writer),
             pump: Some(pump),
+            pump_stop,
             reader: BufReader::new(tokio::io::stdin()).lines(),
             pumps: BTreeMap::new(),
         })
@@ -104,15 +127,15 @@ impl ControlLoop {
         };
         escode_host_control::logging::release_sink();
         drop(writer);
-        if let Some(mut pump) = self.pump.take() {
-            // 后台 HostEvent/捕获任务的 writer 克隆可能在收口后才退出；它们不是控制队列的所有者。
-            // 给泵一个短暂排空窗口，超时直接 abort，避免进程因通道未关闭而永不退出。
-            if tokio::time::timeout(std::time::Duration::from_secs(2), &mut pump)
+        // 不再依赖"所有 writer 克隆都已释放"：后台任务的克隆可能晚于收口退出
+        // （实测一个 capture 轮询任务就足以让泵永远等不到队列关闭，2s 超时结束退出路径）。
+        self.pump_stop.cancel();
+        if let Some(mut pump) = self.pump.take()
+            && tokio::time::timeout(std::time::Duration::from_millis(500), &mut pump)
                 .await
                 .is_err()
-            {
-                pump.abort();
-            }
+        {
+            pump.abort();
         }
     }
 

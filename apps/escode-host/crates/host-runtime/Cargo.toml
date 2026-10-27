@@ -19,6 +19,7 @@ escode-host-control.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-app-server.workspace = true
 escode-cli-core-api.workspace = true
+futures-util.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
