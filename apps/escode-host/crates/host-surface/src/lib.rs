@@ -243,11 +243,15 @@ impl Hub {
             };
             let parsed = serde_json::from_str::<serde_json::Value>(&text).ok();
             let method = parsed.as_ref().and_then(|v| v["method"].as_str());
-            let id = parsed.as_ref().and_then(|v| v["id"].as_str());
+            // id 先取 owned：下面把 `parsed` 移交给类型化发送，错误分支仍需 id。
+            let id = parsed
+                .as_ref()
+                .and_then(|v| v["id"].as_str())
+                .map(str::to_owned);
             match method.map(|method| self.gateway.route(connection, method)) {
                 Some(Route::NotImplemented(method)) => {
                     let frame = error_frame(
-                        id,
+                        id.as_deref(),
                         -32601,
                         &format!("Host does not implement `{method}` yet"),
                     );
@@ -255,8 +259,13 @@ impl Hub {
                 }
                 // 覆盖的请求与非请求帧（Notification 等）都原样转给实例：协议面一致。
                 _ => {
-                    if let Err(error) = instance.send_line(&text).await {
-                        let frame = error_frame(id, -32603, &format!("{error:#}"));
+                    let sent = match parsed {
+                        // 已解析的帧走类型化直传，不再让 runtime 解析一次。
+                        Some(value) => instance.send_json(&value).await,
+                        None => instance.send_line(&text).await,
+                    };
+                    if let Err(error) = sent {
+                        let frame = error_frame(id.as_deref(), -32603, &format!("{error:#}"));
                         let _ = tx.send(frame).await;
                     }
                 }

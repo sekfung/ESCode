@@ -107,7 +107,8 @@ pub struct EmbeddedIo { /* inbound 行发送 + outbound 行接收 */ }
 ```
 
 - `stdio_input.rs` 的读取/写出线程泛型化：reader `R: BufRead + Send + 'static`，writer `W: Write + Send + 'static`。行切分、`MAX_REQUEST_BYTES`、`dispatch`、停滞看门狗、EOF → `input_closed` 全部共享——等价性由「同一段代码」保证，而非两套实现对拍。
-- `MemoryLink`：inbound 经 `mpsc<Vec<u8>>` 的 `ChannelRead`（reader 线程 `blocking_recv`，sender 全部 drop = EOF）；outbound 经 `blocking_send` 进有界通道（writer 线程阻塞 = 背压，停滞看门狗语义与 stdio 一致）。NDJSON 帧面与 stdio 相同，接口形状为阶段 4 换成类型化消息直传预留。
+- `MemoryLink`：inbound 经 `mpsc<Vec<u8>>` 的 `ChannelRead`（reader 线程 `blocking_recv`，sender 全部 drop = EOF）；outbound 经 `blocking_send` 进有界通道（writer 线程阻塞 = 背压，停滞看门狗语义与 stdio 一致）。NDJSON 帧面与 stdio 相同。
+- `TypedMemoryLink`（阶段 4 已交付，见 `docs/specs/rust-u4-memory-link.md`）：同一 Link 形状，进程内直接传 `serde_json::Value`，不再 NDJSON 编解码；Host 的 embedded 链路默认使用它，`MemoryLink` 保留给差分与故障注入。
 - `EmbeddedIo::drop` = 关闭 inbound → 实例走 EOF 收口；`io.recv()` 返回 `None` = 实例 output 已排空关闭。
 
 ### 3.4 embed 入口（src/embed.rs，lib 目标）

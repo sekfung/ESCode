@@ -270,7 +270,13 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 
 ### 阶段 4：超越项（与阶段 2–3 并行，收尾 +2 周）
 
-1. **进程内免序列化直连**：`MemoryLink` 切换为类型化消息直传（不经 NDJSON/serde）；帧边界、flush 窗口、关闭语义与 stdio 规格同源；双传输一致性子测试守护。目标：进程内控制 RPC p50 ≤0.1 ms（对标仓库进程内仍是 duplex+NDJSON，p50 0.2–0.3 ms）。
+1. **进程内免序列化直连**（2026-10-26 已交付嵌入链路）：`TypedMemoryLink` 在进程内直接传
+   `serde_json::Value`，双向消除「序列化 + 解析」各一次；stdio/child 链路逐字节不变。
+   契约见 `docs/specs/rust-u4-memory-link.md`，证据见
+   `docs/reports/rust-u4-memory-link-2026-10-26.md`。release 实测（n=500 纯传输 echo）：
+   字节 p50 0.062–0.071 ms → 类型化 0.046–0.048 ms（低 25–33%）；端到端控制 RPC（n=200）
+   类型化 p50 0.049–0.063 ms vs 字节 0.062–0.107 ms，两链路均在 ≤0.1 ms 目标内。
+   双传输一致性（输入/输出/超限/关闭/背压）由 `tests/dual_transport.rs` 守护，含新增 5 例。
 2. **跨实例共享缓存**：provider 配置（FileStamp/ChangeGate 式变更检测）、模型注册表、skill/plugin 目录做成 Host 内共享的不可变快照 + 失效信号（对标仓库每实例各自缓存、extensions 每次调用重扫）。目标：每 workspace ≤2.5 MiB（其 3.7 MiB）。
 3. **启动/退出路径优化**：Host 随 App 预热（与窗口创建并行）、非关键服务懒加载、退出快照式刷盘。目标：冷启动 ≤1.8 s、首段 ≤180 ms、退出 ≤0.2 s（其 2.01 s / 236 ms / 0.28 s）。
 4. **严格等价测试网**（见 §4，贯穿全部阶段）。

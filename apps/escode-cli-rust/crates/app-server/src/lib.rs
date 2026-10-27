@@ -6,7 +6,8 @@ pub mod link;
 pub mod stdio;
 mod stdio_input;
 pub use link::{
-    EmbeddedIo, EmbeddedIoReader, EmbeddedIoWriter, Link, MemoryLink, StdioLink, Streams,
+    EmbeddedIo, EmbeddedIoReader, EmbeddedIoWriter, EmbeddedTypedIo, EmbeddedTypedIoReader,
+    EmbeddedTypedIoWriter, Link, MemoryLink, StdioLink, Streams, TypedMemoryLink,
 };
 pub use stdio::{finish, start_io, storage_prepare};
 

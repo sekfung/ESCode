@@ -308,6 +308,111 @@ async fn in_process_control_round_trip_latency_baseline() {
     close(embedded).await.expect("clean exit");
 }
 
+/// 类型化链路版本的帧读取/发送（阶段 4）。
+async fn typed_next_frame(io: &mut escode_cli_app_server::EmbeddedTypedIo) -> Value {
+    tokio::time::timeout(Duration::from_secs(30), io.frame())
+        .await
+        .expect("frame within timeout")
+        .expect("instance output open")
+}
+
+async fn typed_start_ready(options: RuntimeOptions) -> embed::EmbeddedTyped {
+    let mut embedded = embed::spawn_typed(options);
+    loop {
+        let frame = typed_next_frame(&mut embedded.io).await;
+        if frame["method"] == "startup/storageState" && frame["params"]["phase"] == "ready" {
+            return embedded;
+        }
+    }
+}
+
+async fn typed_close(embedded: embed::EmbeddedTyped) -> anyhow::Result<()> {
+    let embed::EmbeddedTyped {
+        io,
+        task,
+        cancel: _,
+        tasks,
+    } = embedded;
+    drop(io);
+    let finished = tokio::time::timeout(Duration::from_secs(30), task)
+        .await
+        .expect("instance stops after EOF")
+        .expect("instance task join");
+    assert!(
+        tasks.running().is_empty(),
+        "no residual tasks after shutdown: {:?}",
+        tasks.running()
+    );
+    finished
+}
+
+/// 场景 6：类型化直传 vs NDJSON 字节链路的进程内控制往返延迟（docs/specs/rust-u4-memory-link.md §6）。
+/// 同一 fixture、同一方法、n=200，交错采样后比较中位数。
+#[tokio::test(flavor = "multi_thread")]
+async fn in_process_control_round_trip_latency_typed_vs_bytes() {
+    // 两个实例必须用不同 workspace：同一 workspace 的第二个实例会撞上 owner 锁。
+    let byte_fixture = Fixture::new();
+    let typed_fixture = Fixture::new();
+    let mut byte = start_ready(byte_fixture.options()).await;
+    let mut typed = typed_start_ready(typed_fixture.options()).await;
+
+    let method = "v4/commands/query";
+    let params = json!({"clock":true});
+    let mut byte_samples = Vec::new();
+    let mut typed_samples = Vec::new();
+    for index in 0..200 {
+        let id = format!("byte-{index}");
+        let started = Instant::now();
+        send_json(&byte.io, json!({"id":id,"method":method,"params":params})).await;
+        let _ = reply_for(&mut byte.io, &id).await;
+        byte_samples.push(started.elapsed().as_secs_f64() * 1000.0);
+
+        let id = format!("typed-{index}");
+        let started = Instant::now();
+        typed
+            .io
+            .send_value(json!({"id":id,"method":method,"params":params}))
+            .await;
+        loop {
+            let frame = typed_next_frame(&mut typed.io).await;
+            if frame["id"].as_str() == Some(id.as_str()) {
+                break;
+            }
+        }
+        typed_samples.push(started.elapsed().as_secs_f64() * 1000.0);
+    }
+
+    let percentile = |samples: &mut Vec<f64>, p: f64| {
+        samples.sort_by(|a, b| a.partial_cmp(b).expect("finite samples"));
+        samples[((samples.len() as f64 - 1.0) * p) as usize]
+    };
+    let (byte_p50, byte_p95) = (
+        percentile(&mut byte_samples, 0.50),
+        percentile(&mut byte_samples, 0.95),
+    );
+    let (typed_p50, typed_p95) = (
+        percentile(&mut typed_samples, 0.50),
+        percentile(&mut typed_samples, 0.95),
+    );
+    eprintln!(
+        "in-process control RPC (n=200): bytes p50={byte_p50:.3} ms p95={byte_p95:.3} ms; \
+typed p50={typed_p50:.3} ms p95={typed_p95:.3} ms"
+    );
+    // 端到端往返里引擎处理占主导，release 实测两者差值在 10 µs 量级、单次运行可正可负；
+    // 因此这里只做回归护栏（超过 20% 视为退化），纯传输差异由双传输 echo 用例给出。
+    assert!(
+        typed_p50 <= byte_p50 * 1.20,
+        "typed link regressed vs NDJSON beyond noise (typed={typed_p50:.3} ms, bytes={byte_p50:.3} ms)"
+    );
+    assert!(
+        typed_p95 <= byte_p95 * 1.20,
+        "typed link p95 regressed vs NDJSON beyond noise (typed={typed_p95:.3} ms, bytes={byte_p95:.3} ms)"
+    );
+
+    close(byte).await.expect("byte clean exit");
+    typed_close(typed).await.expect("typed clean exit");
+}
+
 /// 极简 OpenAI SSE 模型桩：首个主回合返回 `Write(file, content)`，工具结果后返回 stop；
 /// 标题请求（`tools` 为空）返回固定标题。每个 fixture 用独立桩，两个 workspace 的
 /// 模型请求互不配对。

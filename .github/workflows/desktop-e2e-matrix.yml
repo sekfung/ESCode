@@ -12,6 +12,9 @@ on:
     paths:
       - "packages/desktop/**"
       - "packages/ui/**"
+      # Host 与 runtime 的链路改动直接影响桌面 GUI（embedded 帧面/收口语义），必须跑矩阵。
+      - "apps/escode-host/**"
+      - "apps/escode-cli-rust/**"
       - ".github/workflows/desktop-e2e-matrix.yml"
       - "scripts/bench-escode-app*"
   workflow_dispatch:

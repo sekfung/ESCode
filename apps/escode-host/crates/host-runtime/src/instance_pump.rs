@@ -50,14 +50,24 @@ impl InstanceState {
 
 /// 帧泵：读端唯一消费者。
 pub(super) async fn pump(mut reader: link::RuntimeReader, state: Arc<InstanceState>) {
-    while let Some(line) = reader.line().await {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let Some(parsed) = serde_json::from_str::<Value>(trimmed).ok() else {
-            state.fan_out(trimmed);
-            continue;
+    while let Some(frame) = reader.next_frame().await {
+        // 类型化链路直接给 `Value`；字节/child 链路解析一次，并保留原始文本
+        // （订阅面文本逐字节不变），非法 JSON 按现状原样扇出。
+        let (parsed, raw_text) = match frame {
+            link::RuntimeFrame::Value(value) => (value, None),
+            link::RuntimeFrame::Raw(line) => {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                match serde_json::from_str::<Value>(trimmed) {
+                    Ok(value) => (value, Some(trimmed.to_owned())),
+                    Err(_) => {
+                        state.fan_out(trimmed);
+                        continue;
+                    }
+                }
+            }
         };
         if parsed["method"] == "startup/storageState" {
             state.mark_startup(parsed["params"].clone());
@@ -78,7 +88,11 @@ pub(super) async fn pump(mut reader: link::RuntimeReader, state: Arc<InstanceSta
             answer_host_request(&state, parsed);
             continue;
         }
-        state.fan_out(trimmed);
+        // 订阅面仍是 JSON 文本（Renderer 边界）：类型化链路在这里只序列化一次。
+        match raw_text {
+            Some(text) => state.fan_out(&text),
+            None => state.fan_out(&parsed.to_string()),
+        }
     }
     state.close();
     if !state.stopping.load(Ordering::SeqCst) {
@@ -111,6 +125,6 @@ fn answer_host_request(state: &Arc<InstanceState>, request: Value) {
             }
         };
         // 发送失败 = 实例已关闭；等待方随实例退出一并失败，这里无需再上报。
-        let _ = state.send_line(&response.to_string()).await;
+        let _ = state.send_json(&response).await;
     });
 }

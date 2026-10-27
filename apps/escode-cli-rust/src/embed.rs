@@ -11,7 +11,7 @@
 //! `--prepare-storage` 仍是二进制入口专有；TS 历史导入由 `RuntimeOptions.legacy_import`
 //! 显式控制（默认不导入，Host 首启传 `Implicit`，见 `docs/specs/rust-u2-legacy-import.md`）。
 use anyhow::Result;
-use escode_cli_app_server::{EmbeddedIo, Link, MemoryLink};
+use escode_cli_app_server::{EmbeddedIo, EmbeddedTypedIo, Link, MemoryLink, TypedMemoryLink};
 use escode_cli_core_api::{EnvSnapshot, InstanceContext, Spawner, env};
 use escode_cli_state::Store;
 use serde_json::json;
@@ -82,8 +82,74 @@ pub fn spawn(options: RuntimeOptions) -> Embedded {
     let input_closed = CancellationToken::new();
     let (link, io) = MemoryLink::channel(64);
     let streams = Box::new(link).start(cancel.clone(), input_closed.clone());
-    let tasks = spawner.clone();
-    let serving_cancel = cancel.clone();
+    let (task, tasks) = spawn_instance(
+        options,
+        streams,
+        context,
+        cancel.clone(),
+        input_closed,
+        spawner,
+    );
+    Embedded {
+        io,
+        task,
+        cancel,
+        tasks,
+    }
+}
+
+/// 类型化直传的嵌入实例（docs/specs/rust-u4-memory-link.md）：帧面是 `serde_json::Value`，
+/// 进程内不做 NDJSON 编解码。Host 的 embedded 链路使用本入口；字节版 [`spawn`] 保留给
+/// 差分与故障注入。
+pub struct EmbeddedTyped {
+    /// 嵌入方一端：发送/接收 JSON 帧（不再有行与换行）。
+    pub io: EmbeddedTypedIo,
+    pub task: JoinHandle<Result<()>>,
+    pub cancel: CancellationToken,
+    pub tasks: Arc<Spawner>,
+}
+
+/// 启动一个类型化运行时实例（与 [`spawn`] 同一套装配与收口语义）。
+pub fn spawn_typed(options: RuntimeOptions) -> EmbeddedTyped {
+    let snapshot = instance_snapshot(&options);
+    let spawner = Spawner::new();
+    let context = Arc::new(InstanceContext {
+        env: Arc::new(snapshot),
+        spawner: Arc::downgrade(&spawner),
+        usage_sink: OnceLock::new(),
+        media_cache_root: OnceLock::new(),
+    });
+    spawner.bind_context(context.clone());
+    let cancel = CancellationToken::new();
+    let input_closed = CancellationToken::new();
+    let (link, io) = TypedMemoryLink::channel(64);
+    let streams = Box::new(link).start(cancel.clone(), input_closed.clone());
+    let (task, tasks) = spawn_instance(
+        options,
+        streams,
+        context,
+        cancel.clone(),
+        input_closed,
+        spawner,
+    );
+    EmbeddedTyped {
+        io,
+        task,
+        cancel,
+        tasks,
+    }
+}
+
+/// 实例装配的共用部分（字节链路与类型化链路只差 `Streams` 的来源）。
+fn spawn_instance(
+    options: RuntimeOptions,
+    streams: escode_cli_app_server::Streams,
+    context: Arc<InstanceContext>,
+    cancel: CancellationToken,
+    input_closed: CancellationToken,
+    tasks: Arc<Spawner>,
+) -> (JoinHandle<Result<()>>, Arc<Spawner>) {
+    let spawner = Arc::clone(&tasks);
     let task = tokio::spawn(async move {
         // 实例根未来整体跑在实例上下文里：装配与 serve 的每个环境/端口读取
         // 都以 RuntimeOptions 快照解析（与进程 env/cwd 无关）。
@@ -94,7 +160,7 @@ pub fn spawn(options: RuntimeOptions) -> Embedded {
             context,
             // 先装箱：实例根 future 很大（debug 构建尤甚），多套一层 catch_panic 会在 worker 栈上
             // 多留一份临时副本，2 MiB 的 tokio worker 栈随即溢出（host-rpc rpc_agent_v4 实测）。
-            Box::pin(run_embedded(options, streams, serving_cancel, input_closed)),
+            Box::pin(run_embedded(options, streams, cancel, input_closed)),
         ))
         .await
         .unwrap_or_else(|panicked| {
@@ -107,12 +173,7 @@ pub fn spawn(options: RuntimeOptions) -> Embedded {
         tasks.abort_all();
         served
     });
-    Embedded {
-        io,
-        task,
-        cancel,
-        tasks: spawner,
-    }
+    (task, spawner)
 }
 
 /// RuntimeOptions → 实例环境快照（HOME/USERPROFILE 缺失时以 `home` 补齐）。
