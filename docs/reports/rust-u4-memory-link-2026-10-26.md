@@ -66,6 +66,20 @@ stdio 链路与 child 链路未改：`StdioLink`、`start_io`、`MemoryLink` 原
   374 pass / 0 fail；默认 5s 请求预算在本机负载下会误伤 39 个用例（与本改动无关，单跑放宽后即通过）。
 - `pnpm typecheck`、`pnpm lint`（0 error）、`pnpm architecture:check --changed`：通过。
 
+### 4.1 CI
+
+PR #4 的 37 项检查全绿。与本改动直接相关的两组：
+
+| 项目                                               | 运行                                   | 结论                                                   |
+| -------------------------------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| 跨平台桌面 E2E（typed Host 链路真实跑 GUI）        | `desktop e2e matrix` run `40452142525` | ubuntu / windows / macos 三个 `desktop e2e` 全 success |
+| App 级性能（typed 链路下 4 路流式/workspace/退出） | 同上 run 的 `app perf (ubuntu-latest)` | success                                                |
+
+`rust-runtime-ci` 首轮两个 macOS shard 分别失败在 `esc-code-cli-rust-mcp-official-auth`
+（hostRequests 两条记录顺序互换）与 `escode-cli-rust-model-io`（trajectory 记录 3 ≠ 4），
+rerun 后通过；`model-io` 在本机单独运行也通过。两者都是 Node/Rust 对照的时序/顺序断言，
+与本改动无关（stdio 链路的 dispatch 语义未变），按既有 macOS 时序 flake 处理。
+
 ## 5. 未做/后续
 
 - child 链路（`ESCODE_HOST_RUNTIME_LINK=child`）不做类型化：跨进程没有免序列化的可能。
