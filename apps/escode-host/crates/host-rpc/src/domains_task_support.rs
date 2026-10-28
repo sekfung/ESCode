@@ -65,6 +65,16 @@ pub struct RuntimeAccess {
 }
 
 impl ReadContext {
+    /// 无 dataBaseDir 的 Host（纯控制面/未装配任务库）：channel 仍要注册，方法调用显式失败。
+    pub fn unavailable() -> Self {
+        Self {
+            path: PathBuf::new(),
+            index: Arc::new(Mutex::new(LazyIndex { index: None })),
+            targets: Arc::new(TaskTargets::default()),
+            runtime: None,
+        }
+    }
+
     /// 在阻塞线程里取锁并执行一次索引读。
     pub async fn run<T, F>(&self, read: F) -> Result<T, (String, String)>
     where

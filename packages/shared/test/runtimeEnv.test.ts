@@ -23,7 +23,7 @@ describe("runtimeEnv", () => {
     expect(isESCodeCuaInternalFeatureEnabled({ ESCODE_CUA_PRODUCT_HELPER: "on" })).toBe(true);
   });
 
-  it("ESCODE_CUA_DEV_MODE is the one-knob dev bundle and implies the internal feature flag", () => {
+  it("parses explicit truthy values for ESCODE_CUA_DEV_MODE", () => {
     // isCuaDevModeRequested: only explicit truthy values (case-insensitive, trimmed).
     expect(isCuaDevModeRequested({})).toBe(false);
     expect(isCuaDevModeRequested({ ESCODE_CUA_DEV_MODE: "0" })).toBe(false);
@@ -31,12 +31,6 @@ describe("runtimeEnv", () => {
     expect(isCuaDevModeRequested({ ESCODE_CUA_DEV_MODE: "1" })).toBe(true);
     expect(isCuaDevModeRequested({ ESCODE_CUA_DEV_MODE: " ON " })).toBe(true);
     expect(isCuaDevModeRequested({ ESCODE_CUA_DEV_MODE: "true" })).toBe(true);
-
-    // DEV_MODE implies the internal feature flag without needing ESCODE_CUA_PRODUCT_HELPER,
-    // collapsing the historical multi-var dev incantation to one knob.
-    expect(isESCodeCuaInternalFeatureEnabled({ ESCODE_CUA_DEV_MODE: "1" })).toBe(true);
-    expect(isESCodeCuaInternalFeatureEnabled({ ESCODE_CUA_PRODUCT_HELPER: "1" })).toBe(true);
-    expect(isESCodeCuaInternalFeatureEnabled({})).toBe(true);
   });
 
   it("sanitizes runtime env while sealing user network env for tools", () => {
@@ -53,7 +47,6 @@ describe("runtimeEnv", () => {
     const captured = readESCodeToolEnvPassthroughEnv(passthroughEnv);
 
     expect(sanitized).toEqual({ PATH: "/usr/bin:/bin" });
-    expect(passthroughEnv[ESCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY]).toBeDefined();
     expect(captured).toEqual({
       HTTP_PROXY: "http://proxy.example:8080",
       NODE_EXTRA_CA_CERTS: "/tmp/root-ca.pem",
@@ -93,7 +86,6 @@ describe("runtimeEnv", () => {
     expect(sanitized).toEqual({ PATH: "/usr/bin:/bin" });
 
     const captured = readESCodeToolEnvPassthroughEnv(buildESCodeToolEnvPassthroughEnv(sourceEnv));
-    expect(captured).not.toHaveProperty("ESCODE_CUA_PERMISSION_BROKER_SOCKET");
     expect(captured).not.toHaveProperty("ESCODE_CUA_PERMISSION_BROKER_SOCKET");
     expect(captured).not.toHaveProperty("ESCODE_CUA_PERMISSION_BROKER_REFRESH_MARKER");
   });

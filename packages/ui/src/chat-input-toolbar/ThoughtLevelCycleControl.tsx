@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { type ESCodeConfigOption, type ESCodeProvider } from "@escode/shared";
 import {
   TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
   TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
   testId,
-  type ESCodeConfigOption,
-  type ESCodeProvider,
-} from "@escode/shared";
+} from "@escode/shared/test-ids";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { cn } from "@/components/lib/utils.js";

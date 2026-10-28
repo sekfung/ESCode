@@ -105,3 +105,73 @@ fn baseline_meta_and_unread_signal_follow_the_ts_projections() {
         Some("background_terminal")
     );
 }
+
+/// 自动归档的活动判定：只保留非终态摘要，且带 workspace 身份键。
+#[test]
+fn active_task_refs_are_the_observed_non_terminal_sessions() {
+    let dir = tempfile::tempdir().unwrap();
+    let (overlay_changes, _) = tokio::sync::broadcast::channel(8);
+    let ingest = Arc::new(Ingest::new(
+        Arc::new(Base::new(
+            escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
+            Arc::new(|_| unreachable!()),
+            None,
+            None,
+            crate::domains_plugin::PluginManagement::new(
+                escode_host_runtime::Instances::new(escode_host_runtime::Link::Embedded),
+                Arc::new(|_| unreachable!()),
+                None,
+            ),
+            None,
+        )),
+        ReadContext {
+            path: dir.path().join("tasks-index.sqlite"),
+            index: Arc::new(std::sync::Mutex::new(LazyIndex::default())),
+            targets: Arc::new(TaskTargets::new()),
+            runtime: None,
+        },
+        Arc::new(WorkspaceEvents::default()),
+        Arc::new(crate::task_commands::TaskCommandQueue::new()),
+        Arc::new(crate::task_events::TaskEventHub::default()),
+        "c".to_owned(),
+        Workspace {
+            path: "/w".to_owned(),
+            identity: Some("ssh:host".to_owned()),
+            key: "ssh:host".to_owned(),
+        },
+        overlay_changes.clone(),
+    ));
+    {
+        let mut core = ingest.core.lock().unwrap();
+        for (id, phase) in [
+            ("running", "running"),
+            ("prewarming", "prewarming"),
+            ("done", "completedSuccess"),
+            ("interrupted", "completedInterrupted"),
+            ("failed", "error"),
+        ] {
+            core.summaries
+                .insert(id.to_owned(), summary(id, phase, "t"));
+        }
+    }
+    let syncer = crate::task_index_syncer::TaskIndexSyncer {
+        ingests: std::sync::Mutex::new(std::collections::BTreeMap::from([(
+            "ssh:host".to_owned(),
+            ingest,
+        )])),
+        overlay_changes,
+        commands: Arc::new(crate::task_commands::TaskCommandQueue::new()),
+        task_events: Arc::new(crate::task_events::TaskEventHub::default()),
+    };
+    let mut ids: Vec<String> = syncer
+        .active_task_refs()
+        .into_iter()
+        .map(|task| {
+            assert_eq!(task["workspacePath"], json!("/w"));
+            assert_eq!(task["workspaceIdentity"], json!("ssh:host"));
+            task["taskId"].as_str().unwrap().to_owned()
+        })
+        .collect();
+    ids.sort();
+    assert_eq!(ids, vec!["prewarming", "running"]);
+}

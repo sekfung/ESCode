@@ -17,7 +17,7 @@ use crate::task_projection::service::{
     resume_snapshot_request, snapshot_etag,
 };
 use crate::tasks_index::TasksIndex;
-use crate::tasks_index::schema::{EXPECTED_MIGRATIONS, MIGRATED_DDL};
+use crate::tasks_index::schema::EXPECTED_MIGRATIONS;
 
 const GOLDEN: &str = include_str!("task_snapshot.golden.json");
 
@@ -30,23 +30,8 @@ fn fresh_index(seed: Option<&Value>) -> (tempfile::TempDir, TasksIndex) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("tasks-index.sqlite");
     let connection = Connection::open(&path).expect("open sqlite");
-    for statement in MIGRATED_DDL {
-        connection.execute_batch(statement).expect("ddl");
-    }
-    connection
-        .execute_batch(
-            "CREATE TABLE IF NOT EXISTS tasks_schema_migration (
-               id TEXT PRIMARY KEY, checksum TEXT NOT NULL, time_applied INTEGER NOT NULL)",
-        )
-        .expect("ledger table");
-    for (id, checksum) in EXPECTED_MIGRATIONS {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .expect("ledger row");
-    }
+    crate::tasks_index::fixture::apply_generated_schema(&connection, EXPECTED_MIGRATIONS)
+        .expect("schema");
     drop(connection);
     let index = TasksIndex::open(&path).expect("open index");
     if let Some(seed) = seed.and_then(Value::as_object) {

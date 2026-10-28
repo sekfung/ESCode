@@ -30,6 +30,37 @@ describe("app settings", () => {
     ).toBe(false);
   });
 
+  it("defaults task auto-archive to off, 30 days, and the one-time reset marker", () => {
+    const parsed = appSettingsSchema.parse({});
+    expect(parsed.taskAutoArchiveEnabled).toBe(false);
+    expect(parsed.taskAutoArchiveOlderThanDays).toBe(30);
+    expect(parsed.taskAutoArchiveResetVersion).toBe(1);
+  });
+
+  it("resets a pre-marker auto-archive switch once and keeps explicit post-marker choices", () => {
+    // 旧版开关开启后可能未执行归档；升级首次读取必须先关闭，避免突然归档历史会话。
+    expect(
+      appSettingsSchema.parse({
+        taskAutoArchiveEnabled: true,
+        taskAutoArchiveOlderThanDays: 14,
+      }),
+    ).toMatchObject({
+      taskAutoArchiveEnabled: false,
+      taskAutoArchiveOlderThanDays: 14,
+      taskAutoArchiveResetVersion: 1,
+    });
+    expect(
+      appSettingsSchema.parse({
+        taskAutoArchiveEnabled: true,
+        taskAutoArchiveOlderThanDays: 14,
+        taskAutoArchiveResetVersion: 1,
+      }),
+    ).toMatchObject({
+      taskAutoArchiveEnabled: true,
+      taskAutoArchiveOlderThanDays: 14,
+    });
+  });
+
   it("defaults and validates the human embedded Browser viewport preference", () => {
     expect(appSettingsSchema.parse({}).embeddedBrowserViewportPreference).toEqual({
       mode: "normal",

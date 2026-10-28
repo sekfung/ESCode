@@ -71,6 +71,10 @@ function registerE2EStoreBridgesIfEnabled() {
   void import("@escode/ui/e2e-store-bridge").then(({ registerE2EStoreBridges }) => {
     registerE2EStoreBridges();
   });
+  // 首段分阶段计时只在 E2E 构建注册；生产包不会出现这个全局对象。
+  void import("@escode/ui/first-segment-probe").then(({ installFirstSegmentProbeBridge }) => {
+    installFirstSegmentProbeBridge();
+  });
 }
 
 // 初始化主题：默认 Zai dark，后续由 useTheme hook 接管

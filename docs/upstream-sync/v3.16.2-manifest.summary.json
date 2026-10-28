@@ -1,0 +1,47 @@
+{
+  "base": "aac47556",
+  "upstream": "refs/remotes/upstream/main",
+  "upstreamHead": "3c5b227649371507ddc4eb46ac5133afe6db1cab",
+  "total": 4623,
+  "byDisposition": {
+    "import-test": 1477,
+    "port-shared": 731,
+    "convert-rust-diff": 581,
+    "exclude-deleted": 504,
+    "manual-review": 444,
+    "adopt-docs": 374,
+    "oracle-only": 258,
+    "port-rust-host": 121,
+    "port-rust": 91,
+    "adopt-tooling": 42
+  },
+  "byWave": {
+    "W4": 2334,
+    "W2": 774,
+    "-": 504,
+    "W5": 456,
+    "W3": 410,
+    "W1": 145
+  },
+  "byArea": {
+    "ui": 1368,
+    "desktop": 985,
+    "cli": 819,
+    "deleted": 504,
+    "other": 355,
+    "services": 178,
+    "shared": 136,
+    "server": 80,
+    "source-server": 77,
+    "project-data": 66,
+    "node-host": 40,
+    "node-runtime": 10,
+    "docs-site": 5
+  },
+  "byKind": {
+    "test": 2608,
+    "src": 1538,
+    "doc": 430,
+    "tooling": 47
+  }
+}

@@ -8,7 +8,6 @@ import type {
   PrepareCuaHelperPermissionDragResult,
   AppSettings,
   BrowserViewOperationPayload,
-  BrowserGuestAttachResult,
   BrowserViewScreenshotSurfacePreparePayload,
   BrowserViewScreenshotSurfaceReadyPayload,
   BrowserViewScreenshotSurfaceReleasePayload,
@@ -33,6 +32,7 @@ import type {
   ApplicationIconRequest,
   Locale,
   OAuthStateRegistration,
+  WebRemoteControlAuthStateChange,
   PostUpdateReleaseNotesPayload,
   RemoteConnectionRuntimeLog,
   RemoteSessionClosedEvent,
@@ -62,6 +62,7 @@ declare global {
     /** 插件 UI 沙箱 preload 命名空间；旧 preload 下为 undefined。 */
     escodePluginSandbox?: {
       supportsRetainedMove?: boolean;
+      setExecutionActive?(sandboxId: string, initId: number, active: boolean): Promise<void>;
       copyImage?(
         input: import("@escode/shared/mcp-apps").PluginSandboxCaptureRequest,
       ): Promise<void>;
@@ -79,6 +80,7 @@ declare global {
           connectTrigger?: import("@escode/shared").RemoteWorkspaceConnectTrigger;
         },
       ): Promise<{ success: boolean; error?: string; sessionId?: string }>;
+      requestSourceSettingsAttachment?(sourceServerId: string): Promise<{ attachmentId: string }>;
       /** 取消当前窗口尚未建立完成的远程连接 */
       cancelPendingRemoteConnection?(requestId?: string): Promise<void>;
       /** 绑定远程 logical session 的 canonical workspace context */
@@ -101,6 +103,8 @@ declare global {
       log(level: "info" | "warn" | "error", args: unknown[]): void;
       /** 打开系统目录选择框，返回选中路径或 null */
       selectDirectory(): Promise<string | null>;
+      /** 打开系统多目录选择框；取消时返回空数组 */
+      selectDirectories(): Promise<string[]>;
       /** 打开系统文件选择框，返回选中文件路径或 null */
       selectFile(): Promise<string | null>;
       /** 打开系统多文件选择框，返回选中文件路径；取消时返回空数组 */
@@ -239,6 +243,7 @@ declare global {
       startCuaHelperPermissionDrag?(): void;
       /** 上报 OAuth state 用于 deep link 路由 */
       registerOAuthState(payload: OAuthStateRegistration): void;
+      notifyWebRemoteControlAuthStateChanged(change: WebRemoteControlAuthStateChange): void;
       /** 注册 OAuth deep link 回调，返回 disposer */
       onOAuthCallback(cb: (url: string) => void): () => void;
       /** 注册支付 deep link 回调，返回 disposer */
@@ -337,7 +342,7 @@ declare global {
       /** 用户确认重启安装更新 */
       quitAndInstallUpdate(): Promise<void>;
       /** 获取已安装的编辑器/终端列表（含图标） */
-      getInstalledEditors(): Promise<EditorInfo[]>;
+      getInstalledEditors(filePath?: string): Promise<EditorInfo[]>;
       /** 按兼容 bundle id 或结构化 locator 获取系统应用图标 */
       getApplicationIcon?(
         request: string | ApplicationIconRequest,

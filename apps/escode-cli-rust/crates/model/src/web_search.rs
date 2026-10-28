@@ -37,6 +37,7 @@ pub(super) fn needs_beta(body: &Value) -> bool {
 }
 
 /// 与配置中已有的 `anthropic-beta` 逗号合并（AI SDK 合并 user-supplied betas）。
+#[cfg(test)]
 pub(super) fn merge_beta(existing: Option<&str>) -> String {
     match existing.map(str::trim).filter(|v| !v.is_empty()) {
         Some(existing) if existing.split(',').any(|b| b.trim() == ANTHROPIC_BETA) => {

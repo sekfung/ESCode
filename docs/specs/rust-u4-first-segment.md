@@ -20,6 +20,22 @@
   首字渲染的 App 侧开销，**不含真实模型首字延迟**。
 - 采样：同一会话连续 5 条消息；首条（冷）与后续（热）分别记录，中位数按 5 条计算。
 
+### 2.1 分阶段探针（2026-10-28）
+
+为定位冷态首条的固定成本，E2E 构建额外注册一个仅测试可见的全局对象
+`window.__ESCODE_FIRST_SEGMENT_PROBE__`（`VITE_ESCODE_E2E_STORE_BRIDGE=1` 时才注册；
+生产构建不存在）。用例每轮发送前调用 `arm()`，随后记录：
+
+| 阶段       | 打点位置                                           | 含义                    |
+| ---------- | -------------------------------------------------- | ----------------------- |
+| submit     | DOM `submit` 事件（用例内监听）                    | 用户提交                |
+| firstFrame | `SessionDataLayer.transport.onFrame` 进入 store 前 | 首个会话帧到达 renderer |
+| firstRow   | `store.handleFrame` 返回后                         | 投影行已并入本地窗口    |
+| firstText  | MutationObserver 首次看到 assistant 文本增长       | React 渲染出首字        |
+
+输出 `phaseMs.submitToFrame / frameToRow / rowToText`，冷态取第 1 条、热态取后续中位数。
+探针缺失时字段为 null，用例仍按原有总时长断言通过。
+
 ## 3. 结果（Linux Xvfb，release 运行时，2026-10-27）
 
 | runtime  |   中位数 | 5 条采样                              | 首条（冷） | 后续中位数 |
@@ -43,5 +59,5 @@
 
 ## 5. 非目标
 
-- 不做首段优化；不改投递/渲染节奏。
+- 在分阶段数据落库前不调整投递/渲染节奏；2026-10-28 只补了分阶段探针，尚无优化结论。
 - 不覆盖真实 provider 的首字延迟（fixture 固定 1 ms）；该项由真实 provider benchmark 单独记录。

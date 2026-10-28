@@ -94,6 +94,10 @@ export const ServiceChannels = {
   ESCodeTask: "escode-task",
   /** 窗口 Host 聚合 workspace/task 投影与列表写路由 */
   WindowController: "window-controller",
+  /** 本机 Host 的权威项目服务（项目容器、roots 与任务归属） */
+  Project: "project",
+  /** 任务分组（侧栏组织态，只写组织事实，不改任务归属） */
+  TaskGroups: "task-groups",
   /** ESCode Protocol agent 服务 */
   ESCodeAgent: "escode-agent",
   /** ESCode session 应用服务 */

@@ -1,0 +1,8 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-merge	W4	import-test	ui	test	M	packages/ui/test/controlHintTooltip.test.ts	packages/ui/test/controlHintTooltip.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/controlHintTooltip.test.ts	packages/ui/test/controlHintTooltip.test.ts	present	clean
+would-merge	W4	import-test	ui	test	M	packages/ui/test/pluginStoreAvatar.test.ts	packages/ui/test/pluginStoreAvatar.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/pluginStoreAvatar.test.ts	packages/ui/test/pluginStoreAvatar.test.ts	present	clean
+conflict	W4	import-test	ui	test	M	packages/ui/test/v4ConversationStatusPanel.test.ts	packages/ui/test/v4ConversationStatusPanel.test.ts	present	三方合并冲突 x1
+would-merge	W4	import-test	ui	test	M	packages/ui/test/workflowHoleSurfaces.test.ts	packages/ui/test/workflowHoleSurfaces.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/workflowHoleSurfaces.test.ts	packages/ui/test/workflowHoleSurfaces.test.ts	present	clean

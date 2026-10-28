@@ -57,7 +57,10 @@ pub(super) fn body(
             content.extend_from_slice(blocks);
         }
         if role == "tool" {
-            let mut result = json!({"type":"tool_result","tool_use_id":message["tool_call_id"],"content":message["content"]});
+            // 工具结果 content 可能是 part 数组（媒体、native tool_reference）；按 Anthropic 格式投影，
+            // 不能把内部 camelCase part 原样发出。
+            let tool_content = tool_result_content(&message["content"])?;
+            let mut result = json!({"type":"tool_result","tool_use_id":message["tool_call_id"],"content":tool_content});
             // AI SDK 只在 error 输出时写 is_error。
             if message["_escode_tool_failed"] == true {
                 result["is_error"] = true.into();
@@ -111,7 +114,14 @@ pub(super) fn body(
         .iter()
         .map(|t| match super::web_search::anthropic_tool(t) {
             Some(native) => native,
-            None => json!({"name":t["function"]["name"],"description":t["function"]["description"],"input_schema":t["function"]["parameters"]}),
+            None => {
+                let mut tool = json!({"name":t["function"]["name"],"description":t["function"]["description"],"input_schema":t["function"]["parameters"]});
+                // 上游 provider 把内部 camelCase 的 deferLoading 映射为 Anthropic 的 defer_loading。
+                if t["function"]["deferLoading"] == true {
+                    tool["defer_loading"] = true.into();
+                }
+                tool
+            }
         })
         .collect::<Vec<_>>();
     let mut body =
@@ -129,4 +139,38 @@ pub(super) fn body(
     body["messages"] = output.into();
     body["tools"] = tools.into();
     Ok(body)
+}
+
+fn tool_result_content(content: &Value) -> Result<Value, ModelFailure> {
+    if content.is_array() {
+        Ok(Value::Array(super::model_media::anthropic(content)?))
+    } else {
+        Ok(content.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn tool_result_projects_tool_reference_parts() {
+        let content = json!([
+            {"type":"text","text":"loaded"},
+            {"type":"tool_reference","toolName":"mcp__a__b"}
+        ]);
+        assert_eq!(
+            tool_result_content(&content).unwrap(),
+            json!([
+                {"type":"text","text":"loaded"},
+                {"type":"tool_reference","tool_name":"mcp__a__b"}
+            ])
+        );
+    }
+
+    #[test]
+    fn tool_result_keeps_plain_strings() {
+        assert_eq!(tool_result_content(&json!("done")).unwrap(), json!("done"));
+    }
 }

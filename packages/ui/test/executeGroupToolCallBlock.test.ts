@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ToolCallBlock } from "@/ToolCallBlocks.js";
 import { ExecuteGroupToolCallBlock } from "@/ToolCallBlocks/renderers/execute-group.js";
 
 function renderExecuteGroup(
@@ -14,6 +15,7 @@ function renderExecuteGroup(
       ESCodeIntlProvider,
       { initialLocale: locale },
       createElement(ExecuteGroupToolCallBlock, {
+        nestedToolRenderer: ToolCallBlock,
         toolCallNode: {
           toolCall: {
             toolId: "execute:tool-1",

@@ -209,6 +209,15 @@ function sanitizeEmbeddedBrowserViewportPreference(value: unknown): unknown {
   return next;
 }
 
+function migrateTaskAutoArchiveReset(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const raw = value as Record<string, unknown>;
+  if (raw.taskAutoArchiveResetVersion === 1) return value;
+  // 旧版开关开启后可能未执行；修复后直接沿用会在启动时突然归档历史会话。
+  // 首次读取统一关闭并持久化标记，用户重新开启后不再重置。
+  return { ...raw, taskAutoArchiveEnabled: false, taskAutoArchiveResetVersion: 1 };
+}
+
 function migrateCloseToTrayOnWindowsDefault(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return value;
@@ -506,7 +515,8 @@ const appSettingsObjectSchema = z.object({
   serialQuickCommands: serialQuickCommandsSchema.optional(),
   computerUseComposerEntryHidden: z.boolean().default(true),
   taskAutoArchiveEnabled: z.boolean().default(false),
-  taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).default(7),
+  taskAutoArchiveResetVersion: z.literal(1).default(1),
+  taskAutoArchiveOlderThanDays: z.number().int().positive().max(365).default(30),
   closeToTrayOnWindows: z.boolean().default(true),
   closeToTrayOnWindowsMigrationInitialized: z.boolean().default(true),
   // default(false)：新装与存量用户首次启动都视为未归位，由 main 进程按平台决定是否迁移。
@@ -562,7 +572,9 @@ export const appSettingsSchema = z.preprocess(
           migrateCloseToTrayOnWindowsDefault(
             migrateLegacyLocalePreference(
               sanitizeESCodeEndpointOrigin(
-                migrateLegacyWorkspaceSession(migrateLegacyBuiltinAgentCliProviders(value)),
+                migrateTaskAutoArchiveReset(
+                  migrateLegacyWorkspaceSession(migrateLegacyBuiltinAgentCliProviders(value)),
+                ),
               ),
             ),
           ),

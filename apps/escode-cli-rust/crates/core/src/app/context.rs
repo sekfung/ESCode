@@ -30,6 +30,8 @@ pub(super) struct TurnFacts {
     pub session_start: Option<&'static str>,
     /// LLM Wiki 端口（docs/llm-wiki）：Engine 组合时注入，缺席即本 runtime 不提供 Wiki。
     pub wiki: Option<std::sync::Arc<dyn crate::contract::WikiPort>>,
+    /// ToolSearch 模式（`off` / `local` / `native` / `auto`）；None 表示未显式配置。
+    pub tool_search_mode: Option<String>,
 }
 
 pub(super) struct RunContext {

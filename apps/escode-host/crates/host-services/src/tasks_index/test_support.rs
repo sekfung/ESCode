@@ -9,26 +9,14 @@ pub(super) fn fixture(ledger: &[(&str, &str)]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("tasks-index.sqlite");
     let connection = Connection::open(&path).unwrap();
-    for statement in schema::MIGRATED_DDL {
-        connection.execute_batch(statement).unwrap();
-    }
-    connection
-        .execute_batch(
-            "CREATE TABLE IF NOT EXISTS tasks_schema_migration (
-               id TEXT PRIMARY KEY, checksum TEXT NOT NULL, time_applied INTEGER NOT NULL)",
-        )
-        .unwrap();
-    for (id, checksum) in ledger {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .unwrap();
-    }
+    super::fixture::apply_generated_schema(&connection, ledger).unwrap();
     dir
 }
 
 pub(super) fn expected_ledger() -> Vec<(&'static str, &'static str)> {
     schema::EXPECTED_MIGRATIONS.to_vec()
+}
+
+pub(super) fn expected_project_ledger() -> Vec<(&'static str, &'static str)> {
+    schema::EXPECTED_PROJECT_MIGRATIONS.to_vec()
 }

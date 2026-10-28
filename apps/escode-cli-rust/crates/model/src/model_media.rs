@@ -19,6 +19,8 @@ pub(super) fn anthropic(content: &Value) -> Result<Vec<Value>> {
         Some("image_url")=>json!({"type":"image","source":source(p["image_url"]["url"].as_str().ok_or_else(ModelFailure::invalid)?)?}),
         Some("video_url")=>json!({"type":"video","source":source(p["video_url"]["url"].as_str().ok_or_else(ModelFailure::invalid)?)?}),
         Some("file")=>json!({"type":"document","source":source(p["file"]["file_data"].as_str().ok_or_else(ModelFailure::invalid)?)?}),
+        // ToolSearch native：工具结果里的引用块由 provider 展开 schema（docs/specs/rust-tool-search.md）。
+        Some("tool_reference")=>json!({"type":"tool_reference","tool_name":p["toolName"].as_str().ok_or_else(ModelFailure::invalid)?}),
         _=>return Err(ModelFailure::invalid()),
     })).collect()
 }
@@ -32,5 +34,24 @@ fn source(url: &str) -> Result<Value> {
         Ok(json!({"type":"url","url":url}))
     } else {
         Err(ModelFailure::invalid())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn anthropic_maps_tool_reference_to_wire_shape() {
+        let content = json!([{"type":"tool_reference","toolName":"mcp__a__b"}]);
+        assert_eq!(
+            anthropic(&content).unwrap(),
+            vec![json!({"type":"tool_reference","tool_name":"mcp__a__b"})]
+        );
+    }
+
+    #[test]
+    fn anthropic_rejects_unknown_part() {
+        assert!(anthropic(&json!([{"type":"unknown"}])).is_err());
     }
 }

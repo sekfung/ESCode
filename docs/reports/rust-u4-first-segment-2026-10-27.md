@@ -51,4 +51,14 @@ CI 实测（run `40512267700`，ubuntu-latest，5 条采样）：
 
 - 首段优化（冷态 410 ms、热态 Rust 179 ms vs Node 149 ms）。
 - 真实 provider 首字延迟（本用例 fixture 固定 1 ms）。
-- 冷启动 ≤1.8 s（安装包 2.40 s）与 skill/plugin 目录共享。
+
+## 6. 分阶段探针（2026-10-28 补充）
+
+`app-perf-first-segment.perf.ts` 增加 E2E 专用探针
+（`window.__ESCODE_FIRST_SEGMENT_PROBE__`，仅 `VITE_ESCODE_E2E_STORE_BRIDGE=1` 构建注册）：
+记录 `submit → 首个会话帧 → 首个投影行 → 首个 assistant 文本` 四个时间戳，产出
+`phaseMs.submitToFrame / frameToRow / rowToText`。已加单元测试
+`packages/ui/test/firstSegmentProbe.test.ts`。
+
+本文件中的 2026-10-27 数字仍是无分阶段数据的基线；冷态各段占比需等下一次
+`desktop e2e matrix` 的 app-perf 产物落库后再补。在拿到分段数据前不调整投递或渲染节奏。

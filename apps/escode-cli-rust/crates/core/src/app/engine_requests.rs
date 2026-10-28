@@ -125,6 +125,7 @@ impl Engine {
                     return Ok(());
                 }
             },
+            "v4/sessionsIndex/reconcile" => self.sessions_index_reconcile(&request.params).await,
             "v4/conversation/subscribe" => self.subscribe(&request.params).await,
             "v4/conversation/resync" => self.resync(&request.params),
             "v4/conversation/unsubscribe" => self.unsubscribe(&request.params),

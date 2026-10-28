@@ -26,6 +26,15 @@ interface FirstSegmentProbe {
   submitAt: number;
   firstText: number;
   firstTextLength: number;
+  firstFrameAt: number;
+  firstRowAt: number;
+}
+
+interface FirstSegmentSample {
+  total: number;
+  submitToFrame: number | null;
+  frameToRow: number | null;
+  rowToText: number | null;
 }
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -64,6 +73,12 @@ describe("APP-PERF: 首条消息第一段（应用内计时）", () => {
         (window as Window & { __appPerfFirstSegment?: typeof target }).__appPerfFirstSegment =
           target;
         target.installedAt = performance.now();
+        // 首段分阶段探针（E2E 构建注册）：帧/行时间戳与 submit 使用同一 performance.now()。
+        (
+          window as Window & {
+            __ESCODE_FIRST_SEGMENT_PROBE__?: { arm: () => number };
+          }
+        ).__ESCODE_FIRST_SEGMENT_PROBE__?.arm();
         // 起点必须是真实 submit 事件：若从 browser.execute 调用前开始计时，会把
         // setV4ComposerText / 发送按钮轮询等多次 WebDriver 往返算进首段（实测虚高约 300ms）。
         document.addEventListener(
@@ -114,10 +129,26 @@ describe("APP-PERF: 首条消息第一段（应用内计时）", () => {
           }
         ).__appPerfFirstSegment;
         if (!probe) throw new Error("first-segment probe missing");
-        return { ...probe };
+        const phaseProbe = (
+          window as Window & {
+            __ESCODE_FIRST_SEGMENT_PROBE__?: {
+              read: () => { firstFrameAt: number; firstRowAt: number } | null;
+            };
+          }
+        ).__ESCODE_FIRST_SEGMENT_PROBE__?.read();
+        return {
+          ...probe,
+          firstFrameAt: phaseProbe?.firstFrameAt ?? 0,
+          firstRowAt: phaseProbe?.firstRowAt ?? 0,
+        };
       });
 
     const samples: number[] = [];
+    const phases: Array<{
+      submitToFrame: number | null;
+      frameToRow: number | null;
+      rowToText: number | null;
+    }> = [];
     for (let lane = 1; lane <= SAMPLES; lane++) {
       await startProbe();
       await sendV4Prompt(`E2E_APP_PERF_FIRST_${lane}`);
@@ -129,11 +160,25 @@ describe("APP-PERF: 首条消息第一段（应用内计时）", () => {
         );
       }
       samples.push(probe.firstText - probe.submitAt);
+      phases.push({
+        submitToFrame:
+          probe.firstFrameAt > probe.submitAt ? probe.firstFrameAt - probe.submitAt : null,
+        frameToRow:
+          probe.firstRowAt > probe.firstFrameAt && probe.firstFrameAt > 0
+            ? probe.firstRowAt - probe.firstFrameAt
+            : null,
+        rowToText:
+          probe.firstText > probe.firstRowAt && probe.firstRowAt > 0
+            ? probe.firstText - probe.firstRowAt
+            : null,
+      });
       // 让上一轮收尾，避免下一轮命中旧行。
       await waitForV4AssistantMessageContaining(`PERF_FIRST_${lane}_DONE`, 120_000);
       await sleep(200);
     }
 
+    const phaseValues = (key: keyof (typeof phases)[number]) =>
+      phases.map((phase) => phase[key]).filter((value): value is number => value !== null);
     const runtimeLabel = process.env.ESCODE_APP_PERF_LABEL?.trim() || "default";
     const result = {
       kind: "app-perf-first-segment",
@@ -148,6 +193,22 @@ describe("APP-PERF: 首条消息第一段（应用内计时）", () => {
         median: median(samples),
         max: Math.max(...samples),
       },
+      // 分阶段：submit → 首个会话帧 → 首个投影行 → 首个 assistant 文本。
+      // 冷态看 values[0]，热态中位数看后续样本；探针缺失时为 null。
+      phaseMs: {
+        submitToFrame: {
+          values: phaseValues("submitToFrame"),
+          median: median(phaseValues("submitToFrame")),
+        },
+        frameToRow: {
+          values: phaseValues("frameToRow"),
+          median: median(phaseValues("frameToRow")),
+        },
+        rowToText: {
+          values: phaseValues("rowToText"),
+          median: median(phaseValues("rowToText")),
+        },
+      },
     };
     const file = join(
       artifactDir(),
@@ -160,6 +221,14 @@ describe("APP-PERF: 首条消息第一段（应用内计时）", () => {
         `max=${result.firstSegmentMs.max.toFixed(1)}ms values=[${samples
           .map((value) => value.toFixed(1))
           .join(", ")}]`,
+    );
+    console.log(
+      `[app-perf] phases cold: submit->frame=${phases[0]?.submitToFrame?.toFixed(1) ?? "n/a"}ms ` +
+        `frame->row=${phases[0]?.frameToRow?.toFixed(1) ?? "n/a"}ms ` +
+        `row->text=${phases[0]?.rowToText?.toFixed(1) ?? "n/a"}ms; ` +
+        `hot median: submit->frame=${result.phaseMs.submitToFrame.median.toFixed(1)}ms ` +
+        `frame->row=${result.phaseMs.frameToRow.median.toFixed(1)}ms ` +
+        `row->text=${result.phaseMs.rowToText.median.toFixed(1)}ms`,
     );
 
     expect(samples).toHaveLength(SAMPLES);

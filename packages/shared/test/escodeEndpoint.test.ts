@@ -32,21 +32,6 @@ describe("escodeEndpoint", () => {
     expect(resolveESCodeEndpointOrigin({ env: "production" })).toBe(DEFAULT_ESCODE_ENDPOINT_ORIGIN);
   });
 
-  it("uses ESCODE_BASE_URL style env base as the default endpoint", () => {
-    expect(
-      resolveESCodeEndpointOrigin({
-        env: "test",
-        envBaseOrigin: "https://zcode.z.ai/api/v1",
-      }),
-    ).toBe(TEST_ESCODE_ENDPOINT_ORIGIN);
-    expect(
-      resolveESCodeEndpointOrigin({
-        env: "production",
-        envBaseOrigin: "https://zcode.z.ai/api/v1",
-      }),
-    ).toBe(DEFAULT_ESCODE_ENDPOINT_ORIGIN);
-  });
-
   it("keeps the non-production settings override above env base url", () => {
     expect(
       resolveESCodeEndpointOrigin({

@@ -56,6 +56,53 @@ impl Engine {
         }
         Ok(())
     }
+    /// `v4/sessionsIndex/reconcile`（上游 v3.16.2）：按明确 ID 查持久事实，缺席不是删除；
+    /// 不激活 runtime、不写存储。
+    pub(super) async fn sessions_index_reconcile(&mut self, p: &Value) -> Result<Value> {
+        let workspace_id = p["workspaceId"]
+            .as_str()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .context("workspaceId is required")?;
+        if workspace_id != self.workspace {
+            bail!("Workspace identity mismatch");
+        }
+        let ids = p["sessionIds"]
+            .as_array()
+            .context("sessionIds is required")?;
+        if ids.len() > 256 {
+            bail!("sessionIds exceeds 256");
+        }
+        let index = self.store.load_index(&self.workspace).await?;
+        let sessions = ids
+            .iter()
+            .map(|value| {
+                let id = value.as_str().context("sessionId must be a string")?;
+                Ok(match index.get(id) {
+                    Some(summary) => {
+                        let mut entry = json!({
+                            "sessionId": id,
+                            "exists": true,
+                            "deleted": false,
+                            "title": summary["title"].clone(),
+                            "titleSource": summary["titleSource"].clone(),
+                            "createdAt": summary["createdAt"].clone(),
+                            "updatedAt": summary["lastActivityAt"].clone(),
+                        });
+                        if let Some(outcome) =
+                            summary.get("lastOutcome").filter(|value| !value.is_null())
+                        {
+                            entry["lastOutcome"] = outcome.clone();
+                        }
+                        entry
+                    }
+                    None => json!({"sessionId": id, "exists": false, "deleted": false}),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(json!({"sessions": sessions}))
+    }
+
     pub(super) fn query(&mut self, method: &str, p: &Value) -> Result<Value> {
         self.validate_workspace(p)?;
         match method {

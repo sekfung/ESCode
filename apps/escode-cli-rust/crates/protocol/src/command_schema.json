@@ -81,6 +81,18 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
       "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "additionalDirectories": {
+          "maxItems": 256,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "workspaceId": {
           "type": "string"
         },
@@ -735,7 +747,10 @@
                 },
                 "background": {
                   "type": "string",
-                  "const": "deny"
+                  "enum": [
+                    "deny",
+                    "allow"
+                  ]
                 }
               },
               "required": [
@@ -761,7 +776,8 @@
                         "type": "string",
                         "enum": [
                           "highspeed_card_expired",
-                          "highspeed_request_failed"
+                          "highspeed_request_failed",
+                          "highspeed_selection_unavailable"
                         ]
                       },
                       "providerErrorCode": {
@@ -1191,7 +1207,10 @@
                 },
                 "background": {
                   "type": "string",
-                  "const": "deny"
+                  "enum": [
+                    "deny",
+                    "allow"
+                  ]
                 }
               },
               "required": [
@@ -1217,7 +1236,8 @@
                         "type": "string",
                         "enum": [
                           "highspeed_card_expired",
-                          "highspeed_request_failed"
+                          "highspeed_request_failed",
+                          "highspeed_selection_unavailable"
                         ]
                       },
                       "providerErrorCode": {
@@ -1440,7 +1460,10 @@
                 },
                 "background": {
                   "type": "string",
-                  "const": "deny"
+                  "enum": [
+                    "deny",
+                    "allow"
+                  ]
                 }
               },
               "required": [
@@ -1466,7 +1489,8 @@
                         "type": "string",
                         "enum": [
                           "highspeed_card_expired",
-                          "highspeed_request_failed"
+                          "highspeed_request_failed",
+                          "highspeed_selection_unavailable"
                         ]
                       },
                       "providerErrorCode": {

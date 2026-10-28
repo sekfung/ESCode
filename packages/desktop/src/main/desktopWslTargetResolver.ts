@@ -1,5 +1,4 @@
 import type { RemoteTarget } from "@escode/shared";
-import { WSLBackend } from "@escode/server/remote/wsl-backend.js";
 
 type WslTarget = Extract<RemoteTarget, { kind: "wsl" }>;
 
@@ -9,7 +8,7 @@ interface WslIdentityBackend {
 }
 
 interface CanonicalWslTargetResolverOptions {
-  createBackend?: (target: WslTarget) => WslIdentityBackend;
+  createBackend?: (target: WslTarget) => WslIdentityBackend | Promise<WslIdentityBackend>;
   ttlMs?: number;
   now?: () => number;
 }
@@ -31,7 +30,13 @@ function buildProvisionalResolutionKey(target: WslTarget): string {
 export function createCanonicalWslTargetResolver(
   options: CanonicalWslTargetResolverOptions = {},
 ): (target: WslTarget) => Promise<WslTarget> {
-  const createBackend = options.createBackend ?? ((target: WslTarget) => new WSLBackend(target));
+  const createBackend =
+    options.createBackend ??
+    (async (target: WslTarget) => {
+      // WSLBackend 连同 remote 子系统的依赖只在真正解析 WSL 目标时加载，避免进入 main 首屏图。
+      const { WSLBackend } = await import("@escode/server/remote/wsl-backend.js");
+      return new WSLBackend(target);
+    });
   const ttlMs = Math.max(1, Math.floor(options.ttlMs ?? DEFAULT_RESOLUTION_TTL_MS));
   const now = options.now ?? Date.now;
   const cache = new Map<string, CachedResolution>();
@@ -46,7 +51,7 @@ export function createCanonicalWslTargetResolver(
     const entry: CachedResolution = {
       expiresAt: now() + ttlMs,
       promise: Promise.resolve().then(async () => {
-        const backend = createBackend(target);
+        const backend = await createBackend(target);
         try {
           const identity = await backend.resolveIdentity();
           return {

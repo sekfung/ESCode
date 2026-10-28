@@ -4,6 +4,7 @@
 //! 且有拼错的条目 `file.workspaceFileListLength`，TS 实名 `listWorkspaceFilesLength`）。
 
 use crate::inventory_implemented::IMPLEMENTED;
+use crate::inventory_implemented_project::IMPLEMENTED_PROJECT;
 use crate::inventory_non_rpc::NON_RPC_METHODS;
 use crate::inventory_ts::TS_SERVICE_CHANNELS;
 use crate::{Method, State};
@@ -21,7 +22,9 @@ pub fn service_methods() -> Vec<Method> {
     all.extend(ts_service_members().map(|(channel, method)| Method {
         channel,
         method,
-        state: if IMPLEMENTED.contains(&(channel, method)) {
+        state: if IMPLEMENTED.contains(&(channel, method))
+            || IMPLEMENTED_PROJECT.contains(&(channel, method))
+        {
             State::Implemented
         } else {
             State::Pending
@@ -38,6 +41,7 @@ mod tests {
     fn implemented_entries_are_real_typescript_members() {
         let fabricated: Vec<_> = IMPLEMENTED
             .iter()
+            .chain(IMPLEMENTED_PROJECT.iter())
             .filter(|&&entry| !ts_service_members().any(|member| member == entry))
             .collect();
         assert!(

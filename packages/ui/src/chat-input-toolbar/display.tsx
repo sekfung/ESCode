@@ -7,16 +7,18 @@ import {
   type RefObject,
 } from "react";
 import {
-  TID_CHAT_MODE_SELECT_ITEM,
-  TID_CHAT_MODE_SELECT_TRIGGER,
-  TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
-  TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
-  testId,
   type ESCodeApiRetryStatus,
   type ESCodeConfigOption,
   type ESCodeConfigSelectValue,
   type ESCodeProvider,
 } from "@escode/shared";
+import {
+  TID_CHAT_MODE_SELECT_ITEM,
+  TID_CHAT_MODE_SELECT_TRIGGER,
+  TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
+  TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
+  testId,
+} from "@escode/shared/test-ids";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import {
   Select,

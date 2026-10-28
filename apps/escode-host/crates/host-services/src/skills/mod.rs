@@ -1,5 +1,6 @@
 //! `skills` 域（docs/specs/rust-u2-skills.md；TS 真相源 `packages/services/src/skills/`）。
 
+mod cache;
 mod discover;
 pub mod frontmatter;
 mod plugin_roots;

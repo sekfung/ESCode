@@ -37,6 +37,7 @@ pub mod skills;
 pub mod subagents;
 pub mod svn;
 pub mod system_probe;
+pub mod task_groups;
 pub mod task_projection;
 pub mod tasks_index;
 pub mod terminal;

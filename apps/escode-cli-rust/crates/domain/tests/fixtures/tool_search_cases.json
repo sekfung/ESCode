@@ -1,0 +1,146 @@
+{
+  "source": "upstream apps/zcode-cli/packages/core/src/tool/search/search.ts",
+  "catalog": [
+    {
+      "name": "Read",
+      "description": "Read a file from disk",
+      "deferred": false
+    },
+    {
+      "name": "Edit",
+      "description": "Edit an existing file",
+      "deferred": false
+    },
+    {
+      "name": "Task",
+      "aliases": [
+        "AgentAlias"
+      ],
+      "description": "Alias for Agent",
+      "deferred": true
+    },
+    {
+      "name": "mcp__github__create_issue",
+      "mcp": {
+        "serverName": "github",
+        "toolName": "create_issue"
+      },
+      "description": "Create a GitHub issue",
+      "searchHint": "github issues bug tracker",
+      "deferred": true
+    },
+    {
+      "name": "mcp__github__list_issues",
+      "mcp": {
+        "serverName": "github",
+        "toolName": "list_issues"
+      },
+      "description": "List GitHub issues",
+      "deferred": true
+    },
+    {
+      "name": "mcp__slack__send_message",
+      "mcp": {
+        "serverName": "slack",
+        "toolName": "send_message"
+      },
+      "description": "Send a Slack message",
+      "deferred": true
+    },
+    {
+      "name": "mcp__notion__search_pages",
+      "mcp": {
+        "serverName": "notion",
+        "toolName": "search_pages"
+      },
+      "description": "Search Notion pages",
+      "deferred": true
+    }
+  ],
+  "cases": [
+    {
+      "query": "select:Task",
+      "maxResults": 5,
+      "expected": [
+        "Task"
+      ]
+    },
+    {
+      "query": "select:AgentAlias",
+      "maxResults": 5,
+      "expected": [
+        "Task"
+      ]
+    },
+    {
+      "query": "select:create_issue",
+      "maxResults": 5,
+      "expected": [
+        "mcp__github__create_issue"
+      ]
+    },
+    {
+      "query": "select:mcp__slack__send_message,Unknown",
+      "maxResults": 5,
+      "expected": [
+        "mcp__slack__send_message"
+      ]
+    },
+    {
+      "query": "read",
+      "maxResults": 5,
+      "expected": [
+        "Read"
+      ]
+    },
+    {
+      "query": "issue",
+      "maxResults": 5,
+      "expected": [
+        "mcp__github__create_issue",
+        "mcp__github__list_issues"
+      ]
+    },
+    {
+      "query": "+slack send",
+      "maxResults": 5,
+      "expected": [
+        "mcp__slack__send_message"
+      ]
+    },
+    {
+      "query": "mcp__github",
+      "maxResults": 5,
+      "expected": [
+        "mcp__github__create_issue",
+        "mcp__github__list_issues"
+      ]
+    },
+    {
+      "query": "notion pages",
+      "maxResults": 5,
+      "expected": [
+        "mcp__notion__search_pages"
+      ]
+    },
+    {
+      "query": "slack",
+      "maxResults": 5,
+      "expected": [
+        "mcp__slack__send_message"
+      ]
+    },
+    {
+      "query": "zzz",
+      "maxResults": 5,
+      "expected": []
+    },
+    {
+      "query": "github",
+      "maxResults": 1,
+      "expected": [
+        "mcp__github__create_issue"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { InternalChannels, PlatformChannels } from "@escode/shared";
+import { InternalChannels, PlatformChannels } from "@escode/shared/channels";
 import type { PluginSandboxCaptureRequest } from "@escode/shared/mcp-apps";
 import { enableSandboxRetainedMoves } from "./retainedMoves.js";
 

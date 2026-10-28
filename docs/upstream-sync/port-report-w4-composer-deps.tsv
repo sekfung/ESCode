@@ -1,0 +1,10 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/components/ui/dropdown-menu.tsx	packages/ui/src/components/ui/dropdown-menu.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/components/ui/dropdown-menu.tsx	packages/ui/src/components/ui/dropdown-menu.tsx	present	clean
+kept-local-new	W4	port-shared	ui	src	A	packages/ui/src/ControlShortcutBadge.tsx	packages/ui/src/ControlShortcutBadge.tsx	new	基线无此文件，保留本地内容: fatal: 路径 'packages/ui/src/ControlShortcutBadge.tsx' 在磁盘上，但是不在 'aac47556' 中 | raw: curl: (22) The requested URL returned error: 404
+would-create	W4	port-shared	ui	src	A	packages/ui/src/lib/composerPlanGroups.ts	packages/ui/src/lib/composerPlanGroups.ts	new	6776 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/lib/composerPlanGroups.ts	packages/ui/src/lib/composerPlanGroups.ts	new	6776 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ModelConfigSelect.tsx	packages/ui/src/ModelConfigSelect.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ModelConfigSelect.tsx	packages/ui/src/ModelConfigSelect.tsx	present	clean
+would-create	W4	import-test	ui	test	A	packages/ui/test/composerPlanGroups.test.ts	packages/ui/test/composerPlanGroups.test.ts	new	7293 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/composerPlanGroups.test.ts	packages/ui/test/composerPlanGroups.test.ts	new	7293 bytes

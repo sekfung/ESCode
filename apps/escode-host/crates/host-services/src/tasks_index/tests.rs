@@ -4,13 +4,30 @@ use super::*;
 #[test]
 fn generated_assets_are_self_consistent() {
     verify_assets().expect("生成资产自校验");
-    assert_eq!(schema::SCHEMA_VERSION, 1);
-    assert_eq!(schema::EXPECTED_MIGRATIONS.len(), 4, "四个迁移");
+    assert_eq!(schema::SCHEMA_VERSION, 2);
+    assert_eq!(schema::EXPECTED_MIGRATIONS.len(), 6, "六个 tasks 迁移");
+    assert_eq!(
+        schema::EXPECTED_PROJECT_MIGRATIONS.len(),
+        3,
+        "三个 project 迁移"
+    );
     assert!(
         schema::MIGRATED_DDL
             .iter()
             .any(|ddl| ddl.contains("CREATE TABLE tasks (")),
         "DDL 含 tasks 表"
+    );
+    assert!(
+        schema::MIGRATED_DDL
+            .iter()
+            .any(|ddl| ddl.contains("CREATE TABLE projects (")),
+        "DDL 含 projects 表"
+    );
+    assert!(
+        schema::MIGRATED_DDL
+            .iter()
+            .any(|ddl| ddl.contains("CREATE TABLE task_group_admissions (")),
+        "DDL 含 task_group_admissions 表"
     );
 }
 
@@ -18,7 +35,8 @@ fn generated_assets_are_self_consistent() {
 fn open_accepts_a_ledger_that_matches_the_generated_asset() {
     let dir = fixture(&expected_ledger());
     let index = TasksIndex::open(&dir.path().join("tasks-index.sqlite")).expect("open");
-    assert_eq!(index.migration_ledger().unwrap().len(), 4);
+    assert_eq!(index.migration_ledger().unwrap().len(), 6);
+    assert_eq!(index.project_migration_ledger().unwrap().len(), 3);
 }
 
 #[test]
@@ -56,7 +74,9 @@ fn open_refuses_a_ledger_with_missing_unknown_or_mismatched_entries() {
                 missing,
                 vec![
                     "0003_official_glm_selection".to_owned(),
-                    "0004_drop_off_peak".to_owned()
+                    "0004_drop_off_peak".to_owned(),
+                    "0005_project_execution_scopes".to_owned(),
+                    "0006_task_group_admissions".to_owned()
                 ]
             );
         }
@@ -354,4 +374,21 @@ fn query_grouped_structure_returns_groups_members_and_orders() {
         "非 bootstrap 组不受 scope 过滤"
     );
     assert_eq!(other["members"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn open_rejects_a_project_ledger_mismatch() {
+    let dir = fixture(&expected_ledger());
+    let path = dir.path().join("tasks-index.sqlite");
+    {
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection
+            .execute(
+                "UPDATE schema_migration SET checksum='corrupt' WHERE id='0005_projects'",
+                [],
+            )
+            .unwrap();
+    }
+    let error = TasksIndex::open(&path).expect_err("project ledger mismatch");
+    assert!(matches!(error, TasksIndexError::MigrationMismatch { .. }));
 }

@@ -21,6 +21,15 @@ pub fn setting_channel(
     home: std::path::PathBuf,
     data_base_dir: Option<std::path::PathBuf>,
 ) -> Channel {
+    setting_channel_with_archive_signal(home, data_base_dir, None)
+}
+
+/// 同上，并接收自动归档设置变更的补扫信号（`Notify` 由组合根与 scheduler 共享）。
+pub fn setting_channel_with_archive_signal(
+    home: std::path::PathBuf,
+    data_base_dir: Option<std::path::PathBuf>,
+    archive_signal: Option<Arc<tokio::sync::Notify>>,
+) -> Channel {
     let extra = crate::domains_setting_extra::extra_methods(&home, data_base_dir.as_deref());
     let read_home = home.clone();
     let write_home = home;
@@ -41,6 +50,7 @@ pub fn setting_channel(
             "update",
             handler(move |arg: Wire| {
                 let home = write_home.clone();
+                let archive_signal = archive_signal.clone();
                 Box::pin(async move {
                     // `ProxyChannel.toService` 把实参打包成数组：`update(patch)` → `[patch]`。
                     let patch = arg
@@ -57,7 +67,18 @@ pub fn setting_channel(
                     escode_host_services::settings::apply_patch(&home, &patch)
                         .await
                         .map(|_| Wire::Undefined)
-                        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))
+                        .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
+                    // 自动归档策略变更后补扫：进行中的扫描读的是旧策略，下一轮会立即再跑。
+                    if let Some(signal) = archive_signal {
+                        let keys: Vec<String> = patch
+                            .as_object()
+                            .map(|patch| patch.keys().cloned().collect())
+                            .unwrap_or_default();
+                        if crate::project_archive::should_rescan(&keys) {
+                            signal.notify_one();
+                        }
+                    }
+                    Ok(Wire::Undefined)
                 })
             }),
         ),
@@ -152,7 +173,11 @@ pub fn channels_with(
     let home_for_terminal = home.clone();
     let home_for_hooks = home.clone();
     let home_for_plugin_sync = home.clone();
+    let home_for_project = home.clone();
     let data_base_dir_for_file = data_base_dir.clone();
+    let data_base_dir_for_project = data_base_dir.clone();
+    // 自动归档策略变更 → 补扫信号（setting channel 与 scheduler 共享）。
+    let archive_signal = Arc::new(tokio::sync::Notify::new());
     // runtime 反向请求的 Host 侧应答（与 `setting` channel 同一份 settings 根）。
     let provider_headers = crate::provider_headers::ProviderHeaders::new();
     // 插件管理面：`plugin-management` 与 `escode-agent` 旧插件面共用（同一实例/进度 Hub）。
@@ -236,6 +261,10 @@ pub fn channels_with(
         drafts,
         events: Arc::clone(&events),
     };
+    let project_read = write
+        .read
+        .clone()
+        .unwrap_or_else(crate::domains_task_support::ReadContext::unavailable);
     // V4 面与任务索引 syncer 共用同一 Base（同一帧 hub / 实例表 / 索引 hint）。
     let base = crate::agent_v4::shared_base(
         instances.clone(),
@@ -257,6 +286,7 @@ pub fn channels_with(
             Arc::clone(&task_events),
         )
     });
+    let syncer_for_archive = syncer.clone();
     let controller = write.read.clone().zip(syncer).map(|(read, syncer)| {
         crate::window_controller::WindowController::new(
             read,
@@ -268,7 +298,11 @@ pub fn channels_with(
         )
     });
     let mut list = vec![
-        setting_channel(home.clone(), data_base_dir_for_setting),
+        setting_channel_with_archive_signal(
+            home.clone(),
+            data_base_dir_for_setting,
+            Some(Arc::clone(&archive_signal)),
+        ),
         crate::domains_workspace_vcs::workspace_vcs_channel(home.clone()),
         system_channel(home.clone()),
         crate::domains_file_channel::file_channel(home_for_file, data_base_dir_for_file),
@@ -319,6 +353,23 @@ pub fn channels_with(
         task_channel,
         session_channel(instances, options, write, Some(provider_headers)),
     ];
+    list.push(
+        crate::domains_task_groups_service::task_groups_service_channel(project_read.clone()),
+    );
+    if let Some(syncer) = syncer_for_archive {
+        let _ = crate::project_archive::spawn(
+            project_read.clone(),
+            syncer,
+            Arc::clone(&events),
+            home_for_project.clone(),
+            Arc::clone(&archive_signal),
+        );
+    }
+    list.push(crate::domains_project::project_channel(
+        project_read,
+        home_for_project,
+        data_base_dir_for_project,
+    ));
     list.extend(crate::domains_provider::provider_channels(
         provider_service,
         instances_for_simple.clone(),

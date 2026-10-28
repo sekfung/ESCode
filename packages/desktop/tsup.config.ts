@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { defineConfig } from "tsup";
+import type { Plugin } from "esbuild";
 import { getBuildMetadata } from "./scripts/build-metadata.mjs";
 import { resolveDesktopProductFlavor } from "./scripts/desktop-product-identity.mjs";
 import { DEFAULT_OSS_PATH_PREFIX } from "../../scripts/remote-cdn-roots.mjs";
@@ -165,6 +166,30 @@ const desktopNodeRuntimeExternals = [
   "yauzl",
 ];
 
+/**
+ * zod v4 以命名空间方式 re-export 全部语言包，调用方不用 `z.locales` 也会把约 267 KB
+ * 打进 main 静态图。应用从不切换 zod 语言（默认 en），构建期只保留 en。
+ */
+function zodLocalesEnOnlyPlugin(): Plugin {
+  return {
+    name: "escode-zod-locales-en-only",
+    setup(build) {
+      build.onResolve({ filter: /\/locales\/index\.js$/ }, (args) => {
+        // zod 内部用相对路径 `../locales/index.js` 导入，filter 匹配的是 import 原文；
+        // 只替换 zod v4 的三个 re-export 点，其他包/其他路径不受影响。
+        if (
+          !/[\\/]node_modules[\\/]zod[\\/]v4[\\/](core\/index|classic\/external|mini\/external)\.js$/.test(
+            args.importer,
+          )
+        ) {
+          return undefined;
+        }
+        return { path: resolve(import.meta.dirname, "src/main/zodLocalesEnOnly.ts") };
+      });
+    },
+  };
+}
+
 function createDevReadyMarkerHook(target: "main" | "host" | "preload"): string {
   // CLI 级 --onSuccess 在多 config watch 模式下会被每个子构建分别触发。
   // 之前 preload 先成功时就提前写入 ready 标记，Electron 仍会在 main/host 未完成时启动。
@@ -213,6 +238,7 @@ export default defineConfig([
       applyDesktopTsupEsbuildSecurityOptions(options);
       options.chunkNames = "main/chunk-[hash]";
     },
+    esbuildPlugins: [zodLocalesEnOnlyPlugin()],
     onSuccess: createDevReadyMarkerHook("main"),
     ...desktopTsupBundleSecurityOptions,
   },

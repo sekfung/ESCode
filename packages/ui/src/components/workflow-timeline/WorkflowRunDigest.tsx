@@ -5,7 +5,8 @@ import {
   SlidersHorizontalIcon,
   SquareIcon,
 } from "lucide-react";
-import { TID_CHAT_WORKFLOW_RUN_DIGEST, testId } from "@escode/shared";
+import { TID_CHAT_WORKFLOW_RUN_DIGEST } from "@escode/shared";
+import { testId } from "@escode/shared/test-ids";
 import type { WorkflowRunState } from "@escode/shared/escode-protocol-v4";
 import { cn } from "@/components/lib/utils.js";
 import { Button } from "@/components/ui/button.js";

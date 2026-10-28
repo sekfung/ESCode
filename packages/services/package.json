@@ -2,6 +2,7 @@
   "name": "@escode/services",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "imports": {
     "#src/*": "./src/*"
   },

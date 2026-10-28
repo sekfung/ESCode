@@ -1,8 +1,16 @@
-import { useEffect } from "react";
-import { SettingsPage } from "@/SettingsPage.js";
+import { lazy, Suspense, useEffect } from "react";
 import { ServiceProvider } from "@/hooks/useServices.js";
 import { logger } from "@/logger.js";
 import type { WorkspaceSettingsLayerProps } from "@/root/types.js";
+
+/**
+ * 设置页整棵子树（自动化、插件、MCP、子代理等）只在设置 tab 激活时才有意义。
+ * 在设置层内部懒加载，让 WorkspaceSettingsLayer 保持同步挂载（供测试与壳层编排），
+ * 同时把 settings chunk 从 renderer 首屏模块图移出。
+ */
+const SettingsPage = lazy(() =>
+  import("@/SettingsPage.js").then((module) => ({ default: module.SettingsPage })),
+);
 
 export function WorkspaceSettingsLayer({
   workspaceScopedServices,
@@ -25,8 +33,22 @@ export function WorkspaceSettingsLayer({
 
   return (
     <div className="absolute inset-0 z-10">
-      {workspaceScopedServices ? (
-        <ServiceProvider services={workspaceScopedServices}>
+      <Suspense fallback={null}>
+        {workspaceScopedServices ? (
+          <ServiceProvider services={workspaceScopedServices}>
+            <SettingsPage
+              isDesktop={isDesktop}
+              isMacDesktop={isMacDesktop}
+              isWindowsDesktop={isWindowsDesktop}
+              windowsWindowControlsRightPaddingPx={windowsWindowControlsRightPaddingPx}
+              captionWorkspacePath={captionWorkspacePath}
+              onBack={onBack}
+              onCreateTask={onCreateTask}
+              onOpenWorkspace={onOpenWorkspace}
+              allowOpenWorkspace={allowOpenWorkspace}
+            />
+          </ServiceProvider>
+        ) : (
           <SettingsPage
             isDesktop={isDesktop}
             isMacDesktop={isMacDesktop}
@@ -38,20 +60,8 @@ export function WorkspaceSettingsLayer({
             onOpenWorkspace={onOpenWorkspace}
             allowOpenWorkspace={allowOpenWorkspace}
           />
-        </ServiceProvider>
-      ) : (
-        <SettingsPage
-          isDesktop={isDesktop}
-          isMacDesktop={isMacDesktop}
-          isWindowsDesktop={isWindowsDesktop}
-          windowsWindowControlsRightPaddingPx={windowsWindowControlsRightPaddingPx}
-          captionWorkspacePath={captionWorkspacePath}
-          onBack={onBack}
-          onCreateTask={onCreateTask}
-          onOpenWorkspace={onOpenWorkspace}
-          allowOpenWorkspace={allowOpenWorkspace}
-        />
-      )}
+        )}
+      </Suspense>
     </div>
   );
 }

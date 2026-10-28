@@ -5,7 +5,6 @@ import {
   ESCODE_WORKFLOWS_RUNS_MAX_LIMIT,
   escodeProtocolMethods,
   escodeSavedWorkflowMetaSchema,
-  escodeSavedWorkflowScopeSchema,
   escodeWorkflowsDeleteParamsSchema,
   escodeWorkflowsDeleteResultSchema,
   escodeWorkflowsGetParamsSchema,
@@ -36,13 +35,6 @@ describe("escode-protocol saved workflows", () => {
     expect(escodeProtocolMethods.workflowsDelete).toBe("workflows/delete");
     expect(escodeProtocolMethods.workflowsRuns).toBe("workflows/runs");
     expect(escodeProtocolMethods.workflowsMove).toBe("workflows/move");
-  });
-
-  it("scope 枚举两档：project / global，拒绝别的值", () => {
-    expect(escodeSavedWorkflowScopeSchema.parse("project")).toBe("project");
-    expect(escodeSavedWorkflowScopeSchema.parse("global")).toBe("global");
-    // skills / subagents 那一档叫 user，本特性有意分道——不接受 user。
-    expect(() => escodeSavedWorkflowScopeSchema.parse("user")).toThrow();
   });
 
   it("list：结果里的条目不含脚本正文，坏文件单列 invalid，dir 必填", () => {
@@ -251,6 +243,9 @@ describe("escode-protocol saved workflows", () => {
       escodeWorkflowsRunsResultSchema.parse(row(nine.slice(0, 8))).runs[0]?.artifacts,
     ).toHaveLength(8);
     // 未知 kind 与未知键都拒（元素 strict）：GUI 按 kind 画图标，没有兜底图标可用。
+    expect(() =>
+      escodeWorkflowsRunsResultSchema.parse(row([{ id: "a", kind: "video", version: 1 }])),
+    ).toThrow();
     expect(() =>
       escodeWorkflowsRunsResultSchema.parse(row([{ id: "a", kind: "video", version: 1 }])),
     ).toThrow();

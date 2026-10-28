@@ -96,6 +96,7 @@ mod tool_hooks;
 mod turn_hooks;
 mod usage_facts;
 mod workflow_actors;
+mod workflow_blocked;
 mod workflow_notices;
 mod workspace_hooks;
 

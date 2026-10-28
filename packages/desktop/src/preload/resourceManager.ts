@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { PlatformChannels, formatESCodeRendererProcessName } from "@escode/shared";
+import { PlatformChannels } from "@escode/shared/channels";
+import { formatESCodeRendererProcessName } from "@escode/shared/process-names";
 import type {
   ResourceUsageSnapshot,
   NetworkCaptureBridge,

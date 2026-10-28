@@ -101,6 +101,8 @@ export const ESCODE_PROTOCOL_VERSION = 1 as const;
 export const ESCODE_PROTOCOL_V4_WIRE_VERSION = 3 as const;
 export const escodeRuntimeCapabilitiesSchema = z.object({
   workspaceExecutionCapabilities: z.boolean().optional(),
+  /** 上游 v3.16.2：打开时先交付可读历史，再等待 runtime 初始化完成。 */
+  historyFirst: z.boolean().optional(),
   independentPlanState: z.boolean().optional(),
   /** 原生核心可显式关闭账号 Overlay；缺省保持现有 Registry 同步行为。 */
   accountProviderConfig: z.boolean().optional(),

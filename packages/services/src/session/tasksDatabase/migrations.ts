@@ -8,6 +8,7 @@ import {
 } from "#src/session/tasksDatabase/schema-v1.js";
 import { importLegacyAutomationSelections } from "#src/session/tasksDatabase/provider-selection-v2.js";
 import { OFFICIAL_GLM_SELECTION_MIGRATION_SQL } from "#src/session/tasksDatabase/official-glm-selection-v3.js";
+import { TASK_GROUP_ADMISSIONS_SQL } from "#src/task-groups/migration-v6.js";
 
 // 冻结历史列声明，不能以实时 Repo/schema 代替，否则新版构建会改变已应用 checksum。
 const columns = [
@@ -37,6 +38,13 @@ const indexes = `
     WHERE off_peak_task_id IS NOT NULL AND deleted=0;
   CREATE INDEX IF NOT EXISTS idx_automations_target_task ON automations(target_task_id) WHERE target_task_id IS NOT NULL;
 `;
+// 上游 0004_project_execution_scopes 的保留部分：automations 的执行归属列；
+// off-peak 表已在本 fork 下线，不跟随创建/加列。
+const projectExecutionColumns = [
+  ["automations", "project_id"],
+  ["automations", "host_id"],
+  ["automations", "additional_directories"],
+] as const;
 const terminalStatuses = "'completed','failed','cancelled'";
 const activePredicate = `session_id IS NOT NULL AND status NOT IN (${terminalStatuses})`;
 const boundIndex = `CREATE UNIQUE INDEX IF NOT EXISTS idx_off_peak_bound_active ON off_peak_tasks(workspace_key,session_id) WHERE ${activePredicate}`;
@@ -67,6 +75,14 @@ const definitions = [
   {
     id: "0004_drop_off_peak",
     checksumInput: ["drop-off-peak-v1"],
+  },
+  {
+    id: "0005_project_execution_scopes",
+    checksumInput: [projectExecutionColumns, "nullable-text-v1"],
+  },
+  {
+    id: "0006_task_group_admissions",
+    checksumInput: [TASK_GROUP_ADMISSIONS_SQL],
   },
 ] as const;
 
@@ -119,7 +135,10 @@ export function runTasksDatabaseMigrations(
       else if (migration.id === "0002_provider_selection") importLegacyAutomationSelections(db);
       else if (migration.id === "0003_official_glm_selection")
         db.exec(OFFICIAL_GLM_SELECTION_MIGRATION_SQL);
-      else dropOffPeakSchema(db);
+      else if (migration.id === "0004_drop_off_peak") dropOffPeakSchema(db);
+      else if (migration.id === "0005_project_execution_scopes")
+        addProjectExecutionColumns(db);
+      else db.exec(TASK_GROUP_ADMISSIONS_SQL);
       migrationFacts.executedCount++;
       db.prepare("INSERT INTO tasks_schema_migration VALUES(?,?,?)").run(
         migration.id,
@@ -140,6 +159,16 @@ export function runTasksDatabaseMigrations(
     if (error && typeof error === "object" && currentMigrationId)
       Object.assign(error, { migrationId: currentMigrationId });
     throw error;
+  }
+}
+
+/** 0005：调度器的执行归属列；只补缺失列，不改写已有值。 */
+function addProjectExecutionColumns(db: DatabaseSync): void {
+  for (const [table, column] of projectExecutionColumns) {
+    const exists = (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(
+      (entry) => entry.name === column,
+    );
+    if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
   }
 }
 

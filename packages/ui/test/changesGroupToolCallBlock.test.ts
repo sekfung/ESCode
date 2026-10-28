@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { ToolCallBlock } from "@/ToolCallBlocks.js";
 import {
   ChangesGroupToolCallBlock,
   resolveFileChipAvailableWidth,
@@ -115,6 +116,7 @@ function renderChangesGroup(options: {
       ESCodeIntlProvider,
       { initialLocale: "en-US" },
       createElement(ChangesGroupToolCallBlock, {
+        nestedToolRenderer: ToolCallBlock,
         toolCallNode: {
           toolCall: {
             toolId: "changes:1",

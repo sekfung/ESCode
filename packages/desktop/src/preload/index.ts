@@ -3,7 +3,7 @@ import {
   databaseStartupControlSchema,
   databaseStartupStateSchema,
   databaseStartupPortPayloadSchema,
-} from "@escode/shared";
+} from "@escode/shared/database-startup";
 /* eslint-disable max-lines -- preload bridge 集中暴露桌面平台 IPC，拆散会让 contextBridge 权限边界更难审计。 */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
@@ -70,12 +70,8 @@ import type {
   MaterializeWorkflowArtifactFileRequest,
   OpenCuaPermissionOnboardingOptions,
 } from "@escode/shared";
-import {
-  InternalChannels,
-  PlatformChannels,
-  formatESCodeRendererProcessName,
-  shouldEnableE2ETestBridge,
-} from "@escode/shared";
+import { InternalChannels, PlatformChannels } from "@escode/shared/channels";
+import { formatESCodeRendererProcessName } from "@escode/shared/process-names";
 import { createOAuthCallbackHandler } from "./oauthCallbackBridge.js";
 
 const updateReadyCallbacks = new Set<(version: string) => void>();

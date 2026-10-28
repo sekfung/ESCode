@@ -26,5 +26,7 @@ mod request_attachments;
 mod responses_stream;
 mod sse;
 mod tool_media;
+mod tool_reference;
+mod tool_search;
 pub mod web_search;
 use escode_cli_host::{id, now};

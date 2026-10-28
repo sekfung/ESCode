@@ -1,0 +1,38 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/automationManagementStore.ts	packages/ui/src/store/automationManagementStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/automationManagementStore.ts	packages/ui/src/store/automationManagementStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/confirmDialogStore.ts	packages/ui/src/store/confirmDialogStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/confirmDialogStore.ts	packages/ui/src/store/confirmDialogStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts	packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts	packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/hooksStore.ts	packages/ui/src/store/hooksStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/hooksStore.ts	packages/ui/src/store/hooksStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/index.ts	packages/ui/src/store/index.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/index.ts	packages/ui/src/store/index.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/store/mcpStore.ts	packages/ui/src/store/mcpStore.ts	present	三方合并冲突 x3
+conflict	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStore.ts	packages/ui/src/store/pluginManagementStore.ts	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStoreEnabled.ts	packages/ui/src/store/pluginManagementStoreEnabled.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStoreEnabled.ts	packages/ui/src/store/pluginManagementStoreEnabled.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStoreLoading.ts	packages/ui/src/store/pluginManagementStoreLoading.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStoreLoading.ts	packages/ui/src/store/pluginManagementStoreLoading.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/remoteWorkspaceSessionStore.ts	packages/ui/src/store/remoteWorkspaceSessionStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/remoteWorkspaceSessionStore.ts	packages/ui/src/store/remoteWorkspaceSessionStore.ts	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/store/serviceAuthorityKey.ts	packages/ui/src/store/serviceAuthorityKey.ts	new	505 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/store/serviceAuthorityKey.ts	packages/ui/src/store/serviceAuthorityKey.ts	new	505 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/skillStore.ts	packages/ui/src/store/skillStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/skillStore.ts	packages/ui/src/store/skillStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/subagentsContextStore.ts	packages/ui/src/store/subagentsContextStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/subagentsContextStore.ts	packages/ui/src/store/subagentsContextStore.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/store/subagentsStore.ts	packages/ui/src/store/subagentsStore.ts	present	三方合并冲突 x1
+would-create	W4	port-shared	ui	src	A	packages/ui/src/store/subagentsStoreLoading.ts	packages/ui/src/store/subagentsStoreLoading.ts	new	1551 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/store/subagentsStoreLoading.ts	packages/ui/src/store/subagentsStoreLoading.ts	new	1551 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/tabStore.ts	packages/ui/src/store/tabStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/tabStore.ts	packages/ui/src/store/tabStore.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/tabWorkspaceIdentity.ts	packages/ui/src/store/tabWorkspaceIdentity.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/tabWorkspaceIdentity.ts	packages/ui/src/store/tabWorkspaceIdentity.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreNavigation.ts	packages/ui/src/store/escodeSessionStoreNavigation.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreNavigation.ts	packages/ui/src/store/escodeSessionStoreNavigation.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreTaskSlice.ts	packages/ui/src/store/escodeSessionStoreTaskSlice.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreTaskSlice.ts	packages/ui/src/store/escodeSessionStoreTaskSlice.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreTypes.ts	packages/ui/src/store/escodeSessionStoreTypes.ts	present	三方合并冲突 x2
+conflict	W4	port-shared	ui	src	M	packages/ui/src/store/zcodeSessionStoreWorkspaceSlice.ts	packages/ui/src/store/escodeSessionStoreWorkspaceSlice.ts	present	三方合并冲突 x1

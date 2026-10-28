@@ -308,6 +308,23 @@ impl ToolPort for WorkspaceTools {
     fn definitions(&self) -> Vec<Value> {
         super::tool_surface::definitions()
     }
+    fn tool_search_mode(&self, _session: &str) -> String {
+        // 上游模式来自 App 偏好 / CLI 参数；Rust 入口暂以环境变量提供，缺省关闭。
+        std::env::var("ESCODE_TOOL_SEARCH_MODE").unwrap_or_else(|_| "off".into())
+    }
+    fn tool_search_discovered(&self, session: &str) -> Vec<String> {
+        self.tool_search_discovered
+            .lock()
+            .ok()
+            .and_then(|map| map.get(session).cloned())
+            .map(|names| names.into_iter().collect())
+            .unwrap_or_default()
+    }
+    fn record_tool_search(&self, session: &str, names: Vec<String>) {
+        if let Ok(mut map) = self.tool_search_discovered.lock() {
+            map.entry(session.to_string()).or_default().extend(names);
+        }
+    }
     fn requires_permission(&self, _name: &str) -> bool {
         false
     }

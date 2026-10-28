@@ -225,6 +225,33 @@ impl TaskIndexSyncer {
         lock(&ingest.core).summaries.values().cloned().collect()
     }
 
+    /// 非终态会话（TS `activeTaskRefs`）：自动归档用它保护仍在运行/等待的任务。
+    /// 只读 syncer 已观察到的摘要，不为扫描启动任何运行时。
+    pub(crate) fn active_task_refs(&self) -> Vec<Value> {
+        let ingests: Vec<Arc<Ingest>> = lock(&self.ingests).values().cloned().collect();
+        let mut refs = Vec::new();
+        for ingest in ingests {
+            let core = lock(&ingest.core);
+            for (session_id, summary) in &core.summaries {
+                if matches!(
+                    summary["phase"].as_str(),
+                    Some("completedSuccess" | "completedInterrupted" | "error")
+                ) {
+                    continue;
+                }
+                let mut task = serde_json::json!({
+                    "workspacePath": ingest.workspace_path,
+                    "taskId": session_id,
+                });
+                if let Some(identity) = &ingest.workspace_identity {
+                    task["workspaceIdentity"] = serde_json::json!(identity);
+                }
+                refs.push(task);
+            }
+        }
+        refs
+    }
+
     /// 摘要变化信号（广播；消费方按身份键过滤，合并式刷新，丢中间信号无副作用）。
     pub(crate) fn overlay_changes(&self) -> tokio::sync::broadcast::Receiver<String> {
         self.overlay_changes.subscribe()

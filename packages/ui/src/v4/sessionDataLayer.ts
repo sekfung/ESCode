@@ -5,6 +5,7 @@
 // Map<workspaceKey, SessionDataLayer>，本层不感知 workspace。
 import { ConversationProjectionStore } from "@/v4/conversationProjectionStore.js";
 import { ConversationRowPool } from "@/v4/conversationRowSharing.js";
+import { markFirstSegmentFrame, markFirstSegmentRowApplied } from "@/v4/firstSegmentProbe.js";
 import { shouldExposeE2EStoreBridge } from "@/lib/e2eStoreBridge.js";
 import type { SessionOpenKind } from "@/v4/sessionOpen.js";
 import { conversationTopic, type ConversationTransport } from "@/v4/transport.js";
@@ -64,7 +65,9 @@ export class SessionDataLayer {
     this.keepWarmMs = options.keepWarmMs ?? resolveSessionDataLayerKeepWarmMs();
     // 连接级单监听：按 topic 扇入到各 store（pane 间共享的正是这一条连接）。
     this.offFrame = this.transport.onFrame((frame, context) => {
+      markFirstSegmentFrame();
       this.entries.get(frame.topic)?.store.handleFrame(frame, context);
+      markFirstSegmentRowApplied();
     });
   }
 

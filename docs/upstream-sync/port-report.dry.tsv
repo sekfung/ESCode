@@ -1,0 +1,152 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-catalog/contract.test.ts	packages/services/src/project-catalog/contract.test.ts	new	995 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/contract.test.ts	packages/services/src/project-storage/contract.test.ts	new	12016 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/default-workspace/contract.test.ts	packages/services/src/project-storage/default-workspace/contract.test.ts	new	4385 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/downgrade/contract.test.ts	packages/services/src/project-storage/downgrade/contract.test.ts	new	5920 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/legacy-provider/contract.test.ts	packages/services/src/project-storage/legacy-provider/contract.test.ts	new	3014 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/migration-order/contract.test.ts	packages/services/src/project-storage/migration-order/contract.test.ts	new	8238 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/project-order/contract.test.ts	packages/services/src/project-storage/project-order/contract.test.ts	new	2724 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/remote-single-root/contract.test.ts	packages/services/src/project-storage/remote-single-root/contract.test.ts	new	3434 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/repository/contract.test.ts	packages/services/src/project-storage/repository/contract.test.ts	new	12945 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-storage/shared-owner/contract.test.ts	packages/services/src/project-storage/shared-owner/contract.test.ts	new	1542 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project-workspace-navigation/contract.test.ts	packages/services/src/project-workspace-navigation/contract.test.ts	new	7723 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project/contract.test.ts	packages/services/src/project/contract.test.ts	new	11788 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project/legacy/contract.test.ts	packages/services/src/project/legacy/contract.test.ts	new	7908 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/project/preparation-race/contract.test.ts	packages/services/src/project/preparation-race/contract.test.ts	new	3329 bytes
+would-create	W1	import-test	project-data	test	A	packages/services/src/startup-storage/contract.test.ts	packages/services/src/startup-storage/contract.test.ts	new	2137 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/backup-volumes.ts	packages/shared/src/sqlite-migrations/backup-volumes.ts	new	1216 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/backup.ts	packages/shared/src/sqlite-migrations/backup.ts	new	5290 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/contract.example.ts	packages/shared/src/sqlite-migrations/contract.example.ts	new	573 bytes
+would-create	W1	import-test	project-data	test	A	packages/shared/src/sqlite-migrations/contract.test.ts	packages/shared/src/sqlite-migrations/contract.test.ts	new	10801 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/contract.ts	packages/shared/src/sqlite-migrations/contract.ts	new	2456 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/index.ts	packages/shared/src/sqlite-migrations/index.ts	new	758 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/legacy.ts	packages/shared/src/sqlite-migrations/legacy.ts	new	3088 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/module.ts	packages/shared/src/sqlite-migrations/module.ts	new	321 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/restore.ts	packages/shared/src/sqlite-migrations/restore.ts	new	2754 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/runner.ts	packages/shared/src/sqlite-migrations/runner.ts	new	4612 bytes
+would-create	W1	port-shared	project-data	src	A	packages/shared/src/sqlite-migrations/table-snapshot.ts	packages/shared/src/sqlite-migrations/table-snapshot.ts	new	1952 bytes
+conflict	W1	port-shared	shared	src	M	packages/client/src/globals.d.ts	packages/client/src/globals.d.ts	present	三方合并冲突 x3
+would-merge	W1	port-shared	shared	src	M	packages/client/src/messageport.ts	packages/client/src/messageport.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/client/src/remoteServiceAccess.ts	packages/client/src/remoteServiceAccess.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/client/src/websocket.ts	packages/client/src/websocket.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/client/test/remoteServiceAccess.test.ts	packages/client/test/remoteServiceAccess.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/provider-node/src/legacy-reasoning-level-renames.ts	packages/provider-node/src/legacy-reasoning-level-renames.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/provider-node/src/legacy-reasoning-level.ts	packages/provider-node/src/legacy-reasoning-level.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/config-file-codec.test.ts	packages/provider-node/test/config-file-codec.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/fixtures/reasoning-map-before-todo95.json	packages/provider-node/test/fixtures/reasoning-map-before-todo95.json	present	clean
+would-create	W1	import-test	shared	test	A	packages/provider-node/test/mimo-templates.test.ts	packages/provider-node/test/mimo-templates.test.ts	new	6861 bytes
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/model-selection-config-repository.test.ts	packages/provider-node/test/model-selection-config-repository.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/new-model-catalog-round2.test.ts	packages/provider-node/test/new-model-catalog-round2.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/provider-node-runtime.test.ts	packages/provider-node/test/provider-node-runtime.test.ts	present	clean
+conflict	W1	import-test	shared	test	M	packages/provider-node/test/reasoning-level-migration.test.ts	packages/provider-node/test/reasoning-level-migration.test.ts	present	三方合并冲突 x2
+conflict	W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-integrity.test.ts	packages/provider-node/test/escode-builtin-integrity.test.ts	present	三方合并冲突 x2
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-model-aliases.test.ts	packages/provider-node/test/escode-builtin-model-aliases.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-reasoning-map.test.ts	packages/provider-node/test/escode-builtin-reasoning-map.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/provider/src/account-provider-resolution.ts	packages/provider/src/account-provider-resolution.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/account-provider-resolution.test.ts	packages/provider/test/account-provider-resolution.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/config-service.test.ts	packages/provider/test/config-service.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/facades.test.ts	packages/provider/test/facades.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/m2-completion-boundary.test.ts	packages/provider/test/m2-completion-boundary.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/provider-template.test.ts	packages/provider/test/provider-template.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/registry-service.test.ts	packages/provider/test/registry-service.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/rule-data-schema.test.ts	packages/provider/test/rule-data-schema.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/provider/test/todo21-source-contracts.test.ts	packages/provider/test/todo21-source-contracts.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/rpc/src/channelClient.ts	packages/rpc/src/channelClient.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/rpc/src/channels.shared.ts	packages/rpc/src/channels.shared.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/rpc/src/channelServer.ts	packages/rpc/src/channelServer.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/rpc/src/protocol.ts	packages/rpc/src/protocol.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/rpc/test/buffer.test.ts	packages/rpc/test/buffer.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/rpc/test/channels.test.ts	packages/rpc/test/channels.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/rpc/test/foundation.test.ts	packages/rpc/test/foundation.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/rpc/test/protocol.test.ts	packages/rpc/test/protocol.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/rpc/test/serialization.test.ts	packages/rpc/test/serialization.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/app-runtime-preferences.ts	packages/shared/src/app-runtime-preferences.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/automation-types.ts	packages/shared/src/automation-types.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/channels.ts	packages/shared/src/channels.ts	present	三方合并冲突 x9
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/clientConfig.ts	packages/shared/src/clientConfig.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/dynamic-workflow-feature.ts	packages/shared/src/dynamic-workflow-feature.ts	present	三方合并冲突 x1
+would-merge	W1	import-test	shared	test	M	packages/shared/src/gen-ui/contract.test.ts	packages/shared/src/gen-ui/contract.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/gen-ui/contract.ts	packages/shared/src/gen-ui/contract.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/index.ts	packages/shared/src/index.ts	present	三方合并冲突 x4
+would-merge	W1	import-test	shared	test	M	packages/shared/src/mcp-apps/contract.test.ts	packages/shared/src/mcp-apps/contract.test.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/mcp-apps/contract.ts	packages/shared/src/mcp-apps/contract.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/mcp-apps/schemas.ts	packages/shared/src/mcp-apps/schemas.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/mcp.ts	packages/shared/src/mcp.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/model-execution.ts	packages/shared/src/model-execution.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/oauth.ts	packages/shared/src/oauth.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/platform.ts	packages/shared/src/platform.ts	present	三方合并冲突 x6
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/project-access-token-client.ts	packages/shared/src/project-access-token-client.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/protocol.ts	packages/shared/src/protocol.ts	present	三方合并冲突 x1
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/remote-workspace-identity.ts	packages/shared/src/remote-workspace-identity.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/server-remote.ts	packages/shared/src/server-remote.ts	present	三方合并冲突 x1
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/shortcutCommands.ts	packages/shared/src/shortcutCommands.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/test-ids-workflow.ts	packages/shared/src/test-ids-workflow.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/test-ids.ts	packages/shared/src/test-ids.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/tool-identity.ts	packages/shared/src/tool-identity.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/validation.ts	packages/shared/src/validation.ts	present	三方合并冲突 x6
+conflict	W1	port-shared	shared	src	M	packages/shared/src/validationAppSettings.ts	packages/shared/src/validationAppSettings.ts	present	三方合并冲突 x5
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/workspaceSessionRestore.ts	packages/shared/src/workspaceSessionRestore.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-legacy-types.ts	packages/shared/src/escode-protocol-legacy-types.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/command.ts	packages/shared/src/escode-protocol-v4/command.ts	present	三方合并冲突 x1
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/controller.ts	packages/shared/src/escode-protocol-v4/controller.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/delta.ts	packages/shared/src/escode-protocol-v4/delta.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/rows.ts	packages/shared/src/escode-protocol-v4/rows.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/sessions-index.ts	packages/shared/src/escode-protocol-v4/sessions-index.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/snapshot.ts	packages/shared/src/escode-protocol-v4/snapshot.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/toolDisplay.ts	packages/shared/src/escode-protocol-v4/toolDisplay.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/transport.ts	packages/shared/src/escode-protocol-v4/transport.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol-v4/workflow-row-meta.ts	packages/shared/src/escode-protocol-v4/workflow-row-meta.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/zcode-protocol/index.ts	packages/shared/src/escode-protocol/index.ts	present	三方合并冲突 x1
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-task-types-core.ts	packages/shared/src/escode-task-types-core.ts	present	clean
+would-merge	W1	port-shared	shared	src	M	packages/shared/src/zcode-task-types.ts	packages/shared/src/escode-task-types.ts	present	clean
+conflict	W1	port-shared	shared	src	M	packages/shared/src/zcodeEndpoint.ts	packages/shared/src/escodeEndpoint.ts	present	三方合并冲突 x3
+conflict	W1	import-test	shared	test	M	packages/shared/test/appSettings.test.ts	packages/shared/test/appSettings.test.ts	present	三方合并冲突 x1
+would-merge	W1	import-test	shared	test	M	packages/shared/test/backgroundTaskNotifications.test.ts	packages/shared/test/backgroundTaskNotifications.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/clientConfig.test.ts	packages/shared/test/clientConfig.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/conversationPreviewArtifacts.test.ts	packages/shared/test/conversationPreviewArtifacts.test.ts	present	clean
+conflict	W1	import-test	shared	test	M	packages/shared/test/dynamicWorkflowFeature.test.ts	packages/shared/test/dynamicWorkflowFeature.test.ts	present	三方合并冲突 x1
+conflict	W1	import-test	shared	test	M	packages/shared/test/env.test.ts	packages/shared/test/env.test.ts	present	三方合并冲突 x1
+would-create	W1	import-test	shared	test	A	packages/shared/test/fakeRelayV2.test.ts	packages/shared/test/fakeRelayV2.test.ts	new	16769 bytes
+would-create	W1	import-test	shared	test	A	packages/shared/test/fixtures/fake-relay-v2.ts	packages/shared/test/fixtures/fake-relay-v2.ts	new	12860 bytes
+would-merge	W1	import-test	shared	test	M	packages/shared/test/guardedMode.test.ts	packages/shared/test/guardedMode.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/launchMarks.test.ts	packages/shared/test/launchMarks.test.ts	present	clean
+would-create	W1	import-test	shared	test	A	packages/shared/test/mcp-always-load.test.ts	packages/shared/test/mcp-always-load.test.ts	new	1179 bytes
+would-merge	W1	import-test	shared	test	M	packages/shared/test/mcpStatusDiagnostics.test.ts	packages/shared/test/mcpStatusDiagnostics.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/modelConfigContract.test.ts	packages/shared/test/modelConfigContract.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/openInEditorOptions.test.ts	packages/shared/test/openInEditorOptions.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/process-diagnostic.test.ts	packages/shared/test/process-diagnostic.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/projectAccessTokenClient.test.ts	packages/shared/test/projectAccessTokenClient.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/projectAccessTokenKeyContract.test.ts	packages/shared/test/projectAccessTokenKeyContract.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/remoteAppConfig.test.ts	packages/shared/test/remoteAppConfig.test.ts	present	clean
+conflict	W1	import-test	shared	test	M	packages/shared/test/remoteResourcePackages.test.ts	packages/shared/test/remoteResourcePackages.test.ts	present	三方合并冲突 x1
+conflict	W1	import-test	shared	test	M	packages/shared/test/remoteWorkspaceIdentity.test.ts	packages/shared/test/remoteWorkspaceIdentity.test.ts	present	三方合并冲突 x1
+would-merge	W1	import-test	shared	test	M	packages/shared/test/runtimeEnv.test.ts	packages/shared/test/runtimeEnv.test.ts	present	clean
+would-create	W1	import-test	shared	test	A	packages/shared/test/scopedServicePortPayload.test.ts	packages/shared/test/scopedServicePortPayload.test.ts	new	1045 bytes
+would-merge	W1	import-test	shared	test	M	packages/shared/test/shortcutCommands.test.ts	packages/shared/test/shortcutCommands.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/taskRealtime.test.ts	packages/shared/test/taskRealtime.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/validation.test.ts	packages/shared/test/validation.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/windowHostControlProtocol.test.ts	packages/shared/test/windowHostControlProtocol.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/workflowNotificationArtifacts.test.ts	packages/shared/test/workflowNotificationArtifacts.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/workspaceHookDiscoveryDedup.test.ts	packages/shared/test/workspaceHookDiscoveryDedup.test.ts	present	clean
+conflict	W1	import-test	shared	test	M	packages/shared/test/zcodeEndpoint.test.ts	packages/shared/test/escodeEndpoint.test.ts	present	三方合并冲突 x2
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocol.test.ts	packages/shared/test/escodeProtocol.test.ts	present	clean
+conflict	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolSavedWorkflows.test.ts	packages/shared/test/escodeProtocolSavedWorkflows.test.ts	present	三方合并冲突 x1
+conflict	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4Command.test.ts	packages/shared/test/escodeProtocolV4Command.test.ts	present	三方合并冲突 x3
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4ConnectionScope.test.ts	packages/shared/test/escodeProtocolV4ConnectionScope.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4HookSummary.test.ts	packages/shared/test/escodeProtocolV4HookSummary.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4SessionWorkflowActivity.test.ts	packages/shared/test/escodeProtocolV4SessionWorkflowActivity.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4Wire.test.ts	packages/shared/test/escodeProtocolV4Wire.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WireFault.test.ts	packages/shared/test/escodeProtocolV4WireFault.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowObservationDisplay.test.ts	packages/shared/test/escodeProtocolV4WorkflowObservationDisplay.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRuns.test.ts	packages/shared/test/escodeProtocolV4WorkflowRuns.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRunsCaps.test.ts	packages/shared/test/escodeProtocolV4WorkflowRunsCaps.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRunsDelta.test.ts	packages/shared/test/escodeProtocolV4WorkflowRunsDelta.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRunsEviction.test.ts	packages/shared/test/escodeProtocolV4WorkflowRunsEviction.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRunsHoles.test.ts	packages/shared/test/escodeProtocolV4WorkflowRunsHoles.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeProtocolV4WorkflowRunsReducer.test.ts	packages/shared/test/escodeProtocolV4WorkflowRunsReducer.test.ts	present	clean
+would-merge	W1	import-test	shared	test	M	packages/shared/test/zcodeSessionContentProfile.test.ts	packages/shared/test/escodeSessionContentProfile.test.ts	present	clean
+would-create	W1	port-shared	shared	src	A	packages/shared/tsconfig.testing.json	packages/shared/tsconfig.testing.json	new	260 bytes
+would-merge	W1	port-shared	shared	src	M	packages/zcode-cua/broker-server.d.ts	packages/escode-cua/broker-server.d.ts	present	clean
+would-create	W1	import-test	shared	test	A	packages/zcode-cua/test/availability.test.ts	packages/escode-cua/test/availability.test.ts	new	918 bytes
+would-create	W1	port-shared	shared	src	A	packages/zcode-cua/tsconfig.json	packages/escode-cua/tsconfig.json	new	168 bytes
+would-create	W1	port-shared	shared	src	A	packages/zcode-cua/vitest.config.ts	packages/escode-cua/vitest.config.ts	new	325 bytes

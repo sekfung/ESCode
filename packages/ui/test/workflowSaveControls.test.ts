@@ -392,7 +392,8 @@ describe("表头槽位", () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId("workflow-save-run-again"));
     });
-    expect(screen.getByTestId(TID_WORKFLOW_LAUNCH_DIALOG)).toBeTruthy();
+    // 「再次运行」弹窗按需加载：点击后需要等 lazy chunk 解析完成。
+    expect(await screen.findByTestId(TID_WORKFLOW_LAUNCH_DIALOG)).toBeTruthy();
     expect(
       screen.getByTestId<HTMLInputElement>(testId(TID_WORKFLOW_LAUNCH_ARG, "base")).value,
     ).toBe("release/3.14");

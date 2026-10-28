@@ -13,6 +13,8 @@ import { CheckIcon, CopyIcon, Maximize2Icon, WrapTextIcon } from "lucide-react";
 import type { ComponentProps, CSSProperties, HTMLAttributes } from "react";
 import {
   createContext,
+  lazy,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -21,7 +23,6 @@ import {
   useState,
 } from "react";
 import type { BundledTheme } from "shiki";
-import { CodeViewer } from "@/components/ui/code-viewer.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
 import { isMermaidLanguage, shouldRenderMermaidCodeBlock } from "@/lib/mermaidLanguage.js";
@@ -68,6 +69,22 @@ interface CodeBlockContextType {
   openMermaidPreview: () => void;
   toggleWrapLongLines: () => void;
   wrapLongLines: boolean;
+}
+
+/**
+ * CodeViewer 静态引用会把 @pierre/diffs（约 5 MB chunk）拉进 renderer 首屏模块图，
+ * 显著推迟 T4（bundle start）到 React 首帧。改为按需加载，未就绪时用纯文本占位。
+ */
+const CodeViewer = lazy(() =>
+  import("@/components/ui/code-viewer.js").then((module) => ({ default: module.CodeViewer })),
+);
+
+function CodeViewerFallback({ code }: { code: string }) {
+  return (
+    <pre className="m-0 overflow-auto bg-transparent p-0 font-mono text-[12px] leading-5 whitespace-pre">
+      {code}
+    </pre>
+  );
 }
 
 const LANGUAGE_DISPLAY_FILE_BY_LANGUAGE: Record<string, string> = {
@@ -333,29 +350,31 @@ export const CodeBlock = ({
               // className={cn(children ? "border-t border-border" : null)}
             />
           ) : (
-            <CodeViewer
-              code={code}
-              enableSyntaxHighlighting={enableSyntaxHighlighting}
-              language={language}
-              showLineNumbers={showLineNumbers}
-              theme={theme}
-              wrapLongLines={isWrapped}
-              focusedRange={focusedRange}
-              focusRequestId={focusRequestId}
-              markedLines={markedLines}
-              className="bg-transparent"
-              fontSizePx={fontSizePx}
-              // markdown 代码块外层是 bg-card，但 CodeViewer 默认把 @pierre/diffs 背景设成 background。
-              // 这里仅覆盖 markdown CodeBlock 入口，避免侧边栏文件预览的背景层级被一起改掉。
-              style={
-                {
-                  "--diffs-bg": "var(--color-card)",
-                  "--diffs-light-bg": "var(--color-card)",
-                  "--diffs-dark-bg": "var(--color-card)",
-                  "--diffs-gap-block": "0px",
-                } as CSSProperties
-              }
-            />
+            <Suspense fallback={<CodeViewerFallback code={code} />}>
+              <CodeViewer
+                code={code}
+                enableSyntaxHighlighting={enableSyntaxHighlighting}
+                language={language}
+                showLineNumbers={showLineNumbers}
+                theme={theme}
+                wrapLongLines={isWrapped}
+                focusedRange={focusedRange}
+                focusRequestId={focusRequestId}
+                markedLines={markedLines}
+                className="bg-transparent"
+                fontSizePx={fontSizePx}
+                // markdown 代码块外层是 bg-card，但 CodeViewer 默认把 @pierre/diffs 背景设成 background。
+                // 这里仅覆盖 markdown CodeBlock 入口，避免侧边栏文件预览的背景层级被一起改掉。
+                style={
+                  {
+                    "--diffs-bg": "var(--color-card)",
+                    "--diffs-light-bg": "var(--color-card)",
+                    "--diffs-dark-bg": "var(--color-card)",
+                    "--diffs-gap-block": "0px",
+                  } as CSSProperties
+                }
+              />
+            </Suspense>
           )}
         </div>
         {shouldRenderMermaid && mermaidPreviewSvg ? (

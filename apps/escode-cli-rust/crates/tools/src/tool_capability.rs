@@ -25,6 +25,33 @@ pub(crate) fn capability(
             ..Default::default()
         });
     }
+    // ToolSearch / DeferredToolCall 是上游 v3.16.2 新增控制工具，元数据不在生成表里：
+    // ToolSearch 只读发现面；DeferredToolCall 本身高风险，但目标工具仍走自己的权限审批。
+    match name {
+        escode_cli_domain::tool_search_catalog::TOOL_SEARCH_NAME => {
+            return Some(Capability {
+                read_only: Some(true),
+                destructive: Some(false),
+                needs_approval: Some(false),
+                risk_level: Some(Risk::Low),
+                side_effect_scope: Some("none".into()),
+                permission_name: Some("tool.search".into()),
+                ..Default::default()
+            });
+        }
+        escode_cli_domain::tool_search_catalog::DEFERRED_TOOL_CALL_NAME => {
+            return Some(Capability {
+                read_only: Some(false),
+                destructive: Some(false),
+                needs_approval: Some(true),
+                risk_level: Some(Risk::High),
+                side_effect_scope: Some("system".into()),
+                permission_name: Some("tool.deferred_call".into()),
+                ..Default::default()
+            });
+        }
+        _ => {}
+    }
     let table: Value = serde_json::from_str(include_str!("tool_capabilities.json"))
         .expect("generated tool capabilities");
     let entry = table.get(name)?;

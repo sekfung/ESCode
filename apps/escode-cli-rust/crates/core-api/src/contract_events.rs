@@ -255,6 +255,8 @@ pub enum Event {
         failed: bool,
         /// 权限被拒（用户或规则）：模型仍收到拒绝文案，但行按 TS 收口为 cancelled、不带输出。
         denied: bool,
+        /// DeferredToolCall 包装边界：目标工具的调用与结果经包装入口到达（上游 modelCallWrapper）。
+        model_call_wrapper: Option<String>,
         committed: oneshot::Sender<()>,
     },
     StepBoundary {

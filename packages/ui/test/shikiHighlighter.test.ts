@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { bundledLanguages, bundledLanguagesInfo } from "shiki";
+import {
+  SHIKI_LANGUAGE_ALIASES,
+  SHIKI_LANGUAGE_IDS,
+} from "@/lib/shikiLanguageRegistry.generated.js";
 import {
   createRawCodeTokens,
   highlightCode,
@@ -17,6 +22,19 @@ describe("shikiHighlighter", () => {
     expect(shouldUseSyntaxHighlighting("json")).toBe(true);
     expect(shouldUseSyntaxHighlighting("typescript")).toBe(true);
     expect(shouldUseSyntaxHighlighting("tsx")).toBe(true);
+  });
+
+  it("generated language registry matches the shiki bundle", () => {
+    expect([...SHIKI_LANGUAGE_IDS].sort()).toEqual(Object.keys(bundledLanguages).sort());
+    const aliases: Record<string, string> = {};
+    for (const info of bundledLanguagesInfo) {
+      for (const alias of info.aliases ?? []) {
+        if (!Object.hasOwn(aliases, alias)) aliases[alias] = info.id;
+      }
+    }
+    expect(SHIKI_LANGUAGE_ALIASES).toEqual(
+      Object.fromEntries(Object.entries(aliases).sort(([a], [b]) => a.localeCompare(b))),
+    );
   });
 
   it("returns raw tokens for plain text without registering async callbacks", () => {

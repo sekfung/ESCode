@@ -6,11 +6,18 @@ use url::Url;
 
 use crate::js_compat::js_trim;
 
-/// `{pluginStoreOrder, zsrcUrl}`（只允许显式接入的公开字段进入快照）。
+/// `{pluginStoreOrder, zsrcUrl, uiPluginRecommendations}`（只允许显式接入的公开字段进入快照）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClientConfigSnapshot {
     pub plugin_store_order: Option<Value>,
     pub zsrc_url: Option<String>,
+    pub ui_plugin_recommendations: Vec<UiPluginRecommendation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiPluginRecommendation {
+    pub plugin_id: String,
+    pub surface_id: String,
 }
 
 impl ClientConfigSnapshot {
@@ -18,6 +25,11 @@ impl ClientConfigSnapshot {
         json!({
             "pluginStoreOrder": self.plugin_store_order.clone().unwrap_or(Value::Null),
             "zsrcUrl": self.zsrc_url.clone().map_or(Value::Null, Value::String),
+            "uiPluginRecommendations": self
+                .ui_plugin_recommendations
+                .iter()
+                .map(|item| json!({"pluginId": item.plugin_id, "surfaceId": item.surface_id}))
+                .collect::<Vec<_>>(),
         })
     }
 }
@@ -48,7 +60,30 @@ pub fn parse_snapshot(payload: &Value) -> Result<ClientConfigSnapshot, String> {
         zsrc_url: configs
             .and_then(|configs| configs.get("zsrc"))
             .and_then(parse_zsrc_url),
+        ui_plugin_recommendations: configs
+            .and_then(|configs| configs.get("uiPluginRecommendations"))
+            .and_then(parse_ui_plugin_recommendations)
+            .unwrap_or_default(),
     })
+}
+
+/// `z.array(z.object({pluginId, surfaceId}))` 的 `safeParse(...).data ?? []`：
+/// 任一条目不合法则整体回退为空数组；合法时只保留 trim 后的两个字段（zod 丢弃未知键）。
+fn parse_ui_plugin_recommendations(value: &Value) -> Option<Vec<UiPluginRecommendation>> {
+    let mut parsed = Vec::new();
+    for item in value.as_array()? {
+        let item = item.as_object()?;
+        let plugin_id = js_trim(item.get("pluginId")?.as_str()?);
+        let surface_id = js_trim(item.get("surfaceId")?.as_str()?);
+        if plugin_id.is_empty() || surface_id.is_empty() {
+            return None;
+        }
+        parsed.push(UiPluginRecommendation {
+            plugin_id: plugin_id.to_owned(),
+            surface_id: surface_id.to_owned(),
+        });
+    }
+    Some(parsed)
 }
 
 /// `{url: string}` 且 trim 后是 http(s) URL；否则 `None`。

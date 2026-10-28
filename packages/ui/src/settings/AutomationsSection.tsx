@@ -26,6 +26,7 @@ import { toast as showToast, type ToastOptions } from "@/components/ui/toast.js"
 import { cn } from "@/components/lib/utils.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { AutomationScheduledTemplateIcon } from "@/settings/AutomationScheduledTemplateIcon.js";
+import { AUTOMATIONS_TOAST_ANCHOR_ID } from "@/settings/automationsToastAnchor.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
@@ -122,8 +123,6 @@ interface AutomationsSectionProps {
     workspaceIdentity?: string;
   }) => void;
 }
-
-export const AUTOMATIONS_TOAST_ANCHOR_ID = "automations-main-toast-anchor";
 
 function toast(message: string, options?: ToastOptions): number {
   return showToast(message, {

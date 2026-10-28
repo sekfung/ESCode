@@ -37,12 +37,17 @@
 - `bench-escode-app.mjs`：解析 `[bench-startup]` 写入 `summary.json.startupPhases` 与报告。
 - 无启动顺序、bootstrap 或渲染入口改动；没有做优化。
 
-## 3. 后续（按收益排序，未实施）
+## 3. 后续（按收益排序）
 
 1. main bundle 懒加载：削减 T0→T1 应用侧 ~680 ms 的一半以上。
 2. preload 瘦身/拆分：当前 689 KB、单次 ~190 ms。
 3. renderer 首屏 module graph 收缩：当前 T3→T4 应用侧 ~700 ms。
-4. 三项各自需要 profile 与白屏回归，不能合并成一次改动。
+
+**2026-10-28 更新**：第 2、3 项已落地（preload 486 KB / ~57 ms；renderer 主 chunk
+5.34 MB → 677 KB，设置页/侧栏/代码查看器/工作流弹窗移出首屏），结果见
+`docs/reports/rust-u4-startup-optimization-2026-10-28.md`，契约见
+`docs/specs/rust-u4-startup-optimization.md`。第 1 项先落地共享包 `sideEffects: false`
+树摇标记，安装包 T0→T1 复测待工作树中其他未完成改动落定后进行。
 
 ## 4. 验证
 

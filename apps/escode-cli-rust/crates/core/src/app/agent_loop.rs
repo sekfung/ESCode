@@ -87,6 +87,7 @@ pub(super) async fn run(
     let surface = super::agent_loop_surface::prepare_tool_surface(
         tools,
         model,
+        &sink.session_id,
         history,
         &mut definitions,
         profile.is_some(),
@@ -98,6 +99,7 @@ pub(super) async fn run(
         registered,
         profiles,
         agent_listed,
+        tool_search,
     } = surface;
     let tool_tokens = definitions
         .iter()
@@ -297,7 +299,11 @@ pub(super) async fn run(
             // 只读工具并发执行，但按原始 call 顺序持久化结果；写/Shell 不跨越该屏障。
             let mut results = stream::iter(group)
                 .map(|call| {
-                    super::tool_dispatch::execute(
+                    let model_call_wrapper = call["function"]["name"]
+                        .as_str()
+                        .and_then(escode_cli_domain::tool_search_catalog::model_call_wrapper)
+                        .map(str::to_owned);
+                    let result = super::tool_dispatch::execute(
                         tools,
                         super::tool_dispatch::ExecutionContext {
                             skills: &skills,
@@ -310,24 +316,32 @@ pub(super) async fn run(
                             definitions: &definitions,
                             registered: &registered,
                             workflow_skill_loaded,
+                            tool_search: tool_search.as_ref(),
                         },
                         call,
                         sink,
                         cancel,
-                    )
+                    );
+                    async move { (result.await, model_call_wrapper) }
                 })
                 .buffered(4);
             while let Some(result) = results.next().await {
+                let (result, model_call_wrapper) = result;
                 let (id, tool, output, failed, denied) = result?;
                 stop_turn |= output.control.stop_turn;
                 let content = output.content;
-                // 含媒体的结果以 part 数组入史，由 model 协议层按 API 格式投影（rust-media-read.md）。
+                // 含媒体或 tool_reference 的结果以 part 数组入史，由 model 协议层按 API 格式投影
+                // （rust-media-read.md、rust-tool-search.md）。
                 let body = if output.media.is_empty() {
                     Value::String(content.clone())
                 } else {
                     Value::Array(output.media.clone())
                 };
-                history.push(json!({"role":"tool","tool_call_id":id,"content":body,"_escode_tool_failed":failed,"_escode_tool_name":tool}));
+                let mut message = json!({"role":"tool","tool_call_id":id,"content":body,"_escode_tool_failed":failed,"_escode_tool_name":tool});
+                if let Some(wrapper) = &model_call_wrapper {
+                    message["_escode_model_call_wrapper"] = wrapper.as_str().into();
+                }
+                history.push(message);
                 let (committed, receipt) = oneshot::channel();
                 sink.send(Event::ToolDone {
                     id,
@@ -337,6 +351,7 @@ pub(super) async fn run(
                     display: output.display,
                     failed,
                     denied,
+                    model_call_wrapper,
                     committed,
                 })
                 .await?;

@@ -6,11 +6,13 @@ use std::collections::BTreeSet;
 
 mod inventory;
 mod inventory_implemented;
+mod inventory_implemented_project;
 mod inventory_non_rpc;
 mod inventory_services;
 mod inventory_ts;
 
 pub use inventory_implemented::IMPLEMENTED;
+pub use inventory_implemented_project::IMPLEMENTED_PROJECT;
 pub use inventory_services::ts_service_members;
 pub use inventory_ts::TS_SERVICE_CHANNELS;
 

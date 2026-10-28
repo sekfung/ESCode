@@ -1,0 +1,11 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/composer-thought-slider.css	packages/ui/src/chat-input-toolbar/composer-thought-slider.css	new	3199 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/ComposerEffortHeading.tsx	packages/ui/src/chat-input-toolbar/ComposerEffortHeading.tsx	new	806 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/ComposerModelMenu.tsx	packages/ui/src/chat-input-toolbar/ComposerModelMenu.tsx	new	16562 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/ComposerProviderMenu.tsx	packages/ui/src/chat-input-toolbar/ComposerProviderMenu.tsx	new	7178 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/ComposerTriggerTransition.tsx	packages/ui/src/chat-input-toolbar/ComposerTriggerTransition.tsx	new	1148 bytes
+conflict	W4	port-shared	ui	src	M	packages/ui/src/chat-input-toolbar/contextUsage.tsx	packages/ui/src/chat-input-toolbar/contextUsage.tsx	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/chat-input-toolbar/display.tsx	packages/ui/src/chat-input-toolbar/display.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/chat-input-toolbar/ThoughtLevelCycleControl.tsx	packages/ui/src/chat-input-toolbar/ThoughtLevelCycleControl.tsx	present	clean
+error	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	new	读取基线内容失败: fatal: 路径 'packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts' 在磁盘上，但是不在 'aac47556' 中
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/chat-input-toolbar/thoughtLevelOptions.ts	packages/ui/src/chat-input-toolbar/thoughtLevelOptions.ts	present	clean

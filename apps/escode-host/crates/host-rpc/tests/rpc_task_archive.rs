@@ -146,23 +146,11 @@ async fn archives_stale_and_workspace_tasks_and_reports_the_native_log() {
     std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
     {
         let connection = rusqlite::Connection::open(&db_path).unwrap();
-        for statement in schema::MIGRATED_DDL {
-            connection.execute_batch(statement).unwrap();
-        }
-        connection
-            .execute_batch(
-                "CREATE TABLE IF NOT EXISTS tasks_schema_migration (
-                   id TEXT PRIMARY KEY, checksum TEXT NOT NULL, time_applied INTEGER NOT NULL)",
-            )
-            .unwrap();
-        for (id, checksum) in schema::EXPECTED_MIGRATIONS {
-            connection
-                .execute(
-                    "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                    rusqlite::params![id, checksum],
-                )
-                .unwrap();
-        }
+        escode_host_services::tasks_index::fixture::apply_generated_schema(
+            &connection,
+            schema::EXPECTED_MIGRATIONS,
+        )
+        .unwrap();
     }
     let old = now_ms() - 10 * 24 * 60 * 60 * 1000;
     let recent = now_ms() - 60 * 60 * 1000;

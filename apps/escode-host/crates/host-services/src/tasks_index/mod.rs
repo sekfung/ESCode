@@ -12,13 +12,19 @@
 //! 这一不变式不会因为没有 syncer 而被破坏。
 
 mod archive;
+pub mod fixture;
 mod ledger;
 mod meta;
+mod project_api;
+mod project_misc;
+mod project_read;
+mod project_write;
 pub mod query;
 mod query_grouped;
 mod query_shared;
 mod query_snippets;
 pub mod schema;
+mod task_group_api;
 mod write;
 pub mod write_groups;
 mod write_groups_api;
@@ -118,7 +124,26 @@ impl TasksIndex {
         connection.pragma_update(None, "foreign_keys", "ON")?;
         let index = Self { connection };
         let ledger = index.migration_ledger()?;
-        let (missing, unknown, mismatched) = compare_ledger(&ledger);
+        let (mut missing, mut unknown, mut mismatched) =
+            compare_ledger(schema::EXPECTED_MIGRATIONS, &ledger);
+        let project_ledger = index.project_migration_ledger()?;
+        let (project_missing, project_unknown, project_mismatched) =
+            compare_ledger(schema::EXPECTED_PROJECT_MIGRATIONS, &project_ledger);
+        missing.extend(
+            project_missing
+                .into_iter()
+                .map(|id| format!("project:{id}")),
+        );
+        unknown.extend(
+            project_unknown
+                .into_iter()
+                .map(|id| format!("project:{id}")),
+        );
+        mismatched.extend(
+            project_mismatched
+                .into_iter()
+                .map(|id| format!("project:{id}")),
+        );
         if !missing.is_empty() || !unknown.is_empty() || !mismatched.is_empty() {
             return Err(TasksIndexError::MigrationMismatch {
                 missing,
@@ -134,6 +159,27 @@ impl TasksIndex {
         let mut statement = self
             .connection
             .prepare("SELECT id, checksum FROM tasks_schema_migration ORDER BY id")?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut ledger = Vec::new();
+        for row in rows {
+            ledger.push(row?);
+        }
+        Ok(ledger)
+    }
+
+    /// 库内 project-storage 迁移账本（`schema_migration`；表缺席即空账本）。
+    pub fn project_migration_ledger(&self) -> Result<Vec<(String, String)>, TasksIndexError> {
+        let exists: bool = self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migration')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Ok(Vec::new());
+        }
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, checksum FROM schema_migration ORDER BY id")?;
         let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         let mut ledger = Vec::new();
         for row in rows {
@@ -362,9 +408,22 @@ fn verify_assets() -> Result<(), TasksIndexError> {
     if hex(&Sha256::digest(schema::MIGRATED_DDL.join("\n").as_bytes())) != schema::DDL_HASH {
         return Err(TasksIndexError::AssetTampered { what: "ddl" });
     }
+    let project_canonical = schema::EXPECTED_PROJECT_MIGRATIONS
+        .iter()
+        .map(|(id, checksum)| format!("{id}\t{checksum}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if hex(&Sha256::digest(project_canonical.as_bytes())) != schema::PROJECT_EXPECTATIONS_HASH {
+        return Err(TasksIndexError::AssetTampered {
+            what: "project migrations",
+        });
+    }
     Ok(())
 }
 
+#[cfg(test)]
+#[path = "project_tests.rs"]
+mod project_tests;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]

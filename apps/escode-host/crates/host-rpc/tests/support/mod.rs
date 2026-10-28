@@ -221,15 +221,9 @@ pub fn prepare_index(data_base_dir: &std::path::Path) {
         .join("tasks-index.sqlite");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let connection = rusqlite::Connection::open(&path).unwrap();
-    for statement in escode_host_services::tasks_index::schema::MIGRATED_DDL {
-        connection.execute_batch(statement).unwrap();
-    }
-    for (id, checksum) in escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .unwrap();
-    }
+    escode_host_services::tasks_index::fixture::apply_generated_schema(
+        &connection,
+        escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS,
+    )
+    .unwrap();
 }

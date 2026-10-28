@@ -8,6 +8,13 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
+/// Provider tool-search 能力（TS `ToolSearchCapability`）。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ToolSearchCapability {
+    pub protocol_supported: bool,
+    pub default_enabled: bool,
+}
+
 #[async_trait]
 pub trait ModelPort: Send + Sync {
     fn identity(&self) -> Option<ModelIdentity> {
@@ -19,6 +26,14 @@ pub trait ModelPort: Send + Sync {
     /// 模型是否声明 provider-native 搜索（TS `properties.supportsNativeWebSearch`）。
     fn native_web_search(&self) -> bool {
         false
+    }
+    /// 模型是否支持工具调用（tool search local 模式的前提；内置 provider 默认支持）。
+    fn supports_tool_call(&self) -> bool {
+        true
+    }
+    /// provider tool-search 能力（TS `requestCapabilities.toolSearch`）。
+    fn tool_search_capability(&self) -> ToolSearchCapability {
+        ToolSearchCapability::default()
     }
     fn with_max_output_tokens(&self, _max: usize) -> Result<Option<Arc<dyn ModelPort>>> {
         Ok(None)

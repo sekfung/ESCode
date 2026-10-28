@@ -91,6 +91,9 @@ pub struct Engine {
     pub(super) sampling: super::mcp_sampling::Calls,
     /// 在飞的采样作业（auxiliary id → 收口所需状态）。
     pub(super) sampling_jobs: BTreeMap<String, super::mcp_sampling::SamplingJob>,
+    /// workflow blocked reminder 钟（每会话空闲段与每个 run 的提醒次数）。
+    pub(super) workflow_reminders:
+        BTreeMap<String, crate::domain::workflow_blocked_reminder::WorkflowBlockedClock>,
 }
 impl Engine {
     pub async fn new(
@@ -193,6 +196,7 @@ impl Engine {
             spawner,
             sampling: Default::default(),
             sampling_jobs: BTreeMap::new(),
+            workflow_reminders: BTreeMap::new(),
         })
     }
     pub async fn serve(
@@ -231,6 +235,7 @@ impl Engine {
                     },
                     _=refresh.tick()=>{
                         self.uploads.prune(self.clock.now());
+                        self.workflow_blocked_tick().await?;
                         if let Some(registry) = &self.registry && registry.refresh(None).await.unwrap_or(false) { self.refresh_catalog()?; self.flush(&output).await?; }
                     },
                 }

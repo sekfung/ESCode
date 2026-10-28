@@ -10,17 +10,11 @@ use crate::workspace_events::WorkspaceEvents;
 fn prepare_index(path: &std::path::Path) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let connection = rusqlite::Connection::open(path).unwrap();
-    for statement in escode_host_services::tasks_index::schema::MIGRATED_DDL {
-        connection.execute_batch(statement).unwrap();
-    }
-    for (id, checksum) in escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .unwrap();
-    }
+    escode_host_services::tasks_index::fixture::apply_generated_schema(
+        &connection,
+        escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS,
+    )
+    .unwrap();
 }
 
 fn controller_fixture(index_path: std::path::PathBuf) -> Arc<WindowController> {

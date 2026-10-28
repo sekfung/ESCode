@@ -28,8 +28,13 @@ impl HttpModel {
         let has_attachments =
             super::request_attachments::materialize(&mut messages, &self.format_properties())
                 .await?;
-        let messages =
+        let mut messages =
             super::tool_media::project(messages, self.config.api_type, &self.format_properties())?;
+        // 历史里的 tool_reference 只有在 native 请求中有线上意义；切换模式/provider 时降级为文本。
+        let native_tool_search = tools
+            .iter()
+            .any(|tool| tool["function"]["deferLoading"] == true);
+        super::tool_reference::project(&mut messages, native_tool_search);
         let body = model_protocol::body(&self.config, messages, tools)?;
         // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
         // MCP 工具 schema 按登记的声明顺序编码（docs/specs/rust-tool-schema-order.md），其余与 serde_json 相同。
@@ -38,6 +43,7 @@ impl HttpModel {
                 .into_bytes(),
         );
         let native_search = super::web_search::needs_beta(&body);
+        let tool_search = super::tool_search::needs_beta_body(&body);
         // 大附件仅保留重试所需的已编码字节，不能在整个流期间保留多份 base64 请求树。
         drop(body);
         if encoded.len()
@@ -89,7 +95,14 @@ impl HttpModel {
                 .emit("model_request_started", attempt, serde_json::json!({}))
                 .await;
             let result = self
-                .request(encoded.clone(), attempt, &mut output, &auth, native_search)
+                .request(
+                    encoded.clone(),
+                    attempt,
+                    &mut output,
+                    &auth,
+                    native_search,
+                    tool_search,
+                )
                 .await;
             output.flush().await?;
             let result = result.map(|mut result| {

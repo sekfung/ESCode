@@ -172,7 +172,8 @@ describe("settingService", () => {
       locale: "zh-CN",
       localePreference: "system",
       taskAutoArchiveEnabled: false,
-      taskAutoArchiveOlderThanDays: 7,
+      // 上游 v3.16.2 起默认保留 30 天（旧版为 7 天）。
+      taskAutoArchiveOlderThanDays: 30,
       messageStreamShowReasoning: true,
       messageStreamShowReasoningMigrationInitialized: true,
       messageStreamShowTodos: false,

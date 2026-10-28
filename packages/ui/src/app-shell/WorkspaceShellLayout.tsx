@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- workspace shell 当前集中编排 sidebar、chat、terminal 和 browser pane 的布局联动，先保持单文件收口，避免为满足行数限制打散关键布局状态。*/
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
@@ -41,19 +41,46 @@ import { SvnBranchSwitcher } from "@/svn/SvnBranchSwitcher.js";
 import { useSvnWorkspaceContext } from "@/svn/SvnWorkspaceContext.js";
 import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
 
-import { AUTOMATIONS_TOAST_ANCHOR_ID, AutomationsSection } from "@/settings/AutomationsSection.js";
+import { AUTOMATIONS_TOAST_ANCHOR_ID } from "@/settings/automationsToastAnchor.js";
 import type {
   SavedWorkflowLaunchTarget,
   SavedWorkflowsOpenArtifactParams,
   SavedWorkflowsOpenRunParams,
 } from "@/settings/saved-workflows/SavedWorkflowsSection.js";
-import { AutomationsMainBreadcrumbFrame } from "@/settings/AutomationsMainBreadcrumbFrame.js";
-import { PluginStorePage } from "@/settings/PluginStorePage.js";
-import { KnowledgeSettingsSection } from "@/settings/KnowledgeSettingsSection.js";
+/**
+ * Automations / plugin store / knowledge 主视图只在对应 tab 打开时渲染，但模块体积很大
+ * （AutomationEditView、插件与 MCP 面板等）。懒加载避免它们进入 renderer 首屏模块图。
+ */
+const AutomationsSection = lazy(() =>
+  import("@/settings/AutomationsSection.js").then((module) => ({
+    default: module.AutomationsSection,
+  })),
+);
+const AutomationsMainBreadcrumbFrame = lazy(() =>
+  import("@/settings/AutomationsMainBreadcrumbFrame.js").then((module) => ({
+    default: module.AutomationsMainBreadcrumbFrame,
+  })),
+);
+const PluginStorePage = lazy(() =>
+  import("@/settings/PluginStorePage.js").then((module) => ({ default: module.PluginStorePage })),
+);
+const KnowledgeSettingsSection = lazy(() =>
+  import("@/settings/KnowledgeSettingsSection.js").then((module) => ({
+    default: module.KnowledgeSettingsSection,
+  })),
+);
 import { TaskFindDialog } from "@/quickpick/TaskFindDialog.js";
 import { WorkspaceHeader } from "@/WorkspaceHeader.js";
 import { WorkspaceSidebar, type SidebarFileTreeOpenRequest } from "@/WorkspaceSidebar.js";
-import { AnimatedSidePanePanel } from "@/app-shell/AnimatedSidePanePanel.js";
+/**
+ * Side pane 会静态拉入 PreviewPane / GitPane / browser-use / terminal / whiteboard / svn 等
+ * 整套面板实现；但它在首屏默认收起。改为按需加载，避免这些模块进入 renderer 初始图。
+ */
+const AnimatedSidePanePanel = lazy(() =>
+  import("@/app-shell/AnimatedSidePanePanel.js").then((module) => ({
+    default: module.AnimatedSidePanePanel,
+  })),
+);
 import {
   findScreenshotSurfaceTabForRender,
   useBrowserScreenshotSurfaceRequest,
@@ -1433,79 +1460,81 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     }
   }, [activeTaskId, workspaceKey]);
   const renderSidePanePanel = () => (
-    <AnimatedSidePanePanel
-      services={services}
-      isDesktop={isDesktop}
-      isWindowsDesktop={isWindowsDesktop}
-      frameClassName={resolveWorkspaceShellWindowChromeClass({
-        isMacDesktop,
-        isWindowsDesktop,
-        isLinuxDesktop,
-        macOSMajorVersion: desktopWindowChromeState?.macOSMajorVersion,
-        isWindowsMaximized: desktopWindowChromeState?.isMaximized ?? false,
-        supportsNativeRoundedCorners:
-          desktopWindowChromeState?.supportsNativeRoundedCorners ?? null,
-      })}
-      showWindowControls={usesInlineWindowControls}
-      isVisible={isSidePaneVisible}
-      onCloseSidePane={handleToggleSidePane}
-      toggleSidePaneShortcutLabel={toggleSidePaneShortcutLabel}
-      sidePaneState={sidePaneState}
-      recentClosedSidePaneTabs={recentClosedSidePaneTabs}
-      isBrowserOpen={isBrowserOpen}
-      supportsEmbeddedBrowser={supportsEmbeddedBrowser}
-      supportsSerialPort={platform.supportsSerialPort === true}
-      workspaceAbsPath={workspaceAbsPath}
-      workspaceIdentity={workspaceIdentity}
-      workspaceRemoteSessionId={workspaceRemoteSessionId}
-      activeTaskId={activeTaskId}
-      sidePaneOwnerId={sidePaneOwnerId}
-      gitState={gitState}
-      activeGitSourceId={activeGitSourceId}
-      panelRef={sidePanePanelRef}
-      panelElementRef={sidePanePanelElementRef}
-      browserNavigationRequest={browserNavigationRequest}
-      browserRestoreUrls={browserRestoreUrls}
-      screenshotSurfaceRequest={screenshotSurfaceRequest}
-      screenshotSurfaceTabId={screenshotSurfaceTab?.id ?? null}
-      fileChangeFindActiveIndex={fileChangeFindActiveIndex}
-      fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
-      fileChangeFindQuery={fileChangeFindQuery}
-      onFileChangeFindMatchCountChange={onFileChangeFindMatchCountChange}
-      onCloseCodeViewer={handleCloseCodeViewer}
-      onCloseGit={handleCloseGit}
-      onActivateTab={handleActivateSidePaneTab}
-      onReorderTab={handleReorderSidePaneTab}
-      onCloseTab={handleCloseSidePaneTab}
-      onCloseOtherTabs={handleCloseOtherSidePaneTabs}
-      onCloseAllTabs={handleCloseAllSidePaneTabs}
-      onReopenClosedTab={handleReopenClosedSidePaneTab}
-      onOpenBrowserTab={handleOpenBrowserTab}
-      onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
-      onOpenWhiteboard={handleOpenWhiteboard}
-      onOpenDeveloperTools={handleOpenDeveloperTools}
-      onOpenSerialTab={handleOpenSerialTab}
-      onBindSerialTab={handleBindSerialTab}
-      onSelectTask={handleSelectTask}
-      onOpenTerminalTab={handleOpenTerminalTab}
-      onOpenReviewTab={handleToggleGit}
-      onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}
-      onRevealGitFileInTree={handleRevealGitFileInTree}
-      onOpenBrowserUrl={handleOpenBrowserUrl}
-      onOpenCodeViewer={handleOpenCodeViewer}
-      onOpenFileLink={handleOpenMarkdownFileLink}
-      onOpenBackgroundBash={handleOpenBackgroundBash}
-      onOpenSubagentSession={handleOpenSubagentSession}
-      onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
-      onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
-      onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
-      onOpenWorkflowRun={handleOpenWorkflowRun}
-      onRefreshGit={handleRefreshGit}
-      onBrowserNavigationRequestHandled={handleBrowserNavigationRequestHandled}
-      onBrowserUrlChange={handleBrowserUrlChange}
-      onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
-      onSelectGitSource={setGitSelectedSourceId}
-    />
+    <Suspense fallback={null}>
+      <AnimatedSidePanePanel
+        services={services}
+        isDesktop={isDesktop}
+        isWindowsDesktop={isWindowsDesktop}
+        frameClassName={resolveWorkspaceShellWindowChromeClass({
+          isMacDesktop,
+          isWindowsDesktop,
+          isLinuxDesktop,
+          macOSMajorVersion: desktopWindowChromeState?.macOSMajorVersion,
+          isWindowsMaximized: desktopWindowChromeState?.isMaximized ?? false,
+          supportsNativeRoundedCorners:
+            desktopWindowChromeState?.supportsNativeRoundedCorners ?? null,
+        })}
+        showWindowControls={usesInlineWindowControls}
+        isVisible={isSidePaneVisible}
+        onCloseSidePane={handleToggleSidePane}
+        toggleSidePaneShortcutLabel={toggleSidePaneShortcutLabel}
+        sidePaneState={sidePaneState}
+        recentClosedSidePaneTabs={recentClosedSidePaneTabs}
+        isBrowserOpen={isBrowserOpen}
+        supportsEmbeddedBrowser={supportsEmbeddedBrowser}
+        supportsSerialPort={platform.supportsSerialPort === true}
+        workspaceAbsPath={workspaceAbsPath}
+        workspaceIdentity={workspaceIdentity}
+        workspaceRemoteSessionId={workspaceRemoteSessionId}
+        activeTaskId={activeTaskId}
+        sidePaneOwnerId={sidePaneOwnerId}
+        gitState={gitState}
+        activeGitSourceId={activeGitSourceId}
+        panelRef={sidePanePanelRef}
+        panelElementRef={sidePanePanelElementRef}
+        browserNavigationRequest={browserNavigationRequest}
+        browserRestoreUrls={browserRestoreUrls}
+        screenshotSurfaceRequest={screenshotSurfaceRequest}
+        screenshotSurfaceTabId={screenshotSurfaceTab?.id ?? null}
+        fileChangeFindActiveIndex={fileChangeFindActiveIndex}
+        fileChangeFindNavigationRequestId={fileChangeFindNavigationRequestId}
+        fileChangeFindQuery={fileChangeFindQuery}
+        onFileChangeFindMatchCountChange={onFileChangeFindMatchCountChange}
+        onCloseCodeViewer={handleCloseCodeViewer}
+        onCloseGit={handleCloseGit}
+        onActivateTab={handleActivateSidePaneTab}
+        onReorderTab={handleReorderSidePaneTab}
+        onCloseTab={handleCloseSidePaneTab}
+        onCloseOtherTabs={handleCloseOtherSidePaneTabs}
+        onCloseAllTabs={handleCloseAllSidePaneTabs}
+        onReopenClosedTab={handleReopenClosedSidePaneTab}
+        onOpenBrowserTab={handleOpenBrowserTab}
+        onOpenBrowserPermissionSettings={handleOpenBrowserPermissionSettings}
+        onOpenWhiteboard={handleOpenWhiteboard}
+        onOpenDeveloperTools={handleOpenDeveloperTools}
+        onOpenSerialTab={handleOpenSerialTab}
+        onBindSerialTab={handleBindSerialTab}
+        onSelectTask={handleSelectTask}
+        onOpenTerminalTab={handleOpenTerminalTab}
+        onOpenReviewTab={handleToggleGit}
+        onOpenSelectionSideConversation={handleOpenSelectionSideConversationLauncher}
+        onRevealGitFileInTree={handleRevealGitFileInTree}
+        onOpenBrowserUrl={handleOpenBrowserUrl}
+        onOpenCodeViewer={handleOpenCodeViewer}
+        onOpenFileLink={handleOpenMarkdownFileLink}
+        onOpenBackgroundBash={handleOpenBackgroundBash}
+        onOpenSubagentSession={handleOpenSubagentSession}
+        onOpenWorkflowActorSession={handleOpenWorkflowActorSession}
+        onOpenWorkflowWorkspace={handleOpenWorkflowWorkspace}
+        onOpenWorkflowArtifact={handleOpenWorkflowArtifact}
+        onOpenWorkflowRun={handleOpenWorkflowRun}
+        onRefreshGit={handleRefreshGit}
+        onBrowserNavigationRequestHandled={handleBrowserNavigationRequestHandled}
+        onBrowserUrlChange={handleBrowserUrlChange}
+        onBrowserPageMetadataChange={handleBrowserPageMetadataChange}
+        onSelectGitSource={setGitSelectedSourceId}
+      />
+    </Suspense>
   );
   const sidePanePanel = renderSidePanePanel();
   const hasUpdateStatusButton =
@@ -1536,31 +1565,33 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   // 知识库主视图（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：与 automations/plugin-store
   // 共用桌面拖拽条 + 面包屑骨架。远程 workspace不承载该视图，两个主区渲染分支复用同一份 JSX。
   const renderKnowledgeMainView = () => (
-    <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
-      <AutomationsMainBreadcrumbFrame
-        isDesktop={Boolean(isDesktop)}
-        sectionLabel={intl.formatMessage({ id: "settings.knowledge.title" })}
-        ariaLabel={intl.formatMessage({ id: "settings.breadcrumbLabel" })}
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
-          <ScopedErrorBoundary
-            scope="knowledge-main"
-            resetKeys={workspaceOnlyResetKeys}
-            variant="panel"
-            className="min-h-full"
-          >
-            <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-4 md:px-6 md:py-6">
-              <KnowledgeSettingsSection
-                workspacePath={workspaceAbsPath}
-                workspaceIdentity={workspaceIdentity}
-                remoteSessionId={workspaceRemoteSessionId}
-                remoteTarget={workspaceRemoteTarget}
-              />
-            </div>
-          </ScopedErrorBoundary>
-        </div>
-      </AutomationsMainBreadcrumbFrame>
-    </main>
+    <Suspense fallback={null}>
+      <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
+        <AutomationsMainBreadcrumbFrame
+          isDesktop={Boolean(isDesktop)}
+          sectionLabel={intl.formatMessage({ id: "settings.knowledge.title" })}
+          ariaLabel={intl.formatMessage({ id: "settings.breadcrumbLabel" })}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+            <ScopedErrorBoundary
+              scope="knowledge-main"
+              resetKeys={workspaceOnlyResetKeys}
+              variant="panel"
+              className="min-h-full"
+            >
+              <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-4 md:px-6 md:py-6">
+                <KnowledgeSettingsSection
+                  workspacePath={workspaceAbsPath}
+                  workspaceIdentity={workspaceIdentity}
+                  remoteSessionId={workspaceRemoteSessionId}
+                  remoteTarget={workspaceRemoteTarget}
+                />
+              </div>
+            </ScopedErrorBoundary>
+          </div>
+        </AutomationsMainBreadcrumbFrame>
+      </main>
+    </Suspense>
   );
 
   return (
@@ -1813,84 +1844,88 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
                       ) : null}
                       <div className="min-h-0 flex-1 overflow-hidden">
                         {workspaceMainView === "automations" ? (
-                          <main
-                            id={AUTOMATIONS_TOAST_ANCHOR_ID}
-                            className="flex h-full min-h-0 flex-1 flex-col bg-background"
-                          >
-                            <AutomationsMainBreadcrumbFrame
-                              isDesktop={Boolean(isDesktop)}
-                              sectionLabel={intl.formatMessage({
-                                id: "settings.automations.title",
-                              })}
-                              ariaLabel={intl.formatMessage({
-                                id: "automations.breadcrumbLabel",
-                              })}
+                          <Suspense fallback={null}>
+                            <main
+                              id={AUTOMATIONS_TOAST_ANCHOR_ID}
+                              className="flex h-full min-h-0 flex-1 flex-col bg-background"
                             >
-                              <div
-                                // 修复原因：不同 Automations tab 的内容高度不同，滚动条出现/消失会改变
-                                // mx-auto 内容列的可用宽度，造成整页左右弹动；预留稳定槽位保持居中基准不变。
-                                className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+                              <AutomationsMainBreadcrumbFrame
+                                isDesktop={Boolean(isDesktop)}
+                                sectionLabel={intl.formatMessage({
+                                  id: "settings.automations.title",
+                                })}
+                                ariaLabel={intl.formatMessage({
+                                  id: "automations.breadcrumbLabel",
+                                })}
                               >
-                                <ScopedErrorBoundary
-                                  scope="automations-main"
-                                  resetKeys={workspaceOnlyResetKeys}
-                                  variant="panel"
-                                  className="min-h-full"
+                                <div
+                                  // 修复原因：不同 Automations tab 的内容高度不同，滚动条出现/消失会改变
+                                  // mx-auto 内容列的可用宽度，造成整页左右弹动；预留稳定槽位保持居中基准不变。
+                                  className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
                                 >
-                                  <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-4 md:px-6 md:py-6">
-                                    <AutomationsSection
+                                  <ScopedErrorBoundary
+                                    scope="automations-main"
+                                    resetKeys={workspaceOnlyResetKeys}
+                                    variant="panel"
+                                    className="min-h-full"
+                                  >
+                                    <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-4 md:px-6 md:py-6">
+                                      <AutomationsSection
+                                        workspacePath={workspaceAbsPath}
+                                        workspaceIdentity={workspaceIdentity}
+                                        onCreateViaChat={handleCreateAutomationInChat}
+                                        onNavigateToLaunchedRun={handleNavigateToLaunchedRun}
+                                        onOpenWorkflowRun={handleOpenSavedWorkflowRun}
+                                        onOpenWorkflowArtifact={handleOpenSavedWorkflowArtifact}
+                                        openAutomationId={openAutomationId}
+                                        openAutomationTab={openAutomationTab}
+                                        onOpenAutomationConsumed={onOpenAutomationConsumed}
+                                        openWorkflow={openWorkflow}
+                                        onOpenWorkflowConsumed={onOpenWorkflowConsumed}
+                                        onOpenSession={({
+                                          sessionId,
+                                          workspacePath,
+                                          workspaceIdentity,
+                                        }) =>
+                                          handleSelectTaskInChat(
+                                            workspacePath,
+                                            sessionId,
+                                            workspaceIdentity,
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  </ScopedErrorBoundary>
+                                </div>
+                              </AutomationsMainBreadcrumbFrame>
+                            </main>
+                          </Suspense>
+                        ) : workspaceMainView === "plugin-store" ? (
+                          <Suspense fallback={null}>
+                            <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
+                              <AutomationsMainBreadcrumbFrame
+                                isDesktop={Boolean(isDesktop)}
+                                sectionLabel={intl.formatMessage({
+                                  id: "workspace.openPluginsSettings",
+                                })}
+                                ariaLabel={intl.formatMessage({
+                                  id: "settings.breadcrumbLabel",
+                                })}
+                              >
+                                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+                                  <div className="mx-auto flex w-full max-w-4xl flex-col px-4 py-4 md:px-6 md:py-6">
+                                    <PluginStorePage
+                                      key={`plugin-store:${pluginStoreOpenVersion}`}
                                       workspacePath={workspaceAbsPath}
                                       workspaceIdentity={workspaceIdentity}
-                                      onCreateViaChat={handleCreateAutomationInChat}
-                                      onNavigateToLaunchedRun={handleNavigateToLaunchedRun}
-                                      onOpenWorkflowRun={handleOpenSavedWorkflowRun}
-                                      onOpenWorkflowArtifact={handleOpenSavedWorkflowArtifact}
-                                      openAutomationId={openAutomationId}
-                                      openAutomationTab={openAutomationTab}
-                                      onOpenAutomationConsumed={onOpenAutomationConsumed}
-                                      openWorkflow={openWorkflow}
-                                      onOpenWorkflowConsumed={onOpenWorkflowConsumed}
-                                      onOpenSession={({
-                                        sessionId,
-                                        workspacePath,
-                                        workspaceIdentity,
-                                      }) =>
-                                        handleSelectTaskInChat(
-                                          workspacePath,
-                                          sessionId,
-                                          workspaceIdentity,
-                                        )
-                                      }
+                                      onCreateTask={handleCreateTaskInChat}
+                                      onManageInstalled={handleManageInstalledPlugins}
                                     />
                                   </div>
-                                </ScopedErrorBoundary>
-                              </div>
-                            </AutomationsMainBreadcrumbFrame>
-                          </main>
-                        ) : workspaceMainView === "plugin-store" ? (
-                          <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
-                            <AutomationsMainBreadcrumbFrame
-                              isDesktop={Boolean(isDesktop)}
-                              sectionLabel={intl.formatMessage({
-                                id: "workspace.openPluginsSettings",
-                              })}
-                              ariaLabel={intl.formatMessage({
-                                id: "settings.breadcrumbLabel",
-                              })}
-                            >
-                              <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
-                                <div className="mx-auto flex w-full max-w-4xl flex-col px-4 py-4 md:px-6 md:py-6">
-                                  <PluginStorePage
-                                    key={`plugin-store:${pluginStoreOpenVersion}`}
-                                    workspacePath={workspaceAbsPath}
-                                    workspaceIdentity={workspaceIdentity}
-                                    onCreateTask={handleCreateTaskInChat}
-                                    onManageInstalled={handleManageInstalledPlugins}
-                                  />
                                 </div>
-                              </div>
-                            </AutomationsMainBreadcrumbFrame>
-                          </main>
+                              </AutomationsMainBreadcrumbFrame>
+                            </main>
+                          </Suspense>
                         ) : workspaceMainView === "knowledge" ? (
                           renderKnowledgeMainView()
                         ) : (

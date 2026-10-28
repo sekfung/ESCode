@@ -34,6 +34,16 @@ impl Engine {
         c: &Command,
         command: Option<String>,
     ) -> Result<(String, String)> {
+        // 真实用户发话给每个 run 新的一对 blocked 提醒；后台/提醒注入用 coordinator client id，不重置。
+        if c.kind == "sendText"
+            && c.client_id != "subagent-coordinator"
+            && c.payload["_historyRerun"] != true
+        {
+            self.workflow_reminders
+                .entry(id.to_string())
+                .or_default()
+                .user_spoke();
+        }
         // `/init` 与 TS 一样展开成普通用户提示词（builtin-prompt-command.ts），不改变其余 admission 语义。
         let mut model_text = command;
         // v3.15.1 onDemand：用户敲 `/workflow` 即激活本会话的工作流工具面（TS source=command）。

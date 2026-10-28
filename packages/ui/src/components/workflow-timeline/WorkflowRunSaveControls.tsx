@@ -6,7 +6,7 @@
 //
 // 两个槽共用一个控制器（`useWorkflowRunSave`），因此同一个 run 在卡上与侧板上说的是同一句话。
 // 返回 ReactNode 而不是渲染成组件：表头的两个插槽在结构上是分开的，但它们背后必须是同一次查询。
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckIcon, ArrowUpRightIcon, PlayIcon, SaveIcon } from "lucide-react";
 import {
   resolveWorkspaceKey,
@@ -27,7 +27,15 @@ import {
   buildAutomationWorkspaceOptions,
   type AutomationWorkspaceOption,
 } from "@/settings/automationWorkspaceOptions.js";
-import { SavedWorkflowLaunchDialog } from "@/settings/saved-workflows/SavedWorkflowLaunchDialog.js";
+/**
+ * 「再次运行」弹窗只在用户点开时才需要；它连同 saved-workflows 的整组表单静态引入会
+ * 进入首屏模块图，这里改为按需加载，并保持 entry 为空时不渲染。
+ */
+const SavedWorkflowLaunchDialog = lazy(() =>
+  import("@/settings/saved-workflows/SavedWorkflowLaunchDialog.js").then((module) => ({
+    default: module.SavedWorkflowLaunchDialog,
+  })),
+);
 import { WorkflowSavePopover } from "./WorkflowSavePopover.js";
 import { buildWorkflowSaveRequestPrompt, type WorkflowSaveDraft } from "./workflowRunSave.js";
 
@@ -226,48 +234,54 @@ export function useWorkflowRunSaveSlots(host: WorkflowRunSaveSlotsHost): Workflo
         onOpenChange={setPopoverOpen}
         open={popoverOpen}
       />
-      <SavedWorkflowLaunchDialog
-        entry={launchEntry}
-        scope={launchEntry?.scope ?? "project"}
-        projectLabel={
-          localProjects.find(
-            (project) =>
-              resolveWorkspaceKey({
-                workspacePath: project.workspacePath,
-                ...(project.workspaceIdentity
-                  ? { workspaceIdentity: project.workspaceIdentity }
-                  : {}),
-              }) === runProjectKey,
-          )?.label ?? host.workspacePath
-        }
-        // 这次 run 跑过的实参就是下一次最可能要跑的那一份（journal 给的）。
-        {...(controller.runArgs === undefined ? {} : { initialArgs: controller.runArgs })}
-        {...(launchEntry?.scope === "global"
-          ? { targets: localProjects, defaultTargetKey: runProjectKey }
-          : {})}
-        pending={controller.launching}
-        error={controller.launchError}
-        onOpenChange={(open) => (open ? undefined : setLaunchEntry(null))}
-        onSubmit={(submitted, args, target) => {
-          void controller
-            .launch(
-              submitted,
-              args,
-              target === undefined
-                ? undefined
-                : {
-                    workspacePath: target.workspacePath,
-                    ...(target.workspaceIdentity
-                      ? { workspaceIdentity: target.workspaceIdentity }
+      {launchEntry ? (
+        <Suspense fallback={null}>
+          <SavedWorkflowLaunchDialog
+            entry={launchEntry}
+            scope={launchEntry?.scope ?? "project"}
+            projectLabel={
+              localProjects.find(
+                (project) =>
+                  resolveWorkspaceKey({
+                    workspacePath: project.workspacePath,
+                    ...(project.workspaceIdentity
+                      ? { workspaceIdentity: project.workspaceIdentity }
                       : {}),
-                    ...(target.remoteSessionId ? { remoteSessionId: target.remoteSessionId } : {}),
-                  },
-            )
-            .then((result) => {
-              if (result.ok) setLaunchEntry(null);
-            });
-        }}
-      />
+                  }) === runProjectKey,
+              )?.label ?? host.workspacePath
+            }
+            // 这次 run 跑过的实参就是下一次最可能要跑的那一份（journal 给的）。
+            {...(controller.runArgs === undefined ? {} : { initialArgs: controller.runArgs })}
+            {...(launchEntry?.scope === "global"
+              ? { targets: localProjects, defaultTargetKey: runProjectKey }
+              : {})}
+            pending={controller.launching}
+            error={controller.launchError}
+            onOpenChange={(open) => (open ? undefined : setLaunchEntry(null))}
+            onSubmit={(submitted, args, target) => {
+              void controller
+                .launch(
+                  submitted,
+                  args,
+                  target === undefined
+                    ? undefined
+                    : {
+                        workspacePath: target.workspacePath,
+                        ...(target.workspaceIdentity
+                          ? { workspaceIdentity: target.workspaceIdentity }
+                          : {}),
+                        ...(target.remoteSessionId
+                          ? { remoteSessionId: target.remoteSessionId }
+                          : {}),
+                      },
+                )
+                .then((result) => {
+                  if (result.ok) setLaunchEntry(null);
+                });
+            }}
+          />
+        </Suspense>
+      ) : null}
       {/* 保存成功只播一次：芯片本身是静默出现的，屏幕阅读器需要被告知这件事发生了。 */}
       <span className="sr-only" aria-live="polite" data-testid="workflow-save-announcement">
         {announcement}

@@ -23,6 +23,7 @@
     "audit:conversation-session-complete": "node scripts/audit-conversation-session-case-coverage.mjs --check --require-complete",
     "test": "pnpm run test:unit",
     "test:e2e": "pnpm --filter @escode/desktop test:e2e",
+    "audit:renderer-graph": "node scripts/audit-renderer-initial-graph.mjs --check",
     "test:e2e:all:coverage": "pnpm --filter @escode/desktop test:e2e:all:coverage",
     "test:e2e:windows:sharded": "pnpm --filter @escode/desktop test:e2e:windows:sharded",
     "test:e2e:container": "bash scripts/test-desktop-e2e-container.sh",

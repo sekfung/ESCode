@@ -1,7 +1,7 @@
 # Rust 统一 Host 迁移计划（对标 ZCode-rs 并超越）
 
 > 状态：草案 · 2026-10-14
-> 关联：`rust-cli-parity-plan.md`、`rust-packaging.md`、`rust-release-rollback.md`、`rust-runtime-performance.md`、`apps/escode-cli-rust/CONTRACT.md`、实现质量对比：`docs/reports/rust-impl-quality-comparison-2026-10-14.md`
+> 关联：`rust-cli-parity-plan.md`、`rust-packaging.md`、`rust-release-rollback.md`、`rust-runtime-performance.md`、[source-server-remote-rust-host.md](source-server-remote-rust-host.md)、`apps/escode-cli-rust/CONTRACT.md`、实现质量对比：`docs/reports/rust-impl-quality-comparison-2026-10-14.md`
 > 子 spec 约定：每期开工前先写 `docs/specs/rust-uX-*.md`（与对标仓库同构命名，便于交叉对照）；每期的验收场景随子 spec 定义，本文只定分期边界与总验收。
 
 ## 1. 背景与目标
@@ -283,8 +283,12 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
    Host+Agent 斜率 11.49 → 5.87–7.39 MiB/ws，Node 对照 10.44 → 9.12（机器波动）。
    契约见 `docs/specs/rust-u4-shared-cache.md`，证据见
    `docs/reports/rust-u4-shared-cache-2026-10-26.md`。
-   **未做**：skill/plugin 目录扫描共享（项目级技能按 cwd 作用域，需目录集合 + 逐目录指纹的失效
-   契约）；§5 的 ≤2.5 MiB/workspace 仍未达到，剩余成本是会话运行时状态。
+   **skill/plugin 目录共享（2026-10-28 已交付）**：扫描结果按「目录 + 指纹」进程内共享，
+   指纹覆盖 `SKILL.md` 与同级 `_meta.json` 的 `(size, mtime_ms)`；scope/plugin 字段与
+   `covered_by_escode` 过滤仍按当前 workspace 物化，避免跨项目泄漏。契约见
+   `docs/specs/rust-u4-directory-cache.md`，证据见
+   `docs/reports/rust-u4-directory-cache-2026-10-28.md`。
+   §5 的 ≤2.5 MiB/workspace 仍未达到，剩余成本是会话运行时状态。
 3. **启动/退出路径优化**（2026-10-26 退出部分已交付）：8 workspace 的优雅退出 2177 → 108–110 ms
    （目标 ≤0.2 s 达成）。根因是控制泵等「所有写句柄释放」导致 2 s 超时；改为显式取消 + 排空、
    后台转发任务可取消、实例并发收口。契约见 `docs/specs/rust-u4-startup-exit.md`，证据见
@@ -298,8 +302,18 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
    main bundle ~680 ms、preload ~190 ms、renderer 初始模块图 ~700 ms）；`did-finish-load`（2.6 s）
    比 React 首次 commit 早约 0.6 s。契约见 `docs/specs/rust-u4-startup-phases.md`，证据见
    `docs/reports/rust-u4-startup-phases-2026-10-28.md`。本 Linux/Xvfb 地板约 1.3 s，1.8 s 目标
-   无法在该环境达成；优化项（main 懒加载 / preload 瘦身 / renderer 模块图）未实施。
-   **未做**：首段优化与冷启动三项优化。
+   无法在该环境达成。
+   **preload / renderer 优化（2026-10-28）**：preload 689 KB → 486 KB、加载 ~190 → ~57 ms；
+   renderer 主 chunk 5.34 MB → 677 KB，首屏静态图 8.45 → 6.50 MiB，设置页/侧栏/代码查看器/
+   工作流弹窗移出首屏；`did-finish-load` 降到 2.31–2.42 s。main 侧加 `sideEffects: false`
+   树摇、WSL/remote 探测改按需加载，并把 zod 64 个语言包裁剪为 en-only；main 静态图
+   1.67 → 1.08 MiB（-35%），T0→T1 中位 1690 → 1414–1501 ms（会话间波动，最好样本
+   应用侧 -51%），**未稳定达到 >50%**。契约见
+   `docs/specs/rust-u4-startup-optimization.md`，证据见
+   `docs/reports/rust-u4-startup-optimization-2026-10-28.md`；静态图门禁
+   `pnpm audit:renderer-graph`。
+   **未做**：main 顶层初始化分段计时与设置服务/`browserGuestManager` 延迟初始化、
+   首段冷态优化（分阶段探针已加，分段数据待 CI）。
 4. **严格等价测试网**（见 §4，贯穿全部阶段）。
 
 ### 实现质量对齐工作包（对比报告结论落地）

@@ -289,6 +289,10 @@ export interface ESCodeTaskMeta {
    * 导致任务列表、快照和日志互相串读。这里补充 workspaceIdentity 参与隔离。
    */
   workspaceIdentity?: string;
+  /** Controller/renderer 任务列表投影使用；不参与 workspace identity 或持久化 key。 */
+  sourceServerId?: string;
+  /** Source directory 的用户可读名称；缺失时 UI 回退 sourceServerId。 */
+  serverDisplayName?: string;
   /** app-owned workspace 分类；缺省为 project，不参与 workspaceKey。 */
   workspacePurpose?: import("./workspacePurpose.js").WorkspacePurpose;
   createdAt: number;
@@ -569,8 +573,10 @@ export interface ESCodeToolCall {
   title: string;
   /** agent ToolCall 原始 payload，调试协议字段时以此为准 */
   raw: unknown;
+  pluginMetadata?: { pluginId: string; component: "mcp" };
   /** Skill resolved metadata；只用于 telemetry attribution。 */
   skillMetadata?: {
+    name?: string;
     qualifiedName?: string;
     pluginId?: string;
     source?: "agents" | "escode" | "bundled" | "plugin" | "remote";
@@ -598,8 +604,10 @@ export interface ESCodeToolCallUpdate {
   error?: string;
   /** agent ToolCallUpdate 原始 payload，调试协议字段时以此为准 */
   raw: unknown;
+  pluginMetadata?: { pluginId: string; component: "mcp" };
   /** Skill resolved metadata；只用于 telemetry attribution。 */
   skillMetadata?: {
+    name?: string;
     qualifiedName?: string;
     pluginId?: string;
     source?: "agents" | "escode" | "bundled" | "plugin" | "remote";
@@ -1172,6 +1180,8 @@ export type TaskRealtimeReason =
   | "task_unpinned"
   | "task_archived"
   | "task_unarchived"
+  // 上游 v3.16.2：自动归档是独立广播原因，避免与用户操作混用 task_meta_changed。
+  | "auto_archive"
   | "task_deleted"
   | "stream_mirror_gap"
   | "stream_mirror_owner_lost";

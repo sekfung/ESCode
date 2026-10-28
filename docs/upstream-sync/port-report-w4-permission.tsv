@@ -1,0 +1,2 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+conflict	W4	port-shared	ui	src	M	packages/ui/src/PermissionDialog.tsx	packages/ui/src/PermissionDialog.tsx	present	三方合并冲突 x2

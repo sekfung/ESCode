@@ -2,6 +2,10 @@
 use super::tool_input_checks::{checked_input, prepare, resolve_registered};
 use crate::contract::{Event, EventSink, ModelPort, ToolPort};
 use anyhow::{Context, Result, bail};
+use escode_cli_domain::tool_search_catalog::{
+    DEFERRED_TOOL_CALL_NAME, TOOL_SEARCH_NAME, resolve_deferred_call, search_tools,
+    tool_reference_blocks,
+};
 use serde_json::Value;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
@@ -21,6 +25,8 @@ pub(super) struct ExecutionContext<'a> {
     pub registered: &'a [Value],
     /// 会话历史里是否成功加载过 `dynamic-workflows` 技能（TS 技能门 `hasLoadedSkill`）。
     pub workflow_skill_loaded: bool,
+    /// 本轮 ToolSearch 决策；None 表示该能力未启用。
+    pub tool_search: Option<&'a super::agent_loop_surface::ToolSearchContext>,
 }
 pub(super) async fn execute(
     tools: &dyn ToolPort,
@@ -40,6 +46,7 @@ pub(super) async fn execute(
         definitions,
         registered: context_registered,
         workflow_skill_loaded,
+        tool_search,
     } = context;
     // 工作流宿主的 actor 模型基线（TS ModelSelection 形状）。
     let selection_json = selection.as_ref().map_or(Value::Null, |s| {
@@ -67,6 +74,104 @@ pub(super) async fn execute(
         let output = crate::contract::ToolOutput {
             failed: true,
             ..crate::contract::ToolOutput::text(content)
+        };
+        return Ok((
+            call["id"].as_str().context("Tool id missing")?.into(),
+            tool_name,
+            output,
+            true,
+            false,
+        ));
+    }
+    // ToolSearch / DeferredToolCall 控制面：必须在注册表查找与入参校验之前处理。
+    if let Some(search) = tool_search {
+        if tool_name == TOOL_SEARCH_NAME {
+            let args: Value =
+                serde_json::from_str(call["function"]["arguments"].as_str().unwrap_or("{}"))
+                    .unwrap_or(Value::Null);
+            let query = args["query"].as_str().unwrap_or_default();
+            let max_results = args["max_results"]
+                .as_u64()
+                .map(|value| value as usize)
+                .unwrap_or(escode_cli_domain::tool_search_catalog::TOOL_SEARCH_DEFAULT_RESULTS);
+            let matches = search_tools(query, &search.catalog, max_results);
+            if let Ok(mut discovered) = search.discovered.lock() {
+                discovered.extend(matches.iter().cloned());
+            }
+            tools.record_tool_search(&sink.session_id, matches.clone());
+            let total_deferred_tools = search
+                .catalog
+                .iter()
+                .filter(|candidate| candidate.deferred)
+                .count();
+            let data = serde_json::json!({
+                "matches": matches,
+                "query": query,
+                "total_deferred_tools": total_deferred_tools,
+            });
+            let content = if matches.is_empty() {
+                "No matching deferred tools found".to_string()
+            } else {
+                data.to_string()
+            };
+            let mut output = crate::contract::ToolOutput::new(content, data);
+            if search.mode == escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Native
+                && !matches.is_empty()
+            {
+                // Native：工具结果以 tool_reference part 回给模型，由 provider 展开 schema。
+                output.media = tool_reference_blocks(&matches);
+            }
+            return Ok((
+                call["id"].as_str().context("Tool id missing")?.into(),
+                tool_name,
+                output,
+                false,
+                false,
+            ));
+        }
+        if tool_name == DEFERRED_TOOL_CALL_NAME {
+            let args: Value =
+                serde_json::from_str(call["function"]["arguments"].as_str().unwrap_or("{}"))
+                    .unwrap_or(Value::Null);
+            let target = args["name"].as_str().unwrap_or_default();
+            let input = args.get("input").cloned().unwrap_or(Value::Null);
+            let resolved = {
+                let discovered = search
+                    .discovered
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Tool search state unavailable"))?;
+                resolve_deferred_call(target, &input, &search.catalog, &discovered, search.mode)
+            };
+            match resolved {
+                Ok((resolved, resolved_input)) => {
+                    call["function"]["name"] = resolved.clone().into();
+                    call["function"]["arguments"] = resolved_input.to_string().into();
+                    tool_name = resolved;
+                }
+                Err(message) => {
+                    let output = crate::contract::ToolOutput {
+                        failed: true,
+                        ..crate::contract::ToolOutput::text(format!(
+                            "<tool_use_error>{message}</tool_use_error>"
+                        ))
+                    };
+                    return Ok((
+                        call["id"].as_str().context("Tool id missing")?.into(),
+                        tool_name,
+                        output,
+                        true,
+                        false,
+                    ));
+                }
+            }
+        }
+    } else if tool_name == TOOL_SEARCH_NAME || tool_name == DEFERRED_TOOL_CALL_NAME {
+        let output = crate::contract::ToolOutput {
+            failed: true,
+            ..crate::contract::ToolOutput::text(
+                "<tool_use_error>Tool search is not enabled for this request.</tool_use_error>"
+                    .to_string(),
+            )
         };
         return Ok((
             call["id"].as_str().context("Tool id missing")?.into(),

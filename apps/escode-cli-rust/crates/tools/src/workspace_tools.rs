@@ -7,6 +7,7 @@ use super::{
 use crate::contract::{EventSink, ToolOutput};
 use anyhow::{Result, bail};
 use serde_json::Value;
+use std::sync::Mutex as StdMutex;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
@@ -36,6 +37,9 @@ pub struct WorkspaceTools {
     pub(super) include_visualize: bool,
     /// 实例任务作用域 Spawner（rust-u1：tokio::spawn 唯一入口，重放实例 env 快照）。
     pub(super) spawner: Arc<escode_cli_core_api::scope::Spawner>,
+    /// ToolSearch 已加载 schema 的工具名，按会话保存；只在本进程内有效（与上游 discovered 一致）。
+    pub(super) tool_search_discovered:
+        StdMutex<HashMap<String, std::collections::BTreeSet<String>>>,
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
@@ -54,6 +58,7 @@ impl WorkspaceTools {
             shell: ShellTasks::default(),
             include_visualize: false,
             spawner: escode_cli_core_api::scope::Spawner::current(),
+            tool_search_discovered: StdMutex::new(HashMap::new()),
         }
     }
     /// 修复：记忆根此前按 realpath 后的 cwd 哈希，macOS `/var`→`/private/var`、Windows 8.3 短名展开后
@@ -218,3 +223,25 @@ pub(super) fn concurrent_safe(name: &str) -> bool {
 
 #[path = "workspace_tools_mcp_ui.rs"]
 mod mcp_ui;
+
+#[cfg(test)]
+mod tool_search_state_tests {
+    use super::*;
+    use crate::contract::ToolPort;
+
+    #[test]
+    fn records_and_returns_discovered_tools_per_session() {
+        let tools = WorkspaceTools::new(PathBuf::from("."), PathBuf::from("."));
+        assert!(tools.tool_search_discovered("session-a").is_empty());
+        tools.record_tool_search(
+            "session-a",
+            vec!["mcp__github__create_issue".into(), "Task".into()],
+        );
+        tools.record_tool_search("session-a", vec!["mcp__github__create_issue".into()]);
+        assert_eq!(
+            tools.tool_search_discovered("session-a"),
+            vec!["Task".to_string(), "mcp__github__create_issue".to_string()]
+        );
+        assert!(tools.tool_search_discovered("session-b").is_empty());
+    }
+}

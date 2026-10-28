@@ -115,3 +115,7 @@ pub const MAX_TEXT_BYTES: usize = 256 * 1024;
 pub const MAX_TOOL_BYTES: usize = 64 * 1024;
 pub const MAX_QUEUE: usize = 32;
 pub mod wiki;
+
+pub mod tool_search_catalog;
+
+pub mod workflow_blocked_reminder;

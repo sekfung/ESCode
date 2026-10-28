@@ -1,5 +1,5 @@
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from "shiki";
-import { bundledLanguages, bundledLanguagesInfo, createHighlighter } from "shiki";
+import { SHIKI_LANGUAGE_ALIASES, SHIKI_LANGUAGE_IDS } from "./shikiLanguageRegistry.generated.js";
 import { logger } from "@/logger.js";
 import { uiMemoryDiagnosticsRegistry } from "@/lib/memoryDiagnostics.js";
 
@@ -9,12 +9,10 @@ export interface TokenizedCode {
   bg: string;
 }
 
-const bundledLanguageIds = new Set(Object.keys(bundledLanguages));
-const bundledLanguageAliases = new Map(
-  bundledLanguagesInfo.flatMap((info) =>
-    (info.aliases ?? []).map((alias) => [alias, info.id] as const),
-  ),
-);
+// 语言表由生成文件提供：shiki 本体（语言/主题包，数 MB）改为首次高亮时动态加载，
+// 不再进入 renderer 初始模块图。漂移由 ui/test/shikiHighlighter.test.ts 与 shiki 实表对比。
+const bundledLanguageIds = new Set(SHIKI_LANGUAGE_IDS);
+const bundledLanguageAliases = new Map(Object.entries(SHIKI_LANGUAGE_ALIASES));
 const FALLBACK_CODE_LANGUAGE: BundledLanguage = "log";
 const PLAIN_TEXT_CODE_LANGUAGES = new Set([
   "",
@@ -83,6 +81,10 @@ const getCodeTokensCacheKey = (code: string, language: BundledLanguage, theme: B
   const end = code.length > 100 ? code.slice(-100) : "";
   return `${theme}:${language}:${code.length}:${start}:${end}`;
 };
+let shikiModulePromise: Promise<typeof import("shiki")> | null = null;
+const loadShikiModule = (): Promise<typeof import("shiki")> =>
+  (shikiModulePromise ??= import("shiki"));
+
 const getHighlighter = (
   language: BundledLanguage,
   theme: BundledTheme,
@@ -93,10 +95,12 @@ const getHighlighter = (
     return cached;
   }
 
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: [theme],
-  });
+  const highlighterPromise = loadShikiModule().then(({ createHighlighter }) =>
+    createHighlighter({
+      langs: [language],
+      themes: [theme],
+    }),
+  );
 
   highlighterCache.set(cacheKey, highlighterPromise);
   return highlighterPromise;

@@ -14,8 +14,6 @@ use crate::git::paths::js_trim;
 
 pub type Compare = std::sync::Arc<dyn Fn(&str, &str) -> std::cmp::Ordering + Send + Sync>;
 
-const MAX_DESCRIPTION_LENGTH: usize = 1024;
-
 #[derive(Clone)]
 pub struct Root {
     pub scope: &'static str,
@@ -172,32 +170,6 @@ fn sorted_paths(paths: BTreeSet<PathBuf>, compare: &Compare) -> Vec<PathBuf> {
     list
 }
 
-fn read_metadata(skill: &Path) -> Option<Value> {
-    let text = std::fs::read_to_string(skill.parent()?.join("_meta.json"))
-        .ok()
-        .filter(|t| !t.is_empty())?;
-    let parsed: Value = serde_json::from_str(&text).ok()?;
-    let parsed = parsed.as_object()?;
-    let mut meta = Map::new();
-    for key in ["slug", "version", "ownerId"] {
-        if let Some(text) = parsed
-            .get(key)
-            .and_then(Value::as_str)
-            .map(js_trim)
-            .filter(|t| !t.is_empty())
-        {
-            meta.insert(key.to_owned(), json!(text));
-        }
-    }
-    if let Some(at) = parsed
-        .get("publishedAt")
-        .filter(|v| v.as_f64().is_some_and(f64::is_finite))
-    {
-        meta.insert("publishedAt".to_owned(), at.clone());
-    }
-    (!meta.is_empty()).then_some(Value::Object(meta))
-}
-
 // ───────── 发现 ─────────
 
 pub struct Discovered {
@@ -254,68 +226,31 @@ pub fn discover(
         if !exists(&root.path) {
             continue;
         }
-        for skill_path in sorted_paths(walk(&root.path, &mut diagnostics), compare) {
+        // 目录扫描结果按「目录 + 指纹」进程内共享；这里只做与当前 workspace 相关的过滤与物化。
+        let scan = super::cache::scan_root_cached(&root.path, compare, &mut diagnostics);
+        for cached in &scan.skills {
             if root.path == user_agents_root(home)
-                && covered_by_escode(&skill_path, home, &user_keys)
+                && covered_by_escode(&cached.source_path, home, &user_keys)
             {
                 continue;
             }
-            let canonical =
-                std::fs::canonicalize(&skill_path).unwrap_or_else(|_| skill_path.clone());
-            if !seen_paths.insert(canonical.clone()) || !exists(&skill_path) {
+            if !seen_paths.insert(cached.canonical_path.clone()) || !exists(&cached.source_path) {
                 continue;
             }
-            let markdown = match std::fs::read(&skill_path) {
-                Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
-                Err(error) => {
-                    diagnostics.push(json!({"code": "skill_read_failed", "severity": "warning",
-                        "message": error.to_string(), "path": skill_path.to_string_lossy()}));
-                    continue;
-                }
-            };
-            let parsed = frontmatter::read(&markdown);
-            let folder = skill_path
-                .parent()
-                .and_then(Path::file_name)
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let raw_name = if parsed.has_frontmatter {
-                js_trim(&parsed.name).to_owned()
-            } else {
-                folder.clone()
-            };
-            let name = if raw_name.is_empty() {
-                folder
-            } else {
-                raw_name
-            };
-            if name.is_empty() {
-                diagnostics.push(json!({"code": "skill_missing_name", "severity": "error",
-                    "message": format!("Skill frontmatter must include a name: {}", skill_path.display()), "path": skill_path.to_string_lossy()}));
-                continue;
-            }
-            let description = if parsed.has_frontmatter {
-                js_trim(&parsed.description).to_owned()
-            } else {
-                String::new()
-            };
-            if description.encode_utf16().count() > MAX_DESCRIPTION_LENGTH {
-                diagnostics.push(json!({"code": "skill_description_too_long", "severity": "error",
-                    "message": format!("Skill description is too long (>{MAX_DESCRIPTION_LENGTH}): {name}"),
-                    "path": skill_path.to_string_lossy(), "skillName": name}));
-                continue;
-            }
-            let canonical_text = canonical.to_string_lossy().into_owned();
+            let canonical_text = cached.canonical_path.to_string_lossy().into_owned();
             let mut skill = Map::new();
             skill.insert(
                 "id".into(),
-                json!(skill_id(root.scope, &name, &canonical_text)),
+                json!(skill_id(root.scope, &cached.name, &canonical_text)),
             );
-            skill.insert("name".into(), json!(name));
-            skill.insert("description".into(), json!(description));
-            skill.insert("body".into(), json!(js_trim(&parsed.body)));
+            skill.insert("name".into(), json!(cached.name));
+            skill.insert("description".into(), json!(cached.description));
+            skill.insert("body".into(), json!(cached.body));
             skill.insert("path".into(), json!(canonical_text));
-            skill.insert("sourcePath".into(), json!(skill_path.to_string_lossy()));
+            skill.insert(
+                "sourcePath".into(),
+                json!(cached.source_path.to_string_lossy()),
+            );
             skill.insert("scope".into(), json!(root.scope));
             skill.insert("enabled".into(), json!(true));
             if let Some(plugin) = &root.plugin_name {
@@ -324,8 +259,8 @@ pub fn discover(
             if let Some(plugin) = &root.plugin_id {
                 skill.insert("pluginId".into(), json!(plugin));
             }
-            if let Some(meta) = read_metadata(&skill_path) {
-                skill.insert("metadata".into(), meta);
+            if let Some(meta) = &cached.metadata {
+                skill.insert("metadata".into(), meta.clone());
             }
             skills.push(Value::Object(skill));
         }

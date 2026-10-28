@@ -161,7 +161,7 @@ async fn the_users_choice_is_read_from_settings_on_every_call() {
 }
 
 #[tokio::test]
-async fn a_user_choice_can_never_enable_a_feature_the_server_keeps_off() {
+async fn a_user_choice_overrides_the_server_default_even_when_it_is_disabled() {
     let home = tempfile::tempdir().unwrap();
     write_user_mode(home.path(), "alwaysOn").await;
     let stub = Stub::ok(dynamic_envelope("disabled"));
@@ -171,11 +171,13 @@ async fn a_user_choice_can_never_enable_a_feature_the_server_keeps_off() {
         Some(home.path()),
     );
     let result = config.get_dynamic_workflow(false).await.to_json();
+    // 上游 v3.16.2：功能已全量，服务端只决定默认值；用户选择永远生效，提供值留在 offeredMode。
     assert_eq!(
         (result["mode"].as_str(), result["enabled"].as_bool()),
-        (Some("disabled"), Some(false))
+        (Some("alwaysOn"), Some(true))
     );
-    assert_eq!(result.get("userMode"), None);
+    assert_eq!(result["offeredMode"], "disabled");
+    assert_eq!(result["userMode"], "alwaysOn");
 }
 
 #[tokio::test]

@@ -194,11 +194,15 @@ impl Engine {
                 display,
                 failed,
                 denied,
+                model_call_wrapper,
                 committed,
                 ..
             } => {
                 receipt = Some(committed);
                 let mut message = json!({"role":"tool","tool_call_id":call_id,"content":result,"_escode_tool_failed":failed});
+                if let Some(wrapper) = &model_call_wrapper {
+                    message["_escode_model_call_wrapper"] = wrapper.as_str().into();
+                }
                 if let Some(parts) = stored {
                     message["content"] = parts.into();
                     message["_escode_tool_name"] = tool.into();

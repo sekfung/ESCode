@@ -7,7 +7,9 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
 #[allow(unused_imports)]
-pub use super::contract_model::{ModelPort, ModelRegistry, RewindTransaction};
+pub use super::contract_model::{
+    ModelPort, ModelRegistry, RewindTransaction, ToolSearchCapability,
+};
 #[allow(unused_imports)]
 pub use super::contract_store::{DurableCommitReceipt, SessionStore};
 
@@ -350,6 +352,16 @@ pub trait ToolPort: Send + Sync {
         anyhow::bail!("Skill loading unavailable")
     }
     fn definitions(&self) -> Vec<Value>;
+    /// ToolSearch 模式：`off` / `local` / `native` / `auto`。缺省关闭，保持旧行为。
+    fn tool_search_mode(&self, _session: &str) -> String {
+        "off".into()
+    }
+    /// 本会话已通过 ToolSearch 加载过 schema 的工具名（持久化在会话内存，不写库）。
+    fn tool_search_discovered(&self, _session: &str) -> Vec<String> {
+        Vec::new()
+    }
+    /// 记录 ToolSearch 命中；下一轮工具面据此展开完整 schema。
+    fn record_tool_search(&self, _session: &str, _names: Vec<String>) {}
     fn requires_permission(&self, name: &str) -> bool;
     /// 工具的权限能力（只读/破坏性/风险级别/作用域等）；缺省表示未知，按需确认处理。
     fn permission_capability(

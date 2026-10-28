@@ -76,6 +76,7 @@ impl HttpModel {
         output: &mut TextBuffer<'_>,
         auth: &Value,
         native_search: bool,
+        tool_search: bool,
     ) -> Result<ModelOutput> {
         let idle_ms = if self.config.stream_idle_timeout_ms == 0 {
             0
@@ -97,16 +98,19 @@ impl HttpModel {
         if let Some(seconds) = self.config.request_timeout_seconds {
             request = request.timeout(Duration::from_secs(seconds));
         }
-        // provider-native 搜索需要 beta（docs/specs/rust-websearch.md），与配置中已有的 beta 合并。
-        let beta = native_search.then(|| {
+        // provider-native 搜索与 tool search 都需要 beta（docs/specs/rust-websearch.md、
+        // docs/specs/rust-tool-search.md），与配置中已有的 beta 合并。
+        let beta = if native_search || tool_search {
             let existing = self
                 .config
                 .headers
                 .iter()
                 .find(|(key, _)| key.eq_ignore_ascii_case("anthropic-beta"))
                 .map(|(_, value)| value.expose());
-            super::web_search::merge_beta(existing)
-        });
+            super::tool_search::merge_beta(existing, native_search, tool_search)
+        } else {
+            None
+        };
         for (key, value) in
             super::client_headers::request_headers(&self.config.headers, beta.is_some(), &self.url)
         {
@@ -211,6 +215,14 @@ impl ModelPort for HttpModel {
     }
     fn native_web_search(&self) -> bool {
         self.config.native_web_search
+    }
+    fn tool_search_capability(&self) -> crate::contract::ToolSearchCapability {
+        crate::contract::ToolSearchCapability {
+            protocol_supported: self.config.api_type == ApiType::Anthropic,
+            // 上游只在 Z.ai Coding Plan 账号默认开启 native；Rust 侧默认不自作主张，
+            // 由 App/CLI 显式选择 native 或 auto。
+            default_enabled: false,
+        }
     }
     fn format_properties(&self) -> Value {
         self.config.format_properties.clone().unwrap_or_else(|| serde_json::json!({"inputFormat":{"supportsText":true,"supportsImage":false,"supportsVideo":false,"supportsAudio":false,"supportsPdf":false},"outputFormat":{"supportsText":true}}))

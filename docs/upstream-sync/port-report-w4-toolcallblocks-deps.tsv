@@ -1,0 +1,7 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	new	1489 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	packages/ui/src/chat-input-toolbar/thoughtLevelLabels.ts	new	1489 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/hooks/useToolPresentationHostCapabilities.ts	packages/ui/src/hooks/useToolPresentationHostCapabilities.ts	new	1975 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/hooks/useToolPresentationHostCapabilities.ts	packages/ui/src/hooks/useToolPresentationHostCapabilities.ts	new	1975 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/nodeReplToolDisplay.ts	packages/ui/src/lib/nodeReplToolDisplay.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/nodeReplToolDisplay.ts	packages/ui/src/lib/nodeReplToolDisplay.ts	present	clean

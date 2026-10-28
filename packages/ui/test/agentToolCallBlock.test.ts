@@ -8,6 +8,8 @@ import { ESCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { StoreProvider } from "@/store/StoreProvider.js";
 import { useSubagentsStore } from "@/store/subagentsStore.js";
 import { AgentToolCallBlock } from "../src/ToolCallBlocks/renderers/agent.js";
+import { ToolCallBlock } from "../src/ToolCallBlocks.js";
+import { ToolPresentationCapabilitiesProvider } from "../src/ToolCallBlocks/presentationCapabilities.js";
 
 const localStorageState = new Map<string, string>();
 
@@ -72,6 +74,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-running",
@@ -140,6 +143,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-summary-action",
@@ -211,6 +215,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-drilldown-slot",
@@ -296,44 +301,49 @@ describe("AgentToolCallBlock", () => {
           createElement(
             StoreProvider,
             { broadcastService: mockBroadcastService },
-            createElement(AgentToolCallBlock, {
-              toolCallNode: {
-                toolCall: {
-                  toolId: "tool-agent-configured-color",
-                  kind: "think",
-                  title: "Agent",
-                  input: {
-                    prompt: "检查工作区",
-                    subagent_type: "Explore",
+            createElement(
+              ToolPresentationCapabilitiesProvider,
+              { value: { agentColor: () => "red" } },
+              createElement(AgentToolCallBlock, {
+                nestedToolRenderer: ToolCallBlock,
+                toolCallNode: {
+                  toolCall: {
+                    toolId: "tool-agent-configured-color",
+                    kind: "think",
+                    title: "Agent",
+                    input: {
+                      prompt: "检查工作区",
+                      subagent_type: "Explore",
+                    },
+                    output: [],
+                    status: "completed",
+                    raw: {},
                   },
-                  output: [],
-                  status: "completed",
-                  raw: {},
+                  childToolCalls: [],
                 },
-                childToolCalls: [],
-              },
-              workspacePath: "/workspace",
-              displayModel: {
-                inlinePreview: { type: "none" },
-                planResult: null,
+                workspacePath: "/workspace",
+                displayModel: {
+                  inlinePreview: { type: "none" },
+                  planResult: null,
+                  viewerSource: null,
+                  viewerLabelId: "codeViewer.viewCode",
+                  showSummaryFileLink: false,
+                  showInput: false,
+                  showOutput: false,
+                  showKind: false,
+                },
                 viewerSource: null,
-                viewerLabelId: "codeViewer.viewCode",
-                showSummaryFileLink: false,
-                showInput: false,
-                showOutput: false,
-                showKind: false,
-              },
-              viewerSource: null,
-              rawFileSummaries: [],
-              isRunning: false,
-              statusLabel: "完成",
-              errorText: undefined,
-              childToolList: null,
-              showIcon: true,
-              forceOpen: false,
-              onOpenCodeViewer: undefined,
-              onOpenBrowserUrl: undefined,
-            }),
+                rawFileSummaries: [],
+                isRunning: false,
+                statusLabel: "完成",
+                errorText: undefined,
+                childToolList: null,
+                showIcon: true,
+                forceOpen: false,
+                onOpenCodeViewer: undefined,
+                onOpenBrowserUrl: undefined,
+              }),
+            ),
           ),
         ),
       ),
@@ -358,6 +368,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-streaming-type",
@@ -419,6 +430,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-default-type",
@@ -484,6 +496,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-child-summary",
@@ -570,6 +583,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-completed-child-running",
@@ -655,6 +669,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-animation-disabled",
@@ -736,6 +751,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-completed-child-summary",
@@ -816,6 +832,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-todo-child-summary",
@@ -912,6 +929,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-numbered",
@@ -987,6 +1005,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-spawn-agent-locke",
@@ -1059,6 +1078,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-spawn-agent-explorer",
@@ -1121,6 +1141,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-agent-render",
@@ -1212,6 +1233,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-background-agent",
@@ -1287,6 +1309,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-background-agent-activity",
@@ -1357,6 +1380,7 @@ describe("AgentToolCallBlock", () => {
             StoreProvider,
             { broadcastService: mockBroadcastService },
             createElement(AgentToolCallBlock, {
+              nestedToolRenderer: ToolCallBlock,
               toolCallNode: {
                 toolCall: {
                   toolId: "tool-background-agent-summary",

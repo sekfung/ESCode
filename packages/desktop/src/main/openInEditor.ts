@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
 import { shell } from "electron";
 import type { OpenInEditorOptions, OpenInEditorRemoteTarget } from "@escode/shared";
-import { listWSLDistros } from "@escode/server/remote/wsl-detect.js";
 import { getEditorDefsForCurrentPlatform, resolveEditorDefAppPath } from "./editors.js";
 import { logger } from "./logger.js";
 import { isDelegatedWindowsExplorerExit } from "./windowsExplorerDelegation.js";
@@ -69,6 +68,8 @@ async function resolveWslDistroName(
   }
 
   try {
+    // 仅在未显式指定 distro 时才需要探测 WSL；按需加载，避免进入 main 首屏图。
+    const { listWSLDistros } = await import("@escode/server/remote/wsl-detect.js");
     const distros = await listWSLDistros();
     return distros.find((distro) => distro.isDefault)?.name ?? distros[0]?.name ?? null;
   } catch (error) {

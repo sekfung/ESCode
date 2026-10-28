@@ -40,17 +40,11 @@ pub(super) fn ingest_with_state(
         .join("v2")
         .join("tasks-index.sqlite");
     let connection = rusqlite::Connection::open(&index_path).unwrap();
-    for statement in escode_host_services::tasks_index::schema::MIGRATED_DDL {
-        connection.execute_batch(statement).unwrap();
-    }
-    for (id, checksum) in escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .unwrap();
-    }
+    escode_host_services::tasks_index::fixture::apply_generated_schema(
+        &connection,
+        escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS,
+    )
+    .unwrap();
     drop(connection);
     let read = ReadContext {
         path: index_path,

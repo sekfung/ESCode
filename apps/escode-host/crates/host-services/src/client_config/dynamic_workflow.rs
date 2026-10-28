@@ -93,7 +93,8 @@ pub fn resolve(
     user_mode: Option<&Value>,
 ) -> DynamicWorkflowConfig {
     let (offered_mode, source) = offer(remote, env_override);
-    let choice = normalize_mode(user_mode).filter(|_| offered_mode.enabled());
+    // 上游 v3.16.2 起「功能已全量」：合法用户选择永远取代提供值（提供值只决定默认与设置页标签）。
+    let choice = normalize_mode(user_mode);
     DynamicWorkflowConfig {
         mode: choice.unwrap_or(offered_mode),
         source,

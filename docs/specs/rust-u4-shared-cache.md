@@ -25,9 +25,10 @@ catalog/options 快照与 HTTP 客户端池。8 个 workspace 就有 8 份。
 非目标（本切片）：
 
 - **child 链路**：`app-server --stdio` 是独立进程，共享缓存天然不跨进程。
-- **skill/plugin 目录扫描**：项目级技能按 cwd 作用域，缓存键必须是「目录集合 + 各目录指纹」，
-  且失效要接 Host 的 watcher 或逐目录 stamp；错误共享会把 A 项目的技能泄漏给 B 项目。
-  先登记为缺口，等目录失效契约单独评审。
+- **skill/plugin 目录扫描**：已拆到 `docs/specs/rust-u4-directory-cache.md`（2026-10-28）：
+  缓存键是「扫描根目录」，值是「目录指纹 + 解析后的技能条目」；指纹覆盖本次 walk 得到的
+  `SKILL.md` 与同级 `_meta.json` 的 `(size, mtime_ms)`，scope/plugin 字段与
+  `covered_by_escode` 过滤仍在每次发现时按当前 workspace 计算。
 - **跨实例 catalog 推送**：共享快照变化后，其他实例仍按各自既有触发点（请求/账号更新）刷新
   catalog 帧；不做新的广播协议。
 

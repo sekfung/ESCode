@@ -1,9 +1,7 @@
 //! `escode-task` channel 端到端用例：`getTaskMeta` 直读 tasks-index（真实 WebSocket + 手写 RPC 编解码）。
-//! 夹具按生成资产（`host-services::tasks_index::schema::MIGRATED_DDL`）建库，与 TS Host 同物理 schema。
+//! 夹具按生成资产（`host-services::tasks_index::fixture::apply_generated_schema`）建库，与 TS Host 同物理 schema。
 mod support;
 use support::*;
-
-use escode_host_services::tasks_index::schema::MIGRATED_DDL;
 
 /// 按 TS 迁移后的物理 DDL 建一个空库并写入一行任务。
 fn seed(data_base_dir: &std::path::Path, workspace: &str, task_id: &str) -> std::path::PathBuf {
@@ -13,17 +11,11 @@ fn seed(data_base_dir: &std::path::Path, workspace: &str, task_id: &str) -> std:
         .join("tasks-index.sqlite");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let connection = rusqlite::Connection::open(&path).unwrap();
-    for statement in MIGRATED_DDL {
-        connection.execute_batch(statement).unwrap();
-    }
-    for (id, checksum) in escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS {
-        connection
-            .execute(
-                "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
-                rusqlite::params![id, checksum],
-            )
-            .unwrap();
-    }
+    escode_host_services::tasks_index::fixture::apply_generated_schema(
+        &connection,
+        escode_host_services::tasks_index::schema::EXPECTED_MIGRATIONS,
+    )
+    .unwrap();
     let meta = serde_json::json!({
         "taskId": task_id,
         "traceId": format!("escode-{task_id}"),

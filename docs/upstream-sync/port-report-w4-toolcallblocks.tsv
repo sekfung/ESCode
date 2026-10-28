@@ -1,0 +1,46 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks.tsx	packages/ui/src/ToolCallBlocks.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks.tsx	packages/ui/src/ToolCallBlocks.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/fileSummaryTypes.ts	packages/ui/src/ToolCallBlocks/fileSummaryTypes.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/fileSummaryTypes.ts	packages/ui/src/ToolCallBlocks/fileSummaryTypes.ts	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/presentationCapabilities.tsx	packages/ui/src/ToolCallBlocks/presentationCapabilities.tsx	new	1091 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/presentationCapabilities.tsx	packages/ui/src/ToolCallBlocks/presentationCapabilities.tsx	new	1091 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/agent.tsx	packages/ui/src/ToolCallBlocks/renderers/agent.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/agent.tsx	packages/ui/src/ToolCallBlocks/renderers/agent.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/changes-group.tsx	packages/ui/src/ToolCallBlocks/renderers/changes-group.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/changes-group.tsx	packages/ui/src/ToolCallBlocks/renderers/changes-group.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cron-create.tsx	packages/ui/src/ToolCallBlocks/renderers/cron-create.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cron-create.tsx	packages/ui/src/ToolCallBlocks/renderers/cron-create.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cua-group.tsx	packages/ui/src/ToolCallBlocks/renderers/cua-group.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cua-group.tsx	packages/ui/src/ToolCallBlocks/renderers/cua-group.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaAppSummaryIcon.tsx	packages/ui/src/ToolCallBlocks/renderers/cuaAppSummaryIcon.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaAppSummaryIcon.tsx	packages/ui/src/ToolCallBlocks/renderers/cuaAppSummaryIcon.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaListDetails.tsx	packages/ui/src/ToolCallBlocks/renderers/cuaListDetails.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaListDetails.tsx	packages/ui/src/ToolCallBlocks/renderers/cuaListDetails.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaScreenshotDetails.ts	packages/ui/src/ToolCallBlocks/renderers/cuaScreenshotDetails.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/cuaScreenshotDetails.ts	packages/ui/src/ToolCallBlocks/renderers/cuaScreenshotDetails.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/execute-group.tsx	packages/ui/src/ToolCallBlocks/renderers/execute-group.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/execute-group.tsx	packages/ui/src/ToolCallBlocks/renderers/execute-group.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/explore.tsx	packages/ui/src/ToolCallBlocks/renderers/explore.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/explore.tsx	packages/ui/src/ToolCallBlocks/renderers/explore.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/list-models.tsx	packages/ui/src/ToolCallBlocks/renderers/list-models.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/list-models.tsx	packages/ui/src/ToolCallBlocks/renderers/list-models.tsx	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows-presentation.tsx	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows-presentation.tsx	new	9835 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows-presentation.tsx	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows-presentation.tsx	new	9835 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows.tsx	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows.tsx	packages/ui/src/ToolCallBlocks/renderers/list-saved-workflows.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/nodeReplImageGrid.tsx	packages/ui/src/ToolCallBlocks/renderers/nodeReplImageGrid.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/nodeReplImageGrid.tsx	packages/ui/src/ToolCallBlocks/renderers/nodeReplImageGrid.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/search.tsx	packages/ui/src/ToolCallBlocks/renderers/search.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/renderers/search.tsx	packages/ui/src/ToolCallBlocks/renderers/search.tsx	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/renderers/web-fetch.tsx	packages/ui/src/ToolCallBlocks/renderers/web-fetch.tsx	new	1678 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/renderers/web-fetch.tsx	packages/ui/src/ToolCallBlocks/renderers/web-fetch.tsx	new	1678 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/resolveRenderer.ts	packages/ui/src/ToolCallBlocks/resolveRenderer.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/resolveRenderer.ts	packages/ui/src/ToolCallBlocks/resolveRenderer.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/ToolCallBody.tsx	packages/ui/src/ToolCallBlocks/ToolCallBody.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/ToolCallBody.tsx	packages/ui/src/ToolCallBlocks/ToolCallBody.tsx	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/ToolPresentation.tsx	packages/ui/src/ToolCallBlocks/ToolPresentation.tsx	new	3981 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/ToolCallBlocks/ToolPresentation.tsx	packages/ui/src/ToolCallBlocks/ToolPresentation.tsx	new	3981 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/ToolSummaryRow.tsx	packages/ui/src/ToolCallBlocks/ToolSummaryRow.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/ToolCallBlocks/ToolSummaryRow.tsx	packages/ui/src/ToolCallBlocks/ToolSummaryRow.tsx	present	clean
+conflict	W4	import-test	ui	test	M	packages/ui/test/toolCallBlocks.test.ts	packages/ui/test/toolCallBlocks.test.ts	present	三方合并冲突 x1
