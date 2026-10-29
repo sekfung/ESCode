@@ -305,6 +305,9 @@
                       "2026-07-28"
                     ]
                   },
+                  "alwaysLoad": {
+                    "type": "boolean"
+                  },
                   "timeoutMs": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
@@ -437,6 +440,9 @@
                       "auto",
                       "2026-07-28"
                     ]
+                  },
+                  "alwaysLoad": {
+                    "type": "boolean"
                   },
                   "timeoutMs": {
                     "type": "integer",
