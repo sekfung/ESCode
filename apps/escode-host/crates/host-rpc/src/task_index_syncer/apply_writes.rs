@@ -23,7 +23,7 @@ use super::{Ingest, now_ms};
 /// TS `INITIAL_BASELINE_SEED_BATCH_SIZE`。
 const SEED_BATCH_SIZE: usize = 64;
 /// TS `ESCODE_AGENT_PROVIDER`（`escode-agent-policy.ts`）。
-const AGENT_PROVIDER: &str = "glm";
+pub(super) const AGENT_PROVIDER: &str = "glm";
 use super::apply::resolve_terminal_unread_signal;
 
 /// TS `applyTerminalTransition`：终态补丁 + 广播 + 回源收敛。

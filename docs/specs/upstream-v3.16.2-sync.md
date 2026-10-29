@@ -197,13 +197,52 @@ Rust 差分语料必须能复现，且不依赖真实供应商、网络或时间
 
 刻意的跨波次差异（如实记录）：
 
-- `task-facts.repairSubagentTaskIndex` 的冷恢复全量清扫尚未单独落地：Rust syncer 已阻止
-  `subagent_child` 重新写入主列表（`task_index_syncer/apply_writes.rs`），但旧索引中已存在的
-  child 行没有启动期清扫。待 W4/W5 在有 E2E 场景时补。
+- ~~`task-facts.repairSubagentTaskIndex` 的冷恢复全量清扫尚未单独落地~~ → 2026-10-30 已收口（见
+  §9.1）：Rust syncer 在 sessions-index 首帧播种后，按 TS `repairSubagentTaskIndex` 语义软删除
+  经 CLI 权威确认的 `subagent_child` 旧行。
 - Source Server：shared 协议字段（`sourceServerId` 身份前缀、controller schema）已在 W1 就位；
   Rust Host 不注册 source-server scope（Q3/Q4），远程仍由 Node Host 提供。
 - 旧 `escode-task` 分组方法（`createTaskGroup` 等）保留为过渡面，W4 迁移 UI 后由
   `task-groups` channel 取代。
+
+## 9.1 W3 收口：子代理历史行启动清扫（2026-10-30）
+
+Rust 等价实现 `task-facts.repairSubagentTaskIndex`，补齐 §9 记录的缺口。旧版本曾把冷恢复的
+`subagent_child` 写成主列表行；syncer 早已在写入侧拦截（`apply_writes.rs`
+`sync_snapshot_to_index` 守卫），本次补的是**旧索引存量行**的启动清扫。
+
+**触发与范围**：每个 workspace 的 `sessions-index` 首帧（`!seeded`）落基线后触发一次；只处理
+本 workspace、`provider = glm`、`deleted = 0` 的索引行。
+
+**唯一写者与查询路径**：候选 = 索引行 `taskId` 差集于首帧可见 `sessionId`（draft 不在索引里）。
+每批 ≤64 个 id 以 `runtimePolicy = existing-only` 调 CLI `session/list`
+（`sessionIds` + `includeArchived: true` + workspace ref），不拉起 runtime。只有同时满足
+`sessionKind = "subagent_child"`、id 属于本批、`workspace.workspaceKey` 等于本 workspace 身份键
+的行，才走既有 `updateTaskState({deleted: true})` 软删除。Host 不推断身份、不改 schema、
+不删除 CLI 转录。
+
+**事件顺序**：首帧基线 → `seedMissingRows`（insert-if-missing，写队列串行）→ 清扫（独立任务，
+只做软删除）；每次删除成功后广播 `workspace_task_list_changed(reason = "task_meta_changed")`，
+不带 `taskMeta`（与 TS `emitWorkspaceTaskListChanged(target, undefined, …)` 同形）。
+
+**幂等与失败边界**：删除后的行不再进入候选，重复启动为 no-op；行已被其他路径删除时按
+`TaskNotFound` 跳过；CLI 查询失败只 `warn` 并放弃本轮（fail-closed，不删除任何行），也不阻塞
+订阅与索引写队列。清扫任务不持有订阅代际：删除依据是 CLI 当时的权威 `sessionKind`，与代际无关。
+
+**测试**：`task_index_syncer_tests` 用真实 embedded runtime 的 `rust-sessions.sqlite` 预置
+child / interactive 行，验证只软删除 CLI 确认的 child 行、保留可见行与普通行，并断言
+`workspace_task_list_changed` 事件。
+
+验证（2026-10-30）：
+
+| 检查                                                      | 结果                                        |
+| --------------------------------------------------------- | ------------------------------------------- |
+| `cargo test -p escode-host-rpc --lib task_index_syncer`   | 8 passed                                    |
+| `cargo test -p escode-host-rpc`                           | 通过（lib + 全部集成测试）                  |
+| `pnpm check:escode-host`                                  | 通过（boundaries / 生成资产 / fmt / clippy） |
+| `pnpm typecheck`                                          | 0 error                                     |
+| `pnpm lint`                                               | 0 error（208 条既有 warning）               |
+| `pnpm architecture:check --changed`                        | 0 violation                                 |
 
 ## 10. W4 进度
 
@@ -563,6 +602,7 @@ case 保持 pending。
 - [x] W2 tool result settlement / modelCallWrapper（见 [w2-port-rust-review.md](../upstream-sync/w2-port-rust-review.md)）
 - [x] W2 tool search 差分：上游 TS oracle + Rust fixture 实时比对（19 cases）+ 冻结语料 29 cases（Node CLI 本 fork 无该功能）
 - [x] W3 Rust Host 项目/存储数据模型、自动归档、任务分组（见 §9）
+- [x] W3 收口：子代理历史行启动清扫（见 §9.1）
 - [x] W4-1..4：ToolCallBlocks、Composer 工具栏、共享组件、文件树与服务入口（见 §10）
 - [x] W4-5a/b：Source Server 共享协议与服务面、window-controller、remote-connection 整组（见 §10）
 - [x] W4-5c：composer/store 局部移植（projectId/taskGroupId 归属 + grouped-draft 字段）

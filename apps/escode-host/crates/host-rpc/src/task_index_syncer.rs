@@ -21,6 +21,7 @@ use crate::workspace_events::WorkspaceEvents;
 
 mod apply;
 mod apply_writes;
+mod repair;
 mod topic;
 mod topic_subscribe;
 
@@ -367,6 +368,9 @@ mod projection_tests;
 #[cfg(test)]
 #[path = "task_index_syncer_queue_tests.rs"]
 mod queue_tests;
+#[cfg(test)]
+#[path = "task_index_syncer_repair_tests.rs"]
+mod repair_tests;
 #[cfg(test)]
 #[path = "task_index_syncer_tests.rs"]
 mod tests;

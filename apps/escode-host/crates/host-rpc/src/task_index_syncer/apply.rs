@@ -104,6 +104,10 @@ fn apply_index_frame(
         let mut core = super::lock(&ingest.core);
         if !core.seeded {
             // 首帧 = 静默基线：不回放历史终态、不发列表广播，仅原子补齐缺失行。
+            let visible: std::collections::BTreeSet<String> = next
+                .iter()
+                .filter_map(|summary| summary["sessionId"].as_str().map(str::to_owned))
+                .collect();
             core.summaries = sessions_map(next.iter());
             core.seeded = true;
             drop(core);
@@ -112,6 +116,12 @@ fn apply_index_frame(
             complete_recovery_frame(ingest, state, delivery);
             let writer = Arc::clone(ingest);
             ingest.enqueue(async move { super::apply_writes::seed_missing_rows(&writer).await });
+            // TS `repairSubagentTaskIndex`：旧索引里的 `subagent_child` 行要按 CLI 权威身份清扫。
+            // 独立于写队列执行：CLI 请求失败/超时不能拖慢标题与状态写入；删除本身幂等。
+            let repairer = Arc::clone(ingest);
+            tokio::spawn(async move {
+                super::repair::repair_subagent_rows(&repairer, &visible).await;
+            });
             return;
         }
         // 断档降级 snapshot：对基线 diff 后处理（等价补投丢失的 deltas，conflated 语义）。
