@@ -30,14 +30,15 @@ const builtins: Candidate[] = [
   { name: "ListModels", description: "List available models", deferred: false },
   { name: "WebSearch", description: "Search the web", deferred: false },
 ];
-const mcp: Candidate[] = [
+const mcpSpecs: Array<[name: string, description: string, searchHint: string]> = [
   ["mcp__github__create_issue", "Create a GitHub issue", "github issues bug tracker"],
   ["mcp__github__list_issues", "List GitHub issues", "github issues query"],
   ["mcp__github__create_pull_request", "Create a pull request", "github pr review"],
   ["mcp__slack__send_message", "Send a Slack message", "slack chat notify"],
   ["mcp__linear__create_issue", "Create a Linear issue", "linear tracker ticket"],
   ["mcp__notion__search_pages", "Search Notion pages", "notion docs wiki"],
-].map(([name, description, searchHint]) => ({
+];
+const mcp: Candidate[] = mcpSpecs.map(([name, description, searchHint]) => ({
   name,
   description,
   searchHint,
