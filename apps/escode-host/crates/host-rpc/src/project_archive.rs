@@ -234,21 +234,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn settings_without_the_reset_marker_archive_nothing() {
+    async fn settings_with_default_reset_marker_archive_stale_tasks() {
         let root = tempfile::tempdir().unwrap();
         seed(root.path());
         let home = root.path().join("home");
-        // 旧版遗留：开关开启但没有重置标记，升级后首次读取必须先关闭。
+        // 缺省 schema 自带 resetVersion=1；显式开启后按 7 天策略归档 stale task。
         escode_host_services::settings::apply_patch(
             &home,
             &json!({"taskAutoArchiveEnabled": true, "taskAutoArchiveOlderThanDays": 7}),
         )
         .await
         .unwrap();
-        assert!(
-            scan(&context(root.path()), Vec::new(), &home)
-                .await
-                .is_empty()
-        );
+        let active = vec![json!({"workspacePath": "/w", "taskId": "running"})];
+        let archived = scan(&context(root.path()), active, &home).await;
+        let ids: Vec<&str> = archived
+            .iter()
+            .filter_map(|task| task["taskId"].as_str())
+            .collect();
+        assert_eq!(ids, vec!["stale"]);
     }
 }
