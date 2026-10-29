@@ -977,6 +977,13 @@ export interface IESCodeAgentService {
   ): Event<ConversationTelemetryFact>;
   /** 当前窗口全部本地 live task 的 CUA 权限观察；历史、远程与 replayable 不在此事件面。 */
   onDynamicCuaPermissionObservation(): Event<ESCodeAgentCuaPermissionObservation>;
+  /** 本地桌面窗口创建插件页面，不依赖 conversation 订阅。 */
+  onDynamicPluginUiToolResult(): Event<
+    import("@escode/shared/mcp-apps").PluginUiToolResultNotification & {
+      workspacePath: string;
+      workspaceIdentity?: string;
+    }
+  >;
   // ── sessions-index 通道（列表活性）──
   subscribeSessionsIndexV4(
     params: ESCodeAgentSessionsIndexSubscribeParams,

@@ -2602,6 +2602,21 @@ export const escodePluginComponentGroupSchema = z
   .strict();
 export type ESCodePluginComponentGroup = z.infer<typeof escodePluginComponentGroupSchema>;
 
+export const escodePluginUiSurfaceSchema = z
+  .object({
+    pluginId: nonEmptyString,
+    pluginName: nonEmptyString,
+    id: nonEmptyString.max(128),
+    title: z.union([nonEmptyString, z.record(z.string(), z.string())]),
+    icon: z.string().optional(),
+    // 运行时 namespaced server 名（plugin:<name>:<server>），可直接用于 mcp/uiReadResource。
+    server: nonEmptyString,
+    resourceUri: nonEmptyString.max(2048),
+    availability: z.literal("session"),
+  })
+  .strict();
+export type ESCodePluginUiSurface = z.infer<typeof escodePluginUiSurfaceSchema>;
+
 export const escodePluginInfoSchema = z
   .object({
     id: nonEmptyString,
@@ -2621,6 +2636,7 @@ export const escodePluginInfoSchema = z
     // 权威组件清单（名称 + 可选描述），由 CLI 对插件根目录枚举得出，与启用态无关。
     // 详情 UI 直接展示，取代旧的「数量取协议、名称靠 UI 侧 join」脆弱方案。optional 兼容旧 payload。
     components: z.array(escodePluginComponentGroupSchema).optional(),
+    uiSurfaces: z.array(escodePluginUiSurfaceSchema).optional(),
     declaredMcpServerNames: z.array(z.string()).optional(),
     hostMcpServerNames: z.array(z.string()).optional(),
     mcpServerNames: z.array(z.string()),
@@ -2663,20 +2679,6 @@ export type ESCodePluginsListResult = z.infer<typeof escodePluginsListResultSche
 
 // ── 插件 UI 面板入口──
 // 工作区级只读投影：已启用插件清单 `ui.surfaces[]` 的合法条目；插件启停后 host 重新拉取。
-export const escodePluginUiSurfaceSchema = z
-  .object({
-    pluginId: nonEmptyString,
-    pluginName: nonEmptyString,
-    id: nonEmptyString.max(128),
-    title: z.union([nonEmptyString, z.record(z.string(), z.string())]),
-    icon: z.string().optional(),
-    // 运行时 namespaced server 名（plugin:<name>:<server>），可直接用于 mcp/uiReadResource。
-    server: nonEmptyString,
-    resourceUri: nonEmptyString.max(2048),
-    availability: z.literal("session"),
-  })
-  .strict();
-export type ESCodePluginUiSurface = z.infer<typeof escodePluginUiSurfaceSchema>;
 export const escodePluginsListUiSurfacesParamsSchema = z
   .object({ workspace: escodeWorkspaceRefSchema })
   .strict();
@@ -3204,6 +3206,7 @@ export const escodePluginStoreListingSchema = z
     descriptionI18n: z.record(z.string(), z.string()).optional(),
     icon: z.string().optional(),
     category: z.string().optional(),
+    publisherType: z.enum(["official", "community"]).optional(),
     author: z.string().optional(),
     authorUrl: z.string().optional(),
     homepage: z.string().optional(),

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 上游 v3.16.2 文件已超出统一行数门禁，等待按域拆分。 */
 /**
  * 统一管理所有 data-testid，UI 组件和 E2E 测试共用此单一来源。
  * 新增 testid 时请在此文件添加，不要在组件中硬编码字符串。
@@ -236,6 +237,12 @@ export const TID_SSH_PORT_INPUT = "ssh-port-input";
 export const TID_SSH_USERNAME_INPUT = "ssh-username-input";
 /** SSH config alias 选择框 */
 export const TID_SSH_CONFIG_ALIAS_SELECT = "ssh-config-alias-select";
+/** 设置入口「从 SSH config 导入」按钮。 */
+export const TID_SSH_CONFIG_IMPORT = "remote-ssh-config-import";
+/** 已关联 SSH config Host 的标签。 */
+export const TID_SSH_CONFIG_ALIAS_CHIP = "remote-ssh-config-alias-chip";
+/** 新建连接表单头部的实时目标预览。 */
+export const TID_REMOTE_NEW_CONNECTION_PREVIEW = "remote-new-connection-preview";
 /** SSH 密码输入框 */
 export const TID_SSH_PASSWORD_INPUT = "ssh-password-input";
 /** SSH 私钥路径输入框 */
@@ -791,4 +798,8 @@ export const TID_MANUAL_CLAIM_PLAN_BANNER = "manual-claim-plan-banner";
 export const TID_PLUGIN_UI_CARD = "plugin-ui-card";
 export const TID_PLUGIN_UI_OPEN_SIDE_PANE = "plugin-ui-open-side-pane";
 export const TID_PLUGIN_UI_WEBVIEW = "plugin-ui-webview";
+/** 虚拟项目行的「添加项目」入口。 */
+export const TID_VIRTUAL_PROJECT_ADD = "virtual-project-add";
+
+/** 启动计划推荐弹窗。 */
 export const TID_START_PLAN_RECOMMENDATION_DIALOG = "start-plan-recommendation-dialog";

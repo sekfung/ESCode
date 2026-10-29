@@ -26,6 +26,54 @@ export {
 // Accessor
 export type { IServiceAccessor } from "./accessor.js";
 
+// Project / task groups（W3 数据模型的 UI 消费面）
+export { IProjectService } from "./project/contract.js";
+export { LEGACY_SINGLE_ROOT_PROJECT_PREFIX } from "./project-storage/contract.js";
+export type {
+  ProjectDirectories,
+  ProjectRoot,
+  ProjectTask,
+  ProjectTaskRef,
+  ProjectTree,
+  SaveProjectInput,
+  VirtualProject,
+} from "./project/contract.js";
+export { ITaskGroupService } from "./task-groups/contract.js";
+export type {
+  GroupNode,
+  GroupTaskFact,
+  GroupTaskRef,
+  MoveGroupNode,
+  TaskGroup,
+  TaskGroupColor,
+  TaskGroupStructure,
+} from "./task-groups/contract.js";
+export { IRemoteProjectService } from "./remote-projects/contract.js";
+export type {
+  IRemoteProjectService as IRemoteProjectServiceType,
+  RemoteProjectCache,
+  RemoteProjectDirectory,
+  RemoteProjectEntry,
+  RemoteProjectHost,
+} from "./remote-projects/contract.js";
+export {
+  IWindowProjectChangesService,
+  IWindowProjectService,
+  IWindowRemoteProjectService,
+} from "./window-project-directory/contract.js";
+export type {
+  IWindowProjectChangesService as IWindowProjectChangesServiceType,
+  WindowProjectDirectoryServices,
+} from "./window-project-directory/contract.js";
+export type { ProjectCatalogPort, ProjectCatalogSnapshot } from "./project-catalog/contract.js";
+export { projectSelectionId, readProjectCatalog } from "./project-catalog/index.js";
+export { createWindowProjectChangesService } from "./window-project-directory/index.js";
+export {
+  ISourceServerManagementService,
+  type UpdateConnectionProfileInput,
+} from "./source-server-management/sourceServerManagement.js";
+export { ISourceServerWorkspaceService } from "./source-server-workspace/sourceServerWorkspace.js";
+
 // File service — IFileService is both a type (interface) and value (descriptor)
 export { IFileService } from "./file/file.js";
 export { IMediaPreviewService } from "./media-preview/mediaPreview.js";
@@ -126,6 +174,7 @@ export type {
   WindowHostControllerMutation,
   WindowHostControllerTaskListItem,
   WindowHostControllerTaskListResult,
+  WindowHostTaskUnreadSignal,
 } from "./window-controller/windowController.js";
 
 // ESCode agent service — IESCodeAgentService is both a type (interface) and value (descriptor)

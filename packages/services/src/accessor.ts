@@ -41,9 +41,27 @@ import type { ISettingsSyncService } from "./settings-sync/settingsSync.js";
 import type { IPromptAttachmentTransferService } from "./prompt-attachment-transfer/promptAttachmentTransfer.js";
 import type { IWindowControllerService } from "./window-controller/windowController.js";
 import type { IOnboardingRecordService } from "./onboarding/onboardingRecord.js";
+import type { IProjectService } from "./project/contract.js";
+import type { IRemoteProjectService } from "./remote-projects/contract.js";
+import type { ISourceServerManagementService } from "./source-server-management/sourceServerManagement.js";
+import type { ISourceServerWorkspaceService } from "./source-server-workspace/sourceServerWorkspace.js";
+import type { ITaskGroupService } from "./task-groups/contract.js";
+import type { WindowProjectDirectoryServices } from "./window-project-directory/contract.js";
 
 /** UI 层消费的统一服务接口 */
 export interface IServiceAccessor {
+  /** 本机 Host 的权威项目服务；旧 Host 可不提供。 */
+  readonly projectService?: IProjectService;
+  /** 任务分组组织态；旧 Host 可不提供。 */
+  readonly taskGroupService?: ITaskGroupService;
+  /** 远端项目入口（本机缓存）；未连接远端时为 undefined。 */
+  readonly remoteProjectService?: IRemoteProjectService;
+  /** 窗口级项目服务聚合（本地 + 远端 + 变更订阅）。 */
+  readonly windowProjectDirectory?: WindowProjectDirectoryServices;
+  /** Source Server 连接/更新管理；仅支持 Source 的平台提供。 */
+  readonly sourceServerManagementService?: ISourceServerManagementService;
+  /** Source Server workspace 解析与迁移。 */
+  readonly sourceServerWorkspaceService?: ISourceServerWorkspaceService;
   readonly fileService: IFileService;
   readonly mediaPreviewService?: IMediaPreviewService;
   readonly gitService: IGitService;

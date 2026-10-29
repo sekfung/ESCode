@@ -98,6 +98,12 @@ export const ServiceChannels = {
   Project: "project",
   /** 任务分组（侧栏组织态，只写组织事实，不改任务归属） */
   TaskGroups: "task-groups",
+  /** 远端项目入口与连接管理（本机持有，不承担远端写入） */
+  RemoteProjects: "remote-projects",
+  /** 窗口级项目服务聚合（本地 + 远端 + 变更订阅） */
+  WindowProject: "window-project",
+  WindowRemoteProjects: "window-remote-projects",
+  WindowProjectChanges: "window-project-changes",
   /** ESCode Protocol agent 服务 */
   ESCodeAgent: "escode-agent",
   /** ESCode session 应用服务 */
@@ -133,6 +139,10 @@ export const ServiceChannels = {
   PluginUiAppTools: "plugin-ui-app-tools",
   /** Subagents 管理服务 */
   Subagents: "subagents",
+  /** Source Server workspace 迁移/解析（远程仍由 Node Host 承载） */
+  SourceServerWorkspace: "source-server-workspace",
+  /** Source Server 连接与更新管理（Desktop Host 投影） */
+  SourceServerManagement: "source-server-management",
   /** Commands 管理服务 */
   Commands: "commands",
   /** Hooks 管理服务 */

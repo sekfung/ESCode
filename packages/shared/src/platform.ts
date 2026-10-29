@@ -743,6 +743,8 @@ export interface IPlatformService {
       workspacePath?: string;
       workspaceIdentity?: string;
       connectTrigger?: import("./remoteUsage.js").RemoteWorkspaceConnectTrigger;
+      /** 安装/升级门禁：Host 确认后继续同一次 logical connect。 */
+      confirmSourceServerInstall?: boolean;
     },
   ): Promise<{
     success: boolean;

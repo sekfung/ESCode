@@ -12,6 +12,11 @@ import {
   embeddedBrowserViewportPreferenceSchema,
 } from "./browser-use/command-metadata.js";
 import { providerFamilyConnectionSelectionSettingsSchema } from "./provider-family-connection-selection.js";
+import {
+  connectionProfileSchema,
+  sourceServerRecordSchema,
+  sourceServerWorkspaceHistoryEntrySchema,
+} from "./source-server/contracts.js";
 import { WORKSPACE_VCS_OVERRIDES } from "./vcs.js";
 
 const workspaceVcsOverridesSchema = z.record(z.string().min(1), z.enum(WORKSPACE_VCS_OVERRIDES));
@@ -207,6 +212,18 @@ function sanitizeEmbeddedBrowserViewportPreference(value: unknown): unknown {
   // 显示偏好不是关键启动状态，单字段损坏不应让整份 setting.json 被隔离。
   // 读取时只丢弃坏偏好并回到默认值；patch 写入仍严格拒绝非法尺寸与缩放。
   return next;
+}
+
+function migrateRemoteBoundaryIntroAcknowledgement(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const raw = value as Record<string, unknown>;
+  if (raw.remoteBoundaryOnboardingVersion !== 3) return value;
+  // 旧客户端只接受 2，写 3 会让整份设置回退默认值。迁移已确认的 3 到新字段，同时恢复旧字段合同。
+  return {
+    ...raw,
+    remoteBoundaryOnboardingVersion: 2,
+    remoteBoundaryIntroAcknowledgedVersion: 1,
+  };
 }
 
 function migrateTaskAutoArchiveReset(value: unknown): unknown {
@@ -493,6 +510,13 @@ export const serialQuickCommandSchema = z
 
 const serialQuickCommandsSchema = z.array(serialQuickCommandSchema).max(SERIAL_QUICK_COMMANDS_MAX);
 
+const remoteConversationWorkspaceRecordSchema = z
+  .object({
+    workspacePath: nonEmptyStringSchema,
+    lastResolvedAt: z.number().int().nonnegative(),
+  })
+  .strict();
+
 const appSettingsObjectSchema = z.object({
   recentProjects: z.array(z.string()).default([]),
   locale: localeSchema.default("zh-CN"),
@@ -550,6 +574,19 @@ const appSettingsObjectSchema = z.object({
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().default(false),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).default([]),
+  lastActiveWorkspace: appWorkspaceSessionEntrySchema.nullable().optional(),
+  remoteConversationWorkspaceBySourceServerId: z
+    .record(nonEmptyStringSchema, remoteConversationWorkspaceRecordSchema)
+    .optional(),
+  sourceServers: z.array(sourceServerRecordSchema).default([]),
+  connectionProfiles: z.array(connectionProfileSchema).default([]),
+  sourceServerWorkspaceHistory: z.array(sourceServerWorkspaceHistoryEntrySchema).default([]),
+  // Bug 原因：该开关过去只声明在 patch schema，SettingService 合并后再走完整 schema 时会把
+  // 显式 false 剥离，导致重启后恢复为默认开启。完整 schema 必须拥有这项持久化事实。
+  remoteStartupAutoReconnectEnabled: z.boolean().optional(),
+  sourceServerDirectoryMigrationVersion: z.literal(1).optional(),
+  remoteBoundaryOnboardingVersion: z.literal(2).optional(),
+  remoteBoundaryIntroAcknowledgedVersion: z.literal(1).optional(),
   lastActiveTabIndex: z.number().int().nonnegative().default(0),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),
   dataBaseDir: z.string().trim().min(1).optional(),
@@ -572,8 +609,10 @@ export const appSettingsSchema = z.preprocess(
           migrateCloseToTrayOnWindowsDefault(
             migrateLegacyLocalePreference(
               sanitizeESCodeEndpointOrigin(
-                migrateTaskAutoArchiveReset(
-                  migrateLegacyWorkspaceSession(migrateLegacyBuiltinAgentCliProviders(value)),
+                migrateRemoteBoundaryIntroAcknowledgement(
+                  migrateTaskAutoArchiveReset(
+                    migrateLegacyWorkspaceSession(migrateLegacyBuiltinAgentCliProviders(value)),
+                  ),
                 ),
               ),
             ),
@@ -650,6 +689,17 @@ export const appSettingsPatchSchema = z.object({
   proactiveSuggestionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().optional(),
   lastWorkspaceSession: z.array(appWorkspaceSessionEntrySchema).optional(),
+  lastActiveWorkspace: appWorkspaceSessionEntrySchema.nullable().optional(),
+  remoteConversationWorkspaceBySourceServerId: z
+    .record(nonEmptyStringSchema, remoteConversationWorkspaceRecordSchema)
+    .optional(),
+  sourceServers: z.array(sourceServerRecordSchema).optional(),
+  connectionProfiles: z.array(connectionProfileSchema).optional(),
+  sourceServerWorkspaceHistory: z.array(sourceServerWorkspaceHistoryEntrySchema).optional(),
+  remoteStartupAutoReconnectEnabled: z.boolean().optional(),
+  sourceServerDirectoryMigrationVersion: z.literal(1).optional(),
+  remoteBoundaryOnboardingVersion: z.literal(2).optional(),
+  remoteBoundaryIntroAcknowledgedVersion: z.literal(1).optional(),
   lastActiveTabIndex: z.number().int().nonnegative().optional(),
   lastActiveTaskByWorkspace: z.record(z.string(), z.string()).optional(),
   dataBaseDir: z.string().trim().min(1).optional(),

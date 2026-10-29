@@ -129,6 +129,10 @@ import type {
 } from "#src/model-provider/accountRequestAuthService.js";
 import { mergeAutomationMutationToolDenylist } from "#src/escode-agent/automationToolPolicy.js";
 import { ESCODE_AGENT_RUNTIME_UNAVAILABLE_CODE } from "./escodeAgent.js";
+import {
+  pluginUiToolResultNotificationSchema,
+  type PluginUiToolResultNotification,
+} from "@escode/shared/mcp-apps";
 import type {
   ESCodeProtocolRequestId,
   ModelSelection,
@@ -1092,6 +1096,10 @@ export function createESCodeAgentService(
   const conversationFrameEmitters = new Map<string, Emitter<ConversationTopicWireCandidate>>();
   const conversationTelemetryFactEmitters = new Map<string, Emitter<ConversationTelemetryFact>>();
   const cuaPermissionObservationEmitter = new Emitter<ESCodeAgentCuaPermissionObservation>();
+  // 本地桌面窗口创建插件页面，不依赖 conversation 订阅。
+  const pluginUiToolResultEmitter = new Emitter<
+    PluginUiToolResultNotification & ESCodeAgentWorkspaceTarget
+  >();
   // sessions-index 帧 fan-out：与 conversation 同一 conversationFrame 通知，按 topic 前缀分流到此 emitter。
   const sessionsIndexFrameEmitters = new Map<string, Emitter<SessionsIndexTopicWireCandidate>>();
   // workspace-config 帧 fan-out：配置目录活性（task-index syncer 消费），同一通知按前缀分流。
@@ -1978,6 +1986,26 @@ export function createESCodeAgentService(
                 path: issue.path.join("."),
               })),
               workspaceKey: resolveWorkspaceKey(workspace),
+            });
+          }
+          return;
+        }
+
+        if (message.method === V4_NOTIFICATIONS.pluginUiToolResult) {
+          const parsed = pluginUiToolResultNotificationSchema.safeParse(message.params);
+          // 只接受当前本地 runtime；旧进程迟到结果和远程客户端不能在本窗口创建 UI。
+          if (
+            parsed.success &&
+            !workspace.remoteSessionId &&
+            !isRemoteWorkspaceIdentity(workspace.workspaceIdentity ?? "") &&
+            activeClientsByWorkspaceKey.get(resolveWorkspaceKey(workspace))?.client === client
+          ) {
+            pluginUiToolResultEmitter.fire({
+              ...parsed.data,
+              workspacePath: workspace.workspacePath,
+              ...(workspace.workspaceIdentity
+                ? { workspaceIdentity: workspace.workspaceIdentity }
+                : {}),
             });
           }
           return;
@@ -3034,6 +3062,7 @@ export function createESCodeAgentService(
     }
     conversationTelemetryFactEmitters.clear();
     cuaPermissionObservationEmitter.dispose();
+    pluginUiToolResultEmitter.dispose();
     for (const emitter of workspaceConfigFrameEmitters.values()) {
       emitter.dispose();
     }
@@ -5894,6 +5923,10 @@ export function createESCodeAgentService(
 
     onDynamicCuaPermissionObservation() {
       return cuaPermissionObservationEmitter.event;
+    },
+
+    onDynamicPluginUiToolResult() {
+      return pluginUiToolResultEmitter.event;
     },
 
     // ── sessions-index 通道（列表活性）：复用 conversationSubscribe RPC，
