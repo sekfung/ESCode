@@ -2636,8 +2636,7 @@ describe("ESCode plugins", () => {
       expect(documentPlugin).toMatchObject({
         enabled: true,
         name: "documents",
-        // documents 内置插件新增 docx-viewer 后与 docx 共用同一个 skill root。
-        skillCount: 2,
+        skillCount: 1,
         skillRootCount: 1,
       });
       // 回归原因：启动发现链路与 overview 使用同一份 browser-use 内置内容，
