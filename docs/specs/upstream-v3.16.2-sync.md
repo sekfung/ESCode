@@ -237,7 +237,7 @@ child / interactive 行，验证只软删除 CLI 确认的 child 行、保留可
 
 | 检查                                                      | 结果                                        |
 | --------------------------------------------------------- | ------------------------------------------- |
-| `cargo test -p escode-host-rpc --lib task_index_syncer`   | 8 passed                                    |
+| `cargo test -p escode-host-rpc --lib task_index_syncer`   | 9 passed                                    |
 | `cargo test -p escode-host-rpc`                           | 通过（lib + 全部集成测试）                  |
 | `pnpm check:escode-host`                                  | 通过（boundaries / 生成资产 / fmt / clippy） |
 | `pnpm typecheck`                                          | 0 error                                     |

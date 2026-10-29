@@ -7,13 +7,16 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use serde_json::json;
 
-use super::tests::next_event;
+use super::tests::{index_wire, next_event, snapshot_payload, summary, wait_for};
 use crate::agent_v4::base::Base;
+use crate::agent_v4::frames::TopicKind;
 use crate::domains_task_support::{LazyIndex, ReadContext};
 use crate::forward::RuntimePolicy;
 use crate::task_index_syncer::{Ingest, Workspace};
 use crate::task_targets::TaskTargets;
 use crate::workspace_events::WorkspaceEvents;
+
+use crate::task_index_syncer::topic as sync_topic;
 
 /// embedded runtime 夹具：CLI 会话库预置旧版 `subagent_child` 行与普通会话行，
 /// tasks-index 预置同批存量行，复现「旧版本把 child 写成主列表行」的升级现场。
@@ -159,11 +162,8 @@ fn deleted_flag(index_path: &std::path::Path, task_id: &str) -> bool {
         != 0
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn repair_subagent_rows_soft_deletes_only_cli_confirmed_children() {
-    let (_dir, ingest, mut events, workspace) = ingest_with_legacy_child_rows().await;
-    let workspace_ref = json!({"workspacePath": workspace, "workspaceKey": workspace});
-    // 拉起 embedded runtime：清扫本身走 existing-only，必须先有活实例（生产里由会话触发）。
+/// 拉起 embedded runtime：清扫本身走 existing-only，必须先有活实例（生产里由会话触发）。
+async fn start_runtime(ingest: &Arc<Ingest>, workspace: &str) {
     ingest
         .base
         .call(
@@ -173,11 +173,17 @@ async fn repair_subagent_rows_soft_deletes_only_cli_confirmed_children() {
             json!({
                 "sessionIds": ["child-stale"],
                 "includeArchived": true,
-                "workspace": workspace_ref,
+                "workspace": {"workspacePath": workspace, "workspaceKey": workspace},
             }),
         )
         .await
         .expect("embedded runtime answers session/list");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn repair_subagent_rows_soft_deletes_only_cli_confirmed_children() {
+    let (_dir, ingest, mut events, workspace) = ingest_with_legacy_child_rows().await;
+    start_runtime(&ingest, &workspace).await;
 
     // 首帧可见集合只含 child-visible；child-stale 是旧版本遗留的主列表行。
     let visible: std::collections::BTreeSet<String> = ["child-visible".to_owned()].into();
@@ -210,4 +216,33 @@ async fn repair_subagent_rows_soft_deletes_only_cli_confirmed_children() {
             .is_err(),
         "重复清扫必须是 no-op"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn first_snapshot_dispatches_repair_and_broadcasts_list_change() {
+    let (_dir, ingest, mut events, workspace) = ingest_with_legacy_child_rows().await;
+    start_runtime(&ingest, &workspace).await;
+    sync_topic::set_subscription_for_tests(&ingest, TopicKind::SessionsIndex, "sub-1", "e1");
+    // 夹具的 topic 固定为 `/w`；本用例的 workspace 是临时目录，帧必须带真实 topic 才会入队。
+    let topic = format!("sessions-index/{workspace}");
+    let mut wire = index_wire(
+        "sub-1",
+        0,
+        1,
+        "initial",
+        snapshot_payload(vec![summary("child-visible", "running", "首条输入")]),
+    );
+    wire["topic"] = json!(topic);
+    wire["frame"]["topic"] = json!(topic);
+    sync_topic::handle_wire(&ingest, TopicKind::SessionsIndex, &wire);
+    // 首帧之后由 syncer 自己触发清扫（不是测试直接调用 repair）。
+    wait_for(
+        || deleted_flag(&ingest.read.path, "child-stale").then_some(()),
+        "first-snapshot subagent sweep",
+    )
+    .await;
+    assert!(!deleted_flag(&ingest.read.path, "child-visible"));
+    assert!(!deleted_flag(&ingest.read.path, "interactive-stale"));
+    let event = next_event(&mut events, "task_meta_changed").await;
+    assert_eq!(event["workspacePath"], workspace);
 }
