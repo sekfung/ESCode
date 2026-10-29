@@ -1,0 +1,21 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-sidebar/useSavedWorkflowProjectOptions.ts	packages/ui/src/project-sidebar/useSavedWorkflowProjectOptions.ts	new	1219 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-sidebar/useSavedWorkflowProjectOptions.ts	packages/ui/src/project-sidebar/useSavedWorkflowProjectOptions.ts	new	1219 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/contract.example.ts	packages/ui/src/project-workflow/contract.example.ts	new	310 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/contract.example.ts	packages/ui/src/project-workflow/contract.example.ts	new	310 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/src/project-workflow/contract.test.ts	packages/ui/src/project-workflow/contract.test.ts	new	438 bytes
+created	W4	import-test	ui	test	A	packages/ui/src/project-workflow/contract.test.ts	packages/ui/src/project-workflow/contract.test.ts	new	438 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/contract.ts	packages/ui/src/project-workflow/contract.ts	new	2120 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/contract.ts	packages/ui/src/project-workflow/contract.ts	new	2120 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/module.ts	packages/ui/src/project-workflow/module.ts	new	442 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/module.ts	packages/ui/src/project-workflow/module.ts	new	442 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/useWorkflowRunSave.ts	packages/ui/src/project-workflow/useWorkflowRunSave.ts	new	6249 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/useWorkflowRunSave.ts	packages/ui/src/project-workflow/useWorkflowRunSave.ts	new	6249 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/WorkflowRunPaneSaveSlots.tsx	packages/ui/src/project-workflow/WorkflowRunPaneSaveSlots.tsx	new	3568 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/WorkflowRunPaneSaveSlots.tsx	packages/ui/src/project-workflow/WorkflowRunPaneSaveSlots.tsx	new	3568 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/WorkflowRunSaveControls.tsx	packages/ui/src/project-workflow/WorkflowRunSaveControls.tsx	new	12491 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-workflow/WorkflowRunSaveControls.tsx	packages/ui/src/project-workflow/WorkflowRunSaveControls.tsx	new	12491 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/settings/automationWorkspaceOptions.ts	packages/ui/src/settings/automationWorkspaceOptions.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/settings/automationWorkspaceOptions.ts	packages/ui/src/settings/automationWorkspaceOptions.ts	present	clean
+would-merge	W4	import-test	ui	test	M	packages/ui/test/automationWorkspaceOptions.test.ts	packages/ui/test/automationWorkspaceOptions.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/automationWorkspaceOptions.test.ts	packages/ui/test/automationWorkspaceOptions.test.ts	present	clean

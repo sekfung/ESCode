@@ -1,0 +1,431 @@
+import { RemoteConnectionSelection } from "@/remote-connection/RemoteConnectionSelection.js";
+import { usePublishRemoteConnectionProgress } from "@/remote-connection-flow/ui/RemoteConnectionProgress.js";
+import { useEffect, useRef, type ReactNode } from "react";
+import type { VariantProps } from "class-variance-authority";
+import {
+  TID_SSH_CONNECT_TRIGGER,
+  TID_SSH_DIALOG,
+  TID_SSH_ERROR,
+  TID_SSH_SUCCESS,
+} from "@escode/shared/test-ids";
+import { AlertTriangleIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button.js";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog.js";
+import { useESCodeIntl } from "@/i18n/IntlProvider.js";
+import {
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+  getRemoteConnectionCompletionDialogState,
+  getRemoteConnectionDirectoryFailureState,
+  isRemoteConnectionFlowActive,
+  shouldResetRemoteConnectionOnOpen,
+} from "@/lib/remoteConnectionDialogState.js";
+import { logger } from "@/logger.js";
+=======
+  useRemoteConnectionFlow,
+  type RemoteConnectionFlowOptions,
+} from "@/remote-connection-flow/index.js";
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+import {
+  RemoteConnectionConnectingStep,
+  RemoteConnectionDirectoryStep,
+  RemoteConnectionSettingsStep,
+} from "@/RemoteConnectionDialogContent.js";
+import { RemoteConnectionWizardHeader } from "@/RemoteConnectionWizardChrome.js";
+
+interface RemoteConnectionDialogProps extends RemoteConnectionFlowOptions {
+  trigger?: ReactNode;
+  triggerVariant?: VariantProps<typeof buttonVariants>["variant"];
+  triggerSize?: VariantProps<typeof buttonVariants>["size"];
+  triggerClassName?: string;
+  hideTriggerWhenClosed?: boolean;
+  allowBackground?: boolean;
+}
+
+export function RemoteConnectionDialog(props: RemoteConnectionDialogProps) {
+  const {
+    trigger,
+    triggerVariant = "outline",
+    triggerSize = "sm",
+    triggerClassName,
+    hideTriggerWhenClosed = false,
+    allowBackground = true,
+  } = props;
+  const { intl } = useESCodeIntl();
+  const flow = useRemoteConnectionFlow(props);
+  const { open, currentStep, error, handleOpenChange } = flow;
+  usePublishRemoteConnectionProgress(flow.minimizedProgress);
+  const screenRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+    onFlowActiveChange?.(flowActive);
+  }, [flowActive, onFlowActiveChange]);
+
+  const updateConnectingRequestId = useCallback(
+    (requestId: string | null) => {
+      setConnectingRequestId(requestId);
+      onFlowRequestIdChange?.(requestId);
+    },
+    [onFlowRequestIdChange],
+  );
+
+  const applyOpenState = (nextOpen: boolean) => {
+    onOpenChange?.(nextOpen);
+    if (controlledOpen === undefined) {
+      setUncontrolledOpen(nextOpen);
+    }
+  };
+
+  const resetFeedback = () => {
+    setError("");
+    setValidationMessage("");
+  };
+
+  const resetDirectorySelectionState = useCallback(() => {
+    selectingDirectoryRef.current = false;
+    setSelectingDirectory(false);
+  }, []);
+
+  const handleCancelSession = useCallback(
+    async (sessionId: string) => {
+      try {
+        await onCancelSession(sessionId);
+      } catch (sessionError) {
+        logger.warn("[SSHDialog] 释放未确认的远程 session 失败:", {
+          sessionId,
+          error: sessionError,
+        });
+      }
+    },
+    [onCancelSession],
+  );
+
+  const closeDialog = useCallback(
+    (options?: { preserveSession?: boolean }) => {
+      const sessionId = connectedSessionId;
+      if (!options?.preserveSession && sessionId) {
+        void handleCancelSession(sessionId);
+      } else if (!options?.preserveSession && loading && currentStep === "connecting") {
+        // 连接过程里 sessionId 尚未返回时，关闭弹窗会只重置 UI；这里补上显式取消，确保后台下载同步停止。
+        void cancelPendingRemoteConnection(connectingRequestId ?? undefined);
+      }
+      resetFeedback();
+      setLoading(false);
+      resetDirectorySelectionState();
+      resetConnectionLogs();
+      setCurrentStep("kind");
+      setConnectedSessionId(null);
+      setPendingRemoteTarget(null);
+      updateConnectingRequestId(null);
+      applyOpenState(false);
+    },
+    [
+      cancelPendingRemoteConnection,
+      connectedSessionId,
+      connectingRequestId,
+      currentStep,
+      handleCancelSession,
+      loading,
+      resetDirectorySelectionState,
+      updateConnectingRequestId,
+    ],
+  );
+
+  const confirmRemoteFlowDiscard = useCallback(async () => {
+    if (currentStep === "connecting" && loading) {
+      return confirmDialog({
+        title: intl.formatMessage({ id: "remote.connectingConfirmTitle" }),
+        description: intl.formatMessage({
+          id: "remote.connectingConfirmDescription",
+        }),
+        confirmLabel: intl.formatMessage({ id: "remote.stopConnecting" }),
+        cancelLabel: intl.formatMessage({ id: "common.cancel" }),
+      });
+    }
+    if (!connectedSessionId) {
+      return true;
+    }
+    return confirmDialog({
+      title: intl.formatMessage({ id: "remote.connectedConfirmTitle" }),
+      description: intl.formatMessage({
+        id: "remote.connectedConfirmDescription",
+      }),
+      confirmLabel: intl.formatMessage({ id: "remote.leaveConnectedSession" }),
+      cancelLabel: intl.formatMessage({ id: "common.cancel" }),
+    });
+  }, [confirmDialog, connectedSessionId, currentStep, intl, loading]);
+
+  const handleCloseRequest = useCallback(async () => {
+    const confirmed = await confirmRemoteFlowDiscard();
+    if (!confirmed) {
+      return;
+    }
+    closeDialog();
+  }, [closeDialog, confirmRemoteFlowDiscard]);
+
+  const startRemoteConnection = async (target: RemoteTarget) => {
+    const nextTarget = withDefaultRemoteResourcePackages(target);
+
+    if (loading) {
+      // React 还没来得及把按钮置 disabled 时，快速重复点击会启动多个 SSH host process。
+      // 这里在事件入口再做一次并发保护，避免同一个 dialog 产生多条部署流并把上传进度混在一起。
+      return;
+    }
+
+    setPendingRemoteTarget(nextTarget);
+    setLoading(true);
+    const requestId = createUuid();
+    updateConnectingRequestId(requestId);
+    resetFeedback();
+    resetConnectionLogs();
+    setCurrentStep("connecting");
+    try {
+      const sessionId = await onConnect(nextTarget, requestId);
+      const completionState = getRemoteConnectionCompletionDialogState("success");
+      setConnectedSessionId(sessionId);
+      setCurrentStep(completionState.step);
+      applyOpenState(completionState.open);
+    } catch (connectError) {
+      const completionState = getRemoteConnectionCompletionDialogState("error");
+      const errorMessage = getErrorMessage(connectError);
+      setError(errorMessage);
+      setCurrentStep(completionState.step);
+      applyOpenState(completionState.open);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (loading) {
+      // React 还没来得及把按钮置 disabled 时，快速重复点击会启动多个 SSH host process。
+      // 这里在事件入口再做一次并发保护，避免同一个 dialog 产生多条部署流并把上传进度混在一起。
+      return;
+    }
+
+    const { target: nextTarget, errorMessage } = buildRemoteTarget(intl, {
+      kind,
+      host,
+      port,
+      username,
+      sshAuthMethod,
+      assetInstallMode,
+      password,
+      privateKeyPath,
+      privateKeyPassphrase,
+      selectedSshConfigAlias,
+      wslDistro,
+      wslUser,
+      dockerContainer,
+      manualDockerContainer,
+      serverUrl,
+      serverName,
+      serverToken,
+      serverWorkspacePath,
+    });
+    if (!nextTarget) {
+      // 必填项缺失属于表单校验，不应该和真实连接失败共用 destructive 错误样式。
+      // 这里单独落到 settings 步骤内的 warning 提示，用户能更快理解是“缺少输入”而不是“连接出错”。
+      setValidationMessage(errorMessage ?? "Connection failed");
+      return;
+    }
+
+    resetFeedback();
+    setPendingRemoteTarget(nextTarget);
+    await startRemoteConnection(nextTarget);
+  };
+
+  const handleStartPendingRemoteConnection = useCallback(() => {
+    if (!pendingRemoteTarget) {
+      void handleConnect();
+      return;
+    }
+
+    void startRemoteConnection(pendingRemoteTarget);
+  }, [handleConnect, pendingRemoteTarget, startRemoteConnection]);
+
+  const handleBackToConnection = useCallback(async () => {
+    if (!connectedSessionId) {
+      return;
+    }
+
+    resetFeedback();
+    try {
+      await onCancelSession(connectedSessionId);
+      setConnectedSessionId(null);
+      updateConnectingRequestId(null);
+      resetConnectionLogs();
+      setCurrentStep("settings");
+    } catch (sessionError) {
+      setError(getErrorMessage(sessionError));
+    }
+  }, [connectedSessionId, onCancelSession, updateConnectingRequestId]);
+
+  const handleSelectDirectory = useCallback(
+    async (path: string) => {
+      if (!connectedSessionId || selectingDirectoryRef.current) {
+        return;
+      }
+
+      // 选中远程目录后还要做 realpath、provider 同步、session 持久化和任务列表刷新。
+      // 这些异步步骤之前没有独立的提交中状态，用户会看到按钮无响应；这里在入口设置状态并用 ref 防重复提交。
+      selectingDirectoryRef.current = true;
+      setSelectingDirectory(true);
+      resetFeedback();
+      try {
+        await onSelectProject(connectedSessionId, path, localWorkspacePath);
+        resetConnectionLogs();
+        setCurrentStep("kind");
+        setConnectedSessionId(null);
+        setPendingRemoteTarget(null);
+        updateConnectingRequestId(null);
+        applyOpenState(false);
+      } catch (selectionError) {
+        const failureState = getRemoteConnectionDirectoryFailureState({
+          connectedSessionId,
+          // 事件处理器只在失败时读取一次最新 snapshot，避免为了回调判断新增重复 Zustand 订阅。
+          sessionStillRegistered: Boolean(
+            useRemoteWorkspaceSessionStore.getState().sessionsById[connectedSessionId],
+          ),
+        });
+        if (!failureState.connectedSessionId) {
+          setConnectedSessionId(null);
+          setCurrentStep(failureState.step);
+          updateConnectingRequestId(null);
+        }
+        setError(getErrorMessage(selectionError));
+      } finally {
+        resetDirectorySelectionState();
+      }
+    },
+    [
+      connectedSessionId,
+      localWorkspacePath,
+      onSelectProject,
+      resetDirectorySelectionState,
+      updateConnectingRequestId,
+    ],
+  );
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      if (shouldResetRemoteConnectionOnOpen(flowSnapshot)) {
+        resetFeedback();
+        resetConnectionLogs();
+        setCurrentStep("kind");
+        setPendingRemoteTarget(null);
+      }
+      applyOpenState(true);
+      return;
+    }
+
+    void handleCloseRequest();
+  };
+
+  const stepCopy = getRemoteWizardStepCopy(intl, currentStep, kind);
+=======
+    if (!open) return;
+    // 优先保留凭据等待点主动聚焦的字段；否则焦点随新屏移动。
+    if (screenRef.current?.contains(document.activeElement)) return;
+    screenRef.current
+      ?.querySelector<HTMLElement>('input:not(:disabled), button:not(:disabled), [tabindex="0"]')
+      ?.focus();
+  }, [open, currentStep]);
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+
+  return (
+    <>
+      {!hideTriggerWhenClosed ? (
+        <Button
+          type="button"
+          variant={triggerVariant}
+          size={triggerSize}
+          onClick={() => flow.handleOpenChange(true)}
+          data-testid={TID_SSH_CONNECT_TRIGGER}
+          className={triggerClassName}
+        >
+          {trigger ?? intl.formatMessage({ id: "remote.trigger" })}
+        </Button>
+      ) : null}
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        {/* 上边缘固定在视口 10% 处，切换类型或认证方式时只向下伸缩，不再上下跳（RDUX-27）。 */}
+        <DialogContent
+          showCloseButton={false}
+          className="top-[10vh] flex max-h-[calc(90dvh-1rem)] w-[calc(100vw-2rem)] max-w-2xl translate-y-0 flex-col overflow-hidden rounded-2xl p-0"
+        >
+          <div data-testid={TID_SSH_DIALOG} className="flex min-h-0 flex-col overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-6">
+              <DialogHeader className="space-y-2">
+                <RemoteConnectionWizardHeader
+                  {...flow.header}
+                  onMinimize={allowBackground ? flow.header.onMinimize : undefined}
+                />
+              </DialogHeader>
+
+              {error && currentStep !== "connecting" ? (
+                <div
+                  data-testid={TID_SSH_ERROR}
+                  // 远程连接的错误提示以前直接拼接颜色 token，和全局状态反馈样式不一致。
+                  // 这里统一改成 destructive 语义色对，避免 SSH/Docker 两种模式出现不同的错误视觉。
+                  className="flex items-start gap-3 rounded-md bg-destructive-surface px-3 py-3 text-ui-sm text-destructive-surface-foreground"
+                >
+                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
+                  {error}
+                </div>
+              ) : null}
+
+              <div ref={screenRef} className="flex w-full min-h-0 flex-col">
+                {currentStep === "device" ? (
+                  <RemoteConnectionSelection {...flow.selectionStep} />
+                ) : null}
+
+                {currentStep === "settings" ? (
+                  <RemoteConnectionSettingsStep {...flow.settingsStep} />
+                ) : null}
+
+                {currentStep === "connecting" ? (
+                  <RemoteConnectionConnectingStep
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+                    logs={connectionLogs}
+                    errorMessage={error}
+                    loading={loading}
+                    onBack={() => {
+                      void (async () => {
+                        const confirmed = await confirmRemoteFlowDiscard();
+                        if (!confirmed) {
+                          return;
+                        }
+
+                        if (loading) {
+                          await cancelPendingRemoteConnection(connectingRequestId ?? undefined);
+                          setLoading(false);
+                        }
+                        resetFeedback();
+                        updateConnectingRequestId(null);
+                        setCurrentStep("settings");
+                      })();
+                    }}
+                    onRetry={() => {
+                      handleStartPendingRemoteConnection();
+                    }}
+=======
+                    {...flow.connectingStep}
+                    onMinimize={allowBackground ? flow.connectingStep.onMinimize : undefined}
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+                  />
+                ) : null}
+
+                {currentStep === "directory" ? (
+                  <div data-testid={TID_SSH_SUCCESS} className="flex min-h-0 flex-col">
+                    <RemoteConnectionDirectoryStep {...flow.directoryStep} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export const SSHDialog = RemoteConnectionDialog;

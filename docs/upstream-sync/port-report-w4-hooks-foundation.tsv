@@ -1,0 +1,7 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+conflict	W4	port-shared	ui	src	M	packages/ui/src/hooks/useAutomationProjectOptions.ts	packages/ui/src/hooks/useAutomationProjectOptions.ts	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/hooks/useServices.tsx	packages/ui/src/hooks/useServices.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/hooks/useServices.tsx	packages/ui/src/hooks/useServices.tsx	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/hooks/useSettingService.ts	packages/ui/src/hooks/useSettingService.ts	present	三方合并冲突 x3
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/hooks/useWorkspaceServices.tsx	packages/ui/src/hooks/useWorkspaceServices.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/hooks/useWorkspaceServices.tsx	packages/ui/src/hooks/useWorkspaceServices.tsx	present	clean

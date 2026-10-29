@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { createESCodeTaskServiceAdapter } from "../packages/services/src/escode-agent/escodeTaskServiceAdapter.ts";
 import { TaskIndexRepo } from "../packages/services/src/session/taskIndexRepo.ts";
 import { prepareTasksIndexStorage } from "../packages/services/src/storage-startup.ts";
+import { migrateProjectStorage } from "./upstream-sync/project-storage-oracle/project-migrate.ts";
 import { createWindowHostControllerRuntime } from "../packages/desktop/src/host/windowHostControllerService.ts";
 
 const WORKSPACE_PATH = "/tmp/escode-controller-oracle-workspace";
@@ -153,6 +154,14 @@ async function script(driver: Driver): Promise<Record<string, unknown>> {
 const base = await mkdtemp(join(tmpdir(), "rusthost-window-controller-golden-"));
 const db = join(base, "tasks-index.sqlite");
 await prepareTasksIndexStorage(db, () => {});
+// Rust Host 同时校验 tasks 与 project 账本；golden 种子库也要走真实 project 迁移。
+{
+  const projectDb = new (await import("node:sqlite")).DatabaseSync(db);
+  await migrateProjectStorage(projectDb, {
+    backupDirectories: [new URL(".", import.meta.url).pathname],
+  });
+  projectDb.close();
+}
 const seedRepo = new TaskIndexRepo(db);
 await seedRepo.ensureReady();
 for (const seed of SEEDS) {

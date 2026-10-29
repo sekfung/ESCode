@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { AutomationService } from "../packages/services/src/session/automationService.ts";
 import { AutomationRepo } from "../packages/services/src/session/automationRepo.ts";
 import { prepareTasksIndexStorage } from "../packages/services/src/storage-startup.ts";
+import { migrateProjectStorage } from "./upstream-sync/project-storage-oracle/project-migrate.ts";
 
 const WORKSPACE_PATH = "/tmp/escode-automation-parity-oracle";
 const scope = { workspacePath: WORKSPACE_PATH, workspaceIdentity: WORKSPACE_PATH };
@@ -54,6 +55,14 @@ function normalize(value: unknown, labels: Map<string, string>): unknown {
 const base = await mkdtemp(join(tmpdir(), "rusthost-automation-parity-golden-"));
 const db = join(base, "tasks-index.sqlite");
 await prepareTasksIndexStorage(db, () => {});
+// Rust Host 同时校验 tasks 与 project 账本；golden 种子库也要走真实 project 迁移。
+{
+  const projectDb = new (await import("node:sqlite")).DatabaseSync(db);
+  await migrateProjectStorage(projectDb, {
+    backupDirectories: [new URL(".", import.meta.url).pathname],
+  });
+  projectDb.close();
+}
 const repo = new AutomationRepo(db);
 const service = new AutomationService(repo);
 

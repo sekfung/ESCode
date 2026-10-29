@@ -266,6 +266,8 @@ export interface ESCodeSessionStoreState {
       projectId?: string | null;
       taskGroupId?: string | null;
       createSource?: SessionCreateSource;
+      /** 新建草稿的项目归属；store 批次迁移前由调用方保留，暂不落草稿。 */
+      projectId?: string | null;
     },
   ) => void;
   bindRuntimeProvider: (

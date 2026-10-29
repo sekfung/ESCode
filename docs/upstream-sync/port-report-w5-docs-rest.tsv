@@ -1,0 +1,24 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W5	adopt-docs	cli	doc	A	apps/zcode-cli/docs/usage/05-permissions.md	apps/escode-cli/docs/usage/05-permissions.md	new	1067 bytes
+created	W5	adopt-docs	cli	doc	A	apps/zcode-cli/docs/usage/05-permissions.md	apps/escode-cli/docs/usage/05-permissions.md	new	1067 bytes
+conflict	W5	adopt-docs	other	doc	M	docs/architecture/r2-server-cli-and-daemon-test-plan.md	docs/architecture/r2-server-cli-and-daemon-test-plan.md	present	三方合并冲突 x1
+would-create	W5	adopt-docs	other	doc	A	docs/archive/remote-r3/r3-remote-ui-prototype-gap-audit.md	docs/archive/remote-r3/r3-remote-ui-prototype-gap-audit.md	new	277 bytes
+created	W5	adopt-docs	other	doc	A	docs/archive/remote-r3/r3-remote-ui-prototype-gap-audit.md	docs/archive/remote-r3/r3-remote-ui-prototype-gap-audit.md	new	277 bytes
+would-create	W5	adopt-docs	other	doc	A	docs/cua/producer/capture-app-timeout-diagnostics.md	docs/cua/producer/capture-app-timeout-diagnostics.md	new	1177 bytes
+created	W5	adopt-docs	other	doc	A	docs/cua/producer/capture-app-timeout-diagnostics.md	docs/cua/producer/capture-app-timeout-diagnostics.md	new	1177 bytes
+would-create	W5	adopt-docs	other	doc	A	docs/design/r3-remote-ui-redesign.md	docs/design/r3-remote-ui-redesign.md	new	747 bytes
+created	W5	adopt-docs	other	doc	A	docs/design/r3-remote-ui-redesign.md	docs/design/r3-remote-ui-redesign.md	new	747 bytes
+would-merge	W5	adopt-docs	other	doc	M	docs/remote/server-remote-workspace-connection.md	docs/remote/server-remote-workspace-connection.md	present	clean
+merged	W5	adopt-docs	other	doc	M	docs/remote/server-remote-workspace-connection.md	docs/remote/server-remote-workspace-connection.md	present	clean
+would-merge	W5	adopt-docs	other	doc	M	docs/ui/ssh-config-alias.md	docs/ui/ssh-config-alias.md	present	clean
+merged	W5	adopt-docs	other	doc	M	docs/ui/ssh-config-alias.md	docs/ui/ssh-config-alias.md	present	clean
+conflict	W5	adopt-docs	other	doc	M	docs/ui/ssh-remote-workspace-tooltip.md	docs/ui/ssh-remote-workspace-tooltip.md	present	三方合并冲突 x1
+would-merge	W5	adopt-docs	other	doc	M	docs/ui/task-grouped-view.md	docs/ui/task-grouped-view.md	present	clean
+merged	W5	adopt-docs	other	doc	M	docs/ui/task-grouped-view.md	docs/ui/task-grouped-view.md	present	clean
+conflict	W5	adopt-docs	other	doc	M	docs/v4-refactor/17-cold-resume-runtime-activation.md	docs/v4-refactor/17-cold-resume-runtime-activation.md	present	三方合并冲突 x2
+would-merge	W5	adopt-docs	other	doc	M	docs/v4-refactor/m5-composer-parity.md	docs/v4-refactor/m5-composer-parity.md	present	clean
+merged	W5	adopt-docs	other	doc	M	docs/v4-refactor/m5-composer-parity.md	docs/v4-refactor/m5-composer-parity.md	present	clean
+would-merge	W5	adopt-docs	other	doc	M	docs/zcode-env-consolidation.md	docs/escode-env-consolidation.md	present	clean
+merged	W5	adopt-docs	other	doc	M	docs/zcode-env-consolidation.md	docs/escode-env-consolidation.md	present	clean
+would-create	W5	adopt-docs	project-data	doc	A	packages/services/src/project/CONTRACT.md	packages/services/src/project/CONTRACT.md	new	2266 bytes
+created	W5	adopt-docs	project-data	doc	A	packages/services/src/project/CONTRACT.md	packages/services/src/project/CONTRACT.md	new	2266 bytes

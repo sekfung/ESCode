@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createFileService } from "../packages/services/src/node.ts";
 import { prepareTasksIndexStorage } from "../packages/services/src/storage-startup.ts";
 import { TaskIndexRepo } from "../packages/services/src/session/taskIndexRepo.ts";
+import { migrateProjectStorage } from "./upstream-sync/project-storage-oracle/project-migrate.ts";
 
 const root = await mkdtemp(join(tmpdir(), "rusthost-rpc-golden-"));
 const corpus = join(root, "corpus");
@@ -47,6 +48,14 @@ const readdir = {
 const dataBaseDir = join(root, "data-base");
 const sqlitePath = join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite");
 await prepareTasksIndexStorage(sqlitePath, () => {});
+// Rust Host 同时校验 tasks 与 project 两个迁移账本；golden 库也必须走真实 project 迁移。
+{
+  const projectDb = new (await import("node:sqlite")).DatabaseSync(sqlitePath);
+  await migrateProjectStorage(projectDb, {
+    backupDirectories: [join(dataBaseDir, ".escode", "v2", "backup")],
+  });
+  projectDb.close();
+}
 const repo = new TaskIndexRepo(sqlitePath);
 await repo.ensureReady();
 const seeded = [

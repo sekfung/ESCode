@@ -1,0 +1,20 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/mentions/components/ContextMentionOptionContent.tsx	packages/ui/src/mentions/components/ContextMentionOptionContent.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/mentions/components/ContextMentionOptionContent.tsx	packages/ui/src/mentions/components/ContextMentionOptionContent.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/mentions/components/MentionPanel.tsx	packages/ui/src/mentions/components/MentionPanel.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/mentions/components/MentionPanel.tsx	packages/ui/src/mentions/components/MentionPanel.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/mentions/MentionPlugin.tsx	packages/ui/src/mentions/MentionPlugin.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/mentions/MentionPlugin.tsx	packages/ui/src/mentions/MentionPlugin.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/mentions/mentionTypes.ts	packages/ui/src/mentions/mentionTypes.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/mentions/mentionTypes.ts	packages/ui/src/mentions/mentionTypes.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/mentions/providers/fileMentionProvider.ts	packages/ui/src/mentions/providers/fileMentionProvider.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/mentions/providers/fileMentionProvider.ts	packages/ui/src/mentions/providers/fileMentionProvider.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/mentions/providers/sessionsMentionProvider.ts	packages/ui/src/mentions/providers/sessionsMentionProvider.ts	present	三方合并冲突 x3
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/types.ts	packages/ui/src/workspace-file-tree/types.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/types.ts	packages/ui/src/workspace-file-tree/types.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/useWorkspaceFileTreeData.ts	packages/ui/src/workspace-file-tree/useWorkspaceFileTreeData.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/useWorkspaceFileTreeData.ts	packages/ui/src/workspace-file-tree/useWorkspaceFileTreeData.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/WorkspaceFileTree.tsx	packages/ui/src/workspace-file-tree/WorkspaceFileTree.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/WorkspaceFileTree.tsx	packages/ui/src/workspace-file-tree/WorkspaceFileTree.tsx	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/WorkspaceFileTreeRowView.tsx	packages/ui/src/workspace-file-tree/WorkspaceFileTreeRowView.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/workspace-file-tree/WorkspaceFileTreeRowView.tsx	packages/ui/src/workspace-file-tree/WorkspaceFileTreeRowView.tsx	present	clean

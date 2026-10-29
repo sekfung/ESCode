@@ -1,0 +1,31 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+conflict	W4	port-shared	ui	src	M	packages/ui/src/lib/builtinSkillI18n.ts	packages/ui/src/lib/builtinSkillI18n.ts	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/composerRecent.ts	packages/ui/src/lib/composerRecent.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/composerRecent.ts	packages/ui/src/lib/composerRecent.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/conversationSelectionReference.ts	packages/ui/src/lib/conversationSelectionReference.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/conversationSelectionReference.ts	packages/ui/src/lib/conversationSelectionReference.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/exploreToolCall.ts	packages/ui/src/lib/exploreToolCall.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/exploreToolCall.ts	packages/ui/src/lib/exploreToolCall.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/modelSelectionGroups.ts	packages/ui/src/lib/modelSelectionGroups.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/modelSelectionGroups.ts	packages/ui/src/lib/modelSelectionGroups.ts	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/lib/providerFamilyConnectionTransition.ts	packages/ui/src/lib/providerFamilyConnectionTransition.ts	new	2881 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/lib/providerFamilyConnectionTransition.ts	packages/ui/src/lib/providerFamilyConnectionTransition.ts	new	2881 bytes
+conflict	W4	port-shared	ui	src	M	packages/ui/src/lib/settingsNavigation.ts	packages/ui/src/lib/settingsNavigation.ts	present	三方合并冲突 x3
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/sidebarPurposeSectionPreferences.ts	packages/ui/src/lib/sidebarPurposeSectionPreferences.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/sidebarPurposeSectionPreferences.ts	packages/ui/src/lib/sidebarPurposeSectionPreferences.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/lib/taskListMetaSync.ts	packages/ui/src/lib/taskListMetaSync.ts	present	三方合并冲突 x3
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/taskListOrdering.ts	packages/ui/src/lib/taskListOrdering.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/taskListOrdering.ts	packages/ui/src/lib/taskListOrdering.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/taskSidePaneMemory.ts	packages/ui/src/lib/taskSidePaneMemory.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/taskSidePaneMemory.ts	packages/ui/src/lib/taskSidePaneMemory.ts	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/lib/taskSourceAttribution.ts	packages/ui/src/lib/taskSourceAttribution.ts	new	1357 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/lib/taskSourceAttribution.ts	packages/ui/src/lib/taskSourceAttribution.ts	new	1357 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/toolDisplay.ts	packages/ui/src/lib/toolDisplay.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/toolDisplay.ts	packages/ui/src/lib/toolDisplay.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/toolIdentity.ts	packages/ui/src/lib/toolIdentity.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/toolIdentity.ts	packages/ui/src/lib/toolIdentity.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/treemappingActivity.ts	packages/ui/src/lib/treemappingActivity.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/treemappingActivity.ts	packages/ui/src/lib/treemappingActivity.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/lib/workspaceSidePane.ts	packages/ui/src/lib/workspaceSidePane.ts	present	三方合并冲突 x3
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/zcodeDraftSkillInvalidation.ts	packages/ui/src/lib/escodeDraftSkillInvalidation.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/zcodeDraftSkillInvalidation.ts	packages/ui/src/lib/escodeDraftSkillInvalidation.ts	present	clean

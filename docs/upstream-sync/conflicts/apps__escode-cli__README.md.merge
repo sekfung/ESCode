@@ -1,0 +1,220 @@
+# ESCode CLI
+
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+TypeScript + Node.js 24.14.0 CLI starter. The default artifact is a normal Node CLI bundle, and SEA is kept as an optional packaging path.
+
+## Why This Shape
+
+- Runtime code has zero production dependencies.
+- The CLI uses Node built-ins for argument parsing and terminal control.
+- `npm run build` produces `dist/escode.cjs`, which works anywhere Node.js 24.14.0 is installed.
+- `npm run sea` attempts to turn that same bundle into a single executable.
+- If SEA breaks on a platform, the normal CLI artifact is still the fallback.
+
+## Commands
+
+```sh
+npm run bootstrap
+npm run dev -- --help
+npm run build
+npm run start -- doctor --json
+npm test
+npm run sea
+npm run sea -- --target linux-x64 --target win-x64
+npm run sea -- --all
+```
+
+## Project Layout
+
+```txt
+src/
+  cli/       command parsing and process wiring
+  core/      reusable runtime logic
+  ui/        terminal UI layer
+scripts/    build and optional SEA packaging scripts
+tests/      subprocess-level CLI tests
+```
+
+## Bootstrap
+
+Run `npm run bootstrap` after cloning the repository. It checks the local Node.js version, installs dependencies, and runs the full project check.
+
+## Plugin Development
+
+escode plugins are local bundles that can contribute skills, custom commands, and MCP servers. The plugin surface is compatible with the Claude Code plugin layout, so existing plugin content can be reused with minimal changes.
+
+Plugin state lives under `~/.escode/cli/plugins`:
+
+- `cache/`: installed marketplace plugin code and static files.
+- `data/<plugin-id>/`: persistent plugin data. MCP servers should write runtime output here, not into the plugin source directory.
+- `marketplaces/zcode-plugins-official/`: bundled and CDN partitions plus the merged metadata for the single official marketplace.
+
+This repository also ships built-in official plugins as workspace packages. The bundled Browser Use, Document Skills, Skill Creator, and ESCode Guide content plugins are default-enabled and appear as `browser-use@zcode-plugins-official`, `document-skills@zcode-plugins-official`, `skill-creator@zcode-plugins-official`, and `escode-guide@zcode-plugins-official`. Runtime-heavy official plugins, and local-data migration plugins such as `ios-simulator@zcode-plugins-official`, `android-emulator@zcode-plugins-official`, and `restore-legacy-sessions@zcode-plugins-official`, are discovered by escode but stay disabled until the user enables them.
+
+```sh
+escode plugins list
+escode plugins enable ios-simulator
+escode plugins disable browser-use
+escode plugins enable restore-legacy-sessions
+escode plugins disable ios-simulator
+```
+
+For local plugin development, put the plugin in any directory, then add it to the user config. Local plugin dirs default to enabled for that config.
+
+```json
+{
+  "plugins": {
+    "enabled": true,
+    "dirs": ["/absolute/path/to/my-plugin"]
+  }
+}
+```
+
+### Manifest Compatibility
+
+escode discovers the first manifest that exists:
+
+1. `.escode-plugin/plugin.json`
+2. `.claude-plugin/plugin.json`
+
+`.escode-plugin/plugin.json` uses the same field names as Claude Code. Use it only when escode needs different metadata or runtime wiring. If the Claude manifest already works, a plugin can ship only `.claude-plugin/plugin.json`.
+
+MCP config can live directly in `.escode-plugin/plugin.json` through `mcpServers`. This is useful when the Claude-compatible `.mcp.json` points at a different runtime, such as Bun source files, while escode should run a built Node.js server from `dist/`. A plugin may provide both `.mcp.json` and manifest `mcpServers`; when the same server name appears in both places, `mcpServers` from the selected manifest wins.
+
+Supported fields in the current escode plugin surface:
+
+- `name`, `version`, `description`, `author`, `license`
+- `skills`: relative folder or folders containing `SKILL.md` files
+- `commands`: relative folder or folders containing markdown custom commands
+- `mcpServers`: inline MCP server config, or a relative path to one
+- `userConfig`: option defaults used by `${user_config.key}` expansion
+
+Example `.escode-plugin/plugin.json` with inline MCP config:
+
+```json
+{
+  "name": "ios-simulator",
+  "version": "0.1.0",
+  "skills": "skills",
+  "commands": "commands",
+  "mcpServers": {
+    "ios-simulator": {
+      "command": "node",
+      "args": ["${ESCODE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "cwd": "${ESCODE_PROJECT_DIR}",
+      "env": {
+        "PLUGIN_DATA": "${ESCODE_PLUGIN_DATA}",
+        "DEFAULT_DEVICE": "${user_config.default_device}"
+      }
+    }
+  },
+  "userConfig": {
+    "default_device": {
+      "type": "string",
+      "default": "iPhone 16"
+    }
+  }
+}
+```
+
+escode also reads plugin `.mcp.json` using Claude Code's wrapper shape. Use this when the same MCP config should be shared by Claude Code and escode:
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp/server.js"]
+    }
+  }
+}
+```
+
+Unsupported Claude plugin fields are ignored with diagnostics rather than executed. This includes `hooks`, `agents`, `outputStyles`, `lspServers`, `channels`, and `dependencies`.
+
+### Variables
+
+Plugin MCP config can use both escode and Claude-compatible variable names:
+
+- `${ESCODE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_ROOT}`
+- `${ESCODE_PLUGIN_DATA}` and `${CLAUDE_PLUGIN_DATA}`
+- `${ESCODE_PROJECT_DIR}` and `${CLAUDE_PROJECT_DIR}`
+- `${user_config.key}`
+- `${ESCODE_SOME_ENV}`
+
+Only environment variables with the `ESCODE_` prefix are expanded. Missing variables disable the affected MCP server and produce a plugin diagnostic.
+
+### Recommended Layout
+
+```txt
+my-plugin/
+  .claude-plugin/plugin.json
+  .escode-plugin/plugin.json
+  .mcp.json
+  skills/
+    my-skill/SKILL.md
+  commands/
+    my-command.md
+  src/
+```
+
+Keep reusable content in Claude-compatible locations. Add a `.escode-plugin/plugin.json` only for escode-specific package names, built artifacts, or command paths. For MCP servers, prefer Node's normal package build and `bin` output when targeting escode-cli, and keep all process/file/network side effects inside the MCP server boundary.
+
+## MCP Configuration
+
+escode reads MCP servers from the main JSON config. The default user config path is `~/.escode/cli/config.json`; MCP entries live under `mcp.servers`. MCP is enabled by default, so `features.mcp` only needs to be set when you want an explicit on/off switch. The current CLI does not auto-discover standalone `mcp.json` or `.mcp.json` files outside enabled plugins.
+
+```json
+{
+  "features": {
+    "mcp": true
+  },
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+        "cwd": ".",
+        "timeoutMs": 30000
+      },
+      "docs": {
+        "type": "http",
+        "url": "https://mcp.example.com/mcp",
+        "headers": {
+          "Authorization": "Bearer <token>"
+        }
+      },
+      "legacy-sse": {
+        "type": "sse",
+        "url": "https://mcp.example.com/sse",
+        "enabled": false
+      }
+    }
+  }
+}
+=======
+ESCode's Agent CLI provides an interactive terminal and non-interactive task execution. It is part of this pnpm workspace; build it from the repository root with the Node and pnpm versions in [mise.toml](../../mise.toml).
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @escode/cli... build
+node apps/escode-cli/packages/cli/dist/zcode.cjs doctor --json
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+```
+
+The default artifact is a Node.js bundle with adjacent runtime resources. SEA packaging is optional. The Agent CLI differs from the root distribution launcher, which also supports Web startup.
+
+See the [CLI usage guide (中文)](docs/usage/README.md) for setup, model configuration, permissions, sessions, MCP, skills, hooks, plugins, and reproducible batch tasks. The guide distinguishes current source behavior from older binaries and documents its verification limits.
+
+Useful entry points:
+
+- [Quick start and packaging](docs/usage/01-quickstart.md)
+- [Model and runtime configuration](docs/usage/03-config.md)
+- [Plugin development](docs/usage/10-plugins.md)
+- [Hooks and workspace trust](docs/usage/09-hooks.md)
+- [Batch tasks and trajectory capture](docs/usage/13-automation.md)
+- [Design specifications](docs/design/v2/)
+- [Contributor instructions](AGENTS.md)
+
+Run `pnpm --filter @escode/cli dev` for source development. CLI code validation follows the contributor instructions; CLI tests are separate from the root unit-test suite.

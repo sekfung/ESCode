@@ -1,0 +1,54 @@
+interface WorkspaceTabIdentityLike {
+  workspacePath: string;
+  remoteSessionId?: string;
+  workspaceIdentity?: string;
+}
+
+interface WorkspaceTabMatchOptions {
+  remoteSessionId?: string;
+  workspaceIdentity?: string;
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+  /** 首次 bind 得到稳定 Source 身份时，旧 route 身份对应的 tab 需要原地 rekey。 */
+=======
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+  previousWorkspaceIdentity?: string;
+}
+
+function hasRemoteTabIdentity(tab: WorkspaceTabIdentityLike): boolean {
+  return Boolean(tab.workspaceIdentity || tab.remoteSessionId);
+}
+
+function isLocalWorkspaceTab(tab: WorkspaceTabIdentityLike): boolean {
+  return !hasRemoteTabIdentity(tab);
+}
+
+export function isSameWorkspaceTab(
+  tab: WorkspaceTabIdentityLike,
+  workspacePath: string,
+  options?: WorkspaceTabMatchOptions,
+): boolean {
+  if (tab.workspacePath !== workspacePath) {
+    return false;
+  }
+
+  if (options?.workspaceIdentity) {
+<<<<<<< /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/ours
+    if (tab.workspaceIdentity === options.workspaceIdentity) return true;
+    return (
+      options.previousWorkspaceIdentity !== undefined &&
+      tab.workspaceIdentity === options.previousWorkspaceIdentity
+=======
+    return (
+      tab.workspaceIdentity === options.workspaceIdentity ||
+      (Boolean(options.previousWorkspaceIdentity) &&
+        tab.workspaceIdentity === options.previousWorkspaceIdentity)
+>>>>>>> /home/sekfung/Projects/ESCode/.git/upstream-sync-tmp/theirs
+    );
+  }
+
+  if (options?.remoteSessionId) {
+    return tab.remoteSessionId === options.remoteSessionId;
+  }
+
+  return isLocalWorkspaceTab(tab);
+}

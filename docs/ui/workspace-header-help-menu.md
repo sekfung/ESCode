@@ -40,3 +40,14 @@ Workspace header action 区在终端按钮左侧提供轻量帮助菜单，作�
 2026-10-09 验证：macOS arm64 Preview E2E 4/4 通过，英文 Zai Light、中文 Zai Dark 截图已核对；帮助配置使用本地夹具，等待动态项加载结束后断言顺序。相关单测 34/34、typecheck、E2E typecheck、lint、架构及格式检查通过；lint 有 68 条非本次改动警告。未运行 Windows/Linux 实机、手机浏览器及 production 身份 E2E。运行记录：`packages/desktop/.e2e-artifacts/desktop-e2e-20261009043852849-p29715-f22a05c87493b116/summary.json`。
 
 所有可见文案必须走 i18n；菜单项使用 lucide 图标，不硬编码中文到组件内。
+
+## 给产品提需求弹窗
+
+- 不复用通用问题上报表单，避免截图、日志、问题描述等 bug 语义干扰用户。
+- 弹窗包含引导文案、必填的“需求描述”和“期望的解决方案”、可选联系方式。
+- 必填标题的红色 `*` 与问题上报复用同一标记组件，使用 `aria-hidden`，避免读屏将装饰符号读入标题。
+- 两个必填输入框通过 `required`、`aria-required` 和本地化可访问名称表达字段语义，不依赖读出星号。
+- FB-REQ-A11Y-01：`feedback-upload-privacy.test.ts` 的真实帮助菜单用例覆盖中英文、宽窄窗口、深浅主题，检查两个星号可见且对辅助技术隐藏、空表单禁止提交；不提交真实需求工单。
+- “重置内容”位于底部左侧；“取消”和“提交需求”位于底部右侧。
+- 两个必填字段都有内容后才允许提交。
+- 提交时把两个字段组织成结构化 Markdown description，并通过 feedback service 创建 `feature` 类型工单。

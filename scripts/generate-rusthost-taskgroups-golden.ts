@@ -5,6 +5,7 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareTasksIndexStorage } from "../packages/services/src/storage-startup.ts";
+import { migrateProjectStorage } from "./upstream-sync/project-storage-oracle/project-migrate.ts";
 import { TaskIndexRepo } from "../packages/services/src/session/taskIndexRepo.ts";
 
 const glm = "glm" as never;
@@ -155,6 +156,14 @@ async function script(driver: Driver): Promise<Record<string, unknown>> {
 const base = await mkdtemp(join(tmpdir(), "rusthost-taskgroups-golden-"));
 const db = join(base, "tasks-index.sqlite");
 await prepareTasksIndexStorage(db, () => {});
+// Rust Host 同时校验 tasks 与 project 账本；golden 种子库也要走真实 project 迁移。
+{
+  const projectDb = new (await import("node:sqlite")).DatabaseSync(db);
+  await migrateProjectStorage(projectDb, {
+    backupDirectories: [new URL(".", import.meta.url).pathname],
+  });
+  projectDb.close();
+}
 const repo = new TaskIndexRepo(db);
 await seed(repo);
 repo.close();

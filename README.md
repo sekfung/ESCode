@@ -11,6 +11,8 @@ ESCode 是 AI 编程工作台，提供桌面应用、浏览器界面和终端 Ag
 
 ## 更新
 
+- **2026-10-19**：更新至 ESCode v3.16.2 版本。
+- **2026-10-16**：更新至 ESCode v3.16.1 版本。
 - 2026-10-10：更新至 ESCode v3.15.1 版本。
 - 2026-9-23：更新至 ESCode v3.14.3 版本。
 - Rust runtime 迁移（进行中，默认仍为 Node runtime）：见 [docs/rust-migration.md](docs/rust-migration.md)。
@@ -105,6 +107,8 @@ Web 模式默认工作目录为当前目录，监听 `127.0.0.1`，默认不启�
 构建方式见下方打包章节。`pnpm build:escode` 只生成发行包，不会替换 `PATH` 中已有的 `escode`。如果命令仍指向旧安装或其他源码目录，macOS / Linux 可用 `command -v escode` 检查，Windows 可用 `where.exe escode` 检查。
 
 ### CLI 源码开发
+
+CLI 的模型配置、非交互调用、工具与扩展、批量评测和轨迹记录见 [CLI 使用指南](apps/escode-cli/docs/usage/README.md)。
 
 直接开发 TUI 或 Agent 时，运行源码入口：
 

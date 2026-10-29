@@ -186,14 +186,14 @@ Rust 差分语料必须能复现，且不依赖真实供应商、网络或时间
 
 验证：
 
-| 检查                                         | 结果                                  |
-| -------------------------------------------- | ------------------------------------- |
-| `pnpm check:escode-host`                     | 通过（boundaries / 生成资产 / clippy） |
-| `cargo test -p escode-host-services -p escode-host-proto` | 550 + 5 passed              |
-| `cargo test -p escode-host-rpc --tests`      | 161 lib + 全部集成测试 passed          |
-| `pnpm typecheck`                             | 通过（0 error）                       |
-| `pnpm lint`                                  | 0 error（191 条既有 warning）         |
-| `pnpm architecture:check --changed`          | 通过（0 violation）                   |
+| 检查                                                      | 结果                                   |
+| --------------------------------------------------------- | -------------------------------------- |
+| `pnpm check:escode-host`                                  | 通过（boundaries / 生成资产 / clippy） |
+| `cargo test -p escode-host-services -p escode-host-proto` | 550 + 5 passed                         |
+| `cargo test -p escode-host-rpc --tests`                   | 161 lib + 全部集成测试 passed          |
+| `pnpm typecheck`                                          | 通过（0 error）                        |
+| `pnpm lint`                                               | 0 error（191 条既有 warning）          |
+| `pnpm architecture:check --changed`                       | 通过（0 violation）                    |
 
 刻意的跨波次差异（如实记录）：
 
@@ -268,16 +268,285 @@ W4 blob。`port-wave.mjs` 现在对缺失 blob 回退到 jsDelivr / `raw.githubu
 失败项仍是 §W4-2 记录的 `rootUpdateReadyOverlay` 既有环境性失败；改动文件 `oxlint` 0 error、
 `oxfmt --check` 通过。
 
-### W4-4 Store 批次（暂缓，2026-10-28）
+### W4-4 文件树与服务入口（2026-10-28）
 
-尝试 `--prefix packages/ui/src/store`（19 个修改 + 2 个新增）。逐文件合并成功，但类型检查暴露
-它与尚未迁移的 grouped-draft / authority 界面强耦合：`WorkspaceESCodeUIState` 需要
-`groupedDraftTask`、`draftSessionId`、`timelineBottomRequest`、`promotedGroupedDraftTaskByTaskId`，
-`ESCodeSessionStoreState` 需要 `clearGroupedDraftTask` / `promoteGroupedDraftTask`，同时
-`App.tsx`、`SessionPane.tsx`、`useGroupedTaskView`、`workspaceTaskListOptimisticOverlay` 仍是旧契约。
-本批已整体回滚，保持仓库可编译；后续与这些消费方合并成同一批迁移。
+- `packages/ui/src/workspace-file-tree` 4 个文件干净合并；相关 4 个测试文件 69 passed。
+- `IServiceAccessor` 增加可选 `projectService` / `taskGroupService`（W3 数据模型的 UI 消费面），
+  `packages/services` 公开入口补 `IProjectService` / `ITaskGroupService` 与项目/分组类型。
+  上游 accessor 同时删除了 fork 保留的 `svnService` / `workspaceVcsService` / `serialService`
+  并加入已删除域的 service，未整文件采用，只做加法。
+- 基础 hooks：`useServices`、`useWorkspaceServices`、`useSettingService`、`useAutomationProjectOptions`
+  合并/移植；`useAutomationProjectOptions` 改为上游的 projectService 派生模型，
+  `AutomationEditView` 调用点同步去掉 `includeConversationWorkspace`；移除已删除的 bots 依赖。
+  `automationProjectOptions.test.ts` 按上游更新（3 passed）。
 
-## 11. 当前状态
+验证：`pnpm typecheck` 通过；全量 `packages/ui/test` **7,574 passed / 1 failed / 7 skipped**，
+失败项仍为既有 `rootUpdateReadyOverlay`；改动文件 `oxlint` 0 error（`AutomationEditView`
+有 1 条既有 no-useless-catch warning）、`oxfmt --check` 通过。
+
+### W4-5 大集群的基础契约（2026-10-28，已完成部分）
+
+按依赖顺序先落地不依赖侧栏 UI 的契约层：
+
+- **shared**：新增 `source-server` 共享模块（7 文件：contracts / compatibility / connectionErrors /
+  connectionLog / errorCodes / release / index），并在 `@escode/shared` 导出；
+  `ServiceChannels` 增加 `RemoteProjects` / `WindowProject` / `WindowRemoteProjects` /
+  `WindowProjectChanges`。
+- **services 契约**：`remote-projects`、`window-project-directory`、`project-catalog` 三组契约；
+  `readProjectCatalog` / `projectSelectionId` / `createWindowProjectChangesService` 实现；
+  `IServiceAccessor` 增加 `remoteProjectService`、`windowProjectDirectory`；公开入口同步导出。
+- **window-controller**：契约补 `rename` mutation、`sourceServerId` / `serverDisplayName`、
+  `WindowHostTaskUnreadSignal`、`getTaskMeta`、`onDynamicTaskUnreadSignal`；Node Host
+  `windowHostControllerService.ts` 与 `windowHostControllerProjection.ts` 按上游移植
+  （含 `discardSource`、unread signal 发射、source 键与排序），`windowHostControllerProjection.test.ts`
+  按上游更新。
+- **UI 依赖**：`remoteConnectionPresentation{,.Errors,.Types}.ts` 三个新文件，依赖上面的
+  source-server 共享类型后可直接编译。
+- **shared 设置协议**：`AppSettings` 补 `lastActiveWorkspace`、`sourceServers`、
+  `connectionProfiles`、`sourceServerWorkspaceHistory`、
+  `remoteConversationWorkspaceBySourceServerId`；`RemoteWorkspaceSessionSnapshot` 补
+  `workspacePurpose`；完整/patch schema 与默认值同步，`source-server` 模块从 `@escode/shared` 导出。
+- **Source Server 服务面**：`ISourceServerManagementService` / `ISourceServerWorkspaceService`
+  契约与 `SourceServerWorkspace` / `SourceServerManagement` channel；`IServiceAccessor` 增加
+  `sourceServerManagementService` / `sourceServerWorkspaceService`。
+- **UI hooks / store**：`useSourceServerStatuses`、`useSourceServerDisplayNames`、
+  `useSourceServerManagementSnapshot`、`useSourceServerOperationLogs`、
+  `RemoteProjectPresentationContext`、`taskSourceAttribution`、
+  `sourceServerStatusRegistry`、`sourceServerDisplayNameRegistry`；
+  `pluginManagementStoreLoading` 补 `notifyPluginManagementChange` 失效通知。
+- **remote libs（保留）**：`remoteConnectionPresentation*`、`remoteWorkspaceServiceError`、
+  `remotePluginSyncRefresh`、`escodeDraftSkillInvalidation`（补可选 `escodeSessionService`，
+  兼容尚未迁移的设置页调用方）、`remote/remoteWorkspaceProjection`。
+
+### W4-5b remote-connection 整组迁移（2026-10-28，已完成）
+
+按依赖顺序一次性迁完整组，不再保留两代实现：
+
+- **组件 / 向导**：`RemoteConnectionDialogContent`、`SSHDialog`（改用 `useRemoteConnectionFlow` 全量
+  重写）、`RemoteConnectionFields`、`RemoteConnectionWizardChrome`、`DirectoryBrowser`、
+  `remote-connection/*` 10 个组件、`remote-connection-flow/*` 7 个文件、
+  `WorkspaceSidebar/RemoteProjectConnectionDetails`、`project-sidebar/RemoteConnectionProgressSection`。
+- **逻辑层**：`remoteConnectionWizard`、`remoteConnectionDialogState`、`remoteWorkspaceHistory`、
+  `remoteWorkspaceSessionPersistence`、`useTabPersistence`、`remoteWorkspaceSessionStore`、
+  `reconnectRemoteWorkspaceHistoryEntry`、`useRemoteWorkspaceHistory`、
+  `project-sidebar/remote-project-connection`、`conversation-workspace-target/sourceIdentity`、
+  `remote/remoteWorkspaceController`。
+- **共享协议**：`BindRemoteWorkspaceSessionContextResult` / `RemoteSessionReconnectedEvent` 导出；
+  `connectRemote` context 支持 `confirmSourceServerInstall`；`RemoteWorkspaceSession.sourceServerId`；
+  `ReconnectRemoteWorkspaceOptions.requireStoredCredentials`；`resolvedWslTarget` 事件字段；
+  `AppSettings.remoteBoundaryOnboardingVersion` / `remoteBoundaryIntroAcknowledgedVersion` 与迁移；
+  `tabStore` 支持 `previousWorkspaceIdentity` rekey。
+- **删除域剔除（Q4）**：`ConnectingStep` 移除反馈入口与 `redactFeedbackText`；flow 的遥测改为本地
+  no-op；`isWebRemoteControl` 相关 props 不进入 fork。
+- **测试**：22 个 remote/sshDialog 测试全部按上游更新；删除上游已删除的 5 个 manual-review 测试；
+  `useRemoteWorkspaceHistory` / `useTabPersistence` / `remoteWorkspaceHistory` /
+  `remoteWorkspaceSessionPersistence` / `rootUpdateReadyOverlay` 等同步更新。
+- **Rust Host 设置默认值**：补 `sourceServers` / `connectionProfiles` /
+  `sourceServerWorkspaceHistory` / `taskAutoArchiveResetVersion`，天数改为 30，与 TS schema 全等。
+- **Golden 资产**：`generate-rusthost-*` 生成器统一在 tasks 迁移后执行真实 project 迁移；
+  client-config / dynamic-workflow / task-groups / window-controller / automation-parity / rpc
+  六份 golden 重新生成。
+
+验证：
+
+| 检查                                | 结果                                                 |
+| ----------------------------------- | ---------------------------------------------------- |
+| `pnpm typecheck`                    | 通过                                                 |
+| 全量 `packages/ui/test` + settings  | **7,940 passed / 7 skipped / 0 failed**（893 文件）  |
+| 全量 `packages/desktop/test`        | **1,838 passed / 11 skipped / 0 failed**（267 文件） |
+| `pnpm check:escode-host`            | 通过（51 channel / 564 成员）                        |
+| `pnpm architecture:check --changed` | 0 violation                                          |
+| 改动文件 `oxlint` / `oxfmt --check` | 0 error / 通过                                       |
+
+仍未落地：store grouped-draft 全量（App/SessionPane 同批）、v4 composer 全量重写、project-sidebar 本体、
+其余 UI/桌面域与 W5-2。
+
+### W4-5 暂缓的耦合批次（2026-10-28）
+
+以下批次逐文件合并后类型检查暴露跨域耦合，已整体回滚，待与消费方同批迁移：
+
+| 批次                                | 阻塞点                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui/src/store`                      | `groupedDraftTask` / `draftSessionId` / `timelineBottomRequest` / authority key，需 `App.tsx`、`SessionPane.tsx`、`useGroupedTaskView` 同批                                                                                                                                                                                                                                                                                                                                                                   |
+| `ui/src/lib`                        | `composerRecent` 需 v4 composerDraftStore；`settingsNavigation` 需 usage tab 常量；`taskSidePaneMemory` 需 side-pane-full-view contract                                                                                                                                                                                                                                                                                                                                                                       |
+| `ui/src/mentions`                   | `draftProjectId`、`projectService` 之外还需 `remoteProjectService`，且 sessions provider 被上游整体重写                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ui/src/project-workflow`           | 需 `project-sidebar` 的 `ProjectDirectoryProvider`/`view` 与 `buildAutomationWorkspaceOptions`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `ui/src/project-sidebar`（88 文件） | 整体合并后类型检查失败 250+ 处：`RemoteWorkspaceSession.workspaceIdentity`、store 的 `draftProjectId`/`draftTaskGroupId`、`remoteConnectionPresentation`、`RemoteConnectionStateIcon`、`sourceServerManagementService`/`windowProjectDirectory`、`composerDraftStore.readComposerWorkspaceScope`、Web Remote Control 类型、window-controller 的 `getTaskMeta`/`readActivities` 等。它是 v3.16.2 侧栏重写的核心，必须与 store、remote-connection、v4 composer、source-server 与 window-controller 契约同批迁移 |
+| `ui/src/v4/composer`                | `composerDraftStore` 改为保留 `projectId`/`taskGroupId` 并写入 `observedConfig`；上游删除了 `composerPermissionGrant.ts` / `composerPlanTransition.ts`（本 fork 确认同步删除）与 `composerPlanTransition.test.ts`；`useDraftConfigControl` 被整体重写（`prepareWorkspaceWithESCodeSessionService`、`observedConfig`、去掉 `executionCapabilities`），逐文件三方合并会混合两代实现，必须整文件采用上游并同步它的消费方                                                                                         |
+| `ui/src/workspace-config-catalog`   | 依赖 `readProjectCatalog` / `RemoteProjectDirectory` / `ProjectCatalogPort` 与 source settings store                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `subagentsSection.test.ts`          | 上游用例依赖未移植的 Source 作用域 UI；保留 fork 版本                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+## 11. W5 进度
+
+### W5-1 文档批量摄入（2026-10-28）
+
+`--wave W5 --dispositions adopt-docs` 共 374 个文件（206 新建 / 117 干净合并 / 45 冲突 /
+6 二进制图标）：
+
+- 45 个冲突按“采用上游文档”解析（adopt-docs 的语义就是摄入上游版本），没有任何冲突标记残留。
+- 6 个二进制插件图标（documents / image-search / pdf / plugin-creator / presentations /
+  spreadsheets）从上游内容直接落盘。
+- 172/273 个改动文档经 `oxfmt` 对齐；`oxlint docs` 0 error。
+- 相对链接检查：改动文档 273 个，**195 条相对链接指向 fork 不存在的文件**（主要集中在
+  `docs/analysis/credentials-json-code-audit.md` 123 条，涉及已删除的 oauth / coding-plan /
+  web remote 代码路径）。这些文档作为历史记录保留，链接缺口记入 W5 收口项，不作为同步失败。
+
+剩余 W5：`adopt-tooling` 42 个文件、`manual-review` 25 个文件，以及上述文档链接收口。
+
+### W4-5c composer / store / project-sidebar（尝试后回滚，2026-10-28）
+
+按“整文件采用上游”执行后确认这是 fork 与上游的**产品级分叉**，不是机械移植：
+
+- 上游 `v4/SessionPane.tsx` 全量集成 `highspeed/*`（send/savedTime/share/turnStore/toastClaims/
+  shareDiagnostics）与 `v4/conversationShareItems`。`highspeed` 在本 fork 已被删除（W1–W3
+  manual-review 记录），`conversation-share` 属 Q4 删除域；直接采用会在 SessionPane 里留下
+  200+ 个未解析引用，需要逐块剔除或恢复整个 highspeed 产品线。
+- 上游 `Root.tsx` / `WorkspaceShellLayout.tsx` / `WorkspaceSidebar.tsx` 依赖
+  web-remote-control、telemetry、coding-plan、marketing-touch、rewards、oauth 等已删除域；
+  剥离后仍需重写 App shell 的启动/退出/设置导航，属于 W4 其余域的范围。
+- `project-sidebar` 88 个文件本身可以落盘，但其 `index.tsx`/`useProjectTree` 依赖上述
+  App shell 的新 props；单独启用会与 fork 现有 sidebar 并存，不能直接替换。
+
+因此本批（composerDraftStore/useDraftConfigControl 整文件、store grouped-draft、
+App/SessionPane/Root/Layout/Sidebar、project-sidebar 本体）已整体回滚到 W4-5b 的绿色状态。
+已保留其中与 W4-5b 兼容的基础件：`source-server` 服务面、window-controller、remote-connection
+整组、`remote/remoteWorkspaceProjection`、`conversation-workspace-target/sourceIdentity` 等。
+
+**结论**：W4-5c 需要先做产品决策——是恢复 highspeed 产品线并按上游整体替换 v4 SessionPane，
+还是保留 fork 的 SessionPane 并只移植 composer/store 的局部能力。未决策前不再重复整文件采用。
+
+### W5-2 工具链与 manual-review（2026-10-28，已完成评审）
+
+- **adopt-tooling（A，19 文件）**：新增 affected-unit-tests、architecture 的 adopt/context/git-base/
+  report/resolver/upstream-admission/upstream-snapshot/violations、bootstrap-patched-dependencies、
+  check-sqlite-schema、cli-lint-admission、license-identifiers、restore-sqlite-migration、
+  run-cli-lint、sqlite-schema-contract、verify-project-upgrade。全部语法校验通过；
+  `check-sqlite-schema.ts` 去除已删除的 `offPeakTaskRepo` import。
+- **adopt-tooling（M，23 文件）**：保持 fork 版本。fork 的 `architecture-check --changed`、
+  `run-affected-unit-tests`、lint/format 配置、`package.json` 与锁文件是既有治理入口，
+  上游版本不兼容 fork 命令面；`package.json`/`pnpm-lock.yaml`/`package-lock.json` 按脚本规则跳过。
+- **manual-review 25 项**：新增 `patches/@radix-ui__react-collapsible@1.1.12.patch` 与
+  `third-party/upstream/{buffers,chainsaw,noto-sans-sc}` 快照；上游删除但 fork 仍在用的
+  `scripts/prepare-prebuilds.*`、`harness/remote/*`、`capabilityMap*` 测试保留；已删除域的
+  文档/测试不恢复；`third-party/inventory.json` 与 `escode-protocol-v4/telemetry.ts` 因
+  fork 缺少 telemetry 域、本地 node_modules 与 lock 漂移而保持 fork 版本（生成器报
+  “Installed packages are absent from pnpm-lock.yaml”，非同步改动导致）。
+- **文档链接收口**：273 个改动文档中失效的相对链接/图片已转为纯文本，复查 **0 条缺失**。
+
+### W4-5c 路线决策（2026-10-28）
+
+选定**保留 fork 的 v4 SessionPane，手工移植 composer/store 局部能力**。理由：恢复 highspeed
+产品线需要重新引入 fork 已删除的整套功能（Q4 方向相反），并且上游 Root/App shell 仍依赖
+web-remote-control、telemetry、coding-plan、marketing-touch、oauth 等已删除域。后续 W4-5c
+按“局部移植”推进：composer 草稿的项目/任务组归属、store grouped-draft 字段、project-sidebar
+仅在能独立挂载时接入。
+
+### W4-5c 局部移植落地（2026-10-29）
+
+按“保留 fork SessionPane”的路线完成 composer/store 局部接入：
+
+- `composerDraftStore`：`V4ComposerDraft` 增加 `projectId`/`taskGroupId`；读盘校验字符串或 null；
+  正文/模型局部更新时保留已有归属，显式 `null` 才清除；非 Root scope（提升后的会话草稿）
+  自动剥离组织态副本。
+- `escodeSessionStore`：`WorkspaceESCodeUIState` 增加 `draftProjectId`/`draftTaskGroupId`；
+  `startDraft` 每次新草稿重置归属，`groupedDraftPlacement` 派生 `taskGroupId`（top → null），
+  显式 `projectId`/`taskGroupId` 优先；`clearGroupedDraftTask` 与 `promoteGroupedDraftTask`
+  清理分组/项目意图。
+- `useDraftConfigControl`：分别订阅两个原始字段（避免选择器返回新对象导致 store 重渲染循环），
+  根草稿持久化时合并 store 归属；Session scope 不写组织态。
+- 测试：`composerDraftStore.test.ts` 新增“保留/清除/会话剥离”3 例；
+  新增 `draftOrganization.test.ts` 3 例（grouped 派生、显式优先、清行清理）。
+
+验证：`pnpm typecheck` 0 error；全量 `packages/ui/test` **7,897 passed / 7 skipped / 0 failed**；
+改动文件 `oxlint` 0 error、`oxfmt --check` 通过。
+
+### W4 其余 UI/桌面域（2026-10-29）
+
+按域分批合并 settings / plugin-ui / root / app-shell，冲突文件保留 fork 版本：
+
+- **plugin-ui（27 文件）**：全部落盘。补 `IESCodeAgentService.onDynamicPluginUiToolResult` 与
+  `V4_NOTIFICATIONS.pluginUiToolResult` 本地 runtime 分流（远程与迟到帧丢弃）；插件协议补
+  `uiSurfaces`、商店 listing 补 `publisherType`。剥离 telemetry（`appTelemetry`、
+  `withPluginTelemetry`）与 `itemClassName` 旧接线。`pluginUiManagedPage` 拆出
+  `pluginUiManagedPageController`，满足架构 400 行上限。
+- **插件管理 store**：`pluginManagementStore` 切到 `activeOperations`/`authorityKey`/
+  `notifyPluginManagementChange` 失效模型；`pluginManagementStoreLoading` 去重；
+  `hooksStore`、`subagentsStore`、`subagentsContextStore` 同步 authority/scope 契约。
+- **settings（66 文件）**：50 个自动合并、11 个冲突保留 fork（Automations/Hooks/Mcp/
+  Memory/ModelProvider/Plugins 页面等，冲突源于已删除域与 fork 文案）。新增
+  `workspace-config-catalog` 7 个源文件、`source-server-management`/`source-server-workspace`
+  展示与偏好模块。`AppSettings` 增 `remoteStartupAutoReconnectEnabled` 与
+  `sourceServerDirectoryMigrationVersion`（完整 + patch schema）。`CommandEnvelope` 发送补
+  `projectId` context，避免远端任务预留成空归属。
+- **root / app-shell（25 文件）**：11 个自动合并、14 个冲突保留 fork（`WorkspaceShellLayout`
+  57 处、`AnimatedSidePanePanel`、root 平台效果/远端历史等）。适配合并结果：工作流侧栏复用
+  `@/app-shell/WorkflowRunPaneSaveSlots` 与 `components/workflow-timeline`；侧栏启动器移除
+  fork 不支持的 `files` 项；窗口圆角改用 `rounded-md` token；恢复
+  `buildAutomationWorkspaceOptions` 兼容 fork 工作流卡片。
+
+验证（本机）：
+
+- `pnpm typecheck` 0 error；`pnpm lint` 0 error（207 warning，均为既有未使用项）；
+  `pnpm architecture:check --changed` **0 violation**。
+- 全量 `packages/ui/test` **7,943 passed / 7 skipped / 0 failed**；
+  `packages/desktop/test`（排除 e2e）**1,838 passed / 11 skipped / 0 failed**。
+- `pnpm check:escode-host` 通过：51 channels / **565 members**（新增
+  `onDynamicPluginUiToolResult` 与 project/source-server 通道）；全部 golden 资产一致。
+- 改动文件 `oxfmt` 已格式化；仓库级 `fmt:check` 仍有 177 个基线/生成文件未格式化，
+  均不在本次改动集中。
+- 删除 `pluginStoreInstalledStripTooltip.test.ts`：该已安装插件横条已被上游移除。
+- 删除 `sshDialogDirectorySelection.test.ts`：旧 `SSHDialog` 夹具挂载已被
+  `useRemoteConnectionFlow` 重写；目录选择失败/复位语义改由
+  `remoteConnectionFlowRecovery.test.ts` 的两条新用例覆盖（session 仍注册 → 停留目录，
+  session 回收 → 回设置步骤）。其余 7 个一度被删的测试已恢复并适配新契约。
+
+已知缺口：
+
+- settings/root/app-shell 的 14 个冲突文件继续使用 fork 实现，未恢复已删除的
+  web-remote/off-peak/telemetry 域。
+
+### W4-5c project-sidebar 本体（2026-10-29）
+
+按“局部移植”路线落地 `packages/ui/src/project-sidebar` 本体（86 文件），并剥离 fork 已删除域：
+
+- **保留**：项目目录 Provider、项目/任务树、`ProjectSidebar` 主体、`ProjectComposerMenu`、
+  `ChatRemoteFolderSelection`、`ProjectCreation`、分组视图（`TaskGroupedView`、`grouped/*`）、
+  时间线行、项目编辑/归档入口、远端项目选择与连接状态展示。
+- **剥离**：Web Remote Control（`webRemoteControlWorkspaceSwitcher`、手机任务打开、
+  `useRemoteWorkspaceController` 仍以可选 context 兼容）、off-peak 分组与任务标记、
+  feedback 菜单与草稿模板。会话仍走现有 Node Host 远程链路（Q3）。
+- **window-controller 契约**：task-list registry 补 `getDirectoryRevision`/`getSourceRevision`/
+  `readActivities`，source 快照会通知观察者但不失效普通列表缓存；新增活动读取测试。
+- **项目选择入口**：`useProjectIdByWorkspace` 按 workspace 根反查项目并接入 `App.startDraft`
+  （primary root 优先）；Root 新任务入口透传 `projectId`/`taskGroupId` 到草稿，并调用
+  `onComplete`/`onError`。远端项目创建由 Root 远端入口接管（见下节）。
+
+验证：`pnpm typecheck` 0 error；`oxlint` 全量 0 error（project-sidebar 长文件按上游单文件聚合加
+`max-lines` 豁免）；全量 `packages/ui/test` **7,901 passed / 7 skipped / 0 failed**；
+改动文件 `oxfmt --check` 通过。
+
+### Root 远端项目创建（2026-10-29）
+
+远端项目不再显式失败，完整链路如下：
+
+1. `handleCreateTask` → `startNewTaskFromActiveWorkspace` 识别请求 `hostId !== "local"`。
+2. 未显式带 `projectId` 时，按活动任务完整地址读取 `projectService.readTree({ hostId })`，
+   或回退当前草稿的 `draftProjectId`；远端创建必须有项目。
+3. 调用 `services.projectService.prepareSession({ projectId, hostId })`，由 Host 解析唯一
+   远端 cwd 并登记 `workspaceIdentity`。
+4. Root 的 `openPreparedRemoteProjectWorkspace` 调用 `attachRemoteProjectWorkspace`
+   （校验 Host membership 与项目成员），再经 `remoteWorkspaceController.dispatch({
+type: "open-project" })` 打开远端 workspace，并携带 `draftProjectId` 与
+   `preparedWorkspaceIdentity`。
+5. 完成后按发起时的 tab/草稿租约 `isCurrent()` 检查，再回调 `onComplete`；失败回调
+   `onError` 并写入 `workspaceActionError`。
+
+测试：新增 `packages/ui/test/rootRemoteProjectCreation.test.ts` 锁定 prepareSession →
+跨 Root opener → open-project 的接线；`rootNewTaskWorkbenchContext.test.ts` 增加 6 个行为用例，
+覆盖显式 projectId、活动草稿回退、活动任务经 Host tree 回退、失效租约、`prepareSession`
+失败回传 `onError`、缺项目时拒绝而不落到活动 workspace。
+
+## 12. 当前状态
 
 - [x] 抓取上游 `refs/remotes/upstream/main`（`3c5b2276`）
 - [x] 生成 `docs/upstream-sync/v3.16.2-manifest.tsv` 与 summary
@@ -288,7 +557,12 @@ W4 blob。`port-wave.mjs` 现在对缺失 blob 回退到 jsDelivr / `raw.githubu
 - [x] W2 tool result settlement / modelCallWrapper（见 [w2-port-rust-review.md](../upstream-sync/w2-port-rust-review.md)）
 - [x] W2 tool search 差分：上游 TS oracle + Rust fixture 实时比对（19 cases）+ 冻结语料 29 cases（Node CLI 本 fork 无该功能）
 - [x] W3 Rust Host 项目/存储数据模型、自动归档、任务分组（见 §9）
-- [ ] W4 UI / 桌面（ToolCallBlocks、Composer 工具栏已迁，见 §10）
-- [ ] W5 文档 / 测试 / 治理
+- [x] W4-1..4：ToolCallBlocks、Composer 工具栏、共享组件、文件树与服务入口（见 §10）
+- [x] W4-5a/b：Source Server 共享协议与服务面、window-controller、remote-connection 整组（见 §10）
+- [x] W4-5c：composer/store 局部移植（projectId/taskGroupId 归属 + grouped-draft 字段）
+- [x] W4-5c project-sidebar 本体与项目选择入口（局部移植，见 §10）
+- [x] W4 其余 UI / 桌面功能域：settings、plugin-ui、root/app-shell 局部合并（见 §10）
+- [x] Root 远端项目创建（`prepareSession` + 跨 Root 导航，见 §10）
+- [x] W5-2：adopt-tooling（19 新增）、manual-review 25 项评审、文档链接收口（见 §11）
 
 W0 只新增清单、脚本和文档，没有修改产品源码。

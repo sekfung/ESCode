@@ -1,0 +1,11 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/types.ts	packages/ui/src/app-shell/types.ts	present	三方合并冲突 x3
+conflict	W4	port-shared	ui	src	M	packages/ui/src/App.tsx	packages/ui/src/App.tsx	present	三方合并冲突 x4
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/hooks/useSubagents.ts	packages/ui/src/hooks/useSubagents.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/hooks/useSubagents.ts	packages/ui/src/hooks/useSubagents.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/root/useRootWorkspaceActions.ts	packages/ui/src/root/useRootWorkspaceActions.ts	present	三方合并冲突 x3
+conflict	W4	port-shared	ui	src	M	packages/ui/src/settings/PluginsSection.tsx	packages/ui/src/settings/PluginsSection.tsx	present	三方合并冲突 x2
+conflict	W4	port-shared	ui	src	M	packages/ui/src/settings/PluginStorePage.tsx	packages/ui/src/settings/PluginStorePage.tsx	present	三方合并冲突 x5
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStore.ts	packages/ui/src/store/pluginManagementStore.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/store/pluginManagementStore.ts	packages/ui/src/store/pluginManagementStore.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/v4/SessionPane.tsx	packages/ui/src/v4/SessionPane.tsx	present	三方合并冲突 x35

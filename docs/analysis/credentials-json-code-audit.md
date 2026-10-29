@@ -5,7 +5,7 @@
 > 查证旧文件请用 `git show baffd62dcf:<仓库相对路径>`，不能把当前分支的同名文件
 > 当成原证据。旧 model-provider / preset / family 路径已由当前 Account、Provider
 > Runtime 和 Model Selection 边界替代，不据本文恢复旧接口。G09 的 401 修复见
-> [当前契约](../oauth/jwt-401-auto-logout.md)，包括队列内凭据复核及 accountIdentity 清理。
+> 当前契约，包括队列内凭据复核及 accountIdentity 清理。
 > 本文列举的 CLI、MCP、加密、跨进程事务等既有问题不因合并自动转成修复任务。
 > 单连接过渡态及 Todo101 延期裁决不变。以下原审计内容和验证记录原样保留，
 > 不计作 Todo103 当前代码验证通过。
@@ -66,13 +66,13 @@ Server remote
 
 浏览器自身 OAuth
     `-- BrowserOAuthCredentialRepo --------------------------> localStorage
-        pending nonce --------------------------------------> sessionStorage
+        pending login（nonce/provider/回调地址）-------------> localStorage
 ```
 
 - `ICredentialService` 公开 `load/save/delete`；UI 使用 `useCredentials()` 等 hook。泛用存储层不理解 OAuth provider、账号或 workspace，只接受 key/value。[接口](../../packages/services/src/credential/credential.ts#L11)、[hook](../../packages/ui/src/hooks/useCredentials.ts#L8)。
 - 本地服务在 `createLocalServices` 中创建并注册 credential service；Desktop main 还为 relay 和 telemetry 创建同种文件服务，因此不能将其描述成只有一个 Host 实例访问文件。[services/node.ts](../../packages/services/src/node.ts#L1213)、[main/index.ts](../../packages/desktop/src/main/index.ts#L675)。
 - SSH/WSL/Docker workspace 服务集合显式创建本机 credential/OAuth service；Server remote 则转接连接目标的服务。这是两个不同的归属边界。[remoteWorkspaceServiceCollection.ts](../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L83)、[Server 分支](../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L315)。
-- 浏览器 OAuth 虽然复用 `oauth:active_provider`、`escodejwttoken`、`oauth:zai:*` 名称，但其本地存储不是 `credentials.json`。浏览器自己的登录状态与已连接 Host 的服务应分别追踪。[browserOAuthCredentialRepo.ts](../../packages/web/src/auth/browserOAuthCredentialRepo.ts#L11)。
+- 浏览器 OAuth 虽然复用 `oauth:active_provider`、`escodejwttoken`、`oauth:zai:*` 名称，但其本地存储不是 `credentials.json`。浏览器自己的登录状态与已连接 Host 的服务应分别追踪。browserOAuthCredentialRepo.ts。
 - 本文不改变桌面 continuous 或手机 replayable 的消息恢复边界；凭据归属不能据此推导为另建手机 Agent/runtime。
 
 ### 文件格式、加密和兼容
@@ -123,7 +123,7 @@ Server remote
 | Desktop OAuth mutation queue | 串行同一个 OAuthService 实例的登录完成、退出等操作                     | 不是多个窗口、多个 Host、CLI 共享的登录级队列                        |
 | 读取                         | 原子替换使读者通常看到某次完整文件；CLI `loadMany` 同次读取多个 key    | 多次独立 `load` 仍可能跨过其它进程的写入，不能自动认为是同一会话快照 |
 
-代码依据：[Desktop store](../../packages/services/src/credential/credentialService.ts#L90)、[CLI store](../../apps/escode-cli/packages/adapters/src/auth/shared-credentials.ts#L88)、[OAuth 队列](../../packages/services/src/oauth/oauthService.ts#L366)。这是并发边界事实，不单凭它断言已有线上串号。
+代码依据：[Desktop store](../../packages/services/src/credential/credentialService.ts#L90)、[CLI store](../../apps/escode-cli/packages/adapters/src/auth/shared-credentials.ts#L88)、OAuth 队列。这是并发边界事实，不单凭它断言已有线上串号。
 
 CLI 还导出 `loadSharedESCodeCredentialSync`：同步读取中发生任何错误都返回 `undefined`，不会按异步读取路径保留损坏证据。本次检索未发现生产调用者，不能将它描述为当前所有 CLI 读取的行为。[同步兼容入口](../../apps/escode-cli/packages/adapters/src/auth/shared-credentials.ts#L234)。
 
@@ -147,7 +147,7 @@ CLI 还导出 `loadSharedESCodeCredentialSync`：同步读取中发生任何错�
 
 现有源码已经把 `oauth:active_provider` 注释为“互斥 provider 域的唯一事实源”，成功落盘前也会清理相反平台；清理发生在完成 token 交换后的 `persistOAuthSession`，发起登录本身只替换 pending flow，取消落盘时还有恢复旧会话的 rollback。这些是当前时序事实；pending 阶段保留旧会话本身不能直接判为违反用户规则。正常成功路径会清理相反平台的命名空间字段，但不会清理 legacy `auth_token/refresh_token`，所以不能据此声称“全部旧平台凭据已经清空”。
 
-依据：[oauthCredentialRepo.ts:172](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L172)；[oauthService.ts:374](../../packages/services/src/oauth/oauthService.ts#L374)、`:554`、`:791`。
+依据：oauthCredentialRepo.ts:172；oauthService.ts:374、`:554`、`:791`。
 
 ```text
 目标身份关系
@@ -177,7 +177,7 @@ CLI 还导出 `loadSharedESCodeCredentialSync`：同步读取中发生任何错�
 
 字段值通过 `ICredentialService` 保存为字符串；用户资料和归因先 JSON 序列化。凭据文件的加密、密钥、权限、锁及路径由存储章节说明。OAuth provider 类型允许扩展字符串，但当前内置域是 `zai`、`bigmodel`；已知损坏清理集合总是包含这两者，并可加入注册的其它 adapter ID。
 
-依据：[oauth.ts:56](../../packages/shared/src/oauth.ts#L56)、`:132`；[oauthCredentialRepo.ts:13](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L13)、`:36`。
+依据：[oauth.ts:56](../../packages/shared/src/oauth.ts#L56)、`:132`；oauthCredentialRepo.ts:13、`:36`。
 
 | key                            | 实际语义 / 数据来源                                                                          | 正常写入                                                                | 正常读取 / 清理                                                                                                                                                                                           |
 | ------------------------------ | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,11 +193,11 @@ CLI 还导出 `loadSharedESCodeCredentialSync`：同步读取中发生任何错�
 | `auth_token`                   | 旧 BigModel access token key                                                                 | 当前 OAuth 正常登录不写；只保留历史兼容读取                             | `BigModelProviderAdapter.loadLegacyTokenSet` 与 `useAuthToken.getToken` 读取；`restoreSession` 回填命名空间 key；当前 OAuth logout / corrupt 清理不删除，`useAuthToken.clearToken` 对 BigModel 会特殊删除 |
 | `refresh_token`                | 旧 BigModel refresh token key                                                                | 当前正常 OAuth 登录不写                                                 | BigModel legacy loader 兼容读取；正常 OAuth 清理及 useAuthToken.clearToken 都不删除它；不是当前命名空间字段的别名写入                                                                                     |
 
-依据：[oauthCredentialRepo.ts:151](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L151)、`:226`、`:284`、`:292`、`:321`、`:398`、`:415`；[bigmodelProviderAdapter.ts:196](../../packages/services/src/oauth/providers/bigmodelProviderAdapter.ts#L196)、`:274`；[zaiProviderAdapter.ts:364](../../packages/services/src/oauth/providers/zaiProviderAdapter.ts#L364)；[oauthService.ts:476](../../packages/services/src/oauth/oauthService.ts#L476)、`:753`；[useCredentials.ts:28](../../packages/ui/src/hooks/useCredentials.ts#L28)。登录保存对 profile 的 schema 处理入口见 [oauthService.ts:420](../../packages/services/src/oauth/oauthService.ts#L420)。
+依据：oauthCredentialRepo.ts:151、`:226`、`:284`、`:292`、`:321`、`:398`、`:415`；bigmodelProviderAdapter.ts:196、`:274`；zaiProviderAdapter.ts:364；oauthService.ts:476、`:753`；[useCredentials.ts:28](../../packages/ui/src/hooks/useCredentials.ts#L28)。登录保存对 profile 的 schema 处理入口见 oauthService.ts:420。
 
-`OAuthTokenSet` 类型有 `expiresAt`，ZAI adapter 也会从后端 `expires_in` 计算它；**OAuthCredentialRepo 不保存 expiresAt，也不在 loadTokenSet 中还原它**。不要在字段清单里凭类型添加 `oauth:*:expires_at`。代码依据：[oauth.ts:132](../../packages/shared/src/oauth.ts#L132)；[zaiProviderAdapter.ts:389](../../packages/services/src/oauth/providers/zaiProviderAdapter.ts#L389)；[oauthCredentialRepo.ts:292](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L292)、`:321`。
+`OAuthTokenSet` 类型有 `expiresAt`，ZAI adapter 也会从后端 `expires_in` 计算它；**OAuthCredentialRepo 不保存 expiresAt，也不在 loadTokenSet 中还原它**。不要在字段清单里凭类型添加 `oauth:*:expires_at`。代码依据：[oauth.ts:132](../../packages/shared/src/oauth.ts#L132)；zaiProviderAdapter.ts:389；oauthCredentialRepo.ts:292、`:321`。
 
-Desktop 正常登录中的以下值不存入 credentials.json（CLI 当前落盘原始 ZAI OAuth token 的偏差另见 CLI 章节）：一次性授权 `code/authCode`、`state`、polling 的 `flowId/pollToken/expiresAt`，以及转换前的原始 ZAI OAuth access token。pending 数据只在 `OAuthService.pendingState` 中；业务 token resolver 的缓存只在 adapter 实例内存中。依据：[oauthService.ts:43](../../packages/services/src/oauth/oauthService.ts#L43)、`:568`、`:638`；[zaiBusinessTokenResolver.ts:17](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L17)、`:35`。
+Desktop 正常登录中的以下值不存入 credentials.json（CLI 当前落盘原始 ZAI OAuth token 的偏差另见 CLI 章节）：一次性授权 `code/authCode`、`state`、polling 的 `flowId/pollToken/expiresAt`，以及转换前的原始 ZAI OAuth access token。pending 数据只在 `OAuthService.pendingState` 中；业务 token resolver 的缓存只在 adapter 实例内存中。依据：oauthService.ts:43、`:568`、`:638`；[zaiBusinessTokenResolver.ts:17](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L17)、`:35`。
 
 ### 三种凭据不能混用
 
@@ -207,11 +207,11 @@ Desktop 正常登录中的以下值不存入 credentials.json（CLI 当前落盘
 
 ZAI 的业务 token 可能本身就是 JWT，并且代码明确允许它与 ESCode JWT 的字符串相等；判断应依据来源、字段和消费者，不应只靠 token 外形或相等性。BigModel 则有针对历史误写的专项防御：若 `oauth:bigmodel:access_token === escodejwttoken`，套餐入口拒绝使用该旧污染状态。
 
-依据：[modelProviderService.ts:968](../../packages/services/src/model-provider/modelProviderService.ts#L968)；[bigmodelCodingPlanSubscriptionProvider.ts:813](../../packages/services/src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.ts#L813)；[official-mcp-auth.ts:15](../../packages/shared/src/official-mcp-auth.ts#L15)。
+依据：modelProviderService.ts:968；bigmodelCodingPlanSubscriptionProvider.ts:813；[official-mcp-auth.ts:15](../../packages/shared/src/official-mcp-auth.ts#L15)。
 
 App 模型配置读取/序列化 `config.json` 的 `provider[id].options.apiKey`；显式刷新 Coding Plan key 才通过业务接口获取真正 API key，普通 preset 同步不把 ESCode JWT 当 Coding Plan API key。`model-provider:<id>:api-key` 当前写入 CLI workspace model catalog 的内存 secrets Map，不是 credentials.json 持久化键，详见 CLI 章节。
 
-依据：[modelProviderServiceStorage.ts:93](../../packages/services/src/model-provider/modelProviderServiceStorage.ts#L93)、`:942`、`:1137`；[oauthPresetProviderRepo.ts:535](../../packages/services/src/model-provider/repo/oauthPresetProviderRepo.ts#L535)。
+依据：modelProviderServiceStorage.ts:93、`:942`、`:1137`；oauthPresetProviderRepo.ts:535。
 
 ### token 的来源与转换链路
 
@@ -248,29 +248,29 @@ Desktop polling（两平台共用完成落盘逻辑）
 
 Deep link 的 BigModel access token 解析保留历史响应形状兼容：依次读 `data.bigmodel.access_token`、`data.bigmodel.accessToken`、`data.access_token`、`data.accessToken`；polling 分支只接受 `ready.bigmodel` 内的两种 key。BigModel 一次性 code 只交给 ESCode token 路由，不先去 `tokenByAuthCode` 消耗，也不在 Start Plan 查余额阶段用 access token 再兑换 JWT。
 
-依据：[zaiProviderAdapter.ts:318](../../packages/services/src/oauth/providers/zaiProviderAdapter.ts#L318)、`:364`；[zaiBusinessTokenResolver.ts:70](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L70)；[bigmodelProviderAdapter.ts:130](../../packages/services/src/oauth/providers/bigmodelProviderAdapter.ts#L130)、`:301`；[oauthService.ts:554](../../packages/services/src/oauth/oauthService.ts#L554)、`:683`、`:729`；[bigmodelStartPlanEscodeJwt.ts:31](../../packages/services/src/model-provider/bigmodelStartPlanEscodeJwt.ts#L31)。
+依据：zaiProviderAdapter.ts:318、`:364`；[zaiBusinessTokenResolver.ts:70](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L70)；bigmodelProviderAdapter.ts:130、`:301`；oauthService.ts:554、`:683`、`:729`；bigmodelStartPlanEscodeJwt.ts:31。
 
-端点由 runtime config 按环境构造，生产示例是 `zcode.z.ai`、`chat.z.ai`、`api.z.ai`、`bigmodel.cn`，测试环境和明确 env 覆盖会改变域名。不要把示例域名当唯一允许部署环境。依据：[zaiProviderConfig.ts:30](../../packages/services/src/oauth/providers/zaiProviderConfig.ts#L30)；[bigmodelProviderConfig.ts:25](../../packages/services/src/oauth/providers/bigmodelProviderConfig.ts#L25)。
+端点由 runtime config 按环境构造，生产示例是 `zcode.z.ai`、`chat.z.ai`、`api.z.ai`、`bigmodel.cn`，测试环境和明确 env 覆盖会改变域名。不要把示例域名当唯一允许部署环境。依据：zaiProviderConfig.ts:30；bigmodelProviderConfig.ts:25。
 
 ### 主要消费者和真实认证头
 
-| 消费场景                                         | 使用的凭据                                                                | 真实头 / 边界                                                                                                                                             | 代码依据                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ZAI 业务套餐、项目、支付等接口                   | `oauth:zai:access_token` 业务 token                                       | `Authorization: <token>`，不添加 Bearer                                                                                                                   | [bigmodelCodingPlanSubscriptionProvider.ts:963](../../packages/services/src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.ts#L963)、`:1206`                                                                                                                           |
-| BigModel customer、套餐和项目等业务接口          | `oauth:bigmodel:access_token`                                             | `Authorization: <token>`；检测旧 ESCode JWT 误写                                                                                                          | [bigmodelProviderAdapter.ts:245](../../packages/services/src/oauth/providers/bigmodelProviderAdapter.ts#L245)；[bigmodelCodingPlanSubscriptionProvider.ts:813](../../packages/services/src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.ts#L813)、`:1197`            |
-| ZAI adapter 的 userinfo 补偿请求                 | `OAuthTokenSet.accessToken`，Desktop 当前已是转换后的业务 token           | `Authorization: Bearer <token>`，不是上述业务接口的裸头；已有 backend user 时优先复用资料                                                                 | [zaiProviderAdapter.ts:398](../../packages/services/src/oauth/providers/zaiProviderAdapter.ts#L398)                                                                                                                                                                                     |
-| ESCode billing preview / claim / Start Plan 余额 | `escodejwttoken`                                                          | `Authorization: Bearer <JWT>`                                                                                                                             | [bigmodelCodingPlanSubscriptionProvider.ts:258](../../packages/services/src/coding-plan-subscription/bigmodelCodingPlanSubscriptionProvider.ts#L258)、`:322`；[bigmodelUsageQuotaProvider.ts:491](../../packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts#L491) |
-| Start Plan 模型运行配置                          | ESCode JWT 的当前运行时投影                                               | 当前 credentialService 的 JWT 覆盖旧 provider/runtime header；`Authorization: Bearer <JWT>`                                                               | [modelProviderService.ts:707](../../packages/services/src/model-provider/modelProviderService.ts#L707)、`:1163`、`:1215`                                                                                                                                                                |
-| Coding Plan reset / reset history                | ESCode JWT + **所选 family 的业务 JWT**                                   | `Authorization: Bearer <ESCode JWT>`；`X-Bigmodel-Authorization: <业务JWT>`（裸 token），可带 organization/project/target type                            | [bigmodelUsageQuotaProvider.ts:673](../../packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts#L673)、`:1045`                                                                                                                                                      |
-| 官方 Server MCP 与其额度凭据解析                 | ESCode JWT + 所选 Coding Plan family 的业务 JWT                           | `Authorization: Bearer <ESCode JWT>`；`X-Bigmodel-Authorization: Bearer <业务JWT>`；此处实际添加 Bearer，与 reset 不同                                    | [officialMcpCredentials.ts:216](../../packages/services/src/official-mcp/officialMcpCredentials.ts#L216)、`:330`、`:382`；[official-mcp-auth.ts:22](../../packages/shared/src/official-mcp-auth.ts#L22)                                                                                 |
-| Coding Plan monitor 用量 / Team Plan 用量        | 真正 Coding Plan / 项目 API key                                           | 使用所选 provider 或团队项目 API key；不能回退 OAuth、普通 API key、其它平台或环境变量                                                                    | [bigmodelUsageQuotaProvider.ts:708](../../packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts#L708)、`:834`、`:853`                                                                                                                                               |
-| Team Plan 项目 API key 获取                      | 对应 family 的业务 token                                                  | 先用业务登录身份获取具体 organization/project 的 API key；后者才用于团队模型/monitor                                                                      | [bigmodelUsageQuotaProvider.ts:869](../../packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts#L869)                                                                                                                                                               |
-| 空闲套餐运行                                     | ESCode JWT + Coding Plan API key                                          | `Authorization: Bearer <JWT>`；`X-Coding-Plan-Api-Key: <模型业务key>`；另带 ticket 与计划身份头。这里仍是 API key 通道，不能套用官方 MCP 的 MaaS JWT 规则 | [offPeakRuntimeModel.ts:251](../../packages/services/src/session/offPeakRuntimeModel.ts#L251)、`:403`                                                                                                                                                                                   |
-| Repo snapshot 上传                               | 当前 active tokenSet；优先 ESCode JWT，当前代码缺失时回退平台 accessToken | 最终 `Authorization: Bearer <token>`；这是现存 fallback，是否允许须依据后端契约判断，不能仅凭 token 类型不同直接定为 bug                                  | [node.ts:1288](../../packages/services/src/node.ts#L1288)；[repoSnapshotUploadClient.ts:117](../../packages/services/src/repo-snapshot/repoSnapshotUploadClient.ts#L117)                                                                                                                |
+| 消费场景                                         | 使用的凭据                                                                | 真实头 / 边界                                                                                                                                             | 代码依据                                                                                                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ZAI 业务套餐、项目、支付等接口                   | `oauth:zai:access_token` 业务 token                                       | `Authorization: <token>`，不添加 Bearer                                                                                                                   | bigmodelCodingPlanSubscriptionProvider.ts:963、`:1206`                                                                                                                                                  |
+| BigModel customer、套餐和项目等业务接口          | `oauth:bigmodel:access_token`                                             | `Authorization: <token>`；检测旧 ESCode JWT 误写                                                                                                          | bigmodelProviderAdapter.ts:245；bigmodelCodingPlanSubscriptionProvider.ts:813、`:1197`                                                                                                                  |
+| ZAI adapter 的 userinfo 补偿请求                 | `OAuthTokenSet.accessToken`，Desktop 当前已是转换后的业务 token           | `Authorization: Bearer <token>`，不是上述业务接口的裸头；已有 backend user 时优先复用资料                                                                 | zaiProviderAdapter.ts:398                                                                                                                                                                               |
+| ESCode billing preview / claim / Start Plan 余额 | `escodejwttoken`                                                          | `Authorization: Bearer <JWT>`                                                                                                                             | bigmodelCodingPlanSubscriptionProvider.ts:258、`:322`；bigmodelUsageQuotaProvider.ts:491                                                                                                                |
+| Start Plan 模型运行配置                          | ESCode JWT 的当前运行时投影                                               | 当前 credentialService 的 JWT 覆盖旧 provider/runtime header；`Authorization: Bearer <JWT>`                                                               | modelProviderService.ts:707、`:1163`、`:1215`                                                                                                                                                           |
+| Coding Plan reset / reset history                | ESCode JWT + **所选 family 的业务 JWT**                                   | `Authorization: Bearer <ESCode JWT>`；`X-Bigmodel-Authorization: <业务JWT>`（裸 token），可带 organization/project/target type                            | bigmodelUsageQuotaProvider.ts:673、`:1045`                                                                                                                                                              |
+| 官方 Server MCP 与其额度凭据解析                 | ESCode JWT + 所选 Coding Plan family 的业务 JWT                           | `Authorization: Bearer <ESCode JWT>`；`X-Bigmodel-Authorization: Bearer <业务JWT>`；此处实际添加 Bearer，与 reset 不同                                    | [officialMcpCredentials.ts:216](../../packages/services/src/official-mcp/officialMcpCredentials.ts#L216)、`:330`、`:382`；[official-mcp-auth.ts:22](../../packages/shared/src/official-mcp-auth.ts#L22) |
+| Coding Plan monitor 用量 / Team Plan 用量        | 真正 Coding Plan / 项目 API key                                           | 使用所选 provider 或团队项目 API key；不能回退 OAuth、普通 API key、其它平台或环境变量                                                                    | bigmodelUsageQuotaProvider.ts:708、`:834`、`:853`                                                                                                                                                       |
+| Team Plan 项目 API key 获取                      | 对应 family 的业务 token                                                  | 先用业务登录身份获取具体 organization/project 的 API key；后者才用于团队模型/monitor                                                                      | bigmodelUsageQuotaProvider.ts:869                                                                                                                                                                       |
+| 空闲套餐运行                                     | ESCode JWT + Coding Plan API key                                          | `Authorization: Bearer <JWT>`；`X-Coding-Plan-Api-Key: <模型业务key>`；另带 ticket 与计划身份头。这里仍是 API key 通道，不能套用官方 MCP 的 MaaS JWT 规则 | offPeakRuntimeModel.ts:251、`:403`                                                                                                                                                                      |
+| Repo snapshot 上传                               | 当前 active tokenSet；优先 ESCode JWT，当前代码缺失时回退平台 accessToken | 最终 `Authorization: Bearer <token>`；这是现存 fallback，是否允许须依据后端契约判断，不能仅凭 token 类型不同直接定为 bug                                  | [node.ts:1288](../../packages/services/src/node.ts#L1288)；repoSnapshotUploadClient.ts:117                                                                                                              |
 
 官方 MCP 在解析时校验 `settings.providerFamilyDomain === oauth:active_provider`，并在异步解析结束再次核对身份快照和业务 JWT；空闲套餐也核对所选 family 与 active provider。两者避免不同代或不同平台凭据拼接。某些历史消费入口仍允许缓存 provider.apiKey 作为 Start Plan JWT fallback，或在没有 active provider 时读共享 JWT，不能据此推导“当前文件中任意 JWT 都有效”。
 
-依据：[officialMcpCredentials.ts:222](../../packages/services/src/official-mcp/officialMcpCredentials.ts#L222)、`:341`；[offPeakRuntimeModel.ts:251](../../packages/services/src/session/offPeakRuntimeModel.ts#L251)；[bigmodelStartPlanEscodeJwt.ts:18](../../packages/services/src/model-provider/bigmodelStartPlanEscodeJwt.ts#L18)；[oauthPresetProviderRepo.ts:587](../../packages/services/src/model-provider/repo/oauthPresetProviderRepo.ts#L587)；[bigmodelUsageQuotaProvider.ts:491](../../packages/services/src/usage-stats/providers/bigmodelUsageQuotaProvider.ts#L491)。
+依据：[officialMcpCredentials.ts:222](../../packages/services/src/official-mcp/officialMcpCredentials.ts#L222)、`:341`；offPeakRuntimeModel.ts:251；bigmodelStartPlanEscodeJwt.ts:18；oauthPresetProviderRepo.ts:587；bigmodelUsageQuotaProvider.ts:491。
 
 ### Renderer 读取入口、购买鉴权与 WebView 副本
 
@@ -280,7 +280,7 @@ Deep link 的 BigModel access token 解析保留历史响应形状兼容：依�
 
 **购买页的 authenticated 是本地可用性判断。** `readCodingPlanPurchaseTokenState` 并行读取 active provider 与两个业务 access token，只将“active 恰好匹配 family 且该业务 token 非空”标为 authenticated，并映射到该 family 的 Coding Plan 和 Start Plan 入口。它不读 ESCode JWT、不检查 `exp`、不进行远端校验。`ModelProviderSection.refreshCodingPlanPurchaseTokenState` 中还有同样的本地判断。不能把这个布尔值解释为已经验证了平台 token、JWT 和套餐权益都有效。
 
-依据：[codingPlanPurchaseAuth.ts:25](../../packages/ui/src/settings/model-provider-section/codingPlanPurchaseAuth.ts#L25)；[ModelProviderSection.tsx:648](../../packages/ui/src/settings/ModelProviderSection.tsx#L648)。
+依据：codingPlanPurchaseAuth.ts:25；[ModelProviderSection.tsx:648](../../packages/ui/src/settings/ModelProviderSection.tsx#L648)。
 
 **购买 WebView 将 Host 凭据复制到独立持久分区 localStorage。** `getCodingPlanCredentialKeys` 对 ZAI 返回 `oauth:zai:access_token` 和 `escodejwttoken`，对 BigModel 只返回 `oauth:bigmodel:access_token`。因此 BigModel 购买页并没有从这个注入入口取得共享 ESCode JWT。Dialog 从 credentialService 读取这些值，生成脚本注入当前可信购买页；它按购买目标 provider 选字段，注入函数本身不读取 `oauth:active_provider`，身份正确性依赖外围选择和旧凭据清理。
 
@@ -300,35 +300,35 @@ Host credentials.json / CredentialService
 
 可信检查针对**当前导航 URL**，不是只信任初始 src；离开可信页只执行该 origin 的清理，不注入 App 凭据。PayPal 的受信 `/coding-plan/payment/callback` 回跳通过同源 returnTo 规则继续允许注入。注入前清理和注入在同一次 `executeJavaScript` 中顺序执行。关闭时尝试清理三个 token key 和报告上下文，但 WebView 已销毁时允许失败；Root 主动 logout 和设置页 provider unlink 会另发 `ClearCodingPlanWebviewStorage`，Main 清整个持久分区；Clear All Data 也明确清该分区。
 
-依据：[CodingPlanEmbeddedWebviewDialog.tsx:149](../../packages/ui/src/settings/CodingPlanEmbeddedWebviewDialog.tsx#L149)、`:386`、`:540`；[codingPlanEmbeddedWebview.ts:60](../../packages/ui/src/settings/model-provider-section/codingPlanEmbeddedWebview.ts#L60)、`:124`、`:175`、`:257`、`:310`；[useRootWorkspaceActions.ts:298](../../packages/ui/src/root/useRootWorkspaceActions.ts#L298)、`:315`；[ModelProviderSection.tsx:1087](../../packages/ui/src/settings/ModelProviderSection.tsx#L1087)；[desktopCommandHandlers.ts:213](../../packages/desktop/src/main/desktopCommandHandlers.ts#L213)、`:763`。
+依据：CodingPlanEmbeddedWebviewDialog.tsx:149、`:386`、`:540`；codingPlanEmbeddedWebview.ts:60、`:124`、`:175`、`:257`、`:310`；[useRootWorkspaceActions.ts:298](../../packages/ui/src/root/useRootWorkspaceActions.ts#L298)、`:315`；[ModelProviderSection.tsx:1087](../../packages/ui/src/settings/ModelProviderSection.tsx#L1087)；[desktopCommandHandlers.ts:213](../../packages/desktop/src/main/desktopCommandHandlers.ts#L213)、`:763`。
 
-购买完成消息用于关闭购买页并刷新当前 provider key/权益/团队项目，并不把购买网站的新 token 写回 credentials.json。依据：[CodingPlanEmbeddedWebviewDialog.tsx:340](../../packages/ui/src/settings/CodingPlanEmbeddedWebviewDialog.tsx#L340)；[CodingPlanUpgradeDialog.tsx:52](../../packages/ui/src/settings/CodingPlanUpgradeDialog.tsx#L52)、`:66`、`:108`。
+购买完成消息用于关闭购买页并刷新当前 provider key/权益/团队项目，并不把购买网站的新 token 写回 credentials.json。依据：CodingPlanEmbeddedWebviewDialog.tsx:340；CodingPlanUpgradeDialog.tsx:52、`:66`、`:108`。
 
 **legacy 清理的边界必须单列。** 当前正常 login 切换、`clearProvider`、OAuth logout、corrupt 恢复不删除磁盘旧 `auth_token/refresh_token`；只有 `useAuthToken.clearToken` 对 BigModel 的特殊逻辑会删除 `auth_token`，仍不删除旧 `refresh_token`。WebView 的三 key 清理也不是磁盘 legacy 清理。用户要求“清所有旧 JWT”时，应核定这些历史兼容字段的清理策略；不能只看到命名空间切换正确就宣称 legacy 已全清。
 
-依据：[oauthCredentialRepo.ts:415](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L415)、`:432`；[bigmodelProviderAdapter.ts:274](../../packages/services/src/oauth/providers/bigmodelProviderAdapter.ts#L274)；[useCredentials.ts:63](../../packages/ui/src/hooks/useCredentials.ts#L63)；[codingPlanEmbeddedWebview.ts:257](../../packages/ui/src/settings/model-provider-section/codingPlanEmbeddedWebview.ts#L257)。
+依据：oauthCredentialRepo.ts:415、`:432`；bigmodelProviderAdapter.ts:274；[useCredentials.ts:63](../../packages/ui/src/hooks/useCredentials.ts#L63)；codingPlanEmbeddedWebview.ts:257。
 
 ### 有效期、刷新、401 和损坏恢复
 
 **有效期。** 共享 `resolveJwtExpiration` 只解码 JWT 的 `exp`，不验证签名；默认提前 30 秒视为过期。缺 `exp`、格式异常等返回 `unknown`，继续交服务端判断。Desktop cached restore 读 active provider、user_info、共享 JWT；明确过期则在 mutation queue 中重新比对 generation/provider/profile/JWT，清当前登录和派生 provider，返回 `reauthentication-required: jwt-expired`。ZAI 缺 JWT 返回 signed-out；BigModel 当前未设置同样的缺 JWT 门槛，仍可从 user_info 恢复 authenticated。
 
-依据：[oauth.ts:164](../../packages/shared/src/oauth.ts#L164)；[oauthService.ts:177](../../packages/services/src/oauth/oauthService.ts#L177)、`:253`、`:266`。
+依据：[oauth.ts:164](../../packages/shared/src/oauth.ts#L164)；oauthService.ts:177、`:253`、`:266`。
 
 **刷新。** `OAuthService.refreshToken` 只有通用 adapter 扩展入口：要求 adapter 有 refreshToken、目标为当前 active provider、已有 refresh token，然后交换并保存。当前 ZAI / BigModel adapter 都没有实现这个方法，因此保存 BigModel refresh token 不等于实现自动续期，也不能保证平台业务 JWT 或 ESCode JWT 会续期。`ZaiBusinessTokenResolver` 的 5 分钟偏移只控制同一原始 OAuth token 转业务 token 的进程内缓存；它没有持久化，也不是后台登录续期器。
 
-依据：[oauthService.ts:913](../../packages/services/src/oauth/oauthService.ts#L913)；[providerAdapter.ts:31](../../packages/services/src/oauth/providers/providerAdapter.ts#L31)；[zaiBusinessTokenResolver.ts:4](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L4)、`:44`、`:99`。
+依据：oauthService.ts:913；providerAdapter.ts:31；[zaiBusinessTokenResolver.ts:4](../../packages/services/src/providers/zaiBusinessTokenResolver.ts#L4)、`:44`、`:99`。
 
-**401。** 审计基线的 Node API client 根据出站 `Authorization` 是否精确等于**当时本地当前** `Bearer escodejwttoken` 来识别失效。2026-09-08 最小修复在此基础上增加当前 active 平台 userinfo/customerInfo 的业务 `access_token`（裸 token 或 Bearer），并限定当前环境的 origin/path；支付、API key 管理和其它业务路径不纳入新增判断。匹配后仍由 Host 去重执行 `oauthService.logout()`，清派生 provider，并广播 `auth:escode-jwt-invalid`。该机制不刷新 token，不处理 HTTP 200 内的业务错误，也不自动覆盖 WebView 或 Agent transport。详细范围见 [401 自动退出 spec](../oauth/jwt-401-auto-logout.md)；实现见 [oauthUnauthorizedRequest.ts](../../packages/services/src/oauth/oauthUnauthorizedRequest.ts)。
+**401。** 审计基线的 Node API client 根据出站 `Authorization` 是否精确等于**当时本地当前** `Bearer escodejwttoken` 来识别失效。2026-09-08 最小修复在此基础上增加当前 active 平台 userinfo/customerInfo 的业务 `access_token`（裸 token 或 Bearer），并限定当前环境的 origin/path；支付、API key 管理和其它业务路径不纳入新增判断。匹配后仍由 Host 去重执行 `oauthService.logout()`，清派生 provider，并广播 `auth:escode-jwt-invalid`。该机制不刷新 token，不处理 HTTP 200 内的业务错误，也不自动覆盖 WebView 或 Agent transport。详细范围见 401 自动退出 spec；实现见 oauthUnauthorizedRequest.ts。
 
 `restoreSession` 是另一条主动联网校验路径：调用 provider userinfo；错误文本匹配 401/403/unauthorized/forbidden 时 logout，其它错误继续抛出。
 
-依据：[nodeApiClient.ts:134](../../packages/services/src/providers/api/nodeApiClient.ts#L134)；[node.ts:1226](../../packages/services/src/node.ts#L1226)、`:1872`；[oauthService.ts:518](../../packages/services/src/oauth/oauthService.ts#L518)、`:1061`。
+依据：[nodeApiClient.ts:134](../../packages/services/src/providers/api/nodeApiClient.ts#L134)；[node.ts:1226](../../packages/services/src/node.ts#L1226)、`:1872`；oauthService.ts:518、`:1061`。
 
 **解密损坏。** OAuthCredentialRepo 在 active provider、tokenSet、user_info 读取时捕获稳定 `CredentialDecryptError`：清两内置平台及其它注册平台的 access/refresh/user_info、共享 JWT、active provider，再通知清理派生模型 key；派生清理异常只记录 warn。该路径不删除 SSH、bot 等非 OAuth key，也不删除旧 `auth_token/refresh_token`、归因 key。model-provider 的 OAuth-aware 包装读取也复用此 Repo 行为。
 
 归因 key 的解密失败只返回 null，不触发全账号登出。当前 cached restore 直接读 `escodejwttoken`，绕过 Repo 统一恢复，单独 JWT 解密损坏仍会抛错，详见偏差表。
 
-依据：[oauthCredentialRepo.ts:159](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L159)、`:241`、`:292`、`:346`、`:432`；[modelProviderService.ts:136](../../packages/services/src/model-provider/modelProviderService.ts#L136)；[oauthService.ts:206](../../packages/services/src/oauth/oauthService.ts#L206)。
+依据：oauthCredentialRepo.ts:159、`:241`、`:292`、`:346`、`:432`；modelProviderService.ts:136；oauthService.ts:206。
 
 ### 注销、取消与并发边界
 
@@ -343,34 +343,34 @@ Host credentials.json / CredentialService
 | `logoutAll()`                | 清所有已注册 adapters 对应平台，删除 active，取消 pending，清派生 key                                             | 范围由已注册 adapters 决定；与 Repo corrupt 清理总含两内置域不同                           |
 | `cancelPending()` / timeout  | 使 pending 或 flow generation 失效；普通取消不直接清落盘旧会话                                                    | 不能把它理解为 logout；落盘中取消会进入当前 rollback，取消语义应随最终登录提交边界一起明确 |
 
-依据：[oauthService.ts:367](../../packages/services/src/oauth/oauthService.ts#L367)、`:374`、`:431`、`:554`、`:630`、`:791`、`:948`、`:980`、`:990`；[oauthCredentialRepo.ts:284](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L284)、`:424`。
+依据：oauthService.ts:367、`:374`、`:431`、`:554`、`:630`、`:791`、`:948`、`:980`、`:990`；oauthCredentialRepo.ts:284、`:424`。
 
-`onProviderLogout` 的标准 handler 同时清对应 family 的 Coding Plan 和 Start Plan API key，避免单删 OAuth 字段后运行配置还持有派生凭据。它不把手工配置的普通模型 API key 自动等同于 OAuth 会话 key。依据：[oauthProviderLogout.ts:14](../../packages/services/src/oauth/oauthProviderLogout.ts#L14)。
+`onProviderLogout` 的标准 handler 同时清对应 family 的 Coding Plan 和 Start Plan API key，避免单删 OAuth 字段后运行配置还持有派生凭据。它不把手工配置的普通模型 API key 自动等同于 OAuth 会话 key。依据：oauthProviderLogout.ts:14。
 
 ### Web 浏览器同名字段的独立边界
 
-Web `BrowserOAuthCredentialRepo` 将同名 ZAI 字段放在 **localStorage**，不是磁盘 credentials.json；`oauth_pending_nonce` 放 sessionStorage。当前浏览器实现只支持 ZAI active provider。浏览器 token 交换直接将后端 `data.zai.access_token` 保存，未经过 Desktop `ZaiBusinessTokenResolver` 的业务转换，因此同名 `oauth:zai:access_token` 在两套存储中的来源语义不能直接混同。
+Web `BrowserOAuthCredentialRepo` 将同名 ZAI 字段放在 **localStorage**，不是磁盘 credentials.json；进行中的登录记录 `oauth_pending_logins` 同在 localStorage，按 nonce 区分。当前浏览器实现只支持 ZAI active provider。浏览器 token 交换直接将后端 `data.zai.access_token` 保存，未经过 Desktop `ZaiBusinessTokenResolver` 的业务转换，因此同名 `oauth:zai:access_token` 在两套存储中的来源语义不能直接混同。
 
 浏览器 cached restore 要求 active 为 zai、JWT/access/user_info 全部存在；任何残缺态、用户 JSON 不合法都会 clearAll；JWT 明确过期返回 reauthentication-required。浏览器 logout 仅清自己的 localStorage；它不是 Desktop credentialService 的 OAuth logout。远控 attachment / Host 权威及 credential 转发限制由远控章节说明。
 
-依据：[browserOAuthCredentialRepo.ts:11](../../packages/web/src/auth/browserOAuthCredentialRepo.ts#L11)、`:58`、`:94`、`:137`；[zaiWebOAuthProvider.ts:102](../../packages/web/src/auth/zaiWebOAuthProvider.ts#L102)、`:180`；[webAuthService.ts:128](../../packages/web/src/auth/webAuthService.ts#L128)、`:160`。
+依据：browserOAuthCredentialRepo.ts:11、`:58`、`:94`、`:137`；zaiWebOAuthProvider.ts:102、`:180`；webAuthService.ts:128、`:160`。
 
 ### 当前偏差与后续检查项
 
 以下包含已确认实现问题、当前兼容残留和需要明确的边界；不把尚未决定的清理时机列为既定 bug。本章没有修改实现。
 
-| 项目                                                        | 证据 / 当前结果                                                                                                                                             | 归类与边界                                                                                                                                                                              |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 登录清旧的提交时点和取消语义待明确                          | `oauthService.ts:554`、`:791` 只换 flow；`:390` rollback 写回旧两域会话                                                                                     | **待明确边界**。用户确认的是清旧结果和单平台身份，不是点击时立即清理；不得把另一平台 JWT 设计成正常并存登录，也不能未经确认改变取消行为                                                 |
-| 同平台重登取消后的 rollback 会话字段不一致                  | `oauthService.ts:391` 恢复 JWT，`:397` 又 clear 相反平台；Repo `:420` 删除共享 JWT                                                                          | **已用内存假凭据取得运行时证据**：ZAI / BigModel 均恢复旧 access/user/active 却丢 JWT。说明现有 rollback 会生成残缺会话；具体修复应与最终登录提交/取消语义一致，不能导向两平台 JWT 并存 |
-| 单独 ESCode JWT 解密损坏绕过统一恢复                        | `oauthService.ts:206`、`:275` 直接调用 credentialService；Repo 统一清理在 `oauthCredentialRepo.ts:432`                                                      | **已用受控解密错误取得运行时证据**：cached restore 直接抛 `ESCODE_CREDENTIAL_DECRYPT_FAILED`，active 未清；应纳入 JWT 单字段损坏场景                                                    |
-| BigModel 缺 JWT 仍能恢复 authenticated                      | cached restore `oauthService.ts:253` 的缺 JWT 检查仅限 ZAI，`:262` 统一返回成功                                                                             | **当前两平台恢复条件不一致**。新单平台完整会话规则需要明确消除残缺态                                                                                                                    |
-| 旧 BigModel `auth_token/refresh_token` 正常切平台后仍可残留 | `oauthCredentialRepo.ts:415` 不删除 legacy；`bigmodelProviderAdapter.ts:274` 仍读取；`useCredentials.ts:63` 仅特殊删除 `auth_token`                         | **静态确认的兼容残留，清理边界待核定**。正常切换合成成功只证明命名空间 key 清理，不证明 legacy 全清；用户要求清所有旧 JWT 时必须单列核对这两项，而不能扩大为删除全部 credentials.json   |
-| 孤立 OAuth 字段和 adapter 清理集合不一致                    | logout 只清 active；all 清理取 adapters 列表；corrupt 清理总包含两内置平台                                                                                  | **需要明确清理集合**。active 缺失或 adapter 禁用/未注册时的遗留字段应独立覆盖                                                                                                           |
-| 泛型 refresh 缺 generation / mutation queue 防护            | `oauthService.ts:936` 异步交换后 `:945` 按最新 active 保存                                                                                                  | **扩展接口隐患**。内置 adapter 当前无 refresh，不能把它描述成当前内置自动刷新串写已经在发生                                                                                             |
-| 部分消费者有跨类型 / 副本 fallback                          | repo snapshot `node.ts:1294` 回退业务 accessToken；Start Plan JWT helper 允许 provider.apiKey 副本                                                          | **静态确认的审计项**。新清旧语义下要检查这些副本是否能继续让旧账号请求；不能直接断言 fallback 都正在使用错误凭据                                                                        |
-| `expiresAt` 未落盘，业务 JWT 无自动刷新链路                 | Repo 只保存 access/refresh/JWT；官方 MCP 注释也明确业务 JWT 无刷新链路                                                                                      | **能力边界**。当前依赖重新登录或服务端拒绝；是否新增刷新属于后续设计选择                                                                                                                |
-| 历史文档写错 ZAI token 语义                                 | [oauth-multi-provider-implementation.md:99](../../docs/oauth/oauth-multi-provider-implementation.md#L99)、`:105` 写为 `data.token`；`:173` 描述消费时再转换 | **文档事实漂移**。当前 Desktop 是登录阶段转换后保存业务 token，ESCode JWT 单独保存                                                                                                      |
+| 项目                                                        | 证据 / 当前结果                                                                                                                     | 归类与边界                                                                                                                                                                              |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 登录清旧的提交时点和取消语义待明确                          | `oauthService.ts:554`、`:791` 只换 flow；`:390` rollback 写回旧两域会话                                                             | **待明确边界**。用户确认的是清旧结果和单平台身份，不是点击时立即清理；不得把另一平台 JWT 设计成正常并存登录，也不能未经确认改变取消行为                                                 |
+| 同平台重登取消后的 rollback 会话字段不一致                  | `oauthService.ts:391` 恢复 JWT，`:397` 又 clear 相反平台；Repo `:420` 删除共享 JWT                                                  | **已用内存假凭据取得运行时证据**：ZAI / BigModel 均恢复旧 access/user/active 却丢 JWT。说明现有 rollback 会生成残缺会话；具体修复应与最终登录提交/取消语义一致，不能导向两平台 JWT 并存 |
+| 单独 ESCode JWT 解密损坏绕过统一恢复                        | `oauthService.ts:206`、`:275` 直接调用 credentialService；Repo 统一清理在 `oauthCredentialRepo.ts:432`                              | **已用受控解密错误取得运行时证据**：cached restore 直接抛 `ESCODE_CREDENTIAL_DECRYPT_FAILED`，active 未清；应纳入 JWT 单字段损坏场景                                                    |
+| BigModel 缺 JWT 仍能恢复 authenticated                      | cached restore `oauthService.ts:253` 的缺 JWT 检查仅限 ZAI，`:262` 统一返回成功                                                     | **当前两平台恢复条件不一致**。新单平台完整会话规则需要明确消除残缺态                                                                                                                    |
+| 旧 BigModel `auth_token/refresh_token` 正常切平台后仍可残留 | `oauthCredentialRepo.ts:415` 不删除 legacy；`bigmodelProviderAdapter.ts:274` 仍读取；`useCredentials.ts:63` 仅特殊删除 `auth_token` | **静态确认的兼容残留，清理边界待核定**。正常切换合成成功只证明命名空间 key 清理，不证明 legacy 全清；用户要求清所有旧 JWT 时必须单列核对这两项，而不能扩大为删除全部 credentials.json   |
+| 孤立 OAuth 字段和 adapter 清理集合不一致                    | logout 只清 active；all 清理取 adapters 列表；corrupt 清理总包含两内置平台                                                          | **需要明确清理集合**。active 缺失或 adapter 禁用/未注册时的遗留字段应独立覆盖                                                                                                           |
+| 泛型 refresh 缺 generation / mutation queue 防护            | `oauthService.ts:936` 异步交换后 `:945` 按最新 active 保存                                                                          | **扩展接口隐患**。内置 adapter 当前无 refresh，不能把它描述成当前内置自动刷新串写已经在发生                                                                                             |
+| 部分消费者有跨类型 / 副本 fallback                          | repo snapshot `node.ts:1294` 回退业务 accessToken；Start Plan JWT helper 允许 provider.apiKey 副本                                  | **静态确认的审计项**。新清旧语义下要检查这些副本是否能继续让旧账号请求；不能直接断言 fallback 都正在使用错误凭据                                                                        |
+| `expiresAt` 未落盘，业务 JWT 无自动刷新链路                 | Repo 只保存 access/refresh/JWT；官方 MCP 注释也明确业务 JWT 无刷新链路                                                              | **能力边界**。当前依赖重新登录或服务端拒绝；是否新增刷新属于后续设计选择                                                                                                                |
+| 历史文档写错 ZAI token 语义                                 | oauth-multi-provider-implementation.md:99、`:105` 写为 `data.token`；`:173` 描述消费时再转换                                        | **文档事实漂移**。当前 Desktop 是登录阶段转换后保存业务 token，ESCode JWT 单独保存                                                                                                      |
 
 本轮前序运行时证据只使用内存 fixture 与从当前源码加载的函数，没有读取真实 token；本章不重复运行。正式修复仍需按仓库要求先补测试/spec，覆盖登录清旧、取消/失败、两平台切换、独立 JWT 损坏、派生 key 清理以及 desktop / web 远控边界。
 
@@ -392,21 +392,21 @@ Web `BrowserOAuthCredentialRepo` 将同名 ZAI 字段放在 **localStorage**，�
 | `oauth:zai:user_info`     | `JSON.stringify(user)`；CLI user 为 `{user_id: string, avatar?: string, email?: string, name?: string}`          | ZAI 登录覆盖；logout 删除              | 当前主链路，非 token                          |
 | `oauth:zai:refresh_token` | 历史/其他 writer 可留下的 refresh token 字符串                                                                   | CLI 登录不产生也不清除；logout 删除    | CLI 仅清理兼容字段，不是当前 CLI 新登录的输出 |
 
-CLI OAuth ready 响应的源码类型仅含 `status`、`token`、`user`、`zai.access_token`，没有 refresh token 和持久化到期字段：[cli-oauth.ts:32](../../apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts#L32)。CLI 登录存储方法也没有 `expiresAt` 参数，因此不能从该方法推断存在应用 JWT 自动刷新管理。
+CLI OAuth ready 响应的源码类型仅含 `status`、`token`、`user`、`zai.access_token`，没有 refresh token 和持久化到期字段：cli-oauth.ts:32。CLI 登录存储方法也没有 `expiresAt` 参数，因此不能从该方法推断存在应用 JWT 自动刷新管理。
 
 以下三个 BigModel key 由桌面 OAuth repo 定义；当前 CLI ZAI 登录和 logout 都不处理它们。它们是核对“单一平台登录”时必须一起考虑的旧会话状态，不是当前 CLI BigModel Coding Plan setup 的落盘输出：
 
-| 完整 key                       | 解密后的值                     | 代码依据                                                                                       |
-| ------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `oauth:bigmodel:access_token`  | BigModel 业务 access token/JWT | [oauthCredentialRepo.ts:24](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L24) |
-| `oauth:bigmodel:refresh_token` | 可选 refresh token 字符串      | [oauthCredentialRepo.ts:28](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L28) |
-| `oauth:bigmodel:user_info`     | 用户资料 JSON 字符串           | [oauthCredentialRepo.ts:32](../../packages/services/src/oauth/repo/oauthCredentialRepo.ts#L32) |
+| 完整 key                       | 解密后的值                     | 代码依据                  |
+| ------------------------------ | ------------------------------ | ------------------------- |
+| `oauth:bigmodel:access_token`  | BigModel 业务 access token/JWT | oauthCredentialRepo.ts:24 |
+| `oauth:bigmodel:refresh_token` | 可选 refresh token 字符串      | oauthCredentialRepo.ts:28 |
+| `oauth:bigmodel:user_info`     | 用户资料 JSON 字符串           | oauthCredentialRepo.ts:32 |
 
 ### CLI 登录、退出与模型 Key 的生命周期
 
 #### ZAI CLI 登录
 
-[loginESCodeCli](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L130) 的实际时序：
+loginESCodeCli 的实际时序：
 
 ```text
 生成临时 poll_token
@@ -427,20 +427,20 @@ CLI OAuth ready 响应的源码类型仅含 `status`、`token`、`user`、`zai.a
                 +--> 最终模型 API Key 写 ~/.escode/cli/config.json
 ```
 
-- init/poll 的 `poll_token` 只作为当前设备授权流请求凭据，不写 `credentials.json`：[cli-oauth.ts:88](../../apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts#L88)、[cli-oauth.ts:106](../../apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts#L106)。
-- 共享凭据先于业务 token 兑换和 config 更新落盘：[auth-login.ts:165](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L165)。
-- MaaS 业务 token 在 resolver 内使用，resolver 当前只返回最终模型 API Key，不返回给 shared store：[coding-plan-api-key.ts:96](../../apps/escode-cli/packages/adapters/src/auth/coding-plan-api-key.ts#L96)、[coding-plan-api-key.ts:111](../../apps/escode-cli/packages/adapters/src/auth/coding-plan-api-key.ts#L111)。
+- init/poll 的 `poll_token` 只作为当前设备授权流请求凭据，不写 `credentials.json`：cli-oauth.ts:88、cli-oauth.ts:106。
+- 共享凭据先于业务 token 兑换和 config 更新落盘：auth-login.ts:165。
+- MaaS 业务 token 在 resolver 内使用，resolver 当前只返回最终模型 API Key，不返回给 shared store：coding-plan-api-key.ts:96、coding-plan-api-key.ts:111。
 - 模型 API Key 由 config adapter 写 config，而非凭据 store：[file-config.adapter.ts:331](../../apps/escode-cli/packages/adapters/src/config/file-config.adapter.ts#L331)。
 
 #### CLI BigModel Coding Plan setup / 手动 API Key setup
 
-`loginBigmodelCodingPlan()` 是“取模型 API Key 并配置 CLI”的流程：localhost callback 收 auth code，兑换 BigModel access token，获取 API Key，写 config，关闭 callback server。该方法**没有 shared credential store，也不写 `oauth:bigmodel:*` 或 `escodejwttoken`**，不能把它当作桌面 BigModel 应用登录的另一入口。[auth-login.ts:212](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L212)、[auth-login.ts:254](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L254)。
+`loginBigmodelCodingPlan()` 是“取模型 API Key 并配置 CLI”的流程：localhost callback 收 auth code，兑换 BigModel access token，获取 API Key，写 config，关闭 callback server。该方法**没有 shared credential store，也不写 `oauth:bigmodel:*` 或 `escodejwttoken`**，不能把它当作桌面 BigModel 应用登录的另一入口。auth-login.ts:212、auth-login.ts:254。
 
-手动 API Key setup 同样只校验非空后写 provider config，不写应用 OAuth state：[auth-login.ts:279](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L279)。
+手动 API Key setup 同样只校验非空后写 provider config，不写应用 OAuth state：auth-login.ts:279。
 
 #### CLI logout
 
-`logoutESCodeCli()` 只调用 `clearZaiLoginCredentials()`。后者在单次文件锁事务中删除 ZAI access/refresh/user 和共享 `escodejwttoken`，但 active marker 只在它等于 `zai` 时删除；BigModel namespace 完全保留。[auth-login.ts:298](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L298)、[shared-credentials.ts:70](../../apps/escode-cli/packages/adapters/src/auth/shared-credentials.ts#L70)。
+`logoutESCodeCli()` 只调用 `clearZaiLoginCredentials()`。后者在单次文件锁事务中删除 ZAI access/refresh/user 和共享 `escodejwttoken`，但 active marker 只在它等于 `zai` 时删除；BigModel namespace 完全保留。auth-login.ts:298、[shared-credentials.ts:70](../../apps/escode-cli/packages/adapters/src/auth/shared-credentials.ts#L70)。
 
 该 CLI logout 路径没有删除 `~/.escode/cli/config.json` 中的模型 API Key，也没有遍历或删除 `mcp:oauth:*`。应用账号登出、CLI 模型调用凭据、第三方 MCP 授权是当前代码中的三个不同生命周期。
 
@@ -593,30 +593,30 @@ Standalone CLI 不因为本地有 credentials 文件就自动构造官方 MCP �
 
 ### 相关秘密中哪些不由这条路径写入 credentials.json
 
-| 秘密/字段                                                           | 当前保存或传递位置                                                                                            | 依据与边界                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CLI 最终模型 API Key                                                | `~/.escode/cli/config.json` 的 provider 配置                                                                  | [file-config.adapter.ts:331](../../apps/escode-cli/packages/adapters/src/config/file-config.adapter.ts#L331)；桌面 provider 存储另见总文档，不把 CLI 规则泛化到桌面                                                                                                                                              |
-| 模型环境变量 API Key                                                | 运行期读取 provider `apiKeyEnv` 或默认 env 名                                                                 | [registry.ts:493](../../apps/escode-cli/packages/adapters/src/model/registry.ts#L493)；优先显式 provider `apiKey`，无 shared credential fallback                                                                                                                                                                 |
-| app-server 模型 `session-secret`                                    | 按 `workspace.workspaceKey` 隔离的 `catalog.secrets` 内存 Map，key 形如 `model-provider:<providerId>:api-key` | [workspace-model-catalog.ts:1275](../../apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts#L1275)、[workspace-model-catalog.ts:1446](../../apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts#L1446)；这个像 credential key 的名字不是本文件的 key |
-| app-server 模型 `env` secret reference                              | 保留 env 引用，解析时从传入 env 读取                                                                          | [workspace-model-catalog.ts:1523](../../apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts#L1523)                                                                                                                                                                                 |
-| ZAI CLI `poll_token`、flow/state                                    | 当前登录方法内存和 init/poll 请求                                                                             | [cli-oauth.ts:88](../../apps/escode-cli/packages/adapters/src/auth/cli-oauth.ts#L88)；不是长期 access/refresh token                                                                                                                                                                                              |
-| CLI BigModel setup 中间 access token                                | 回调兑换之后的内存变量，用来取最终模型 API Key                                                                | [auth-login.ts:254](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L254)                                                                                                                                                                                                                             |
-| 当前 MCP Phase 2 的 PKCE verifier、尚未成功交换 token 的 DCR client | 当前交互授权 provider 内存                                                                                    | [oauth-interactive.ts:246](../../apps/escode-cli/packages/adapters/src/mcp/oauth-interactive.ts#L246)、[oauth-interactive.ts:409](../../apps/escode-cli/packages/adapters/src/mcp/oauth-interactive.ts#L409)；成功后 client 进入 canonical/mirror                                                                |
-| MCP client-credentials 配置 `clientId/clientSecret`                 | MCP 配置对象传给 SDK `ClientCredentialsProvider`                                                              | [mcp/index.ts:1547](../../apps/escode-cli/packages/adapters/src/mcp/index.ts#L1547)；本分支不注入 shared store，不能声称写了 `P:tokens`                                                                                                                                                                          |
-| MCP 静态 headers / stdio env                                        | MCP 配置/进程启动环境直接传递                                                                                 | [mcp/index.ts:1423](../../apps/escode-cli/packages/adapters/src/mcp/index.ts#L1423)；不是从 shared store 自动展开的凭据                                                                                                                                                                                          |
-| `ESCODE_CREDENTIAL_SECRET`                                          | 环境中的本地加密 key material                                                                                 | [credential-cipher.ts:87](../../apps/escode-cli/packages/adapters/src/auth/credential-cipher.ts#L87)；不是业务 JWT                                                                                                                                                                                               |
+| 秘密/字段                                                           | 当前保存或传递位置                                                                                            | 依据与边界                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI 最终模型 API Key                                                | `~/.escode/cli/config.json` 的 provider 配置                                                                  | [file-config.adapter.ts:331](../../apps/escode-cli/packages/adapters/src/config/file-config.adapter.ts#L331)；桌面 provider 存储另见总文档，不把 CLI 规则泛化到桌面                                                                               |
+| 模型环境变量 API Key                                                | 运行期读取 provider `apiKeyEnv` 或默认 env 名                                                                 | registry.ts:493；优先显式 provider `apiKey`，无 shared credential fallback                                                                                                                                                                        |
+| app-server 模型 `session-secret`                                    | 按 `workspace.workspaceKey` 隔离的 `catalog.secrets` 内存 Map，key 形如 `model-provider:<providerId>:api-key` | workspace-model-catalog.ts:1275、workspace-model-catalog.ts:1446；这个像 credential key 的名字不是本文件的 key                                                                                                                                    |
+| app-server 模型 `env` secret reference                              | 保留 env 引用，解析时从传入 env 读取                                                                          | workspace-model-catalog.ts:1523                                                                                                                                                                                                                   |
+| ZAI CLI `poll_token`、flow/state                                    | 当前登录方法内存和 init/poll 请求                                                                             | cli-oauth.ts:88；不是长期 access/refresh token                                                                                                                                                                                                    |
+| CLI BigModel setup 中间 access token                                | 回调兑换之后的内存变量，用来取最终模型 API Key                                                                | auth-login.ts:254                                                                                                                                                                                                                                 |
+| 当前 MCP Phase 2 的 PKCE verifier、尚未成功交换 token 的 DCR client | 当前交互授权 provider 内存                                                                                    | [oauth-interactive.ts:246](../../apps/escode-cli/packages/adapters/src/mcp/oauth-interactive.ts#L246)、[oauth-interactive.ts:409](../../apps/escode-cli/packages/adapters/src/mcp/oauth-interactive.ts#L409)；成功后 client 进入 canonical/mirror |
+| MCP client-credentials 配置 `clientId/clientSecret`                 | MCP 配置对象传给 SDK `ClientCredentialsProvider`                                                              | [mcp/index.ts:1547](../../apps/escode-cli/packages/adapters/src/mcp/index.ts#L1547)；本分支不注入 shared store，不能声称写了 `P:tokens`                                                                                                           |
+| MCP 静态 headers / stdio env                                        | MCP 配置/进程启动环境直接传递                                                                                 | [mcp/index.ts:1423](../../apps/escode-cli/packages/adapters/src/mcp/index.ts#L1423)；不是从 shared store 自动展开的凭据                                                                                                                           |
+| `ESCODE_CREDENTIAL_SECRET`                                          | 环境中的本地加密 key material                                                                                 | [credential-cipher.ts:87](../../apps/escode-cli/packages/adapters/src/auth/credential-cipher.ts#L87)；不是业务 JWT                                                                                                                                |
 
-模型 registry 替换会清旧 `model-provider:*` 内存 secrets，移除 provider 会删对应 secret：[workspace-model-catalog.ts:245](../../apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts#L245)、[workspace-model-catalog.ts:370](../../apps/escode-cli/packages/bootstrap/src/escode-protocol/workspace-model-catalog.ts#L370)。这不等于修改 credentials 文件。
+模型 registry 替换会清旧 `model-provider:*` 内存 secrets，移除 provider 会删对应 secret：workspace-model-catalog.ts:245、workspace-model-catalog.ts:370。这不等于修改 credentials 文件。
 
 ### 本轮已验证的 CLI 三个问题
 
 #### CLI-1：同一 ZAI access key 的 token 类型分裂
 
-CLI 将 ready 原始 OAuth access token 写入 `oauth:zai:access_token`；桌面已明确该 key 必须存 `/api/auth/z/login` 返回的 MaaS JWT，并在自己的 polling adapter 正规化。CLI 后续确实取得 MaaS JWT，却只在 API Key resolver 内使用。影响是 CLI 登录可能覆盖桌面/官方 MCP/业务用量消费者依赖的 MaaS token。[auth-login.ts:166](../../apps/escode-cli/packages/bootstrap/src/auth-login.ts#L166)、[zaiProviderAdapter.ts:307](../../packages/services/src/oauth/providers/zaiProviderAdapter.ts#L307)。
+CLI 将 ready 原始 OAuth access token 写入 `oauth:zai:access_token`；桌面已明确该 key 必须存 `/api/auth/z/login` 返回的 MaaS JWT，并在自己的 polling adapter 正规化。CLI 后续确实取得 MaaS JWT，却只在 API Key resolver 内使用。影响是 CLI 登录可能覆盖桌面/官方 MCP/业务用量消费者依赖的 MaaS token。auth-login.ts:166、zaiProviderAdapter.ts:307。
 
 本轮合成 harness 执行真实 CLI login、OAuth adapter、API Key resolver、加密存储和锁，注入合成 HTTP 响应，最终 config writer 为仅记录参数的 stub；结果：业务请求使用 MaaS JWT=true，shared store 存原始 OAuth token=true，shared store 存 MaaS JWT=false，最终模型 API Key 配置成功=true。未进行真实网络登录。
 
-现有 [auth-login.test.ts:95](../../apps/escode-cli/packages/bootstrap/tests/auth-login.test.ts#L95) 已提供不同 OAuth token 与业务 JWT 响应，但 [auth-login.test.ts:176](../../apps/escode-cli/packages/bootstrap/tests/auth-login.test.ts#L176) 错误断言原始 OAuth token 落共享 key。后续修复应先更新该回归测试及跨桌面消费者的契约覆盖。
+现有 auth-login.test.ts:95 已提供不同 OAuth token 与业务 JWT 响应，但 auth-login.test.ts:176 错误断言原始 OAuth token 落共享 key。后续修复应先更新该回归测试及跨桌面消费者的契约覆盖。
 
 #### CLI-2：成功登录未整体替换旧平台会话
 
@@ -655,17 +655,17 @@ CLI-2/3 已使用两个独立临时文件、真实共享存储源码与真实加
 | `bot:<botId>:webhook-secret`，provider=`webhook`         | 自定义 webhook shared secret                 | `saveBot({ webhookSecretValue })` 的调用方提供                   | 入站 callback 比较；出站使用自定义 header 名，默认 `x-zcode-bot-secret` |
 | `bot:<botId>:webhook-secret`，provider=`feishu` / `lark` | 事件回调 verification token                  | `saveBot({ webhookSecretValue })` 的调用方提供                   | 与 payload 顶层 `token` 或 `header.token` 比较                          |
 
-键由 [config.ts:70](../../packages/services/src/bots/config.ts#L70)、`:74` 生成。`botId` 在 `saveBot` 中 trim，键没有 workspace 或用户 OAuth provider 维度；每个 Bot 以其 ID 隔离。`BotConfig` 保存 `credentialRef` / `webhookSecretRef`，真实值另存凭据仓库。当前 service 接受已有任意 ref，读取与删除遵从 ref 本身，不能仅凭非标准键名判断记录无用（[bots.ts:96](../../packages/shared/src/bots.ts#L96)、[botsService.ts:6127](../../packages/services/src/bots/botsService.ts#L6127)、`:6221`）。
+键由 config.ts:70、`:74` 生成。`botId` 在 `saveBot` 中 trim，键没有 workspace 或用户 OAuth provider 维度；每个 Bot 以其 ID 隔离。`BotConfig` 保存 `credentialRef` / `webhookSecretRef`，真实值另存凭据仓库。当前 service 接受已有任意 ref，读取与删除遵从 ref 本身，不能仅凭非标准键名判断记录无用（bots.ts:96、botsService.ts:6127、`:6221`）。
 
 来源与使用的源码证据：
 
-- 通用 UI 保存：[BotsDialog.tsx:347](../../packages/ui/src/BotsDialog.tsx#L347)；手填提交：`:816`。扫码完成后共用同一保存入口，飞书 `appSecret` 在 `:438` / `:445`，微信 `botToken` 在 `:564` / `:572`。
-- 飞书注册将 `pollResponse.client_secret` 返回为 `appSecret`：[feishuAppRegistration.ts:164](../../packages/services/src/bots/providers/feishuAppRegistration.ts#L164)。微信从响应读取 `bot_token` / `token`：[weixinRegistration.ts:167](../../packages/services/src/bots/providers/weixinRegistration.ts#L167)。
-- Telegram 读取 ref 并放入 `https://api.telegram.org/bot${token}/getMe`：[telegramProvider.ts:323](../../packages/services/src/bots/providers/telegramProvider.ts#L323)、`:327`。
-- 飞书 app secret 换 tenant access token：[feishuProvider.ts:1093](../../packages/services/src/bots/providers/feishuProvider.ts#L1093)。换得的 token 放在模块内 `accessTokenCache`，并非新的 `credentials.json` 键（`:1105`、`:1130`）。
-- 微信读取及 Authorization header：[weixinProvider.ts:97](../../packages/services/src/bots/providers/weixinProvider.ts#L97)、`:105`。
-- Webhook/飞书 callback 校验：[botsService.ts:3273](../../packages/services/src/bots/botsService.ts#L3273)、`:3284`。Webhook 出站 header：[webhookProvider.ts:211](../../packages/services/src/bots/providers/webhookProvider.ts#L211)。
-- 当前 `BotsDialog` 的 `saveBot` 包装仅传 `credentialValue`（[BotsDialog.tsx:347](../../packages/ui/src/BotsDialog.tsx#L347)）；`webhookSecretValue` 是服务 API 支持项，不应写成当前所有 Bot UI 都提供此字段编辑。
+- 通用 UI 保存：BotsDialog.tsx:347；手填提交：`:816`。扫码完成后共用同一保存入口，飞书 `appSecret` 在 `:438` / `:445`，微信 `botToken` 在 `:564` / `:572`。
+- 飞书注册将 `pollResponse.client_secret` 返回为 `appSecret`：feishuAppRegistration.ts:164。微信从响应读取 `bot_token` / `token`：weixinRegistration.ts:167。
+- Telegram 读取 ref 并放入 `https://api.telegram.org/bot${token}/getMe`：telegramProvider.ts:323、`:327`。
+- 飞书 app secret 换 tenant access token：feishuProvider.ts:1093。换得的 token 放在模块内 `accessTokenCache`，并非新的 `credentials.json` 键（`:1105`、`:1130`）。
+- 微信读取及 Authorization header：weixinProvider.ts:97、`:105`。
+- Webhook/飞书 callback 校验：botsService.ts:3273、`:3284`。Webhook 出站 header：webhookProvider.ts:211。
+- 当前 `BotsDialog` 的 `saveBot` 包装仅传 `credentialValue`（BotsDialog.tsx:347）；`webhookSecretValue` 是服务 API 支持项，不应写成当前所有 Bot UI 都提供此字段编辑。
 
 ```text
 用户手填 / 扫码注册返回 secret
@@ -687,11 +687,11 @@ provider runtime / provider adapter
 
 更新与回收：
 
-1. `saveBot` 对非空新值覆盖同一个 bot 键；没有非空新值时不写入，保留的是调用方传来的 BotConfig/ref。写 secret、解析名称、校验及写配置的顺序见 [botsService.ts:6127](../../packages/services/src/bots/botsService.ts#L6127)、`:6140`、`:6171`、`:6174`。
-2. 保存后会刷新 Telegram、Weixin、Feishu runtime；runtime 指纹纳入 ref 对应的实际凭据，因此同一个 ref 下换值也可识别（[botsService.ts:6175](../../packages/services/src/bots/botsService.ts#L6175)；`telegramChannelRuntime.ts:64`、`weixinChannelRuntime.ts:46`、`feishuChannelRuntime.ts:51`，均位于同目录）。
-3. `removeBotSecret` 停止相关运行时、去掉两个 ref 和绑定身份、清 state，再删 ref 指向的凭据；Bot 本体保留，供重新绑定（[botsService.ts:6183](../../packages/services/src/bots/botsService.ts#L6183)、`:6199`、`:6221`）。
-4. `deleteBot` 删除配置和 state，并删除两个 ref 指向的凭据（[botsService.ts:6229](../../packages/services/src/bots/botsService.ts#L6229)）。普通禁用未走这两个删除入口，因此不等同于撤销/删除凭据。
-5. `saveConfig` 直接替换规范化 Bot 配置并刷新 runtime，没有扫描被移除 Bot 的凭据做差异回收（[botsService.ts:6099](../../packages/services/src/bots/botsService.ts#L6099)）。目前未见遍历 `bot:*` 的通用孤儿凭据 GC。清理依赖调用专用删除入口和保留 ref。
+1. `saveBot` 对非空新值覆盖同一个 bot 键；没有非空新值时不写入，保留的是调用方传来的 BotConfig/ref。写 secret、解析名称、校验及写配置的顺序见 botsService.ts:6127、`:6140`、`:6171`、`:6174`。
+2. 保存后会刷新 Telegram、Weixin、Feishu runtime；runtime 指纹纳入 ref 对应的实际凭据，因此同一个 ref 下换值也可识别（botsService.ts:6175；`telegramChannelRuntime.ts:64`、`weixinChannelRuntime.ts:46`、`feishuChannelRuntime.ts:51`，均位于同目录）。
+3. `removeBotSecret` 停止相关运行时、去掉两个 ref 和绑定身份、清 state，再删 ref 指向的凭据；Bot 本体保留，供重新绑定（botsService.ts:6183、`:6199`、`:6221`）。
+4. `deleteBot` 删除配置和 state，并删除两个 ref 指向的凭据（botsService.ts:6229）。普通禁用未走这两个删除入口，因此不等同于撤销/删除凭据。
+5. `saveConfig` 直接替换规范化 Bot 配置并刷新 runtime，没有扫描被移除 Bot 的凭据做差异回收（botsService.ts:6099）。目前未见遍历 `bot:*` 的通用孤儿凭据 GC。清理依赖调用专用删除入口和保留 ref。
 6. Bot 主凭据本身没有 expiresAt/refresh token 结构；失效后重新提供值或重新扫码。飞书短期 tenant token 的缓存/重新换取属于 provider 内存层，不应计入持久化键清单。
 
 ### 远端连接凭据：以 workspace identity 隔离
@@ -724,7 +724,7 @@ provider runtime / provider adapter
 
 读取与回收：
 
-- UI 恢复 SSH 密码、私钥口令以及 Server token：[reconnectRemoteWorkspaceHistoryEntry.ts:121](../../packages/ui/src/root/reconnectRemoteWorkspaceHistoryEntry.ts#L121)、`:132`；重建 target 后调用连接入口（`:136`）。Bot 对远端 SSH workspace 的恢复也按 settings 历史中的 ref 读取，见 [botRemoteWorkspaceBridge.ts:115](../../packages/services/src/bots/botRemoteWorkspaceBridge.ts#L115)、`:141`；该 helper 的显式凭据重建分支当前只覆盖 SSH。
+- UI 恢复 SSH 密码、私钥口令以及 Server token：[reconnectRemoteWorkspaceHistoryEntry.ts:121](../../packages/ui/src/root/reconnectRemoteWorkspaceHistoryEntry.ts#L121)、`:132`；重建 target 后调用连接入口（`:136`）。Bot 对远端 SSH workspace 的恢复也按 settings 历史中的 ref 读取，见 botRemoteWorkspaceBridge.ts:115、`:141`；该 helper 的显式凭据重建分支当前只覆盖 SSH。
 - 变更时，旧 snapshot 中不再使用的 ref 加入删除列表；超过 20 条历史上限淘汰的条目，其 ref 也加入删除列表（[remoteWorkspaceHistory.ts:13](../../packages/ui/src/lib/remoteWorkspaceHistory.ts#L13)、`:344`、`:429`、`:440`）。保存值见 `:451`。
 - 具体落库入口先尝试删除，再写新值，最后保存 settings；删除失败记 warn 后继续，写入失败则抛出（[useRemoteWorkspaceHistory.ts:746](../../packages/ui/src/root/useRemoteWorkspaceHistory.ts#L746)）。这是多次单键操作加一次 settings 写入，不是跨文件事务。
 - 显式移除远端 workspace/tab 时，先保存移除后的历史，再删除引用的凭据，失败记录 warn（[useRemoteWorkspaceHistory.ts:1358](../../packages/ui/src/root/useRemoteWorkspaceHistory.ts#L1358)、`:1382`、`:1397`）。普通断线/临时 bridge 分离不等于移除历史，不会据此自动删除凭据。
@@ -732,9 +732,9 @@ provider runtime / provider adapter
 
 ### 外部 Relay 配对凭据
 
-唯一固定键：`web-remote-control:external-relay:pass_hash`（[webRemoteControlRelayAuthStorageProvider.ts:4](../../packages/desktop/src/main/webRemoteControlRelayAuthStorageProvider.ts#L4)）。值是 `passHash` 字符串，虽然名为 hash，但它用于生成认证证明，是认证材料。`deviceSid` 是配套非敏感身份，保存在 settings 的 `webRemoteControlExternalRelayDevice.deviceSid`，不是另一个 credential 键。
+唯一固定键：`web-remote-control:external-relay:pass_hash`（webRemoteControlRelayAuthStorageProvider.ts:4）。值是 `passHash` 字符串，虽然名为 hash，但它用于生成认证证明，是认证材料。`deviceSid` 是配套非敏感身份，保存在 settings 的 `webRemoteControlExternalRelayDevice.deviceSid`，不是另一个 credential 键。
 
-来源：首次注册产生 24 字节随机 password，将其 SHA-256 后以 base64 编码为 passHash；认证证明为 `HMAC-SHA256(passHash, nonce|role|deviceSid)`，base64url 输出（[webRemoteControlRelayAuthProvider.ts:15](../../packages/desktop/src/main/webRemoteControlRelayAuthProvider.ts#L15)）。随机原始 password 不另存 credentials.json。
+来源：首次注册产生 24 字节随机 password，将其 SHA-256 后以 base64 编码为 passHash；认证证明为 `HMAC-SHA256(passHash, nonce|role|deviceSid)`，base64url 输出（webRemoteControlRelayAuthProvider.ts:15）。随机原始 password 不另存 credentials.json。
 
 ```text
 Main manager.start
@@ -753,10 +753,10 @@ invalid persisted auth / resetPairing
 
 调用链与生命周期：
 
-- Main 注入 credential/settings service：[index.ts:931](../../packages/desktop/src/main/index.ts#L931)。启动读取并选择 persisted/register：[webRemoteControlManager.ts:1327](../../packages/desktop/src/main/webRemoteControlManager.ts#L1327)；新注册成功 ready 后保存：`:1446`。
-- `load` 同时读取 settings/deviceSid 与 credential/passHash；两者都缺失返回 undefined，只有一边存在时先 clear 再返回 undefined（[webRemoteControlRelayAuthStorageProvider.ts:54](../../packages/desktop/src/main/webRemoteControlRelayAuthStorageProvider.ts#L54)）。
+- Main 注入 credential/settings service：[index.ts:931](../../packages/desktop/src/main/index.ts#L931)。启动读取并选择 persisted/register：webRemoteControlManager.ts:1327；新注册成功 ready 后保存：`:1446`。
+- `load` 同时读取 settings/deviceSid 与 credential/passHash；两者都缺失返回 undefined，只有一边存在时先 clear 再返回 undefined（webRemoteControlRelayAuthStorageProvider.ts:54）。
 - `save` 先 patch settings 再写 passHash（同文件 `:80`）；`clear` 先清 settings 再删 passHash（`:44`）；公开 `rotate` 为 clear 后 save（`:96`）。同样不是两文件事务，但 load 会修复单边缺失状态。
-- manager 收到 invalid persisted auth 时调用 clear（[webRemoteControlManager.ts:1398](../../packages/desktop/src/main/webRemoteControlManager.ts#L1398)）；用户 resetPairing 停旧 runtime、clear，再 start（`:1537`）。普通 start 会复用完整配对材料，所以关闭一次运行时不应被描述成删除配对凭据。
+- manager 收到 invalid persisted auth 时调用 clear（webRemoteControlManager.ts:1398）；用户 resetPairing 停旧 runtime、clear，再 start（`:1537`）。普通 start 会复用完整配对材料，所以关闭一次运行时不应被描述成删除配对凭据。
 - 此键没有 workspace 隔离后缀，属于桌面应用的外部 relay 配对状态。它与模型服务 OAuth token、Bot token、Server workspace token 无关。
 
 ### 桌面、手机 Web 与远程主机的归属边界
@@ -777,17 +777,17 @@ Desktop Main external relay auth ------------------> 本机 credentialService
 - 桌面基础服务在 [node.ts:1213](../../packages/services/src/node.ts#L1213) 创建 credential service，并注入 Bots（`:1919`）。
 - SSH/WSL/Docker 的 host scope 明确保留本机 settings/credential service，同时代理远端文件/任务；[remoteWorkspaceServiceCollection.ts:83](../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L83)、`:239`、`:247`、`:255`。相应 renderer 合并只覆盖 workspace 服务，保留 base credential/Bot 服务：[remoteWorkspaceSessionServices.ts:3](../../packages/desktop/src/renderer/src/remoteWorkspaceSessionServices.ts#L3)。不能因当前 workspace path 在远端就把 Bot/连接认证写到远端机器。
 - Server remote 是例外：完整 Server 是业务状态权威，credential/Bot 服务直接转接 Server（[remoteWorkspaceServiceCollection.ts:316](../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L316)、`:334`、`:339`；renderer 同文件 Server 合并入口位于 [remoteWorkspaceSessionServices.ts:53](../../packages/desktop/src/renderer/src/remoteWorkspaceSessionServices.ts#L53)）。
-- 手机 Web 建立 bridge 后通过协议得到 services，见 [main.tsx:1838](../../packages/web/src/main.tsx#L1838)；`RemoteServiceAccess` 将 credential/Bot 服务做成 RPC 代理，见 [remoteServiceAccess.ts:113](../../packages/client/src/remoteServiceAccess.ts#L113)、`:134`。未连接的 home-only 状态 credential load 返回 null（[main.tsx:1109](../../packages/web/src/main.tsx#L1109)），不创建浏览器端 credentials.json。
-- 手机 `/remote` 依附窗口已存在的 shared-host scope；凭据文件归属与 attachment 相同，并不会因为手机 replayable 流另起 credential store/Agent。桌面 `desktop-continuous` 与手机 `web-remote-replayable` 是消息交付边界，不是此文件的键命名规则。当前事实来源：[task-realtime-sync.md:9](../../docs/web-remote-control/task-realtime-sync.md#L9)、`:22`；[web-remote-control-task-command-queue.md:20](../../docs/web-remote-control-task-command-queue.md#L20)。
+- 手机 Web 建立 bridge 后通过协议得到 services，见 main.tsx:1838；`RemoteServiceAccess` 将 credential/Bot 服务做成 RPC 代理，见 [remoteServiceAccess.ts:113](../../packages/client/src/remoteServiceAccess.ts#L113)、`:134`。未连接的 home-only 状态 credential load 返回 null（main.tsx:1109），不创建浏览器端 credentials.json。
+- 手机 `/remote` 依附窗口已存在的 shared-host scope；凭据文件归属与 attachment 相同，并不会因为手机 replayable 流另起 credential store/Agent。桌面 `desktop-continuous` 与手机 `web-remote-replayable` 是消息交付边界，不是此文件的键命名规则。当前事实来源：task-realtime-sync.md:9、`:22`；[web-remote-control-task-command-queue.md:20](../../docs/web-remote-control-task-command-queue.md#L20)。
 
 ### 已验证行为与待验证问题
 
-| 事项                                       | 证据等级                   | 观察与影响                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Webhook provider.test 对缺失存储值仍报成功 | 已执行合成运行复现         | 直接用 Node v24 import 真实 `createWebhookBotProvider`，ref 存在、无 webhookUrl、load 恒返回 null 时，返回 `{ok:true,message:"Webhook bot is enabled for inbound callbacks."}`，credential 读取次数为 0。源码 [webhookProvider.ts:172](../../packages/services/src/bots/providers/webhookProvider.ts#L172)。仅验证测试连接分支，未验证完整入站 service。 |
-| Bot callback 缺失 secret 时可能跳过校验    | 静态高置信候选，未完整运行 | [botsService.ts:3273](../../packages/services/src/bots/botsService.ts#L3273)、`:3284` 只在 expectedSecret/expectedToken 为真且不相等时拒绝；ref 存在而 load 返回 null/空串将跳过该检查。不能将上一行 provider.test 复现当成本行已复现。                                                                                                                  |
-| Bot 保存被拒后仍可能更新凭据或留下孤儿     | 静态候选，未运行           | 先 `credentialService.save`（`botsService.ts:6127`）后 `validateBotConfig`（`:6171`）。例如重复 providerUserId 校验失败可能晚于 secret 写入；需完整 service fixture 验证与确定修复事务边界。                                                                                                                                                             |
-| 远端失败重连可能覆盖已有正确凭据           | 静态候选，未运行           | `remoteWorkspaceHistory.ts:404` 在 failed/currentEntry 时保留旧 snapshot，但 `:451` 仍用提交的 target 建 credentialsToSave。需真实连接失败/持久化调用链测试，未据此认定已复现。                                                                                                                                                                          |
+| 事项                                       | 证据等级                   | 观察与影响                                                                                                                                                                                                                                                                         |
+| ------------------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Webhook provider.test 对缺失存储值仍报成功 | 已执行合成运行复现         | 直接用 Node v24 import 真实 `createWebhookBotProvider`，ref 存在、无 webhookUrl、load 恒返回 null 时，返回 `{ok:true,message:"Webhook bot is enabled for inbound callbacks."}`，credential 读取次数为 0。源码 webhookProvider.ts:172。仅验证测试连接分支，未验证完整入站 service。 |
+| Bot callback 缺失 secret 时可能跳过校验    | 静态高置信候选，未完整运行 | botsService.ts:3273、`:3284` 只在 expectedSecret/expectedToken 为真且不相等时拒绝；ref 存在而 load 返回 null/空串将跳过该检查。不能将上一行 provider.test 复现当成本行已复现。                                                                                                     |
+| Bot 保存被拒后仍可能更新凭据或留下孤儿     | 静态候选，未运行           | 先 `credentialService.save`（`botsService.ts:6127`）后 `validateBotConfig`（`:6171`）。例如重复 providerUserId 校验失败可能晚于 secret 写入；需完整 service fixture 验证与确定修复事务边界。                                                                                       |
+| 远端失败重连可能覆盖已有正确凭据           | 静态候选，未运行           | `remoteWorkspaceHistory.ts:404` 在 failed/currentEntry 时保留旧 snapshot，但 `:451` 仍用提交的 target 建 credentialsToSave。需真实连接失败/持久化调用链测试，未据此认定已复现。                                                                                                    |
 
 ## 审计结论与验证记录
 
@@ -809,7 +809,7 @@ Desktop Main external relay auth ------------------> 本机 credentialService
 ### 需要继续验证或明确的边界
 
 - **登录事务时机：** 点击开始、ready/兑换完成、凭据发布、模型 API key/config 更新不是同一时刻；用户取消或任一步失败时的最终状态应与提交边界一起确定。
-- **旧会话清理集合：** legacy `auth_token/refresh_token`、active 缺失时的孤立 JWT、未注册 provider 残留、旧 OAuth 会话对应的内置 Coding Plan / Start Plan 凭据与 WebView 副本都应纳入清理场景核对（[派生清理实现](../../packages/services/src/oauth/oauthProviderLogout.ts#L14)）。普通手填模型 API key 不因此纳入 App 登录清理范围。不能把要求清旧 JWT 实现成清空整个凭据文件。
+- **旧会话清理集合：** legacy `auth_token/refresh_token`、active 缺失时的孤立 JWT、未注册 provider 残留、旧 OAuth 会话对应的内置 Coding Plan / Start Plan 凭据与 WebView 副本都应纳入清理场景核对（派生清理实现）。普通手填模型 API key 不因此纳入 App 登录清理范围。不能把要求清旧 JWT 实现成清空整个凭据文件。
 - **跨进程一致性：** 文件写锁已经存在，但多个独立 key 操作、多次读取、多个 OAuthService 实例不构成全局登录事务。是否需要批量发布/快照读取应结合交错复现决定。
 - **Bot 和远端候选：** callback 缺失 secret 时跳过校验、Bot 校验失败前已写 secret、失败重连仍排入新凭据保存，目前是静态候选，完整调用链未执行。
 - **MCP 和 App 账号关系：** MCP namespace 当前没有 App account/workspace 维度，App logout 不自动 revoke MCP 授权。是否需要跟随 App 账号清理属于独立设计选择。
@@ -821,13 +821,13 @@ Desktop Main external relay auth ------------------> 本机 credentialService
 | 覆盖方向                                | 当前可检查的测试文件                                                                                                                                                                                                           |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 通用存储加密、并发写、损坏 JSON 保留    | [credentialService.test.ts](../../packages/services/test/credentialService.test.ts)、[CLI auth.test.ts](../../apps/escode-cli/packages/adapters/tests/auth.test.ts)                                                            |
-| Desktop 登录切平台、过期/损坏恢复、取消 | [oauthService.test.ts](../../packages/services/test/oauthService.test.ts)                                                                                                                                                      |
-| CLI 登录兑换和字段落盘                  | [auth-login.test.ts](../../apps/escode-cli/packages/bootstrap/tests/auth-login.test.ts)；其中原始 OAuth token 落共享 key 的断言需要随契约纠正                                                                                  |
+| Desktop 登录切平台、过期/损坏恢复、取消 | oauthService.test.ts                                                                                                                                                                                                           |
+| CLI 登录兑换和字段落盘                  | auth-login.test.ts；其中原始 OAuth token 落共享 key 的断言需要随契约纠正                                                                                                                                                       |
 | MCP OAuth、跨进程授权/刷新              | [mcp-oauth-refresh.test.ts](../../apps/escode-cli/packages/adapters/tests/mcp-oauth-refresh.test.ts)、[mcp-oauth-cross-process.e2e.test.ts](../../apps/escode-cli/packages/adapters/tests/mcp-oauth-cross-process.e2e.test.ts) |
 | 官方 MCP 的身份选择                     | [officialMcpCredentials.test.ts](../../packages/services/test/officialMcpCredentials.test.ts)                                                                                                                                  |
-| 浏览器独立登录存储                      | [browserOAuthCredentialRepo.test.ts](../../packages/web/test/browserOAuthCredentialRepo.test.ts)                                                                                                                               |
+| 浏览器独立登录存储                      | browserOAuthCredentialRepo.test.ts                                                                                                                                                                                             |
 | Desktop 交互回归入口                    | [desktop-auth-config-e2e-cases.md](../testing/desktop-auth-config-e2e-cases.md)；实际改动登录交互时需要补相应 E2E，不能只覆盖私有方法                                                                                          |
 
-既有文档不能取代当前代码事实：例如 [OAuth 实施说明](../oauth/oauth-multi-provider-implementation.md)仍有 ZAI token 来源和转换时机的旧描述，[CLI auth-login](../../apps/escode-cli/docs/design/v2/auth-login.md)记录了当前 CLI 原始 OAuth token 的落盘方式，与 Desktop 同文件消费契约不一致。后续修改应统一这些 spec 与测试，避免单独修代码后继续保留矛盾的约定。
+既有文档不能取代当前代码事实：例如 OAuth 实施说明仍有 ZAI token 来源和转换时机的旧描述，[CLI auth-login](../../apps/escode-cli/docs/design/v2/auth-login.md)记录了当前 CLI 原始 OAuth token 的落盘方式，与 Desktop 同文件消费契约不一致。后续修改应统一这些 spec 与测试，避免单独修代码后继续保留矛盾的约定。
 
 本次仅新增梳理文档，没有实现修复。基线新鲜度检查通过；`pnpm typecheck` 和 `pnpm lint` 已执行，但当前 worktree 无 node_modules，分别因 tsc / oxlint 不存在而未能运行。未声明 Vitest、Desktop E2E、手机远控 E2E、Windows/Linux 回归通过。

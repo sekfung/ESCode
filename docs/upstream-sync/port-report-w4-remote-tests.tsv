@@ -1,0 +1,44 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionAssetInstallModeDefault.test.ts	packages/ui/test/remoteConnectionAssetInstallModeDefault.test.ts	new	1304 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionAssetInstallModeDefault.test.ts	packages/ui/test/remoteConnectionAssetInstallModeDefault.test.ts	new	1304 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionBackgroundProjection.test.ts	packages/ui/test/remoteConnectionBackgroundProjection.test.ts	new	1677 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionBackgroundProjection.test.ts	packages/ui/test/remoteConnectionBackgroundProjection.test.ts	new	1677 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDeviceStepPreferredProfile.test.ts	packages/ui/test/remoteConnectionDeviceStepPreferredProfile.test.ts	new	3757 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDeviceStepPreferredProfile.test.ts	packages/ui/test/remoteConnectionDeviceStepPreferredProfile.test.ts	new	3757 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDeviceStepRecentWorkspace.test.ts	packages/ui/test/remoteConnectionDeviceStepRecentWorkspace.test.ts	new	4313 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDeviceStepRecentWorkspace.test.ts	packages/ui/test/remoteConnectionDeviceStepRecentWorkspace.test.ts	new	4313 bytes
+would-merge	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionDialogContentLayout.test.ts	packages/ui/test/remoteConnectionDialogContentLayout.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionDialogContentLayout.test.ts	packages/ui/test/remoteConnectionDialogContentLayout.test.ts	present	clean
+would-merge	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionDialogState.test.ts	packages/ui/test/remoteConnectionDialogState.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionDialogState.test.ts	packages/ui/test/remoteConnectionDialogState.test.ts	present	clean
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDirectoryNavigation.test.ts	packages/ui/test/remoteConnectionDirectoryNavigation.test.ts	new	6292 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionDirectoryNavigation.test.ts	packages/ui/test/remoteConnectionDirectoryNavigation.test.ts	new	6292 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionErrorMessage.test.ts	packages/ui/test/remoteConnectionErrorMessage.test.ts	new	1885 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionErrorMessage.test.ts	packages/ui/test/remoteConnectionErrorMessage.test.ts	new	1885 bytes
+would-merge	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionFieldsAuthMethodLayout.test.ts	packages/ui/test/remoteConnectionFieldsAuthMethodLayout.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionFieldsAuthMethodLayout.test.ts	packages/ui/test/remoteConnectionFieldsAuthMethodLayout.test.ts	present	clean
+conflict	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionFieldsPlaceholder.test.ts	packages/ui/test/remoteConnectionFieldsPlaceholder.test.ts	present	三方合并冲突 x1
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionFlowRecovery.test.ts	packages/ui/test/remoteConnectionFlowRecovery.test.ts	new	87910 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionFlowRecovery.test.ts	packages/ui/test/remoteConnectionFlowRecovery.test.ts	new	87910 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionGlossary.test.ts	packages/ui/test/remoteConnectionGlossary.test.ts	new	926 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionGlossary.test.ts	packages/ui/test/remoteConnectionGlossary.test.ts	new	926 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionHistoryKeyboard.test.ts	packages/ui/test/remoteConnectionHistoryKeyboard.test.ts	new	1921 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionHistoryKeyboard.test.ts	packages/ui/test/remoteConnectionHistoryKeyboard.test.ts	new	1921 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionInstallProgress.test.ts	packages/ui/test/remoteConnectionInstallProgress.test.ts	new	6323 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionInstallProgress.test.ts	packages/ui/test/remoteConnectionInstallProgress.test.ts	new	6323 bytes
+would-merge	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionLogs.test.ts	packages/ui/test/remoteConnectionLogs.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionLogs.test.ts	packages/ui/test/remoteConnectionLogs.test.ts	present	clean
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPhases.test.ts	packages/ui/test/remoteConnectionPhases.test.ts	new	7867 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPhases.test.ts	packages/ui/test/remoteConnectionPhases.test.ts	new	7867 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPlaceholderValues.test.ts	packages/ui/test/remoteConnectionPlaceholderValues.test.ts	new	3571 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPlaceholderValues.test.ts	packages/ui/test/remoteConnectionPlaceholderValues.test.ts	new	3571 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPresentation.test.ts	packages/ui/test/remoteConnectionPresentation.test.ts	new	5514 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPresentation.test.ts	packages/ui/test/remoteConnectionPresentation.test.ts	new	5514 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPresentationComponents.test.ts	packages/ui/test/remoteConnectionPresentationComponents.test.ts	new	5945 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionPresentationComponents.test.ts	packages/ui/test/remoteConnectionPresentationComponents.test.ts	new	5945 bytes
+would-create	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionReuse.test.ts	packages/ui/test/remoteConnectionReuse.test.ts	new	3425 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/remoteConnectionReuse.test.ts	packages/ui/test/remoteConnectionReuse.test.ts	new	3425 bytes
+would-merge	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionWizard.test.ts	packages/ui/test/remoteConnectionWizard.test.ts	present	clean
+merged	W4	import-test	ui	test	M	packages/ui/test/remoteConnectionWizard.test.ts	packages/ui/test/remoteConnectionWizard.test.ts	present	clean
+would-create	W4	import-test	ui	test	A	packages/ui/test/sshDialogFlow.test.ts	packages/ui/test/sshDialogFlow.test.ts	new	50402 bytes
+created	W4	import-test	ui	test	A	packages/ui/test/sshDialogFlow.test.ts	packages/ui/test/sshDialogFlow.test.ts	new	50402 bytes

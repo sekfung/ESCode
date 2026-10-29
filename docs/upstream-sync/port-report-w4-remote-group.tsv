@@ -1,0 +1,46 @@
+result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
+conflict	W4	port-shared	ui	src	M	packages/ui/src/DirectoryBrowser.tsx	packages/ui/src/DirectoryBrowser.tsx	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/hooks/useRemoteConnectionForm.ts	packages/ui/src/hooks/useRemoteConnectionForm.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/hooks/useRemoteConnectionForm.ts	packages/ui/src/hooks/useRemoteConnectionForm.ts	present	clean
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/hooks/useRemoteConnectionLogs.ts	packages/ui/src/hooks/useRemoteConnectionLogs.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/hooks/useRemoteConnectionLogs.ts	packages/ui/src/hooks/useRemoteConnectionLogs.ts	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/hooks/useRemoteConnectionProfileEditor.ts	packages/ui/src/hooks/useRemoteConnectionProfileEditor.ts	new	1135 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/hooks/useRemoteConnectionProfileEditor.ts	packages/ui/src/hooks/useRemoteConnectionProfileEditor.ts	new	1135 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/lib/remoteConnectionDialogState.ts	packages/ui/src/lib/remoteConnectionDialogState.ts	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/lib/remoteConnectionDialogState.ts	packages/ui/src/lib/remoteConnectionDialogState.ts	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/lib/remoteConnectionWizard.ts	packages/ui/src/lib/remoteConnectionWizard.ts	present	三方合并冲突 x1
+would-create	W4	port-shared	ui	src	A	packages/ui/src/project-sidebar/RemoteConnectionProgressSection.tsx	packages/ui/src/project-sidebar/RemoteConnectionProgressSection.tsx	new	6957 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/project-sidebar/RemoteConnectionProgressSection.tsx	packages/ui/src/project-sidebar/RemoteConnectionProgressSection.tsx	new	6957 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/contract.ts	packages/ui/src/remote-connection-flow/contract.ts	new	3886 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/contract.ts	packages/ui/src/remote-connection-flow/contract.ts	new	3886 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/index.ts	packages/ui/src/remote-connection-flow/index.ts	new	80715 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/index.ts	packages/ui/src/remote-connection-flow/index.ts	new	80715 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/requestRemoteProjectConnection.ts	packages/ui/src/remote-connection-flow/requestRemoteProjectConnection.ts	new	4015 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/requestRemoteProjectConnection.ts	packages/ui/src/remote-connection-flow/requestRemoteProjectConnection.ts	new	4015 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/ui/RemoteConnectionProgress.tsx	packages/ui/src/remote-connection-flow/ui/RemoteConnectionProgress.tsx	new	4815 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection-flow/ui/RemoteConnectionProgress.tsx	packages/ui/src/remote-connection-flow/ui/RemoteConnectionProgress.tsx	new	4815 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/EditConnectionProfileDialog.tsx	packages/ui/src/remote-connection/EditConnectionProfileDialog.tsx	new	10969 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/EditConnectionProfileDialog.tsx	packages/ui/src/remote-connection/EditConnectionProfileDialog.tsx	new	10969 bytes
+conflict	W4	port-shared	ui	src	M	packages/ui/src/remote-connection/RemoteConnectionConnectingStep.tsx	packages/ui/src/remote-connection/RemoteConnectionConnectingStep.tsx	present	三方合并冲突 x6
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/remote-connection/RemoteConnectionHistoryInput.tsx	packages/ui/src/remote-connection/RemoteConnectionHistoryInput.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/remote-connection/RemoteConnectionHistoryInput.tsx	packages/ui/src/remote-connection/RemoteConnectionHistoryInput.tsx	present	clean
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionNavigationDot.tsx	packages/ui/src/remote-connection/RemoteConnectionNavigationDot.tsx	new	618 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionNavigationDot.tsx	packages/ui/src/remote-connection/RemoteConnectionNavigationDot.tsx	new	618 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionSelection.tsx	packages/ui/src/remote-connection/RemoteConnectionSelection.tsx	new	12187 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionSelection.tsx	packages/ui/src/remote-connection/RemoteConnectionSelection.tsx	new	12187 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionStateIcon.tsx	packages/ui/src/remote-connection/RemoteConnectionStateIcon.tsx	new	1336 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionStateIcon.tsx	packages/ui/src/remote-connection/RemoteConnectionStateIcon.tsx	new	1336 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionTags.tsx	packages/ui/src/remote-connection/RemoteConnectionTags.tsx	new	4009 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteConnectionTags.tsx	packages/ui/src/remote-connection/RemoteConnectionTags.tsx	new	4009 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteLinkRail.tsx	packages/ui/src/remote-connection/RemoteLinkRail.tsx	new	733 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteLinkRail.tsx	packages/ui/src/remote-connection/RemoteLinkRail.tsx	new	733 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemotePasswordInput.tsx	packages/ui/src/remote-connection/RemotePasswordInput.tsx	new	1112 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemotePasswordInput.tsx	packages/ui/src/remote-connection/RemotePasswordInput.tsx	new	1112 bytes
+would-create	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteTaskDeviceLabel.tsx	packages/ui/src/remote-connection/RemoteTaskDeviceLabel.tsx	new	1762 bytes
+created	W4	port-shared	ui	src	A	packages/ui/src/remote-connection/RemoteTaskDeviceLabel.tsx	packages/ui/src/remote-connection/RemoteTaskDeviceLabel.tsx	new	1762 bytes
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/RemoteConnectionDialogContent.tsx	packages/ui/src/RemoteConnectionDialogContent.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/RemoteConnectionDialogContent.tsx	packages/ui/src/RemoteConnectionDialogContent.tsx	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/RemoteConnectionFields.tsx	packages/ui/src/RemoteConnectionFields.tsx	present	三方合并冲突 x1
+would-merge	W4	port-shared	ui	src	M	packages/ui/src/RemoteConnectionWizardChrome.tsx	packages/ui/src/RemoteConnectionWizardChrome.tsx	present	clean
+merged	W4	port-shared	ui	src	M	packages/ui/src/RemoteConnectionWizardChrome.tsx	packages/ui/src/RemoteConnectionWizardChrome.tsx	present	clean
+conflict	W4	port-shared	ui	src	M	packages/ui/src/SSHDialog.tsx	packages/ui/src/SSHDialog.tsx	present	三方合并冲突 x3
