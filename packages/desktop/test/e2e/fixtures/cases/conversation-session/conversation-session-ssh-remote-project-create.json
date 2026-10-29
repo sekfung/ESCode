@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-ssh-remote-project-create",
+  "spec": "./test/e2e/conversation-session/conversation-session-ssh-remote-project-create.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-ssh-remote-project-create.json"
+  ],
+  "fileFixtures": [],
+  "providerRequestPolicy": "none",
+  "noProviderRequests": true,
+  "providerRequestReason": "SSH-P0-PROJECT-01 只验证真实 SSH 连接后首次创建远端项目、打开 workspace 与草稿归属，不发送模型请求。",
+  "requests": []
+}

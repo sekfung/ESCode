@@ -118,6 +118,10 @@ Ubuntu 24.04 + password SSH
 以下 pending spec 已按同一套 Ubuntu password SSH + reverse-tunnel replay harness 编写，尚未声称
 formal/covered；必须在真实 SSH 环境完成 capture/replay 与人工审阅后再 promotion：
 
+- `conversation-session-ssh-remote-project-create.test.ts`（SSH-P0-PROJECT-01）：连接尚无项目的
+  case-local 远端目录，在固定目录表单保存新项目，断言稳定 `remote:server:` identity、
+  `draftProjectId` 与侧栏项目行；case-local fixture contract 已通过，真实 SSH 因本机未配置
+  `ESCODE_E2E_SSH_*` 尚未执行。
 - `conversation-session-ssh-remote-task-lifecycle.test.ts`：关闭 A、验证 B 续发，再重新打开 A。
 - `conversation-session-ssh-remote-cold-reconnect.test.ts`：`browser.reloadSession()` 冷重启后不触发任何手动重连，等待主窗口 Host 单次自动重连并恢复 A/B；交互凭据负例归 R3-REMOTE-05。
 - `conversation-session-ssh-remote-server-fault.test.ts`：只终止本次连接新建且记录的 `escode-server` PID，验证 A/B 断连和按组重连；不会调用 `sshd`、`wsl --terminate` 或 `wsl --shutdown`。

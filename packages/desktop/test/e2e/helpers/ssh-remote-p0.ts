@@ -480,6 +480,66 @@ export async function waitForRemoteTab(options: {
   return snapshot;
 }
 
+/** 新建项目用例在握手前拿不到 Source ID，只能按真实 cwd 找唯一远端 tab。 */
+export async function waitForRemoteProjectTabByPath(options: {
+  caseMarker: string;
+  expectedPath: string;
+  timeoutMs?: number;
+}): Promise<RemoteTabSnapshot> {
+  let snapshot: RemoteTabSnapshot | null = null;
+  await browser.waitUntil(
+    async () => {
+      snapshot = await browser.execute((expectedPath) => {
+        type RemoteTab = {
+          remoteSessionId?: string;
+          remoteTarget?: Record<string, unknown>;
+          workspaceIdentity?: string;
+          workspacePath?: string;
+        };
+        const store = (
+          window as Window & {
+            __escodeTabStoreE2E?: {
+              getState?: () => {
+                activeWorkspaceIdentity?: string | null;
+                activeWorkspacePath?: string | null;
+                tabs?: RemoteTab[];
+              };
+            };
+          }
+        ).__escodeTabStoreE2E;
+        const state = store?.getState?.();
+        const tab = state?.tabs?.find(
+          (candidate) =>
+            candidate.workspacePath === expectedPath &&
+            candidate.workspaceIdentity?.startsWith("remote:server:"),
+        );
+        if (!tab) return null;
+        const target = tab.remoteTarget;
+        return {
+          activeWorkspaceIdentity: state?.activeWorkspaceIdentity ?? null,
+          activeWorkspacePath: state?.activeWorkspacePath ?? null,
+          remoteHost: typeof target?.host === "string" ? target.host : null,
+          remoteKind: typeof target?.kind === "string" ? target.kind : null,
+          remoteSessionId: tab.remoteSessionId ?? null,
+          secretPersistedInTab: Boolean(
+            target && ("password" in target || "privateKeyPassphrase" in target),
+          ),
+          workspaceIdentity: tab.workspaceIdentity ?? null,
+          workspacePath: tab.workspacePath ?? null,
+        };
+      }, options.expectedPath);
+      return Boolean(snapshot?.remoteSessionId);
+    },
+    {
+      timeout: options.timeoutMs ?? SSH_WORKSPACE_READY_TIMEOUT_MS,
+      interval: 1_000,
+      timeoutMsg: `${options.caseMarker}: 新建远端项目后没有出现 remote:server tab (${options.expectedPath})`,
+    },
+  );
+  if (!snapshot) throw new Error(`${options.caseMarker}: remote project tab snapshot 缺失`);
+  return snapshot;
+}
+
 export function readRemoteTabSnapshot(expectedIdentity: string): Promise<RemoteTabSnapshot> {
   return browser.execute((identity) => {
     type RemoteTab = {

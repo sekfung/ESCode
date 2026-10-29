@@ -546,6 +546,12 @@ type: "open-project" })` 打开远端 workspace，并携带 `draftProjectId` 与
 覆盖显式 projectId、活动草稿回退、活动任务经 Host tree 回退、失效租约、`prepareSession`
 失败回传 `onError`、缺项目时拒绝而不落到活动 workspace。
 
+新增 Desktop E2E 候选 `conversation-session-ssh-remote-project-create.test.ts`
+（SSH-P0-PROJECT-01）：真实 SSH 选择空目录 → 保存新项目 → 断言 `remote:server:` identity、
+`remoteSessionId`、`activeTaskId=null`、`draftProjectId` 与项目侧栏行。`typecheck:e2e` 与
+`e2e:fixture:check` 通过；本机未配置 `ESCODE_E2E_SSH_*`，真实 SSH 回放仍为环境阻塞，
+case 保持 pending。
+
 ## 12. 当前状态
 
 - [x] 抓取上游 `refs/remotes/upstream/main`（`3c5b2276`）
