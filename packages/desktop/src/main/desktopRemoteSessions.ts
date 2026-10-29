@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { BrowserWindow, MessageChannelMain } from "electron";
 import type { MessagePortMain, UtilityProcess as ElectronUtilityProcess } from "electron";
 import {
+  type BindRemoteWorkspaceSessionContextResult,
   buildRemoteWorkspaceIdentity,
   buildRemoteEnvironmentKey,
   buildSshRemoteHostKey,
@@ -14,6 +15,7 @@ import {
   resolveWorkspaceKey,
   type RemoteTarget,
   type ProviderProvisioningTrigger,
+  type WorkspacePurpose,
   type WindowHostRemoteWorkspaceDescriptor,
 } from "@escode/shared";
 import type { RemoteAssetDirs } from "./desktopRuntimeEnv.js";
@@ -22,6 +24,7 @@ import { ProviderProvisioningEnvironmentCoordinator } from "./providerProvisioni
 interface RemoteWorkspaceSessionContext {
   workspacePath: string;
   workspaceIdentity?: string;
+  workspacePurpose?: WorkspacePurpose;
 }
 
 interface PendingConnect {
@@ -657,13 +660,13 @@ export function createRemoteWorkspaceSessionManager(options: {
     sessionId: string,
     context: RemoteWorkspaceSessionContext,
     expectedWebContentsId?: number,
-  ): Promise<void> {
+  ): Promise<BindRemoteWorkspaceSessionContextResult> {
     const route = routesBySessionId.get(sessionId);
     if (!route) {
       if (expectedWebContentsId != null) {
         throw new Error(`未找到远程 workspace session，sessionId=${sessionId}`);
       }
-      return;
+      throw new Error(`未找到远程 workspace session，sessionId=${sessionId}`);
     }
     if (expectedWebContentsId != null && route.webContentsId !== expectedWebContentsId) {
       throw new Error(`远程 workspace session 不属于当前窗口，sessionId=${sessionId}`);
@@ -671,6 +674,22 @@ export function createRemoteWorkspaceSessionManager(options: {
     const workspaceIdentity =
       context.workspaceIdentity?.trim() ||
       buildRemoteWorkspaceIdentity(context.workspacePath, route.descriptor.target);
+    // Renderer 在 bind 后只消费权威 scope；这里必须把 identity 一并回传，否则
+    // 首次连接会以「bind 未返回权威 identity」失败并回收刚建立的 session。
+    const previousWorkspaceIdentity = route.descriptor.workspaceIdentity?.trim();
+    const workspacePurpose = context.workspacePurpose ?? route.descriptor.workspacePurpose;
+    const binding: BindRemoteWorkspaceSessionContextResult = {
+      remoteSessionId: sessionId,
+      workspacePath: context.workspacePath,
+      workspaceIdentity,
+      ...(route.descriptor.sourceServerId
+        ? { sourceServerId: route.descriptor.sourceServerId }
+        : {}),
+      ...(workspacePurpose ? { workspacePurpose } : {}),
+      ...(previousWorkspaceIdentity && previousWorkspaceIdentity !== workspaceIdentity
+        ? { previousWorkspaceIdentity }
+        : {}),
+    };
     const child = options.windowHostProcessMap.get(route.webContentsId);
     const win = BrowserWindow.getAllWindows().find(
       (candidate) => candidate.webContents.id === route.webContentsId,
@@ -693,6 +712,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     };
     // 同一 parentPort 上 Bind 先于 Attach 处理；IPC 只在 renderer 注册新 port 后返回。
     await attachRendererPort(win, route, "workspace-context-bound");
+    return binding;
   }
 
   function reattachRemoteWorkspaceSessionsForWindow(win: BrowserWindow, reason: string): void {

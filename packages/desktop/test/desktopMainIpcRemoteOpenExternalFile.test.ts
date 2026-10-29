@@ -125,3 +125,42 @@ describe("OpenExternal 对 file URL 的分流", () => {
     expect(h.shellOpenExternal).not.toHaveBeenCalled();
   });
 });
+
+describe("BindRemoteWorkspaceSessionContext 回传权威 scope", () => {
+  beforeEach(() => {
+    h.handlers.clear();
+    h.listeners.clear();
+  });
+
+  it("把 Host bind 结果原样返回给 Renderer，并透传 workspacePurpose", async () => {
+    const { registerRemoteIpcHandlers } = await import("../src/main/desktopMainIpcRemote.js");
+    const options = createOptions();
+    const binding = {
+      remoteSessionId: "session-1",
+      workspacePath: "/root/workspace",
+      workspaceIdentity: "remote:server:source-1:/root/workspace",
+      workspacePurpose: "project" as const,
+      sourceServerId: "source-1",
+    };
+    options.bindRemoteWorkspaceSessionContext = vi.fn(async () => binding);
+    registerRemoteIpcHandlers(options);
+    const handler = h.handlers.get(PlatformChannels.BindRemoteWorkspaceSessionContext);
+    expect(handler).toBeDefined();
+
+    const result = await handler!(
+      { sender: { id: 7 } },
+      {
+        remoteSessionId: "session-1",
+        workspacePath: "/root/workspace",
+        workspacePurpose: "project",
+      },
+    );
+
+    expect(result).toEqual(binding);
+    expect(options.bindRemoteWorkspaceSessionContext).toHaveBeenCalledWith(
+      "session-1",
+      { workspacePath: "/root/workspace", workspacePurpose: "project" },
+      7,
+    );
+  });
+});

@@ -436,21 +436,34 @@ export async function selectSSHRemoteDirectory(
   );
   await clickLastEnabledSSHDialogButton(caseMarker);
   if (options.expectProjectForm) {
-    await browser.waitUntil(
-      () =>
-        browser.execute(
-          (testId) => {
-            const input = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
-            return Boolean(input && input.getClientRects().length);
-          },
-          TID_VIRTUAL_PROJECT_NAME,
-        ),
-      {
-        timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
-        interval: 250,
-        timeoutMsg: `${caseMarker}: 选择空目录后没有打开新建项目表单`,
-      },
-    );
+    try {
+      await browser.waitUntil(
+        () =>
+          browser.execute(
+            (testId) => {
+              const input = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+              return Boolean(input && input.getClientRects().length);
+            },
+            TID_VIRTUAL_PROJECT_NAME,
+          ),
+        {
+          timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+          interval: 250,
+          timeoutMsg: `${caseMarker}: 选择空目录后没有打开新建项目表单`,
+        },
+      );
+    } catch (error) {
+      // 失败时带上向导内的错误文案：产品在选目录后回收 session 时，只有这里能拿到原因。
+      const detail = await browser
+        .execute((errorTestId) => {
+          const element = document.querySelector<HTMLElement>(`[data-testid="${errorTestId}"]`);
+          return element?.getClientRects().length ? element.innerText.trim() : "";
+        }, TID_SSH_ERROR)
+        .catch(() => "");
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}${detail ? `: ${detail}` : ""}`,
+      );
+    }
     return;
   }
   await browser.waitUntil(

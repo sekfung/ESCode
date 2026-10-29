@@ -6,7 +6,9 @@ import {
   InternalChannels,
   PlatformChannels,
   remoteTargetSchema,
+  type BindRemoteWorkspaceSessionContextResult,
   type RemoteTarget,
+  type WorkspacePurpose,
 } from "@escode/shared";
 import { dispatchTaskNotification } from "./desktopNotifications.js";
 import {
@@ -72,9 +74,13 @@ export function registerRemoteIpcHandlers(options: {
   ) => void;
   bindRemoteWorkspaceSessionContext: (
     sessionId: string,
-    context: { workspacePath: string; workspaceIdentity?: string },
+    context: {
+      workspacePath: string;
+      workspaceIdentity?: string;
+      workspacePurpose?: WorkspacePurpose;
+    },
     expectedWebContentsId?: number,
-  ) => Promise<void>;
+  ) => Promise<BindRemoteWorkspaceSessionContextResult>;
   confirmRendererAttachmentReady: (
     webContentsId: number,
     payload: { sessionId: string; attachmentId: string },
@@ -246,20 +252,26 @@ export function registerRemoteIpcHandlers(options: {
         remoteSessionId?: unknown;
         workspacePath?: unknown;
         workspaceIdentity?: unknown;
+        workspacePurpose?: unknown;
       };
       const remoteSessionId =
         typeof payload.remoteSessionId === "string" ? payload.remoteSessionId.trim() : "";
       const workspacePath = typeof payload.workspacePath === "string" ? payload.workspacePath : "";
       const workspaceIdentity =
         typeof payload.workspaceIdentity === "string" ? payload.workspaceIdentity.trim() : "";
+      const workspacePurpose =
+        payload.workspacePurpose === "project" || payload.workspacePurpose === "conversation"
+          ? payload.workspacePurpose
+          : undefined;
       if (!remoteSessionId || !workspacePath.trim()) {
         throw new Error("远程 workspace context 缺少 sessionId 或 workspacePath");
       }
-      await options.bindRemoteWorkspaceSessionContext(
+      return await options.bindRemoteWorkspaceSessionContext(
         remoteSessionId,
         {
           workspacePath,
           ...(workspaceIdentity ? { workspaceIdentity } : {}),
+          ...(workspacePurpose ? { workspacePurpose } : {}),
         },
         event.sender.id,
       );
