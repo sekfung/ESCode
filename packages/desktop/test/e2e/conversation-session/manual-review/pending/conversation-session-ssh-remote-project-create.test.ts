@@ -49,7 +49,7 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
     await fillSSHPasswordSettings(config);
     await clickLastEnabledSSHDialogButton(CASE_MARKER);
     await waitForSSHDirectoryStep(CASE_MARKER);
-    await selectSSHRemoteDirectory(remoteFixturePath, CASE_MARKER);
+    await selectSSHRemoteDirectory(remoteFixturePath, CASE_MARKER, { expectProjectForm: true });
 
     const projectName = `E2E remote project ${suffix}`;
     const nameInput = await $('[data-testid="virtual-project-name"]');

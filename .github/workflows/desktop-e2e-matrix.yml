@@ -24,6 +24,11 @@ on:
         required: false
         default: ""
         type: string
+      ssh:
+        description: "额外运行 SSH 远端 project 用例（自建 Ubuntu 24.04 sshd 容器）"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: desktop-e2e-matrix-${{ github.ref }}
@@ -89,6 +94,67 @@ jobs:
         if: always()
         with:
           name: desktop-e2e-${{ matrix.os }}
+          path: |
+            packages/desktop/.e2e-artifacts
+            packages/desktop/.e2e-home
+          if-no-files-found: warn
+
+  # SSH 远端 project 用例：自建 Ubuntu 24.04 sshd 容器，不依赖外部服务器或仓库 secrets。
+  # 默认只在手动 dispatch 且勾选 ssh 时运行，避免每次 push 都多跑一条长链路。
+  ssh-remote-project:
+    name: desktop e2e (ubuntu-latest, ssh remote)
+    if: github.event_name == 'workflow_dispatch' && inputs.ssh
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+          # 远端 release 的 Rust runtime 走 musl 静态链接。
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: e2e-ssh
+          cache-on-failure: true
+      - run: sudo apt-get update && sudo apt-get install -y xvfb musl-tools
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug)
+        run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      - name: start dedicated SSH target
+        run: |
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
+          bash scripts/e2e/start-ssh-e2e-server.sh 2222 "$password" /root/workspace
+      - name: run SSH remote project E2E
+        env:
+          ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
+          ESCODE_E2E_SSH_HOST: 127.0.0.1
+          ESCODE_E2E_SSH_PORT: "2222"
+          ESCODE_E2E_SSH_USERNAME: root
+          ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
+          ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
+          ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
+        run: |
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+      - name: dump SSH target logs
+        if: always()
+        run: docker logs escode-e2e-ssh 2>&1 | tail -200 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-e2e-ssh-remote
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home

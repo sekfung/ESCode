@@ -105,6 +105,19 @@ Ubuntu 24.04 + password SSH
 - `SSH-P0-CONN-04` 的代理/CDN 必须完全由 case 本地进程提供，不访问真实发布 CDN；测试目标 URL
   在直连路径不可解析，只有代理 mock 能返回 manifest，以机械证明没有 silent direct fallback。
 
+## CI 自建 SSH 目标（2026-10-30）
+
+- 入口：`desktop e2e matrix` 的 `ssh-remote-project` 作业（仅 `workflow_dispatch` 且勾选 `ssh`
+  时运行），通过 `scripts/e2e/start-ssh-e2e-server.sh` 起一个 Ubuntu 24.04 容器（root + password
+  sshd），`ESCODE_E2E_SSH_*` 指向 `127.0.0.1`，不依赖外部服务器或仓库 secrets。
+- 远端 release 由 wdio `onPrepare` 的 `ensureSshRemoteReleaseAssets` 从本仓库
+  `prepare:remote-assets` 产物注入；作业预装 `musl-tools` 与 `x86_64-unknown-linux-musl`。
+- 运行预算：SSH 用例超过 mocha 默认 120s，作业设置 `ESCODE_E2E_MANUAL_REVIEW_HOLD_MS=1800000`。
+- 当前阻塞（2026-10-30 本地复现）：连接、部署、握手均成功，选完目录后 Host 立刻
+  `remote-session-disposed`，SSH 向导不关闭，项目表单不出现；正式用例
+  `conversation-session-ssh-remote-connection-p0.test.ts`（SSH-P0-CONN-01/02）同样失败，
+  说明不是本用例编排问题，需先修产品侧 session 回收路径。
+
 ## 运行证据
 
 - `SSH-P0-TASK-01`：2026-08-10 在 Ubuntu 24.04 上按 `/root,/tmp` 完成 formal 默认 replay（1 passing，artifact `desktop-e2e-20260810-074921-918`）与显式 case-local replay（1 passing，artifact `desktop-e2e-20260810-075053-683`）。

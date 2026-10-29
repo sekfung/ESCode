@@ -354,9 +354,20 @@ export async function waitForSSHDirectoryStep(caseMarker: string): Promise<void>
   }
 }
 
+export interface SelectSSHRemoteDirectoryOptions {
+  /**
+   * 空目录会进入「新建项目」表单，向导保持打开；开启后等表单出现而不是等向导关闭。
+   */
+  expectProjectForm?: boolean;
+}
+
+/** 新建项目表单的输入框 testid（远端空目录入口）。 */
+const TID_VIRTUAL_PROJECT_NAME = "virtual-project-name";
+
 export async function selectSSHRemoteDirectory(
   workspacePath: string,
   caseMarker: string,
+  options: SelectSSHRemoteDirectoryOptions = {},
 ): Promise<void> {
   await browser.waitUntil(
     () =>
@@ -424,6 +435,24 @@ export async function selectSSHRemoteDirectory(
     },
   );
   await clickLastEnabledSSHDialogButton(caseMarker);
+  if (options.expectProjectForm) {
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          (testId) => {
+            const input = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+            return Boolean(input && input.getClientRects().length);
+          },
+          TID_VIRTUAL_PROJECT_NAME,
+        ),
+      {
+        timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+        interval: 250,
+        timeoutMsg: `${caseMarker}: 选择空目录后没有打开新建项目表单`,
+      },
+    );
+    return;
+  }
   await browser.waitUntil(
     () =>
       browser.execute(
