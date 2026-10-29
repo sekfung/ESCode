@@ -4,11 +4,12 @@ import {
   TID_TASK_ITEM,
   TID_WORKSPACE_CLOSE,
   TID_WORKSPACE_ITEM,
+  TID_WORKSPACE_MORE_BUTTON,
   buildRemoteWorkspaceIdentity,
   testId,
   type RemoteTarget,
 } from "@escode/shared";
-import { clickTestIdByDom, waitForWorkspaceApp } from "./desktop-app.js";
+import { clickTestIdByDom, clickTestIdByWebDriver, waitForWorkspaceApp } from "./desktop-app.js";
 import { createCustomOpenAIChatCompletionsProvider } from "./custom-openai-provider.js";
 import { selectUpstreamProviderModelById } from "./upstream-provider.js";
 import {
@@ -248,28 +249,42 @@ export async function reconnectSSHWorkspaceThroughUI(options: {
 
 export async function removeSSHWorkspace(workspacePath: string, caseMarker: string): Promise<void> {
   const workspaceItemId = testId(TID_WORKSPACE_ITEM, workspacePath);
+  // 行操作按钮在 hover/focus 时挂载，先悬停 workspace 行再找「更多」菜单。
+  const workspaceItem = $(`[data-testid="${workspaceItemId}"]`);
+  await workspaceItem.waitForDisplayed({
+    timeout: 30_000,
+    timeoutMsg: `${caseMarker}: 侧栏没有 workspace ${workspacePath}`,
+  });
+  // 行操作按 hover 挂载：WebDriver 的 moveTo 在浮层遮挡时不可靠，直接派发冒泡 mouseover 再等挂载。
+  const moreButtonId = testId(TID_WORKSPACE_MORE_BUTTON, workspacePath);
   await browser.waitUntil(
-    async () =>
-      browser.execute((itemId) => {
-        const item = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
-          (candidate) => candidate.dataset.testid === itemId,
-        );
-        if (!item) return false;
-        const moreButton = Array.from(
-          item.closest("li")?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-        ).find((button) => {
-          const label = (button.getAttribute("aria-label") ?? "").toLowerCase();
-          return label.includes("more") || label.includes("更多");
-        });
-        if (!moreButton) return false;
-        moreButton.click();
-        return true;
-      }, workspaceItemId),
+    async () => {
+      await browser.execute((itemId) => {
+        const item = document.querySelector<HTMLElement>(`[data-testid="${itemId}"]`);
+        item?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true }));
+      }, workspaceItemId);
+      return (await $$(`[data-testid="${moreButtonId}"]`).length) > 0;
+    },
     {
       timeout: 30_000,
+      interval: 200,
       timeoutMsg: `${caseMarker}: workspace ${workspacePath} 没有显示更多菜单入口`,
     },
   );
+  // Radix 菜单依赖 pointerdown 手势；对已挂载的按钮派发指针事件打开菜单。
+  await browser.execute((id) => {
+    const button = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+    if (!button) return;
+    const init: PointerEventInit = {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      pointerType: "mouse",
+      isPrimary: true,
+    };
+    button.dispatchEvent(new PointerEvent("pointerdown", init));
+    button.dispatchEvent(new PointerEvent("pointerup", init));
+  }, moreButtonId);
   await clickTestIdByDom(testId(TID_WORKSPACE_CLOSE, workspacePath), {
     timeout: 15_000,
     timeoutMsg: `${caseMarker}: workspace ${workspacePath} 没有显示移除入口`,

@@ -61,6 +61,7 @@ import {
   TID_WORKSPACE_CLOSE,
   TID_WORKSPACE_FILE_TREE_BUTTON,
   TID_WORKSPACE_ITEM,
+  TID_WORKSPACE_MORE_BUTTON,
   testId,
 } from "@escode/shared";
 import type { ESCodeTaskMeta } from "@escode/shared";
@@ -910,6 +911,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
                           <DropdownMenuTrigger asChild>
                             <Button
                               type="button"
+                              data-testid={testId(TID_WORKSPACE_MORE_BUTTON, tab.workspacePath)}
                               variant="ghost"
                               size="icon-sm"
                               className="shrink-0 text-foreground-subtle hover:bg-surface-hover hover:text-foreground"
