@@ -13,18 +13,17 @@ pub(crate) async fn web_fetch(
     call_id: &str,
     cancel: &CancellationToken,
 ) -> Result<crate::contract::WebFetchPage> {
-            super::web_fetch::fetch(
-                &super::web_fetch::HttpTransport,
-                args,
-                Some(super::web_fetch::ArtifactTarget {
-                    root: &tools.artifacts,
-                    session,
-                    call_id,
-                }),
-                cancel,
-            )
-            .await
-
+    super::web_fetch::fetch(
+        &super::web_fetch::HttpTransport,
+        args,
+        Some(super::web_fetch::ArtifactTarget {
+            root: &tools.artifacts,
+            session,
+            call_id,
+        }),
+        cancel,
+    )
+    .await
 }
 
 pub(crate) async fn begin_rewind(

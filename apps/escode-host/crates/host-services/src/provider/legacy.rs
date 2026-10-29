@@ -7,32 +7,108 @@ use super::resolve::ProviderMap;
 use super::rules::{ResolveInput, Rule, RuleKind, resolve};
 use super::selection::Selection;
 
-const LEGACY_RENAMES: [(&str, &str); 25] = [
-    (".*glm-5(?:[.\\-:/\\[].*)?", "off"),
-    (".*GLM-5\\.2(?:[.\\-:/\\[].*)?", "nothink"),
-    (".*GLM-5-Turbo(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-5\\.1(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-5\\.1-highspeed(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-5v-turbo(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.7(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.7-flashx(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.7-flash(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.6(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.5(?:[.\\-:/\\[].*)?", "off"),
-    (".*glm-4\\.5-air(?:[.\\-:/\\[].*)?", "off"),
-    (".*kimi-k2\\.7-code(?:[.\\-:/\\[].*)?", "off"),
-    (".*kimi-k2\\.6(?:[.\\-:/\\[].*)?", "off"),
-    (".*kimi-k2\\.5(?:[.\\-:/\\[].*)?", "off"),
-    (".*deepseek-v4-flash(?:[.\\-:/\\[].*)?", "off"),
-    (".*deepseek-v4-pro(?:[.\\-:/\\[].*)?", "off"),
-    (".*qwen3\\.5-plus(?:[.\\-:/\\[].*)?", "off"),
-    (".*qwen3\\.5-flash(?:[.\\-:/\\[].*)?", "off"),
-    (".*qwen-plus(?:[.\\-:/\\[].*)?", "off"),
-    (".*qwen-flash(?:[.\\-:/\\[].*)?", "off"),
-    (".*qwen3-vl-plus(?:[.\\-:/\\[].*)?", "off"),
-    (".*mimo-v2\\.5(?:[.\\-:/\\[].*)?", "off"),
-    (".*mimo-v2\\.5-pro(?:[.\\-:/\\[].*)?", "off"),
-    (".*mimo-v2-flash(?:[.\\-:/\\[].*)?", "off"),
+const LEGACY_RENAMES: [(&str, &str, &str); 25] = [
+    (r#".*glm-5(?:[.\-:/\[].*)?"#, r#".*glm-5.*"#, "off"),
+    (
+        r#".*GLM-5\.2(?:[.\-:/\[].*)?"#,
+        r#".*GLM-5\.2.*"#,
+        "nothink",
+    ),
+    (
+        r#".*GLM-5-Turbo(?:[.\-:/\[].*)?"#,
+        r#".*GLM-5-Turbo.*"#,
+        "off",
+    ),
+    (r#".*glm-5\.1(?:[.\-:/\[].*)?"#, r#".*glm-5\.1.*"#, "off"),
+    (
+        r#".*glm-5\.1-highspeed(?:[.\-:/\[].*)?"#,
+        r#".*glm-5\.1-highspeed.*"#,
+        "off",
+    ),
+    (
+        r#".*glm-5v-turbo(?:[.\-:/\[].*)?"#,
+        r#".*glm-5v-turbo.*"#,
+        "off",
+    ),
+    (r#".*glm-4\.7(?:[.\-:/\[].*)?"#, r#".*glm-4\.7.*"#, "off"),
+    (
+        r#".*glm-4\.7-flashx(?:[.\-:/\[].*)?"#,
+        r#".*glm-4\.7-flashx.*"#,
+        "off",
+    ),
+    (
+        r#".*glm-4\.7-flash(?:[.\-:/\[].*)?"#,
+        r#".*glm-4\.7-flash.*"#,
+        "off",
+    ),
+    (r#".*glm-4\.6(?:[.\-:/\[].*)?"#, r#".*glm-4\.6.*"#, "off"),
+    (r#".*glm-4\.5(?:[.\-:/\[].*)?"#, r#".*glm-4\.5.*"#, "off"),
+    (
+        r#".*glm-4\.5-air(?:[.\-:/\[].*)?"#,
+        r#".*glm-4\.5-air.*"#,
+        "off",
+    ),
+    (
+        r#".*kimi-k2\.7-code(?:[.\-:/\[].*)?"#,
+        r#".*kimi-k2\.7-code.*"#,
+        "off",
+    ),
+    (
+        r#".*kimi-k2\.6(?:[.\-:/\[].*)?"#,
+        r#".*kimi-k2\.6.*"#,
+        "off",
+    ),
+    (
+        r#".*kimi-k2\.5(?:[.\-:/\[].*)?"#,
+        r#".*kimi-k2\.5.*"#,
+        "off",
+    ),
+    (
+        r#".*deepseek-v4-flash(?:[.\-:/\[].*)?"#,
+        r#".*deepseek-v4-flash.*"#,
+        "off",
+    ),
+    (
+        r#".*deepseek-v4-pro(?:[.\-:/\[].*)?"#,
+        r#".*deepseek-v4-pro.*"#,
+        "off",
+    ),
+    (
+        r#".*qwen3\.5-plus(?:[.\-:/\[].*)?"#,
+        r#".*qwen3\.5-plus.*"#,
+        "off",
+    ),
+    (
+        r#".*qwen3\.5-flash(?:[.\-:/\[].*)?"#,
+        r#".*qwen3\.5-flash.*"#,
+        "off",
+    ),
+    (r#".*qwen-plus(?:[.\-:/\[].*)?"#, r#".*qwen-plus.*"#, "off"),
+    (
+        r#".*qwen-flash(?:[.\-:/\[].*)?"#,
+        r#".*qwen-flash.*"#,
+        "off",
+    ),
+    (
+        r#".*qwen3-vl-plus(?:[.\-:/\[].*)?"#,
+        r#".*qwen3-vl-plus.*"#,
+        "off",
+    ),
+    (
+        r#".*mimo-v2\.5(?:[.\-:/\[].*)?"#,
+        r#".*mimo-v2\.5.*"#,
+        "off",
+    ),
+    (
+        r#".*mimo-v2\.5-pro(?:[.\-:/\[].*)?"#,
+        r#".*mimo-v2\.5-pro.*"#,
+        "off",
+    ),
+    (
+        r#".*mimo-v2-flash(?:[.\-:/\[].*)?"#,
+        r#".*mimo-v2-flash.*"#,
+        "off",
+    ),
 ];
 
 /// 输入：完整 snapshot 所需的各部分。
@@ -68,14 +144,18 @@ pub fn resolve_legacy_level(context: &LegacyContext<'_>, selection: &Selection) 
         .iter()
         .map(|rule| {
             let rename = (rule.kind == RuleKind::Model)
-                .then(|| renames.iter().find(|(m, _)| rule.value["modelMatch"] == *m))
+                .then(|| {
+                    renames.iter().find(|(m, simplified, _)| {
+                        rule.value["modelMatch"] == *m || rule.value["modelMatch"] == *simplified
+                    })
+                })
                 .flatten();
             let values = rule
                 .value
                 .pointer("/config/optionSpecs/reasoningLevel/values")
                 .and_then(Value::as_array);
             match (rename, values) {
-                (Some((_, old)), Some(values)) if values.iter().any(|v| v == "disabled") => {
+                (Some((_, _, old)), Some(values)) if values.iter().any(|v| v == "disabled") => {
                     let replaced: Vec<Value> = values
                         .iter()
                         .map(|v| {

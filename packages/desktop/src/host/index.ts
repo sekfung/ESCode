@@ -1689,6 +1689,10 @@ const windowHostAttachmentRegistry = createWindowHostAttachmentRegistry<
       }
       return { services: activeServices, generation: 1 };
     }
+    if (scope.kind === "source-settings") {
+      // 本 fork 的 Source 配置仍由本地设置权威承载；不把远端项目 scope 冒充 source 配置。
+      throw new Error(`Source Server settings scope is unavailable: ${scope.sourceServerId}`);
+    }
     const session = windowRemoteConnectionRegistry.getSession(scope.remoteSessionId);
     if (!session) {
       throw new Error(`未找到远程 logical session，remoteSessionId=${scope.remoteSessionId}`);

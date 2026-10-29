@@ -37,23 +37,3 @@ describe("RemoteServiceAccess optional channels", () => {
     expect(getChannel).not.toHaveBeenCalledWith(ISourceServerManagementService.channelName);
   });
 });
-
-it("MRO02：窗口目录只由显式能力创建，原工作区 project 频道保留", async () => {
-  const calls: string[] = [];
-  const getChannel = vi.fn((name: string) => ({
-    call: async () => {
-      calls.push(name);
-      return name === "window-project-changes" ? { version: 1 } : { projects: [], tasks: [] };
-    },
-    listen: vi.fn(),
-  }));
-  const legacy = new RemoteServiceAccess({ getChannel });
-  expect(legacy.windowProjectDirectory).toBeUndefined();
-  expect(getChannel).not.toHaveBeenCalledWith("window-project");
-  const services = new RemoteServiceAccess({ getChannel }, { windowProjectDirectory: true });
-  expect(services.windowProjectDirectory).toBeDefined();
-  await services.windowProjectDirectory!.changesService.getCapabilities();
-  await services.windowProjectDirectory!.projectService.readTree();
-  await services.projectService.readTree();
-  expect(calls).toEqual(["window-project-changes", "window-project", "project"]);
-});

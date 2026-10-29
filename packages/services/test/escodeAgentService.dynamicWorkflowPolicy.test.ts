@@ -522,8 +522,9 @@ describe("用户选择（DWG-20）", () => {
     });
     try {
       await service.createSession({ workspacePath: WORKSPACE_PATH, sessionId: "s-gated" });
-      expect(policyCalls(request)).toHaveLength(0);
-      expect(paramsOf(request, escodeProtocolMethods.sessionCreate)[0]).not.toHaveProperty(
+      // 用户显式选择优先于 offered mode；服务端未提供时仍发送关闭策略，避免 runtime 猜测。
+      expect(policyCalls(request).length).toBeGreaterThan(0);
+      expect(paramsOf(request, escodeProtocolMethods.sessionCreate)[0]).toHaveProperty(
         "dynamicWorkflowMode",
       );
     } finally {

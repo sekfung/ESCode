@@ -1,3 +1,4 @@
+import type { AppToolSearchMode } from "./app-runtime-preferences.js";
 import type { WorkspaceVcsOverride } from "./vcs.js";
 import type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
 import type { SerialChecksumConfig } from "./serial/serialChecksum.js";
@@ -390,6 +391,8 @@ export interface AppSettings {
   providerFamilyDomainMigrated?: boolean;
   /** 新建或冷恢复 Session 是否为 Bash 注入 bfs/ugrep 增强；默认启用。 */
   nativeSearchEnhancementsEnabled?: boolean;
+  /** 新建或冷恢复时读取；已有 Runtime 保持原策略。 */
+  toolSearchMode?: AppToolSearchMode;
   /** 新建或冷恢复 Session 是否启用 Memory；默认关闭。 */
   memoryEnabled?: boolean;
   onboardingOccupation?:

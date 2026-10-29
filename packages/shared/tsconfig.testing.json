@@ -6,6 +6,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["test/fixtures/fake-relay-v2.ts"],
+  "include": [],
   "references": [{ "path": "." }]
 }

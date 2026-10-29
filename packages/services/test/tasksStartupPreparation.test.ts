@@ -94,8 +94,8 @@ it("SILENTDB-01/02: reports maintenance separately and no migration for a prepar
       expect.objectContaining({
         migration: {
           kind: "initialize",
-          executedCount: 4,
-          committedCount: 4,
+          executedCount: 6,
+          committedCount: 6,
           lastAppliedMigrationId: null,
         },
       }),
@@ -104,7 +104,7 @@ it("SILENTDB-01/02: reports maintenance separately and no migration for a prepar
     await prepareTasksIndexStorage(path, (phase, migration) => second.push({ phase, migration }));
     expect(second.some((s) => s.phase === "migrating")).toBe(false);
     expect(second.at(-1)).toMatchObject({
-      migration: { lastAppliedMigrationId: "0004_drop_off_peak" },
+      migration: { lastAppliedMigrationId: "0006_task_group_admissions" },
     });
     expect(second.some((s) => s.phase === "maintaining")).toBe(true);
     expect(second).toContainEqual(
@@ -135,8 +135,8 @@ it("retains committed facts if closing the migration connection fails", async ()
     expect(states.at(-1)).toMatchObject({
       migration: {
         kind: "initialize",
-        executedCount: 4,
-        committedCount: 4,
+        executedCount: 6,
+        committedCount: 6,
         lastAppliedMigrationId: null,
       },
     });
@@ -189,7 +189,7 @@ it("keeps the pre-upgrade task ledger ID after committing the remaining migratio
         executedCount: 1,
         committedCount: 1,
         // 删除 0003 后重跑只补它；账本基线已是最后一条 0004。
-        lastAppliedMigrationId: "0004_drop_off_peak",
+        lastAppliedMigrationId: "0006_task_group_admissions",
       },
     });
   } finally {

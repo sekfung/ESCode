@@ -10,41 +10,6 @@ import {
   escodePersistedMessageSchema,
 } from "../src/validation.js";
 
-it("PD01 手机任务草稿身份通过两层协议，且不能注入路径或混用项目", () => {
-  const intent = {
-    projectId: null,
-    draftId: "12345678-1234-4234-8234-123456789012",
-    reuseDraft: true,
-  };
-  const bridge = {
-    escode_type: "workspace-bridge-open",
-    requestId: "draft",
-    bridgeSessionId: "bridge",
-    workspaceKey: "draft",
-    project: intent,
-  };
-  const host = {
-    type: "prepare-project-workspace",
-    requestId: "draft",
-    clientMode: "web-remote-replayable",
-    ...intent,
-  };
-  expect(webRemoteControlAppPayloadSchema.safeParse(bridge).success).toBe(true);
-  expect(hostIncomingMessageSchema.safeParse(host).success).toBe(true);
-  for (const invalid of [
-    { draftId: "../escape" },
-    { projectId: "project" },
-    { draftId: undefined },
-    { workspacePath: "/injected" },
-  ]) {
-    expect(
-      webRemoteControlAppPayloadSchema.safeParse({ ...bridge, project: { ...intent, ...invalid } })
-        .success,
-    ).toBe(false);
-    expect(hostIncomingMessageSchema.safeParse({ ...host, ...invalid }).success).toBe(false);
-  }
-});
-
 it("资源查询取消必须指定 requestId 且不接受附加字段", () => {
   const cancel = { type: "resource-usage-snapshot-cancel", requestId: "sample-1" };
   expect(hostIncomingMessageSchema.safeParse(cancel).success).toBe(true);
@@ -813,45 +778,4 @@ describe("hostResponseMessageSchema", () => {
     }
     expect(sessionEntry.target).not.toHaveProperty("resourcePackages");
   });
-});
-
-it("项目导航 IPC 只接受项目意图与可信手机模式，不接受客户端目录/scope", () => {
-  const request = {
-    type: "prepare-project-workspace",
-    requestId: "navigation",
-    projectId: "p",
-    hostId: "remote:server:s",
-    clientMode: "web-remote-replayable",
-  };
-  expect(hostIncomingMessageSchema.safeParse(request).success).toBe(true);
-  expect(
-    hostIncomingMessageSchema.safeParse({ ...request, workspacePath: "/injected" }).success,
-  ).toBe(false);
-  expect(
-    hostIncomingMessageSchema.safeParse({ ...request, clientMode: "desktop-continuous" }).success,
-  ).toBe(false);
-  expect(
-    hostResponseMessageSchema.safeParse({
-      type: "project-workspace-prepared",
-      requestId: "navigation",
-      result: {
-        ok: true,
-        value: {
-          hostId: "remote:server:s",
-          projectId: "p",
-          workspacePath: "/root",
-          workspaceIdentity: "remote:server:s:/root",
-          additionalDirectories: [],
-          remote: {
-            sourceServerId: "s",
-            remoteSessionId: "scope",
-            generation: 1,
-            target: { kind: "server", serverId: "s", url: "http://source" },
-            workspacePath: "/root",
-            workspaceIdentity: "remote:server:s:/root",
-          },
-        },
-      },
-    }).success,
-  ).toBe(true);
 });

@@ -68,6 +68,7 @@ pub fn default_settings() -> Value {
         "providerFamilyConnectionSelections": {},
         "providerFamilyDomainMigrated": false,
         "nativeSearchEnhancementsEnabled": true,
+        "toolSearchMode": "off",
         "memoryEnabled": false,
         "lastWorkspaceSession": [],
         "lastActiveTabIndex": 0,

@@ -7,11 +7,11 @@
 use serde_json::{Value, json};
 use std::collections::HashSet;
 
-pub use super::tool_search_query::search_tools;
 pub use super::tool_search_definitions::{
     control_definitions, deferred_tool_call_description, local_tool_search_description,
     native_tool_search_description,
 };
+pub use super::tool_search_query::search_tools;
 
 pub const TOOL_SEARCH_NAME: &str = "ToolSearch";
 pub const DEFERRED_TOOL_CALL_NAME: &str = "DeferredToolCall";

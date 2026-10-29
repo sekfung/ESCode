@@ -19,17 +19,17 @@ W1	import-test	shared	test	M	packages/client/test/remoteServiceAccess.test.ts	pa
 W1	port-shared	shared	src	M	packages/provider-node/src/legacy-reasoning-level-renames.ts	packages/provider-node/src/legacy-reasoning-level-renames.ts	present	共享类型与客户端
 W1	port-shared	shared	src	M	packages/provider-node/src/legacy-reasoning-level.ts	packages/provider-node/src/legacy-reasoning-level.ts	present	共享类型与客户端
 W1	manual-review	shared	test	D	packages/provider-node/test/builtin-provider-build.test.ts	packages/provider-node/test/builtin-provider-build.test.ts	present	上游删除但 fork 仍存在，需确认是否同步删除
-W1	import-test	shared	test	M	packages/provider-node/test/config-file-codec.test.ts	packages/provider-node/test/config-file-codec.test.ts	present	随所属波次导入并按品牌映射
+W1	manual-review	shared	test	M	packages/provider-node/test/config-file-codec.test.ts	packages/provider-node/test/config-file-codec.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
 W1	import-test	shared	test	M	packages/provider-node/test/fixtures/reasoning-map-before-todo95.json	packages/provider-node/test/fixtures/reasoning-map-before-todo95.json	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	A	packages/provider-node/test/mimo-templates.test.ts	packages/provider-node/test/mimo-templates.test.ts	new	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/model-selection-config-repository.test.ts	packages/provider-node/test/model-selection-config-repository.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/new-model-catalog-round2.test.ts	packages/provider-node/test/new-model-catalog-round2.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/provider-node-runtime.test.ts	packages/provider-node/test/provider-node-runtime.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/reasoning-level-migration.test.ts	packages/provider-node/test/reasoning-level-migration.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-integrity.test.ts	packages/provider-node/test/escode-builtin-integrity.test.ts	present	随所属波次导入并按品牌映射
+W1	manual-review	shared	test	A	packages/provider-node/test/mimo-templates.test.ts	packages/provider-node/test/mimo-templates.test.ts	new	上游新增；Provider catalog 未同步，测试删除
+W1	manual-review	shared	test	M	packages/provider-node/test/model-selection-config-repository.test.ts	packages/provider-node/test/model-selection-config-repository.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
+W1	manual-review	shared	test	M	packages/provider-node/test/new-model-catalog-round2.test.ts	packages/provider-node/test/new-model-catalog-round2.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
+W1	manual-review	shared	test	M	packages/provider-node/test/provider-node-runtime.test.ts	packages/provider-node/test/provider-node-runtime.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
+W1	manual-review	shared	test	M	packages/provider-node/test/reasoning-level-migration.test.ts	packages/provider-node/test/reasoning-level-migration.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
+W1	manual-review	shared	test	M	packages/provider-node/test/zcode-builtin-integrity.test.ts	packages/provider-node/test/escode-builtin-integrity.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
 W1	manual-review	shared	test	D	packages/provider-node/test/zcode-builtin-map-formatting.test.ts	packages/provider-node/test/escode-builtin-map-formatting.test.ts	present	上游删除但 fork 仍存在，需确认是否同步删除
-W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-model-aliases.test.ts	packages/provider-node/test/escode-builtin-model-aliases.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	M	packages/provider-node/test/zcode-builtin-reasoning-map.test.ts	packages/provider-node/test/escode-builtin-reasoning-map.test.ts	present	随所属波次导入并按品牌映射
+W1	manual-review	shared	test	M	packages/provider-node/test/zcode-builtin-model-aliases.test.ts	packages/provider-node/test/escode-builtin-model-aliases.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
+W1	manual-review	shared	test	M	packages/provider-node/test/zcode-builtin-reasoning-map.test.ts	packages/provider-node/test/escode-builtin-reasoning-map.test.ts	present	Provider catalog 未同步；保留 fork 测试与配置
 W1	port-shared	shared	src	M	packages/provider/src/account-provider-resolution.ts	packages/provider/src/account-provider-resolution.ts	present	共享类型与客户端
 W1	import-test	shared	test	M	packages/provider/test/account-provider-resolution.test.ts	packages/provider/test/account-provider-resolution.test.ts	present	随所属波次导入并按品牌映射
 W1	import-test	shared	test	M	packages/provider/test/config-service.test.ts	packages/provider/test/config-service.test.ts	present	随所属波次导入并按品牌映射
@@ -96,8 +96,8 @@ W1	import-test	shared	test	M	packages/shared/test/clientConfig.test.ts	packages/
 W1	import-test	shared	test	M	packages/shared/test/conversationPreviewArtifacts.test.ts	packages/shared/test/conversationPreviewArtifacts.test.ts	present	随所属波次导入并按品牌映射
 W1	import-test	shared	test	M	packages/shared/test/dynamicWorkflowFeature.test.ts	packages/shared/test/dynamicWorkflowFeature.test.ts	present	随所属波次导入并按品牌映射
 W1	import-test	shared	test	M	packages/shared/test/env.test.ts	packages/shared/test/env.test.ts	present	随所属波次导入并按品牌映射
-W1	import-test	shared	test	A	packages/shared/test/fakeRelayV2.test.ts	packages/shared/test/fakeRelayV2.test.ts	new	随所属波次导入并按品牌映射
-W1	import-test	shared	test	A	packages/shared/test/fixtures/fake-relay-v2.ts	packages/shared/test/fixtures/fake-relay-v2.ts	new	随所属波次导入并按品牌映射
+W1	exclude-deleted	shared	test	A	packages/shared/test/fakeRelayV2.test.ts	packages/shared/test/fakeRelayV2.test.ts	new	依赖已删除的 web-remote-relay 域；不同步该测试与 fixture
+W1	exclude-deleted	shared	test	A	packages/shared/test/fixtures/fake-relay-v2.ts	packages/shared/test/fixtures/fake-relay-v2.ts	new	依赖已删除的 web-remote-relay 域；不同步该测试与 fixture
 W1	import-test	shared	test	M	packages/shared/test/guardedMode.test.ts	packages/shared/test/guardedMode.test.ts	present	随所属波次导入并按品牌映射
 W1	import-test	shared	test	M	packages/shared/test/launchMarks.test.ts	packages/shared/test/launchMarks.test.ts	present	随所属波次导入并按品牌映射
 W1	import-test	shared	test	A	packages/shared/test/mcp-always-load.test.ts	packages/shared/test/mcp-always-load.test.ts	new	随所属波次导入并按品牌映射
@@ -1166,7 +1166,7 @@ W3	convert-rust-diff	services	test	M	packages/services/test/accountProviderConfi
 W3	convert-rust-diff	services	test	M	packages/services/test/accountProviderConnectionResolver.test.ts	packages/services/test/accountProviderConnectionResolver.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
 W3	convert-rust-diff	services	test	M	packages/services/test/accountProviderCredentialService.test.ts	packages/services/test/accountProviderCredentialService.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
 W3	convert-rust-diff	services	test	M	packages/services/test/accountProviderCredentialStore.test.ts	packages/services/test/accountProviderCredentialStore.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
-W3	convert-rust-diff	services	test	M	packages/services/test/accountProviderKeyUsageScene.test.ts	packages/services/test/accountProviderKeyUsageScene.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
+W3	exclude-deleted	services	test	M	packages/services/test/accountProviderKeyUsageScene.test.ts	packages/services/test/accountProviderKeyUsageScene.test.ts	present	Coding Plan 已删除，测试随功能移除
 W3	convert-rust-diff	services	test	M	packages/services/test/accountRequestAuthService.test.ts	packages/services/test/accountRequestAuthService.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
 W3	convert-rust-diff	services	test	M	packages/services/test/agentProxyEnv.test.ts	packages/services/test/agentProxyEnv.test.ts	present	Node/Rust 行为差分语料，不直接导入 Node 单测
 W3	convert-rust-diff	services	test	A	packages/services/test/autoArchiveScheduler.test.ts	packages/services/test/autoArchiveScheduler.test.ts	new	Node/Rust 行为差分语料，不直接导入 Node 单测

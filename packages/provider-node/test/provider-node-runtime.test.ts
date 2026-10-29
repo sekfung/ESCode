@@ -294,7 +294,7 @@ describe("@escode/provider-node", () => {
     expect(reasons).toEqual([]);
 
     await writeESCodeBuiltin(filePath, "model-b");
-    await vi.waitFor(() => expect(reasons).toContain("file-changed"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(reasons).toContain("file-changed"));
     await settleFileWatcher();
 
     expect(reasons).toEqual(["file-changed"]);
@@ -369,7 +369,7 @@ describe("@escode/provider-node", () => {
       providers: new ProviderConfigMap([["external", personalProviderConfig(false)]]),
       models: ModelConfigRules.empty(),
     }));
-    await vi.waitFor(() => expect(reasons).toContain("poll-changed"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(reasons).toContain("poll-changed"));
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     expect(reasons).toEqual(["poll-changed"]);
@@ -394,7 +394,7 @@ describe("@escode/provider-node", () => {
     repository.onDidChange((reason) => reasons.push(reason));
     await repository.read();
 
-    await vi.waitFor(() => expect(pollingErrors).toHaveLength(1), { timeout: 10_000 });
+    await vi.waitFor(() => expect(pollingErrors).toHaveLength(1));
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(pollingErrors).toHaveLength(1);
 
@@ -409,7 +409,7 @@ describe("@escode/provider-node", () => {
       ),
       "utf8",
     );
-    await vi.waitFor(() => expect(reasons).toContain("poll-changed"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(reasons).toContain("poll-changed"));
     expect((await repository.read()).providers.keys()).toEqual(["recovered"]);
     repository.dispose();
   });

@@ -2008,6 +2008,7 @@ describe("createESCodeAgentService", () => {
           () => Promise<{
             askUserQuestionAutoResolutionEnabled: boolean;
             nativeSearchEnhancementsEnabled: boolean;
+            toolSearchMode: "auto" | "local" | "off";
             memoryEnabled: boolean;
           }>
         >
@@ -2015,6 +2016,7 @@ describe("createESCodeAgentService", () => {
       expectedResult?: {
         askUserQuestionAutoResolutionEnabled: boolean;
         nativeSearchEnhancementsEnabled: boolean;
+        toolSearchMode: "auto" | "local" | "off";
         subagentRuntimeConfigEnabled: boolean;
         memoryEnabled: boolean;
         modelContextBudgetStrategy: "legacy" | "preflight-v1";
@@ -2027,11 +2029,13 @@ describe("createESCodeAgentService", () => {
         resolver: vi.fn(async () => ({
           askUserQuestionAutoResolutionEnabled: false,
           nativeSearchEnhancementsEnabled: false,
+          toolSearchMode: "off",
           memoryEnabled: false,
         })),
         expectedResult: {
           askUserQuestionAutoResolutionEnabled: false,
           nativeSearchEnhancementsEnabled: false,
+          toolSearchMode: "off",
           subagentRuntimeConfigEnabled: false,
           memoryEnabled: false,
           modelContextBudgetStrategy: "preflight-v1" as const,
@@ -2043,6 +2047,7 @@ describe("createESCodeAgentService", () => {
         expectedResult: {
           askUserQuestionAutoResolutionEnabled: true,
           nativeSearchEnhancementsEnabled: true,
+          toolSearchMode: "off",
           subagentRuntimeConfigEnabled: false,
           memoryEnabled: false,
           modelContextBudgetStrategy: "preflight-v1" as const,
@@ -2063,6 +2068,7 @@ describe("createESCodeAgentService", () => {
         resolver: vi.fn(async () => ({
           askUserQuestionAutoResolutionEnabled: false,
           nativeSearchEnhancementsEnabled: false,
+          toolSearchMode: "off",
           memoryEnabled: false,
         })),
         expectedErrorCode: -32602,

@@ -1,37 +1,3 @@
 result	wave	disposition	area	kind	status	upstream_path	fork_path	fork_state	detail
-conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/AnimatedSidePanePanel.tsx	packages/ui/src/app-shell/AnimatedSidePanePanel.tsx	present	三方合并冲突 x10
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/animatedSidePanePanelModel.ts	packages/ui/src/app-shell/animatedSidePanePanelModel.ts	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/animatedSidePanePanelModel.ts	packages/ui/src/app-shell/animatedSidePanePanelModel.ts	present	clean
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/AnimatedTerminalPanel.tsx	packages/ui/src/app-shell/AnimatedTerminalPanel.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/AnimatedTerminalPanel.tsx	packages/ui/src/app-shell/AnimatedTerminalPanel.tsx	present	clean
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/SelectionSideChatPane.tsx	packages/ui/src/app-shell/SelectionSideChatPane.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/SelectionSideChatPane.tsx	packages/ui/src/app-shell/SelectionSideChatPane.tsx	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/sidePaneTabPresentation.ts	packages/ui/src/app-shell/sidePaneTabPresentation.ts	present	三方合并冲突 x2
-conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/SidePaneTabTrigger.tsx	packages/ui/src/app-shell/SidePaneTabTrigger.tsx	present	三方合并冲突 x1
-conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/types.ts	packages/ui/src/app-shell/types.ts	present	三方合并冲突 x4
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/WorkflowRunSidePane.tsx	packages/ui/src/app-shell/WorkflowRunSidePane.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/WorkflowRunSidePane.tsx	packages/ui/src/app-shell/WorkflowRunSidePane.tsx	present	clean
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/WorkflowRunSidePaneSections.tsx	packages/ui/src/app-shell/WorkflowRunSidePaneSections.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/WorkflowRunSidePaneSections.tsx	packages/ui/src/app-shell/WorkflowRunSidePaneSections.tsx	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/app-shell/WorkspaceShellLayout.tsx	packages/ui/src/app-shell/WorkspaceShellLayout.tsx	present	三方合并冲突 x57
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/app-shell/workspaceShellWindowChrome.ts	packages/ui/src/app-shell/workspaceShellWindowChrome.ts	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/app-shell/workspaceShellWindowChrome.ts	packages/ui/src/app-shell/workspaceShellWindowChrome.ts	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/reconnectRemoteWorkspaceHistoryEntry.ts	packages/ui/src/root/reconnectRemoteWorkspaceHistoryEntry.ts	present	三方合并冲突 x1
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/root/remoteWorkspaceSessionPersistence.ts	packages/ui/src/root/remoteWorkspaceSessionPersistence.ts	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/root/remoteWorkspaceSessionPersistence.ts	packages/ui/src/root/remoteWorkspaceSessionPersistence.ts	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/rootPlatformWorkspaceSync.ts	packages/ui/src/root/rootPlatformWorkspaceSync.ts	present	三方合并冲突 x1
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/root/RootShell.tsx	packages/ui/src/root/RootShell.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/root/RootShell.tsx	packages/ui/src/root/RootShell.tsx	present	clean
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/root/RootStartupLoading.tsx	packages/ui/src/root/RootStartupLoading.tsx	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/root/RootStartupLoading.tsx	packages/ui/src/root/RootStartupLoading.tsx	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/RootWorkspaceContent.tsx	packages/ui/src/root/RootWorkspaceContent.tsx	present	三方合并冲突 x3
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/types.ts	packages/ui/src/root/types.ts	present	三方合并冲突 x2
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/root/useConversationWorkspaceActions.ts	packages/ui/src/root/useConversationWorkspaceActions.ts	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/root/useConversationWorkspaceActions.ts	packages/ui/src/root/useConversationWorkspaceActions.ts	present	clean
-would-merge	W4	port-shared	ui	src	M	packages/ui/src/root/useReconnectingRemoteWorkspaceLogs.ts	packages/ui/src/root/useReconnectingRemoteWorkspaceLogs.ts	present	clean
-merged	W4	port-shared	ui	src	M	packages/ui/src/root/useReconnectingRemoteWorkspaceLogs.ts	packages/ui/src/root/useReconnectingRemoteWorkspaceLogs.ts	present	clean
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/useRemoteWorkspaceHistory.ts	packages/ui/src/root/useRemoteWorkspaceHistory.ts	present	三方合并冲突 x1
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/useRemoteWorkspaceTabLifecycle.ts	packages/ui/src/root/useRemoteWorkspaceTabLifecycle.ts	present	三方合并冲突 x1
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/useRootPlatformEffects.ts	packages/ui/src/root/useRootPlatformEffects.ts	present	三方合并冲突 x7
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/useRootWorkspaceActions.ts	packages/ui/src/root/useRootWorkspaceActions.ts	present	三方合并冲突 x4
-conflict	W4	port-shared	ui	src	M	packages/ui/src/root/WorkspaceSettingsLayer.tsx	packages/ui/src/root/WorkspaceSettingsLayer.tsx	present	三方合并冲突 x1
+would-merge	W5	adopt-tooling	other	tooling	M	config/provider/zcode-builtin.test.json	config/provider/escode-builtin.test.json	present	clean
+merged	W5	adopt-tooling	other	tooling	M	config/provider/zcode-builtin.test.json	config/provider/escode-builtin.test.json	present	clean

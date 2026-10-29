@@ -53,6 +53,7 @@ describe("server remote target", () => {
     expect(identity).toBe("remote:server:studio-server-01:/Users/dev/ESCodeProject");
     expect(parseRemoteWorkspaceIdentity(identity)).toEqual({
       kind: "server",
+      sourceServerId: "studio-server-01",
       workspacePath: "/Users/dev/ESCodeProject",
     });
     expect(isRemoteWorkspaceIdentity(identity)).toBe(true);

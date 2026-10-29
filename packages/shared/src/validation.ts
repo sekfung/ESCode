@@ -28,6 +28,7 @@ import {
   taskStreamMirrorTargetSchema,
 } from "./task-realtime-core.js";
 import { wslUserSchema } from "./wslUserValidation.js";
+import { sourceServerArtifactPolicySchema } from "./source-server/release.js";
 import { legacyESCodeProviderSchema } from "./escode-agent-policy.js";
 import { errorAttributionSchema } from "./escode-protocol-v4/snapshot.js";
 import { escodeTaskModeSchema } from "./escode-task-mode-schema.js";
@@ -176,6 +177,7 @@ export const remoteAssetDirsSchema = z.object({
   remoteCdnBaseUrl: z.string().optional(),
   remoteCdnBaseUrls: z.array(z.string()).optional(),
   remoteCacheDir: z.string().optional(),
+  sourceServerArtifactPolicy: sourceServerArtifactPolicySchema.optional(),
 });
 
 const hostAgentWarmupTargetSchema = z.object({
@@ -202,10 +204,14 @@ export const hostInitLocalMessageSchema = z.object({
 
 export const windowHostRemoteWorkspaceDescriptorSchema = z
   .object({
+    /** 本次请求直接复用的在线连接；只包含脱敏目标，不是 session 持久状态。 */
+    reusedConnectionTarget: remoteTargetSchema.optional(),
+    sourceServerId: nonEmptyStringSchema.optional(),
     remoteSessionId: nonEmptyStringSchema,
     target: remoteTargetSchema,
     workspacePath: nonEmptyStringSchema.optional(),
     workspaceIdentity: nonEmptyStringSchema.optional(),
+    workspacePurpose: z.enum(["project", "conversation"]).optional(),
     generation: z.number().int().positive(),
   })
   .strict();
@@ -213,11 +219,34 @@ export type WindowHostRemoteWorkspaceDescriptor = z.infer<
   typeof windowHostRemoteWorkspaceDescriptorSchema
 >;
 
+/** Desktop Main → Preload → Renderer 的 remote workspace MessagePort 元数据合同。 */
+export const scopedServicePortPayloadSchema = windowHostRemoteWorkspaceDescriptorSchema
+  .pick({
+    sourceServerId: true,
+    target: true,
+    workspacePurpose: true,
+  })
+  .extend({
+    attachmentId: nonEmptyStringSchema,
+    sessionId: nonEmptyStringSchema,
+    workspacePath: nonEmptyStringSchema,
+    workspaceIdentity: nonEmptyStringSchema,
+  })
+  .strict();
+export type ScopedServicePortPayload = z.infer<typeof scopedServicePortPayloadSchema>;
+
 export const windowHostAttachmentScopeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("local") }).strict(),
   z
     .object({
+      kind: z.literal("source-settings"),
+      sourceServerId: nonEmptyStringSchema,
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("remote"),
+      sourceServerId: nonEmptyStringSchema.optional(),
       remoteSessionId: nonEmptyStringSchema,
       workspacePath: nonEmptyStringSchema,
       workspaceIdentity: nonEmptyStringSchema,
@@ -508,8 +537,37 @@ export const hostRemoteWorkspaceConnectFailedResponseSchema = z
     type: z.literal("remote-workspace-connect-failed"),
     requestId: nonEmptyStringSchema,
     error: nonEmptyStringSchema,
+    reasonCode: nonEmptyStringSchema.optional(),
+    retryable: z.boolean().optional(),
+    profileId: z.string().uuid().optional(),
     /** WSL 安装/升级等待使用本次已解析身份；预览失败也不能重新选择系统默认值。 */
-    resolvedWslTarget: z.any().optional(),
+    resolvedWslTarget: z
+      .object({
+        kind: z.literal("wsl"),
+        distro: nonEmptyStringSchema,
+        user: wslUserSchema.refine((value) => value.length > 0),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+export const hostRemoteWorkspaceContextBoundResponseSchema = z
+  .object({
+    type: z.literal("remote-workspace-context-bound"),
+    requestId: nonEmptyStringSchema,
+    // Desktop tab rekey only；手机 replayable attachment 不消费该提示。
+    previousWorkspaceIdentity: nonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export const hostRemoteWorkspaceContextBindFailedResponseSchema = z
+  .object({
+    type: z.literal("remote-workspace-context-bind-failed"),
+    requestId: nonEmptyStringSchema,
+    error: nonEmptyStringSchema,
+    reasonCode: nonEmptyStringSchema.optional(),
+    retryable: z.boolean().optional(),
   })
   .strict();
 
@@ -855,6 +913,8 @@ export const hostResponseMessageSchema = z.discriminatedUnion("type", [
   hostResourceUsageSnapshotResultResponseSchema,
   hostRemoteWorkspaceConnectionLogResponseSchema,
   hostRemoteWorkspaceConnectedResponseSchema,
+  hostRemoteWorkspaceContextBoundResponseSchema,
+  hostRemoteWorkspaceContextBindFailedResponseSchema,
   hostRemoteWorkspaceConnectFailedResponseSchema,
   hostRemoteWorkspaceClosedResponseSchema,
   hostLogResponseSchema,
