@@ -29,7 +29,9 @@
   "escodeInteractionBehavior": "queue",
   "askUserQuestionAutoResolutionEnabled": true,
   "modelIoFullRetentionEnabled": false,
-  "enabledBuiltinAgentCliProviders": ["glm"],
+  "enabledBuiltinAgentCliProviders": [
+    "glm"
+  ],
   "providerFamilyConnectionSelections": {},
   "providerFamilyDomainMigrated": false,
   "nativeSearchEnhancementsEnabled": true,
@@ -41,5 +43,10 @@
   "skippedElectronUpdateVersions": {},
   "unknownFromNode": {
     "kept": true
-  }
+  },
+  "taskAutoArchiveResetVersion": 1,
+  "toolSearchMode": "off",
+  "sourceServers": [],
+  "connectionProfiles": [],
+  "sourceServerWorkspaceHistory": []
 }
