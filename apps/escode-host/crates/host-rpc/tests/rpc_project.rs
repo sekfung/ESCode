@@ -59,7 +59,11 @@ async fn call_channel(
 async fn prepare_session_reuses_draft_and_initializes_empty_project_roots() {
     let (dir, _surface, mut socket, data_base_dir) = start_project_host().await;
     let draft = "cc29167e-5a72-4c24-9e31-adcc584c73b4";
-    let workspace_dir = data_base_dir.join(".escode/workspace/default");
+    // 逐段 join：带斜杠的字面量在 Windows 上会产生混合分隔符，与实际返回值不一致。
+    let workspace_dir = data_base_dir
+        .join(".escode")
+        .join("workspace")
+        .join("default");
 
     let Wire::Object(first) =
         call_project(&mut socket, 1, "prepareSession", json!({"draftId": draft})).await

@@ -386,10 +386,12 @@ mod tests {
 
     #[test]
     fn normalize_matches_node_path_normalize() {
-        assert_eq!(normalize_path("/a//b/./c"), "/a/b/c");
-        assert_eq!(normalize_path("/a/../b"), "/b");
-        assert_eq!(normalize_path("a/../../b"), "../b");
-        assert_eq!(normalize_path("/.."), "/");
+        // Node `path.normalize` 也是平台相关的：Windows 输出反斜杠，POSIX 输出斜杠。
+        let sep = std::path::MAIN_SEPARATOR;
+        assert_eq!(normalize_path("/a//b/./c"), format!("{sep}a{sep}b{sep}c"));
+        assert_eq!(normalize_path("/a/../b"), format!("{sep}b"));
+        assert_eq!(normalize_path("a/../../b"), format!("..{sep}b"));
+        assert_eq!(normalize_path("/.."), sep.to_string());
         assert_eq!(normalize_path(""), ".");
     }
 }
