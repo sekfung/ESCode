@@ -295,6 +295,10 @@ export const TID_PROJECT_ADD = "project-add";
 export const TID_COMPOSER_WORKSPACE_TRIGGER = "composer-workspace-trigger";
 /** Composer workspace 菜单的远程连接入口 */
 export const TID_COMPOSER_REMOTE_CONNECTION = "composer-remote-connection";
+/** Composer workspace 菜单的「添加设备」入口（连接后进入项目选择器，而不是直接开 workspace） */
+export const TID_COMPOSER_ADD_DEVICE = "composer-add-device";
+/** DirectoryBrowser 路径输入框 */
+export const TID_DIRECTORY_BROWSER_PATH = "directory-browser-path";
 /** Composer 当前项目解绑按钮 */
 export const TID_COMPOSER_PROJECT_DETACH = "composer-project-detach";
 /** Composer workspace 菜单的非项目工作入口 */

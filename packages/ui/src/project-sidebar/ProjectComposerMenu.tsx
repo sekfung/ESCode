@@ -31,7 +31,7 @@ import { logger } from "@/logger.js";
 import { buildServerRemoteWorkspaceIdentity } from "@escode/shared";
 import {
   TID_COMPOSER_PROJECT_DETACH,
-  TID_COMPOSER_REMOTE_CONNECTION,
+  TID_COMPOSER_ADD_DEVICE,
   TID_COMPOSER_WORK_OUTSIDE_PROJECT,
   TID_COMPOSER_WORKSPACE_TRIGGER,
 } from "@escode/shared/test-ids";
@@ -509,7 +509,7 @@ export function ProjectComposerMenu({
             </DropdownMenuItem>
             {canUseRemoteWorkspace ? (
               <DropdownMenuItem
-                data-testid={TID_COMPOSER_REMOTE_CONNECTION}
+                data-testid={TID_COMPOSER_ADD_DEVICE}
                 onSelect={() => {
                   // Bugfix: 打开远程弹窗时必须让 DropdownMenu 执行默认关闭流程。
                   // 阻止默认 select 会让父菜单与 modal 同时保持打开，浮层层级调整后父菜单会覆盖弹窗。

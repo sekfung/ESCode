@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useEffectEvent } from "react";
 import type { IServiceAccessor } from "@escode/services";
-import type { FileEntry } from "@escode/shared";
+import { TID_DIRECTORY_BROWSER_PATH, type FileEntry } from "@escode/shared";
 import { FolderIcon, FolderSymlinkIcon, LoaderIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
@@ -227,6 +227,7 @@ export function DirectoryBrowser({
         <form onSubmit={handleInputSubmit} className="flex flex-col gap-2 sm:flex-row">
           <Input
             type="text"
+            data-testid={TID_DIRECTORY_BROWSER_PATH}
             aria-label={intl.formatMessage({
               id: "directoryBrowser.pathPlaceholder",
             })}

@@ -3,7 +3,9 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { Client as SSHClient, type ClientChannel, type TcpConnectionDetails } from "ssh2";
 import {
   TID_COMPOSER_REMOTE_CONNECTION,
+  TID_COMPOSER_ADD_DEVICE,
   TID_COMPOSER_WORKSPACE_TRIGGER,
+  TID_DIRECTORY_BROWSER_PATH,
   TID_REMOTE_KIND_SSH,
   TID_SSH_DIALOG,
   TID_SSH_ERROR,
@@ -258,6 +260,89 @@ export async function openSSHRemoteDialog(caseMarker: string): Promise<void> {
     timeoutMsg: `${caseMarker}: 远程连接向导没有显示 SSH transport`,
   });
   await clickLastEnabledSSHDialogButton(caseMarker);
+}
+
+/** 从 composer workspace 菜单走「添加设备」入口：连接成功后由项目选择器再选目录。 */
+export async function openSSHDevicePicker(caseMarker: string): Promise<void> {
+  await clickTestIdByWebDriver(TID_COMPOSER_WORKSPACE_TRIGGER, {
+    timeout: 30_000,
+    timeoutMsg: `${caseMarker}: 空草稿没有显示 workspace 菜单`,
+  });
+  try {
+    await clickTestIdByWebDriver(TID_COMPOSER_ADD_DEVICE, {
+      timeout: 30_000,
+      timeoutMsg: `${caseMarker}: workspace 菜单没有显示添加设备入口`,
+    });
+  } catch (error) {
+    const visible = await browser
+      .execute(() =>
+        Array.from(document.querySelectorAll("[data-testid]"))
+          .filter((element) => (element as HTMLElement).getClientRects().length > 0)
+          .map((element) => element.getAttribute("data-testid")),
+      )
+      .catch(() => [] as (string | null)[]);
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)} [visible testids: ${visible.join(", ")}]`,
+    );
+  }
+  await clickTestIdByWebDriver(TID_REMOTE_KIND_SSH, {
+    timeout: 30_000,
+    timeoutMsg: `${caseMarker}: 远程连接向导没有显示 SSH transport`,
+  });
+}
+
+export async function waitForSSHDialogClosed(caseMarker: string): Promise<void> {
+  await browser.waitUntil(
+    () =>
+      browser.execute(
+        (dialogTestId) => !document.querySelector(`[data-testid="${dialogTestId}"]`),
+        TID_SSH_DIALOG,
+      ),
+    {
+      timeout: SSH_CONNECT_TIMEOUT_MS,
+      interval: 250,
+      timeoutMsg: `${caseMarker}: SSH 连接后向导没有关闭`,
+    },
+  );
+}
+
+/** 在「添加设备」完成后的项目选择器里选定目录（空目录会进入新建项目表单）。 */
+export async function selectRemoteFolderProjectDirectory(
+  directoryPath: string,
+  caseMarker: string,
+): Promise<void> {
+  await browser.waitUntil(
+    () =>
+      browser.execute(
+        () => Boolean(document.querySelector('[data-testid="chat-remote-folder"]')),
+      ),
+    {
+      timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+      interval: 250,
+      timeoutMsg: `${caseMarker}: 连接成功后没有打开远端项目选择器`,
+    },
+  );
+  await setInputValueByTestIdDom(TID_DIRECTORY_BROWSER_PATH, directoryPath);
+  await browser.keys("Enter");
+  await browser.waitUntil(
+    () =>
+      browser.execute(
+        (expectedPath) =>
+          (document.querySelector('[data-testid="chat-remote-folder"]')?.textContent ?? "").includes(
+            expectedPath,
+          ),
+        directoryPath,
+      ),
+    {
+      timeout: 30_000,
+      interval: 250,
+      timeoutMsg: `${caseMarker}: 项目选择器没有进入目标目录`,
+    },
+  );
+  await clickTestIdByWebDriver("directory-browser-confirm", {
+    timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+    timeoutMsg: `${caseMarker}: 项目选择器没有可用的目录确认按钮`,
+  });
 }
 
 export async function fillSSHPasswordSettings(config: SSHConnectionConfig): Promise<void> {

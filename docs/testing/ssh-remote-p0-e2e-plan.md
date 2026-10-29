@@ -116,9 +116,11 @@ Ubuntu 24.04 + password SSH
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。
-- 剩余阻塞：PROJECT-01 用的入口是 composer「添加设备」（`composer-remote-connection`），当前产品
-  流程是连上设备后由 `ChatRemoteFolderSelection` 再选目录并进入新建项目表单；用例仍在 SSH
-  向导里选目录，因此等不到 `virtual-project-name`。需要按新流程改写用例交互后再晋升。
+- 剩余阻塞：上游 W4 的草稿 composer 用 `ProjectComposerMenu`（含「添加设备」→ 连接后由
+  `ChatRemoteFolderSelection` 选目录并进入新建项目表单）；本 fork 的 `WorkspaceShellLayout`
+  仍是同步前的 `ChatEmptyWorkspacePreviewMenu`，空态菜单没有该入口，只有普通远程连接入口。
+  用例已按新流程改写并新增 `composer-add-device` / `directory-browser-path` testid，但在
+  空态菜单接线对齐前无法出现项目表单，暂不晋升 formal。
 
 ## 运行证据
 

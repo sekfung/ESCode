@@ -5,12 +5,12 @@ import { prepareV4ConversationE2E } from "../../../helpers/v4-conversation.js";
 import {
   clickLastEnabledSSHDialogButton,
   fillSSHPasswordSettings,
-  openSSHRemoteDialog,
+  openSSHDevicePicker,
   readSingleSSHWorkspaceRuntimeConfig,
   runSSHCommand,
-  selectSSHRemoteDirectory,
+  selectRemoteFolderProjectDirectory,
+  waitForSSHDialogClosed,
   waitForRemoteProjectTabByPath,
-  waitForSSHDirectoryStep,
   SSH_WORKSPACE_READY_TIMEOUT_MS,
 } from "../../../helpers/ssh-remote-p0.js";
 
@@ -44,12 +44,12 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
     await skipOccupationOnboardingIfPresent();
     await prepareV4ConversationE2E({ skipProvider: true });
 
-    // 走真实 SSH 目录选择；该目录尚无项目，因此会进入固定目录的新建项目表单。
-    await openSSHRemoteDialog(CASE_MARKER);
+    // 走 composer「添加设备」：连接只证明设备可用，随后由项目选择器选目录并新建项目。
+    await openSSHDevicePicker(CASE_MARKER);
     await fillSSHPasswordSettings(config);
     await clickLastEnabledSSHDialogButton(CASE_MARKER);
-    await waitForSSHDirectoryStep(CASE_MARKER);
-    await selectSSHRemoteDirectory(remoteFixturePath, CASE_MARKER, { expectProjectForm: true });
+    await waitForSSHDialogClosed(CASE_MARKER);
+    await selectRemoteFolderProjectDirectory(remoteFixturePath, CASE_MARKER);
 
     const projectName = `E2E remote project ${suffix}`;
     const nameInput = await $('[data-testid="virtual-project-name"]');
