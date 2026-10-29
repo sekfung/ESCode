@@ -113,10 +113,12 @@ Ubuntu 24.04 + password SSH
 - 远端 release 由 wdio `onPrepare` 的 `ensureSshRemoteReleaseAssets` 从本仓库
   `prepare:remote-assets` 产物注入；作业预装 `musl-tools` 与 `x86_64-unknown-linux-musl`。
 - 运行预算：SSH 用例超过 mocha 默认 120s，作业设置 `ESCODE_E2E_MANUAL_REVIEW_HOLD_MS=1800000`。
-- 当前阻塞（2026-10-30 本地复现）：连接、部署、握手均成功，选完目录后 Host 立刻
-  `remote-session-disposed`，SSH 向导不关闭，项目表单不出现；正式用例
-  `conversation-session-ssh-remote-connection-p0.test.ts`（SSH-P0-CONN-01/02）同样失败，
-  说明不是本用例编排问题，需先修产品侧 session 回收路径。
+- 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
+  权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
+  （identity、conversation 订阅、`workspace/readPresentation` 均成功）。
+- 剩余阻塞：PROJECT-01 用的入口是 composer「添加设备」（`composer-remote-connection`），当前产品
+  流程是连上设备后由 `ChatRemoteFolderSelection` 再选目录并进入新建项目表单；用例仍在 SSH
+  向导里选目录，因此等不到 `virtual-project-name`。需要按新流程改写用例交互后再晋升。
 
 ## 运行证据
 
