@@ -130,6 +130,9 @@ jobs:
       - run: node scripts/build-desktop-agent-cli.mjs
       - name: build Rust Host (debug)
         run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # 直接调 wdio（不经 test:e2e 的 pretest）时 e2e-report 的 node 产物不会自动构建。
+      - name: build e2e report node entry
+        run: pnpm --filter @escode/e2e-report build:node
       - name: start dedicated SSH target
         run: |
           password="$(openssl rand -hex 16)"
