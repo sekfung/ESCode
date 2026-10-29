@@ -117,5 +117,7 @@ pub const MAX_QUEUE: usize = 32;
 pub mod wiki;
 
 pub mod tool_search_catalog;
+mod tool_search_query;
+mod tool_search_definitions;
 
 pub mod workflow_blocked_reminder;

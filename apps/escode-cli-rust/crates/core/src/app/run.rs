@@ -121,7 +121,7 @@ impl Engine {
             tool_search_mode: input["toolSearchMode"]
                 .as_str()
                 .map(str::to_owned)
-                .or_else(|| std::env::var("ESCODE_TOOL_SEARCH_MODE").ok()),
+                .or_else(|| escode_cli_core_api::env::var("ESCODE_TOOL_SEARCH_MODE").ok()),
             model_selection: Some(if session.reasoning_level.is_empty() {
                 serde_json::json!({"providerId": session.provider, "modelId": session.model})
             } else {

@@ -110,14 +110,7 @@ impl ToolPort for WorkspaceTools {
         token: &str,
         changes: &[crate::domain::file_checkpoint::FileCheckpoint],
     ) -> Result<Box<dyn crate::contract::RewindTransaction>> {
-        super::file_rewind::begin(
-            &self.artifacts,
-            session,
-            token,
-            changes,
-            self.writes.clone(),
-        )
-        .await
+        super::tools_tool_port_mcp::begin_rewind(self, session, token, changes).await
     }
 
     async fn agent_memory(
@@ -167,17 +160,7 @@ impl ToolPort for WorkspaceTools {
         call_id: &str,
         cancel: &CancellationToken,
     ) -> Result<crate::contract::WebFetchPage> {
-        super::web_fetch::fetch(
-            &super::web_fetch::HttpTransport,
-            args,
-            Some(super::web_fetch::ArtifactTarget {
-                root: &self.artifacts,
-                session,
-                call_id,
-            }),
-            cancel,
-        )
-        .await
+        super::tools_tool_port_mcp::web_fetch(self, args, session, call_id, cancel).await
     }
     async fn scoped_definitions(
         &self,
@@ -310,7 +293,7 @@ impl ToolPort for WorkspaceTools {
     }
     fn tool_search_mode(&self, _session: &str) -> String {
         // 上游模式来自 App 偏好 / CLI 参数；Rust 入口暂以环境变量提供，缺省关闭。
-        std::env::var("ESCODE_TOOL_SEARCH_MODE").unwrap_or_else(|_| "off".into())
+        escode_cli_core_api::env::var("ESCODE_TOOL_SEARCH_MODE").unwrap_or_else(|_| "off".into())
     }
     fn tool_search_discovered(&self, session: &str) -> Vec<String> {
         self.tool_search_discovered

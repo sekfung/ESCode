@@ -4,9 +4,14 @@
 //! 这里只做纯函数：谁被延迟、搜索怎么排序、DeferredToolCall 是否允许解包，
 //! 不读文件、不发网络请求，也不持有会话状态。
 
-use regex::Regex;
 use serde_json::{Value, json};
 use std::collections::HashSet;
+
+pub use super::tool_search_query::search_tools;
+pub use super::tool_search_definitions::{
+    control_definitions, deferred_tool_call_description, local_tool_search_description,
+    native_tool_search_description,
+};
 
 pub const TOOL_SEARCH_NAME: &str = "ToolSearch";
 pub const DEFERRED_TOOL_CALL_NAME: &str = "DeferredToolCall";
@@ -145,7 +150,7 @@ pub fn to_model_visible_mcp_name_part(name: &str) -> String {
     }
 }
 
-fn parse_mcp_name(name: &str) -> Option<McpPresentation> {
+pub(crate) fn parse_mcp_name(name: &str) -> Option<McpPresentation> {
     let rest = name.strip_prefix("mcp__")?;
     let (server, tool) = rest.split_once("__")?;
     if server.is_empty() || tool.is_empty() {
@@ -178,262 +183,6 @@ pub fn candidate_from_definition(definition: &Value) -> Option<ToolSearchCandida
     })
 }
 
-struct Tokenized {
-    coarse: Vec<String>,
-    parts: Vec<String>,
-    full: String,
-    mcp: bool,
-}
-
-fn tokenize(tool: &ToolSearchCandidate) -> Tokenized {
-    let name = tool.name.as_str();
-    let mcp_parts = tool
-        .mcp
-        .as_ref()
-        .map(|m| (m.server_name.clone(), m.tool_name.clone()))
-        .or_else(|| parse_mcp_name(name).map(|m| (m.server_name, m.tool_name)));
-    if let Some((server, tool_name)) = mcp_parts {
-        let coarse = vec![server.to_ascii_lowercase(), tool_name.to_ascii_lowercase()];
-        let parts: Vec<String> = coarse
-            .iter()
-            .flat_map(|s| {
-                s.split([' ', '_', '.'])
-                    .filter(|part| !part.is_empty())
-                    .map(str::to_owned)
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        let full = parts.join(" ");
-        return Tokenized {
-            coarse,
-            parts,
-            full,
-            mcp: true,
-        };
-    }
-    let coarse = vec![name.to_ascii_lowercase()];
-    let mut spaced = String::with_capacity(name.len() + 8);
-    let mut previous_lower = false;
-    for c in name.chars() {
-        if previous_lower && c.is_ascii_uppercase() {
-            spaced.push(' ');
-        }
-        previous_lower = c.is_ascii_lowercase();
-        spaced.push(c);
-    }
-    let parts: Vec<String> = spaced
-        .replace('_', " ")
-        .to_ascii_lowercase()
-        .split_whitespace()
-        .map(str::to_owned)
-        .collect();
-    let full = parts.join(" ");
-    Tokenized {
-        coarse,
-        parts,
-        full,
-        mcp: false,
-    }
-}
-
-fn resolve_name<'a>(
-    name: &str,
-    catalog: &'a [ToolSearchCandidate],
-) -> Option<&'a ToolSearchCandidate> {
-    catalog
-        .iter()
-        .find(|tool| tool.name == name || tool.aliases.iter().any(|alias| alias == name))
-}
-
-fn escape_regex(term: &str) -> String {
-    term.chars()
-        .flat_map(|c| {
-            if "\\.+*?()|[]{}^$".contains(c) {
-                vec!['\\', c]
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
-}
-
-/// 上游 `searchTools` 的等价实现。返回按相关度降序的工具名。
-pub fn search_tools(
-    query: &str,
-    catalog: &[ToolSearchCandidate],
-    max_results: usize,
-) -> Vec<String> {
-    let max_results = max_results.max(1);
-    let deferred: Vec<&ToolSearchCandidate> = catalog.iter().filter(|tool| tool.deferred).collect();
-
-    if let Some(select) = query
-        .strip_prefix("select:")
-        .or_else(|| query.strip_prefix("SELECT:"))
-    {
-        let mut names = Vec::new();
-        let mut seen = HashSet::new();
-        for value in select.split(',') {
-            let name = value.trim();
-            if name.is_empty() {
-                continue;
-            }
-            if let Some(exact) = deferred
-                .iter()
-                .copied()
-                .find(|tool| tool.name == name || tool.aliases.iter().any(|alias| alias == name))
-                .or_else(|| resolve_name(name, catalog))
-            {
-                if seen.insert(exact.name.clone()) {
-                    names.push(exact.name.clone());
-                }
-                continue;
-            }
-            for tool in catalog {
-                let Some(mcp) = tool.mcp.as_ref() else {
-                    continue;
-                };
-                let visible = to_model_visible_mcp_name_part(&mcp.tool_name);
-                if (mcp.tool_name == name || visible == name) && seen.insert(tool.name.clone()) {
-                    names.push(tool.name.clone());
-                }
-            }
-        }
-        return names;
-    }
-
-    let text = query.to_ascii_lowercase();
-    let text = text.trim();
-    if text.is_empty() {
-        return Vec::new();
-    }
-    if let Some(exact) = deferred
-        .iter()
-        .copied()
-        .find(|tool| tool.name.to_ascii_lowercase() == text)
-        .or_else(|| {
-            catalog
-                .iter()
-                .find(|tool| tool.name.to_ascii_lowercase() == text)
-        })
-    {
-        return vec![exact.name.clone()];
-    }
-    if text.starts_with("mcp__") && text.len() > 5 {
-        let names: Vec<String> = deferred
-            .iter()
-            .filter(|tool| tool.name.to_ascii_lowercase().starts_with(text))
-            .take(max_results)
-            .map(|tool| tool.name.clone())
-            .collect();
-        if !names.is_empty() {
-            return names;
-        }
-    }
-
-    let terms: Vec<&str> = text
-        .split_whitespace()
-        .filter(|term| !term.is_empty())
-        .collect();
-    let required: Vec<&str> = terms
-        .iter()
-        .filter(|term| term.starts_with('+') && term.len() > 1)
-        .map(|term| &term[1..])
-        .collect();
-    let keywords: Vec<&str> = if required.is_empty() {
-        terms.clone()
-    } else {
-        required
-            .iter()
-            .copied()
-            .chain(
-                terms
-                    .iter()
-                    .copied()
-                    .filter(|term| !(term.starts_with('+') && term.len() > 1)),
-            )
-            .collect()
-    };
-    if keywords.is_empty() {
-        return Vec::new();
-    }
-    let patterns: std::collections::HashMap<&str, Regex> = keywords
-        .iter()
-        .map(|term| {
-            let pattern = Regex::new(&format!(r"\b{}\b", escape_regex(term)))
-                .expect("escaped keyword compiles");
-            (*term, pattern)
-        })
-        .collect();
-
-    let mut scored: Vec<(String, i64)> = deferred
-        .iter()
-        .map(|tool| {
-            let name = tokenize(tool);
-            let description = tool
-                .description
-                .as_deref()
-                .map(str::to_ascii_lowercase)
-                .unwrap_or_default();
-            let hint = tool
-                .search_hint
-                .as_deref()
-                .map(str::to_ascii_lowercase)
-                .unwrap_or_default();
-            if !required.iter().all(|term| {
-                name.parts.iter().any(|part| part.contains(term))
-                    || name.coarse.iter().any(|part| part.contains(term))
-                    || patterns
-                        .get(term)
-                        .is_some_and(|pattern| pattern.is_match(&description))
-                    || patterns
-                        .get(term)
-                        .is_some_and(|pattern| pattern.is_match(&hint))
-            }) {
-                return (tool.name.clone(), 0);
-            }
-            let mut score = 0i64;
-            for term in &keywords {
-                if name.parts.iter().any(|part| part == term) {
-                    score += if name.mcp { 12 } else { 10 };
-                } else if name.parts.iter().any(|part| part.contains(term)) {
-                    score += if name.mcp { 6 } else { 5 };
-                }
-                if name.coarse.iter().any(|part| part == term) {
-                    score += if name.mcp { 12 } else { 10 };
-                } else if name.coarse.iter().any(|part| part.contains(term)) {
-                    score += if name.mcp { 4 } else { 3 };
-                }
-                if name.full.contains(term) && score == 0 {
-                    score += 3;
-                }
-                if !hint.is_empty()
-                    && patterns
-                        .get(term)
-                        .is_some_and(|pattern| pattern.is_match(&hint))
-                {
-                    score += 4;
-                }
-                if patterns
-                    .get(term)
-                    .is_some_and(|pattern| pattern.is_match(&description))
-                {
-                    score += 2;
-                }
-            }
-            (tool.name.clone(), score)
-        })
-        .filter(|(_, score)| *score > 0)
-        .collect();
-    scored.sort_by_key(|entry| std::cmp::Reverse(entry.1));
-    scored
-        .into_iter()
-        .take(max_results)
-        .map(|(name, _)| name)
-        .collect()
-}
-
-/// DeferredToolCall 解包：只接受已发现且确实延迟的目标工具。
-/// 返回 `(target_name, target_input)`；错误文案直接交回模型。
 pub fn resolve_deferred_call(
     name: &str,
     input: &Value,
@@ -477,80 +226,6 @@ pub fn tool_reference_blocks(matches: &[String]) -> Vec<Value> {
         .iter()
         .map(|name| json!({"type": "tool_reference", "toolName": name}))
         .collect()
-}
-
-pub fn local_tool_search_description() -> &'static str {
-    "Fetches full schema definitions for deferred tools so they can be called using DeferredToolCall.\n\n\
-Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' names. Call deferred tools through DeferredToolCall with {name, input}; call resident tools directly.\n\n\
-Query forms:\n\
-- \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
-- \"notebook jupyter\" — keyword search, up to max_results best matches\n\
-- \"+slack send\" — require \"slack\" in the name, rank by remaining terms"
-}
-
-/// Native 模式的描述：schema 由 provider 展开，客户端不提供 DeferredToolCall。
-pub fn native_tool_search_description() -> &'static str {
-    "Fetches full schema definitions for deferred tools so they can be called.\n\n\
-Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' complete JSONSchema definitions inside a <functions> block. Once a tool's schema appears in that result, it is callable exactly like any tool defined at the top of the prompt.\n\n\
-Query forms:\n\
-- \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
-- \"notebook jupyter\" — keyword search, up to max_results best matches\n\
-- \"+slack send\" — require \"slack\" in the name, rank by remaining terms"
-}
-
-pub fn deferred_tool_call_description() -> &'static str {
-    "Immediately call one deferred tool and return its result. Use ToolSearch to load its complete definition, then pass its exact name and input object. Only deferred tools can be called here; call resident tools directly using their normal tool calls."
-}
-
-/// 控制工具的模型可见定义；只在模式启用时注入。
-pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
-    if mode == ResolvedToolSearchMode::Off {
-        return Vec::new();
-    }
-    let mut definitions = vec![json!({
-        "type": "function",
-        "function": {
-            "name": TOOL_SEARCH_NAME,
-            "description": match mode {
-                ResolvedToolSearchMode::Native => native_tool_search_description(),
-                _ => local_tool_search_description(),
-            },
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Query to find deferred tools. Use \"select:<tool_name>\" for direct selection, or keywords to search."
-                    },
-                    "max_results": {
-                        "type": "number",
-                        "description": "Maximum number of results to return (default: 5)"
-                    }
-                },
-                "required": ["query", "max_results"],
-                "additionalProperties": false
-            }
-        }
-    })];
-    if mode == ResolvedToolSearchMode::Local {
-        definitions.push(json!({
-            "type": "function",
-            "function": {
-                "name": DEFERRED_TOOL_CALL_NAME,
-                "description": deferred_tool_call_description(),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "minLength": 1},
-                        "input": {"type": "object"}
-                    },
-                    "required": ["name", "input"],
-                    "additionalProperties": false
-                }
-            }
-        }));
-    }
-    definitions
 }
 
 #[cfg(test)]

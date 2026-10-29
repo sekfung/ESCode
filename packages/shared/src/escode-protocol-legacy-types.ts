@@ -161,6 +161,7 @@ export const escodeSessionInfoSchema = z
     target: escodeSessionGoalSchema.nullable().optional(),
     createdAt: timestampMsSchema,
     updatedAt: timestampMsSchema,
+    archivedAt: timestampMsSchema.optional(),
   })
   .strict();
 export type ESCodeSessionInfo = z.infer<typeof escodeSessionInfoSchema>;

@@ -84,6 +84,7 @@ mod tool_shell_support;
 mod tool_skills;
 mod tool_surface;
 pub mod tools;
+mod tools_tool_port_mcp;
 mod web_fetch;
 mod web_fetch_http;
 #[cfg(windows)]
