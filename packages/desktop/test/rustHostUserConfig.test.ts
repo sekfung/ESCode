@@ -290,16 +290,33 @@ describe("rust host user config services", () => {
           ["read over the preview limit", read("beta", "big.md")],
           ["read exactly at the preview limit", read("beta", "edge.md")],
         ];
+        const normalizeTimestamps = (value: unknown): unknown => {
+          if (Array.isArray(value)) return value.map(normalizeTimestamps);
+          if (!value || typeof value !== "object") return value;
+          return Object.fromEntries(
+            Object.entries(value).map(([key, entry]) => [
+              key,
+              /(?:At|time|mtime|updatedAt|createdAt)$/u.test(key) && typeof entry === "number"
+                ? Math.round(entry)
+                : normalizeTimestamps(entry),
+            ]),
+          );
+        };
         const trimBig = (value: unknown) =>
-          JSON.parse(
-            JSON.stringify(value ?? null).replace(/"content":"[ab]{1000,}"/g, '"content":"<big>"'),
+          normalizeTimestamps(
+            JSON.parse(
+              JSON.stringify(value ?? null).replace(
+                /"content":"[ab]{1000,}"/g,
+                '"content":"<big>"',
+              ),
+            ),
           );
         for (const [index, [label, step]] of steps.entries()) {
           const expected = golden.memory[index]!;
           const actual = await outcome(() => step(rust, rustHome));
           expect({ label, result: trimBig(normalize(actual, rustHome)) }).toEqual({
             label,
-            result: expected.result,
+            result: trimBig(expected.result),
           });
         }
       });

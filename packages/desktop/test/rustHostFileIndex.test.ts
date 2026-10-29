@@ -284,7 +284,7 @@ describe("rust host file index domain", () => {
     async () => {
       const base = await realpath(await mkdtemp(join(tmpdir(), "escode-rust-host-index-")));
       const home = join(base, "home");
-      const host = startHost(home);
+      const host = startHost(home, { LANG: "zh_CN.UTF-8", LC_ALL: "zh_CN.UTF-8" });
       try {
         const root = WORK_ROOT;
         await rm(FIXTURE_ROOT, { recursive: true, force: true });

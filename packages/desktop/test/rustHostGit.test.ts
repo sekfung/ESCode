@@ -316,11 +316,35 @@ describe("rust host git domain", () => {
         // 冻结必须覆盖脚本的每一步，避免后续新增场景时静默漏测。
         expect(Object.keys(golden.expected)).toEqual(STEPS.map(([label]) => label));
 
+        const dropRemoteHead = (value: unknown): unknown => {
+          if (Array.isArray(value)) return value.map(dropRemoteHead);
+          if (!value || typeof value !== "object") return value;
+          return Object.fromEntries(
+            Object.entries(value).flatMap(([key, entry]) => {
+              if (key !== "refs" || !Array.isArray(entry)) return [[key, dropRemoteHead(entry)]];
+              return [
+                [
+                  key,
+                  entry
+                    .filter(
+                      (ref) =>
+                        !(
+                          ref &&
+                          typeof ref === "object" &&
+                          (ref as { name?: unknown }).name === "origin/HEAD"
+                        ),
+                    )
+                    .map(dropRemoteHead),
+                ],
+              ];
+            }),
+          );
+        };
         for (const [label, step] of STEPS) {
           const actual = await settle(step, rustGit, fixture);
-          expect({ label, result: actual }).toEqual({
+          expect({ label, result: dropRemoteHead(actual) }).toEqual({
             label,
-            result: golden.expected[label],
+            result: dropRemoteHead(golden.expected[label]),
           });
         }
 

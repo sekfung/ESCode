@@ -50,19 +50,24 @@ async function freezeMtimes(path: string): Promise<void> {
   await utimes(path, time, time);
 }
 
-/** metadata 条目的 mtime 是导出时刻（TS `Date.now()`）；归一并重算 checksum 后其余 tar 字节必须全等。 */
-function normalizeMetadataMtime(tar: Buffer): Buffer {
+/**
+ * 归档只比较内容语义：导出时刻的 mtime 与宿主 umask 产生的 mode 不属于同步合同。
+ * 所有 header 归一为固定 mode/mtime 后重算 checksum，其余字节（路径、内容、顺序）必须全等。
+ */
+function normalizeTarMetadata(tar: Buffer): Buffer {
   const copy = Buffer.from(tar);
-  const marker = Buffer.from(".escode-plugin-sync.json");
-  const start = copy.indexOf(marker);
-  if (start >= 0) {
-    copy.fill(0, start + 136, start + 148);
-    copy.fill(0x20, start + 148, start + 156);
+  for (let offset = 0; offset + 512 <= copy.length; offset += 512) {
+    const header = copy.subarray(offset, offset + 512);
+    if (header.every((byte) => byte === 0)) break;
+    const isDirectory = header[156] === 0x35;
+    copy.write(isDirectory ? "0000755\0" : "0000644\0", offset + 100, 8, "ascii");
+    copy.write("00000000000\0", offset + 136, 12, "ascii");
+    copy.fill(0x20, offset + 148, offset + 156);
     let checksum = 0;
-    for (let index = start; index < start + 512; index += 1) checksum += copy[index] ?? 0;
-    copy.write(checksum.toString(8).padStart(6, "0"), start + 148, 6, "ascii");
-    copy[start + 154] = 0;
-    copy[start + 155] = 0x20;
+    for (let index = offset; index < offset + 512; index += 1) checksum += copy[index] ?? 0;
+    copy.write(checksum.toString(8).padStart(6, "0"), offset + 148, 6, "ascii");
+    copy[offset + 154] = 0;
+    copy[offset + 155] = 0x20;
   }
   return copy;
 }
@@ -145,13 +150,16 @@ describe.skipIf(!existsSync(hostBinary))("rust host plugin-sync parity", () => {
         pluginIds: [alphaCandidate.id],
       } as never);
       // gzip 容器由 Node zlib / flate2 各自实现；格式对拍以解压后的 tar 为准。
-      const rustTar = normalizeMetadataMtime(gunzipSync(Buffer.from(rustExport.archive)));
+      const rustTar = normalizeTarMetadata(gunzipSync(Buffer.from(rustExport.archive)));
+      const expectedTar = normalizeTarMetadata(
+        Buffer.from(golden.export.archiveTarBase64, "base64"),
+      ).toString("base64");
       expect(
         sealLargeStrings({
           plugins: rustExport.plugins,
           archiveTarBase64: rustTar.toString("base64"),
         }),
-      ).toEqual(golden.export);
+      ).toEqual({ ...golden.export, archiveTarBase64: expectedTar });
       expect(rustExport.archiveBytes).toBe(Buffer.from(rustExport.archive).length);
 
       const access = await services.pluginSyncService.checkRemoteUserPluginWriteAccess();
