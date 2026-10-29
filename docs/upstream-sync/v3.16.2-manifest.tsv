@@ -3707,13 +3707,13 @@ W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/cli/src/argument-parsing/CONTRAC
 W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/core/src/runtime/tool-result-settlement/CONTRACT.md	apps/escode-cli/packages/core/src/runtime/tool-result-settlement/CONTRACT.md	new	文档按品牌映射摄入
 W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/core/src/tool/workflow-entrypoints/CONTRACT.md	apps/escode-cli/packages/core/src/tool/workflow-entrypoints/CONTRACT.md	new	文档按品牌映射摄入
 W5	manual-review	cli	test	M	apps/zcode-cli/packages/core/tests/tool-agent-telemetry.test.ts	apps/escode-cli/packages/core/tests/tool-agent-telemetry.test.ts	present	命中删除域但 fork 仍保留同一路径，需剔片段或确认
-W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/documents-plugin/skills/docx-viewer/SKILL.md	apps/escode-cli/packages/documents-plugin/skills/docx-viewer/SKILL.md	new	文档按品牌映射摄入
+W5	exclude-deleted	cli	doc	A	apps/zcode-cli/packages/documents-plugin/skills/docx-viewer/SKILL.md	apps/escode-cli/packages/documents-plugin/skills/docx-viewer/SKILL.md	new	Node CLI bundle 未包含该 viewer skill，破坏 Node/Rust prompt parity
 W5	adopt-docs	cli	doc	M	apps/zcode-cli/packages/dynamic-workflow/docs/execution-engine.md	apps/escode-cli/packages/dynamic-workflow/docs/execution-engine.md	present	文档按品牌映射摄入
 W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/office-runtime/CONTRACT.md	apps/escode-cli/packages/office-runtime/CONTRACT.md	new	文档按品牌映射摄入
 W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/office-runtime/src/CONTRACT.md	apps/escode-cli/packages/office-runtime/src/CONTRACT.md	new	文档按品牌映射摄入
-W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/pdf-plugin/skills/pdf-viewer/SKILL.md	apps/escode-cli/packages/pdf-plugin/skills/pdf-viewer/SKILL.md	new	文档按品牌映射摄入
-W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/presentations-plugin/skills/pptx-viewer/SKILL.md	apps/escode-cli/packages/presentations-plugin/skills/pptx-viewer/SKILL.md	new	文档按品牌映射摄入
-W5	adopt-docs	cli	doc	A	apps/zcode-cli/packages/spreadsheets-plugin/skills/xlsx-viewer/SKILL.md	apps/escode-cli/packages/spreadsheets-plugin/skills/xlsx-viewer/SKILL.md	new	文档按品牌映射摄入
+W5	exclude-deleted	cli	doc	A	apps/zcode-cli/packages/pdf-plugin/skills/pdf-viewer/SKILL.md	apps/escode-cli/packages/pdf-plugin/skills/pdf-viewer/SKILL.md	new	Node CLI bundle 未包含该 viewer skill，破坏 Node/Rust prompt parity
+W5	exclude-deleted	cli	doc	A	apps/zcode-cli/packages/presentations-plugin/skills/pptx-viewer/SKILL.md	apps/escode-cli/packages/presentations-plugin/skills/pptx-viewer/SKILL.md	new	Node CLI bundle 未包含该 viewer skill，破坏 Node/Rust prompt parity
+W5	exclude-deleted	cli	doc	A	apps/zcode-cli/packages/spreadsheets-plugin/skills/xlsx-viewer/SKILL.md	apps/escode-cli/packages/spreadsheets-plugin/skills/xlsx-viewer/SKILL.md	new	Node CLI bundle 未包含该 viewer skill，破坏 Node/Rust prompt parity
 W5	adopt-docs	cli	doc	M	apps/zcode-cli/packages/visualize-plugin/skills/visualize/SKILL.md	apps/escode-cli/packages/visualize-plugin/skills/visualize/SKILL.md	present	文档按品牌映射摄入
 W5	adopt-docs	cli	doc	M	apps/zcode-cli/README.md	apps/escode-cli/README.md	present	文档按品牌映射摄入
 W5	adopt-docs	cli	doc	M	apps/zcode-cli/tools/prompt-trajectory/README.md	apps/escode-cli/tools/prompt-trajectory/README.md	present	文档按品牌映射摄入
