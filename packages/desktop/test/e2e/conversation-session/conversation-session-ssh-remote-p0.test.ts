@@ -166,14 +166,28 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
     expect(await readProvisioningRecordCount(config)).toBe(provisioningRecordsAfterFirstWorkspace);
 
     expect(taskA.remoteSessionId).not.toBe(taskB.remoteSessionId);
-    expect(await readHostProcesses()).toEqual(initialHosts);
+    // 本地 window Host 常驻；远程 scope 由窗口内独立 Node Host 服务，同一窗口只能有一个。
+    const hostsAfterTask = await readHostProcesses();
+    for (const host of initialHosts) {
+      expect(hostsAfterTask).toEqual(expect.arrayContaining([host]));
+    }
+    expect(
+      hostsAfterTask.filter((host) => host.name.startsWith("escode-host-remote-")).length,
+    ).toBe(1);
 
     await switchTaskAndSendFollowTurn(taskA, taskB.firstPrompt);
     await switchTaskAndSendFollowTurn(taskB, taskA.firstPrompt);
 
     await assertTaskRow(taskA, { active: false, running: false });
     await assertTaskRow(taskB, { active: true, running: false });
-    expect(await readHostProcesses()).toEqual(initialHosts);
+    // 本地 window Host 常驻；远程 scope 由窗口内独立 Node Host 服务，同一窗口只能有一个。
+    const hostsAfterFollowTurns = await readHostProcesses();
+    for (const host of initialHosts) {
+      expect(hostsAfterFollowTurns).toEqual(expect.arrayContaining([host]));
+    }
+    expect(
+      hostsAfterFollowTurns.filter((host) => host.name.startsWith("escode-host-remote-")).length,
+    ).toBe(1);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   TID_WORKSPACE_FILE_TREE_PANEL,
   TID_WORKSPACE_FILE_TREE_REFRESH_BUTTON,
   TID_WORKSPACE_FILE_TREE_ROW,
+  TID_WORKSPACE_ITEM,
   testId,
 } from "@escode/shared";
 import { clearAppData, clickTestIdByDom, waitForTestIdByDom } from "../helpers/desktop-app.js";
@@ -75,7 +76,15 @@ describe(`${CASE_MARKER}: SSH 远端开发基础能力 P0`, () => {
     await assertRemoteFileTreeAndPreview(fixturePath);
     await assertRemoteTerminal(fixturePath);
     await assertRemoteGitStatus();
-    expect(await readHostProcesses()).toEqual(initialHosts);
+    // AGENTS.md「进程、协议与远程控制」：本地 window Host 常驻，远程 scope 由窗口内独立的
+    // Node Host 服务。这里断言本地 Host 不被替换，且同一窗口只存在一个 remote Host。
+    const hostsAfterConnect = await readHostProcesses();
+    for (const host of initialHosts) {
+      expect(hostsAfterConnect).toEqual(expect.arrayContaining([host]));
+    }
+    expect(
+      hostsAfterConnect.filter((host) => host.name.startsWith("escode-host-remote-")).length,
+    ).toBe(1);
 
     const remote = await runSSHCommand(
       config,
@@ -90,6 +99,13 @@ describe(`${CASE_MARKER}: SSH 远端开发基础能力 P0`, () => {
 });
 
 async function assertRemoteFileTreeAndPreview(workspacePath: string): Promise<void> {
+  // 行操作按钮改为 hover/focus 时挂载（同步后的侧栏行为），先悬停 workspace 行。
+  const workspaceItem = $(`[data-testid="${testId(TID_WORKSPACE_ITEM, workspacePath)}"]`);
+  await workspaceItem.waitForDisplayed({
+    timeout: 30_000,
+    timeoutMsg: `${CASE_MARKER}: 侧栏没有远端 workspace 行`,
+  });
+  await workspaceItem.moveTo();
   await clickTestIdByDom(testId(TID_WORKSPACE_FILE_TREE_BUTTON, workspacePath), {
     timeoutMsg: `${CASE_MARKER}: 没有找到远端文件树入口`,
   });
