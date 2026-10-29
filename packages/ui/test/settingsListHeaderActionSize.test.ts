@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const selfRenderedIconFiles = {
   "McpSettingsSection.tsx": 1,
   "PluginStorePage.tsx": 2,
-  "PluginStoreListView.tsx": 1,
+  "PluginStoreListView.tsx": 0,
   "SkillsSection.tsx": 1,
 } as const;
 
@@ -24,7 +24,7 @@ describe("settings list header actions", () => {
         new URL(`../src/settings/${fileName}`, import.meta.url),
         "utf8",
       );
-      expect(source.match(/variant="outline"\s+size="icon-lg"/g), fileName).toHaveLength(
+      expect(source.match(/variant="outline"\s+size="icon-lg"/g) ?? [], fileName).toHaveLength(
         expectedCount,
       );
     }

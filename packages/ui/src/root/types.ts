@@ -5,6 +5,8 @@ import type { CreateTaskRequest } from "@/app-shell/types.js";
 export interface RootProps {
   services: IServiceAccessor;
   platform: IPlatformService;
+  /** Composer 草稿 scope 的客户端命名空间（Main 注入；缺省由 Host 分配）。 */
+  composerClientNamespace?: string;
   /** 如果从 main 进程传入则跳过项目选择页 */
   initialWorkspaceAbsPath?: string;
   /** app-owned workspace 展示分类；缺省为真实项目。 */

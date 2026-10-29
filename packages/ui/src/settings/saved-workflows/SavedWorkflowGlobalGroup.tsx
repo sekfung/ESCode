@@ -3,8 +3,8 @@ import {
   TID_WORKFLOWS_CREATE_VIA_CHAT,
   TID_WORKFLOWS_LIST,
   TID_WORKFLOW_GLOBAL_GROUP,
-  testId,
 } from "@escode/shared";
+import { testId } from "@escode/shared/test-ids";
 import { Button } from "@/components/ui/button.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";

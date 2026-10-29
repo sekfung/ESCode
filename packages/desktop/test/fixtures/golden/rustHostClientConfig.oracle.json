@@ -6,12 +6,19 @@
       "value": {
         "pluginStoreOrder": {
           "code": {
-            "categoryOrder": ["b", "a"],
+            "categoryOrder": [
+              "b",
+              "a"
+            ],
             "pluginOrder": {
-              "m": ["x", "y"]
+              "m": [
+                "x",
+                "y"
+              ]
             }
           }
         },
+        "uiPluginRecommendations": [],
         "zsrcUrl": "https://zsrc.example.com/path"
       }
     },
@@ -20,12 +27,19 @@
       "value": {
         "pluginStoreOrder": {
           "code": {
-            "categoryOrder": ["b", "a"],
+            "categoryOrder": [
+              "b",
+              "a"
+            ],
             "pluginOrder": {
-              "m": ["x", "y"]
+              "m": [
+                "x",
+                "y"
+              ]
             }
           }
         },
+        "uiPluginRecommendations": [],
         "zsrcUrl": "https://zsrc.example.com/path"
       }
     },
@@ -34,12 +48,19 @@
       "value": {
         "pluginStoreOrder": {
           "code": {
-            "categoryOrder": ["b", "a"],
+            "categoryOrder": [
+              "b",
+              "a"
+            ],
             "pluginOrder": {
-              "m": ["x", "y"]
+              "m": [
+                "x",
+                "y"
+              ]
             }
           }
         },
+        "uiPluginRecommendations": [],
         "zsrcUrl": "https://zsrc.example.com/path"
       }
     },
@@ -62,6 +83,7 @@
       "ok": true,
       "value": {
         "pluginStoreOrder": null,
+        "uiPluginRecommendations": [],
         "zsrcUrl": null
       }
     }

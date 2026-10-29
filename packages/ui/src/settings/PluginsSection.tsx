@@ -193,7 +193,7 @@ function PluginList({
   const currentConfigScope = usePluginManagementStore((state) => state.configScope);
   const resetPluginConfig = usePluginManagementStore((state) => state.resetPluginConfig);
   const togglingPluginId = usePluginManagementStore((state) => state.togglingPluginId);
-  const operationId = usePluginManagementStore((state) => state.operationId);
+  const activeOperations = usePluginManagementStore((state) => state.activeOperations);
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null);
   const [pluginOptionsDrafts, setPluginOptionsDrafts] = useState<
     Record<string, Record<string, PluginOptionDraftValue>>
@@ -370,7 +370,7 @@ function PluginList({
     pluginService: pluginManagementService,
     installedPlugins,
     plugins,
-    operationId,
+    activeOperations,
     onAfterUninstall: refreshAfterPluginChange,
   });
   const handleUpdatePlugin = useCallback(
@@ -460,7 +460,7 @@ function PluginList({
           ? (pluginId) => void handleResetPluginConfig(pluginId)
           : undefined,
       onUpdate: (pluginId) => void handleUpdatePlugin(pluginId),
-      operationId,
+      activeOperations,
       togglingPluginId,
     }),
     [
@@ -470,7 +470,7 @@ function PluginList({
       handleUpdatePlugin,
       onDetailOpenChange,
       onOpenPluginStore,
-      operationId,
+      activeOperations,
       togglingPluginId,
       uninstall.requestUninstall,
     ],
@@ -561,7 +561,7 @@ function PluginList({
                 <DropdownMenuContent align="end">
                   {canUpdatePluginItem(storeItemById.get(plugin.id)) ? (
                     <DropdownMenuItem
-                      disabled={operationId !== null}
+                      disabled={activeOperations.length > 0}
                       onSelect={() => void handleUpdatePlugin(plugin.id)}
                     >
                       <RefreshCw className="size-4" aria-hidden="true" />
@@ -572,7 +572,7 @@ function PluginList({
                   ) : null}
                   {configScope === "workspace" && plugin.enabledSource === "workspace" ? (
                     <DropdownMenuItem
-                      disabled={operationId !== null || togglingPluginId === plugin.id}
+                      disabled={activeOperations.length > 0 || togglingPluginId === plugin.id}
                       onSelect={() => void handleResetPluginConfig(plugin.id)}
                     >
                       <RotateCcw className="size-4" aria-hidden="true" />
@@ -583,7 +583,7 @@ function PluginList({
                   ) : null}
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={operationId !== null}
+                    disabled={activeOperations.length > 0}
                     onSelect={() => uninstall.requestUninstall(plugin.id)}
                   >
                     <Trash2 className="size-4" aria-hidden="true" />
@@ -742,7 +742,7 @@ function PluginList({
                   }
                   onSave={(plugin) => void savePluginOptions(plugin)}
                   onSetDraft={setPluginOptionDraft}
-                  operationId={operationId}
+                  activeOperations={activeOperations}
                   plugin={selectedPlugin}
                   scope={configScope}
                 />

@@ -65,18 +65,18 @@ describe("Settings target workspace service routing", () => {
     );
   });
 
-  it("keeps Subagent settings on the Local Environment services and model view", async () => {
+  it("keeps Subagent settings on the Local Environment for user scope and target services for project scope", async () => {
     const source = await readSource("src/settings/SubagentsSection.tsx");
 
-    expect(source).toContain("const localHostServices = useBaseWorkspaceServices();");
-    expect(source).toContain("localHostServices.modelSelectionService");
+    expect(source).toContain("const baseServices = useBaseWorkspaceServices();");
+    expect(source).toContain("baseServices");
     expect(source).toContain(
-      "const { pluginManagementService, subagentsService } = localHostServices;",
+      "const { pluginManagementService, subagentsService } = targetServiceResolution.services;",
     );
     expect(source).toContain(
-      ".filter((tab) => !tab.remoteTarget && !tab.remoteSessionId && !tab.workspaceIdentity)",
+      ".filter(\n    (tab) => !tab.workspaceIdentity && !tab.remoteSessionId && !tab.remoteTarget,",
     );
-    expect(source).not.toContain("useWorkspaceServicesResolution");
+    expect(source).toContain("forceUnscoped: !selectedWorkspace");
   });
 
   it("routes Skills through the target passed by PluginsSection", async () => {
@@ -106,7 +106,7 @@ describe("Settings target workspace service routing", () => {
 
     expect(source).not.toContain('useServices.js"');
     expect(source).toMatch(
-      /useWorkspaceServicesResolution\(\s*currentWorkspaceTab\?\.workspacePath \?\? workspacePath,\s*currentWorkspaceTab\?\.remoteSessionId,\s*currentWorkspaceTab\?\.workspaceIdentity \?\? workspaceIdentity,\s*currentWorkspaceTab\?\.remoteTarget,\s*\)/,
+      /useWorkspaceServicesResolution\(\s*currentWorkspaceTab\?\.workspacePath \?\? workspacePath,\s*currentWorkspaceTab\?\.remoteSessionId,\s*currentWorkspaceTab\?\.workspaceIdentity \?\? workspaceIdentity,\s*currentWorkspaceTab\?\.remoteTarget,[\s\S]*?\)/,
     );
     expect(source).toMatch(
       /const \{ commandsService, pluginManagementService, settingsSyncService \}\s*=\s*listServiceResolution\.services;/,

@@ -15,6 +15,7 @@ import { persistLastSelectedAgentProvider } from "@/lib/escodeProviderPreference
 import { areConfigOptionsEquivalent } from "@/lib/configOptionsEquality.js";
 import type { ESCodeUiError } from "@/lib/escodeUiError.js";
 import { pushNavEntry } from "@/lib/taskNavigationHistory.js";
+import { notifyTaskNavigationCommitted } from "@/store/escodeSessionStoreNavigation.js";
 import { resolveTaskRestorePreloadConfigOptions } from "@/lib/taskModelRecovery.js";
 import type {
   ESCodeSessionStoreState,
@@ -301,6 +302,7 @@ export function createWorkspaceSlice(set: SetFn) {
 
         return { ...workspaceUpdate, ...navUpdate };
       });
+      if (id) notifyTaskNavigationCommitted({ workspacePath, workspaceIdentity, taskId: id });
     },
 
     promoteGroupedDraftTask: (
@@ -340,6 +342,15 @@ export function createWorkspaceSlice(set: SetFn) {
                 current.groupedDraftTask?.draftId === draft.draftId
                   ? null
                   : current.groupedDraftTask,
+              // 提升后归属以 Host 任务事实为准，renderer 不再保留组织态副本。
+              draftProjectId:
+                current.groupedDraftTask?.draftId === draft.draftId
+                  ? undefined
+                  : current.draftProjectId,
+              draftTaskGroupId:
+                current.groupedDraftTask?.draftId === draft.draftId
+                  ? undefined
+                  : current.draftTaskGroupId,
               optimisticTaskListByTaskId: {
                 ...current.optimisticTaskListByTaskId,
                 // task_created 可能比 command ACK 更早到 renderer；若已有更完整的乐观元数据，
@@ -478,6 +489,10 @@ export function createWorkspaceSlice(set: SetFn) {
       options?: {
         groupedDraftPlacement?: GroupedDraftTaskPlacement;
         createSource?: SessionCreateSource;
+        /** 新建草稿的项目归属。 */
+        projectId?: string | null;
+        /** 新建草稿的分组归属；缺省从 groupedDraftPlacement 派生。 */
+        taskGroupId?: string | null;
       },
     ) => {
       const normalizedProvider = provider
@@ -560,6 +575,16 @@ export function createWorkspaceSlice(set: SetFn) {
               groupedDraftTask: nextGroupedDraftTask,
               draftCreateSource:
                 options?.createSource ?? (options?.groupedDraftPlacement ? "group" : "session"),
+              // 新草稿一律按本次入口重置归属；不沿用上一份草稿的项目/分组意图。
+              draftProjectId: options && "projectId" in options ? options.projectId : null,
+              draftTaskGroupId:
+                options && "taskGroupId" in options
+                  ? options.taskGroupId
+                  : options?.groupedDraftPlacement
+                    ? options.groupedDraftPlacement.type === "group"
+                      ? options.groupedDraftPlacement.groupId
+                      : null
+                    : null,
               draftRuntime: { status: "idle", error: null },
               // 从已有 task 点 New Task 时，草稿输入框必须继承当前 task 的完整配置。
               // 否则后续 workspace prepare 会按 Team Plan / 默认模型重建草稿，把已选的其他模型回弹成 GLM。
@@ -612,7 +637,23 @@ export function createWorkspaceSlice(set: SetFn) {
           state,
           workspacePath,
           (current) =>
-            current.groupedDraftTask ? { ...current, groupedDraftTask: null } : current,
+            current.groupedDraftTask
+              ? { ...current, groupedDraftTask: null, draftTaskGroupId: null }
+              : current,
+          workspaceIdentity,
+        ),
+      );
+    },
+
+    clearDraftTaskGroup: (workspacePath: string, workspaceIdentity?: string) => {
+      set((state) =>
+        updateWorkspaceState(
+          state,
+          workspacePath,
+          (current) =>
+            current.draftTaskGroupId === undefined
+              ? current
+              : { ...current, draftTaskGroupId: null },
           workspaceIdentity,
         ),
       );

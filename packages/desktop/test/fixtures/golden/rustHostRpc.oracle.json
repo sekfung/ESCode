@@ -663,7 +663,9 @@
               "mode": "build",
               "titleOverridden": false,
               "searchSnippet": "评审 Rust Host 的迁移",
-              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "searchSnippets": [
+                "评审 Rust Host 的迁移"
+              ],
               "workspacePurpose": "project"
             }
           ],
@@ -689,7 +691,9 @@
               "mode": "build",
               "titleOverridden": false,
               "searchSnippet": "评审 Rust Host 的迁移",
-              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "searchSnippets": [
+                "评审 Rust Host 的迁移"
+              ],
               "workspacePurpose": "project"
             }
           ],
@@ -730,7 +734,9 @@
               "mode": "build",
               "titleOverridden": false,
               "searchSnippet": "评审 Rust Host 的迁移",
-              "searchSnippets": ["评审 Rust Host 的迁移"],
+              "searchSnippets": [
+                "评审 Rust Host 的迁移"
+              ],
               "workspacePurpose": "project"
             }
           ],
@@ -756,7 +762,9 @@
               "mode": "build",
               "titleOverridden": false,
               "searchSnippet": "...移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束",
-              "searchSnippets": ["...移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束"],
+              "searchSnippets": [
+                "...移包含回滚与灰度，迁移窗口 30 分钟 🙂 结束"
+              ],
               "workspacePurpose": "project"
             }
           ],

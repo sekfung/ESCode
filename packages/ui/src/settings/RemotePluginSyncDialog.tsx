@@ -20,6 +20,7 @@ import type {
   ESCodePluginUserConfigOption,
   ESCodePluginsOverviewResult,
 } from "@escode/shared";
+import { usePlatform } from "@/hooks/usePlatform.js";
 import type { IPluginSyncService, IESCodeAgentService } from "@escode/services";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { cn } from "@/components/lib/utils.js";
@@ -767,6 +768,7 @@ export async function syncSelectedRemotePlugins(params: {
   stopControl?: RemotePluginSyncStopControl;
 }): Promise<RemotePluginSyncRunResult> {
   const results: RemotePluginSyncRunResult["results"] = [];
+  // 每项从实际执行起计时；只记录目标端最终结果，不上传归档、配置或路径。
   for (const row of params.rows) {
     emitRemotePluginSyncProgress(params, row, "queued", "Queued plugin sync");
   }
@@ -775,6 +777,7 @@ export async function syncSelectedRemotePlugins(params: {
     if (row.candidate.kind !== "inline") {
       continue;
     }
+    const startedAt = Date.now();
     try {
       throwIfRemotePluginSyncStopped(params, row);
       const inlineCandidate = row.candidate.inlineCandidate;
@@ -830,16 +833,16 @@ export async function syncSelectedRemotePlugins(params: {
     if (row.candidate.kind !== "marketplace") {
       continue;
     }
-    results.push(
-      await syncMarketplaceRemotePlugin(
-        {
-          ...params,
-          preparedMarketplaceSources,
-          selectedMarketplacePluginNames,
-        },
-        row,
-      ),
+    const startedAt = Date.now();
+    const item = await syncMarketplaceRemotePlugin(
+      {
+        ...params,
+        preparedMarketplaceSources,
+        selectedMarketplacePluginNames,
+      },
+      row,
     );
+    results.push(item);
   }
   return { results };
 }
@@ -1518,6 +1521,7 @@ function RemotePluginSyncResultList({ result }: { result: RemotePluginSyncRunRes
 }
 
 export function RemotePluginSyncDialog(props: RemotePluginSyncDialogProps) {
+  const platform = usePlatform();
   const { intl } = useESCodeIntl();
   const {
     localPluginSyncService,

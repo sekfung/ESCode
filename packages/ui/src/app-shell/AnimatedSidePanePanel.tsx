@@ -914,7 +914,6 @@ export function AnimatedSidePanePanel({
                 remoteSessionId={workspaceRemoteSessionId}
                 sessionId={activeTaskId}
                 onOpenPluginUi={onOpenPluginUi}
-                itemClassName={OPEN_TAB_LAUNCHER_BUTTON_CLASS}
               />
             ) : null}
           </div>
@@ -1202,6 +1201,7 @@ export function AnimatedSidePanePanel({
                           />
                         ) : tab.type === "plugin-ui" ? (
                           <PluginUiSidePane
+                            visible={isVisible}
                             tab={tab}
                             onOpenBrowserUrl={onOpenBrowserUrl}
                             onCloseTab={onCloseTab}

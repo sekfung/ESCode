@@ -24,6 +24,7 @@ import { submissionModeSchema } from "@escode/shared/escode-protocol-v4";
 import { useWorkspacePresentation } from "@/hooks/useWorkspacePresentation.js";
 import { useESCodeSessionService } from "@/hooks/useESCodeSessionService.js";
 import { useSettings } from "@/hooks/useSettingService.js";
+import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 import { parseModelPickerValue } from "@/lib/escodeSessionProjection.js";
 import { initializeNewTaskDraft } from "@/v4/composer/newTaskDraft.js";
 import {
@@ -123,6 +124,21 @@ export function useDraftConfigControl(params: {
   const appFollowupMode = resolveAppFollowupMode(sharedSettings);
   const scopeId = sessionId ?? V4_DRAFT_SCOPE_ROOT;
   const scopeKey = JSON.stringify([workspaceKey, scopeId]);
+  // 根草稿的组织归属由 store 提供：Composer 只负责把它随正文一起持久化。
+  // 分别订阅原始值，避免选择器每次返回新对象导致 store 重渲染循环。
+  const draftProjectId = useESCodeSessionStore(
+    (state) => state.getWorkspaceState(workspacePath, workspaceIdentity).draftProjectId,
+  );
+  const draftTaskGroupId = useESCodeSessionStore(
+    (state) => state.getWorkspaceState(workspacePath, workspaceIdentity).draftTaskGroupId,
+  );
+  const withDraftOrganization = useCallback(
+    (value: V4ComposerDraft): V4ComposerDraft =>
+      scopeId === V4_DRAFT_SCOPE_ROOT
+        ? { ...value, projectId: draftProjectId, taskGroupId: draftTaskGroupId }
+        : value,
+    [scopeId, draftProjectId, draftTaskGroupId],
+  );
   const loadedScope = useMemo(
     () => ({
       scopeKey,
@@ -196,10 +212,15 @@ export function useDraftConfigControl(params: {
       stateRef.current.draft === draft &&
       stateRef.current.scopeKey === scopeKey
     ) {
-      persistV4ComposerDraft(workspacePath, workspaceIdentity, scopeId, draft);
+      persistV4ComposerDraft(
+        workspacePath,
+        workspaceIdentity,
+        scopeId,
+        withDraftOrganization(draft),
+      );
       lastPersistedDraftRef.current = draft;
     }
-  }, [draft, scopeKey]);
+  }, [draft, scopeKey, withDraftOrganization]);
   const updateComposerDraft = useCallback(
     (update: (current: V4ComposerDraft) => V4ComposerDraft) => {
       // 旧 scope 的延迟编辑器回调不能写入刚切换到的会话。
@@ -221,10 +242,15 @@ export function useDraftConfigControl(params: {
         thought: selection?.options?.reasoningLevel ?? "",
       };
       setStoredState(nextState);
-      persistV4ComposerDraft(workspacePath, workspaceIdentity, scopeId, next);
+      persistV4ComposerDraft(
+        workspacePath,
+        workspaceIdentity,
+        scopeId,
+        withDraftOrganization(next),
+      );
       lastPersistedDraftRef.current = next;
     },
-    [scopeKey, workspacePath, workspaceIdentity, scopeId],
+    [scopeKey, workspacePath, workspaceIdentity, scopeId, withDraftOrganization],
   );
   const updateDraftConfig = useCallback(
     (update: (current: Partial<SessionConfigState>) => Partial<SessionConfigState>) => {

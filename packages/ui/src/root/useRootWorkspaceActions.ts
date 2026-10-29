@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- Root workspace action hook 集中编排项目、远程和 conversation 入口；合并期保持动作边界完整，后续按领域拆分。 */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type IPlatformService,
   type RemoteTarget,
@@ -76,6 +76,7 @@ export function useRootWorkspaceActions({
   preferDirectoryBrowser,
   openDirectoryBrowser,
   onOpenRemoteConnection,
+  openRemoteProjectWorkspace,
   workbenchGroupClientMode = "desktop-continuous",
 }: {
   intl: ReturnType<typeof import("@/i18n/IntlProvider.js").useESCodeIntl>["intl"];
@@ -90,9 +91,24 @@ export function useRootWorkspaceActions({
   preferDirectoryBrowser: boolean;
   openDirectoryBrowser?: () => void;
   onOpenRemoteConnection?: (preference?: OpenRemoteConnectionPreference) => void;
+  /** 已由 prepareSession 解析出目录与身份的远端项目；由 Root 负责 attachment 与跨 Root 导航。 */
+  openRemoteProjectWorkspace?: (target: {
+    hostId: string;
+    workspacePath: string;
+    workspaceIdentity?: string;
+    expectedMembershipId?: string;
+    projectId: string | null;
+    isCurrent?: () => boolean;
+  }) => Promise<void>;
   workbenchGroupClientMode?: ESCodeTaskClientMode;
 }) {
   const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
+  const navigationSequence = useRef(0);
+  // Root 的远端装配依赖本 hook 返回的动作，函数引用每轮都会变化；冻结本次操作的实现。
+  const remoteProjectOpener = useRef(openRemoteProjectWorkspace);
+  useLayoutEffect(() => {
+    remoteProjectOpener.current = openRemoteProjectWorkspace;
+  });
   const requestConfirmation = useConfirmDialog();
   const {
     handleSelectConversationWorkspace,
@@ -142,7 +158,29 @@ export function useRootWorkspaceActions({
   );
 
   const startNewTaskFromActiveWorkspace = useCallback(
-    (source: string, request?: CreateTaskRequest) => {
+    async (source: string, request?: CreateTaskRequest) => {
+      const openRemoteProjectWorkspace = remoteProjectOpener.current;
+      const sequence = ++navigationSequence.current;
+      const originTab = tabStoreApi.getState().activeTabId;
+      const originWorkspace = activeWorkspacePath
+        ? useESCodeSessionStore
+            .getState()
+            .getWorkspaceState(activeWorkspacePath, activeWorkspaceIdentity ?? undefined)
+        : null;
+      const isCurrent = () =>
+        (typeof request !== "object" || request.isCurrent?.() !== false) &&
+        sequence === navigationSequence.current &&
+        tabStoreApi.getState().activeTabId === originTab &&
+        (!activeWorkspacePath ||
+          (() => {
+            const workspace = useESCodeSessionStore
+              .getState()
+              .getWorkspaceState(activeWorkspacePath, activeWorkspaceIdentity ?? undefined);
+            return (
+              workspace.activeTaskId === originWorkspace?.activeTaskId &&
+              workspace.draftFocusVersion === originWorkspace?.draftFocusVersion
+            );
+          })());
       const state = tabStoreApi.getState();
       const {
         activeWorkspacePath: currentActiveWorkspacePath,
@@ -177,6 +215,67 @@ export function useRootWorkspaceActions({
         request.expectedWorkspaceKey !==
           (newTaskTarget?.workspaceIdentity?.trim() || newTaskTarget?.workspacePath)
       ) {
+        return;
+      }
+      const requestedProjectId = typeof request === "string" ? undefined : request?.projectId;
+      const requestedHostId = typeof request === "string" ? undefined : request?.hostId;
+      if (requestedHostId && requestedHostId !== "local") {
+        try {
+          if (typeof request === "object" && request.isCurrent?.() === false) return;
+          if (!services.projectService) throw new Error("project.service-unavailable");
+          let projectId = requestedProjectId ?? null;
+          if (!projectId) {
+            const workspace = activeWorkspacePath
+              ? useESCodeSessionStore
+                  .getState()
+                  .getWorkspaceState(activeWorkspacePath, activeWorkspaceIdentity ?? undefined)
+              : null;
+            if (workspace?.activeTaskId) {
+              const tree = await services.projectService.readTree({ hostId: requestedHostId });
+              projectId =
+                tree.tasks.find(
+                  (task) =>
+                    task.taskId === workspace.activeTaskId &&
+                    (task.workspaceIdentity?.trim() || task.workspacePath) ===
+                      (activeWorkspaceIdentity?.trim() || activeWorkspacePath),
+                )?.projectId ?? null;
+            } else {
+              projectId = workspace?.draftProjectId ?? null;
+            }
+          }
+          if (!projectId) throw new Error("project.remote-project-required");
+          // 远端项目目录与 attachment 身份只由 Host 解析；浏览器不得按路径拼接 identity。
+          const prepared = await services.projectService.prepareSession({
+            projectId,
+            hostId: requestedHostId,
+          });
+          if (!isCurrent()) return;
+          if (!prepared.workspaceIdentity || !openRemoteProjectWorkspace)
+            throw new Error("project.remote-navigation-not-mounted");
+          await openRemoteProjectWorkspace({
+            hostId: requestedHostId,
+            workspacePath: prepared.workspacePath,
+            workspaceIdentity: prepared.workspaceIdentity,
+            ...(typeof request === "object" && request.remoteProjectMembershipId
+              ? { expectedMembershipId: request.remoteProjectMembershipId }
+              : {}),
+            projectId: prepared.projectId ?? projectId,
+            isCurrent,
+          });
+          if (!isCurrent()) return;
+          setWorkspaceActionError(null);
+          if (typeof request === "object") request.onComplete?.();
+          logger.info(`[Root] ${source}`, {
+            hostId: requestedHostId,
+            workspacePath: prepared.workspacePath,
+            projectId: prepared.projectId,
+          });
+        } catch (error) {
+          if (!isCurrent()) return;
+          logger.error("[Root] 准备远端项目任务失败", error);
+          if (typeof request === "object") request.onError?.(error);
+          setWorkspaceActionError(error instanceof Error ? error.message : String(error));
+        }
         return;
       }
       if (!newTaskTarget) {
@@ -223,6 +322,7 @@ export function useRootWorkspaceActions({
       const initialPrompt = rawInitialPrompt?.trim() ? rawInitialPrompt : undefined;
       const initialPromptMention =
         typeof request === "string" ? undefined : request?.initialPromptMention;
+      const requestedTaskGroupId = typeof request === "string" ? undefined : request?.taskGroupId;
       logger.info(`[Root] ${source}:`, newTaskTarget.workspacePath, provider ?? "default-provider");
       // Cmd/Ctrl+N 是创建新的单 panel 草稿，不是在当前 workbench
       // group / paneLayout 中继续拆一个 draft；目标 workspace 取 focused pane。
@@ -237,8 +337,11 @@ export function useRootWorkspaceActions({
           {
             groupedDraftPlacement,
             createSource: typeof request === "string" ? undefined : request?.createSource,
+            ...(requestedProjectId !== undefined ? { projectId: requestedProjectId } : {}),
+            ...(requestedTaskGroupId !== undefined ? { taskGroupId: requestedTaskGroupId } : {}),
           },
         );
+      if (typeof request === "object") request.onComplete?.();
       if (initialPrompt) {
         // insert request 被首个 composer 消费后会清空；如果随后因 pane/config
         // 切换 remount，新 composer 会从空的 __draft__ 恢复并覆盖预填。先写草稿事实源，
@@ -262,7 +365,15 @@ export function useRootWorkspaceActions({
           );
       }
     },
-    [addTab, intl, tabStoreApi, workbenchGroupClientMode],
+    [
+      addTab,
+      activeWorkspaceIdentity,
+      activeWorkspacePath,
+      intl,
+      services.projectService,
+      tabStoreApi,
+      workbenchGroupClientMode,
+    ],
   );
 
   const handleSelectProject = useCallback(

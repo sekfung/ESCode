@@ -2,6 +2,8 @@ import { resolveWorkspaceKey, type RemoteTarget, type WorkspacePurpose } from "@
 import { isWorkspaceTab, isWorkspaceTabReadOnly, type WindowTabState } from "@/store/tabStore.js";
 
 export interface AutomationWorkspaceOption {
+  projectId?: string | null;
+  hostId?: string;
   workspacePath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string;
@@ -11,9 +13,14 @@ export interface AutomationWorkspaceOption {
 }
 
 export function resolveAutomationWorkspaceSelectionKey(
-  workspace: Pick<AutomationWorkspaceOption, "workspacePath" | "workspaceIdentity">,
+  workspace: Pick<
+    AutomationWorkspaceOption,
+    "workspacePath" | "workspaceIdentity" | "projectId" | "hostId"
+  >,
 ): string {
-  return resolveWorkspaceKey(workspace);
+  return workspace.projectId
+    ? JSON.stringify([workspace.hostId ?? "local", workspace.projectId])
+    : resolveWorkspaceKey(workspace);
 }
 
 export function findAutomationWorkspaceOptionByKey(
@@ -30,7 +37,10 @@ export function findAutomationWorkspaceOptionByKey(
 export function reconcileAutomationWorkspaceSelectionKey(
   options: readonly AutomationWorkspaceOption[],
   currentWorkspaceKey: string | null,
-  preferredWorkspace?: Pick<AutomationWorkspaceOption, "workspacePath" | "workspaceIdentity">,
+  preferredWorkspace?: Pick<
+    AutomationWorkspaceOption,
+    "workspacePath" | "workspaceIdentity" | "projectId" | "hostId"
+  >,
 ): string | null {
   const current = findAutomationWorkspaceOptionByKey(options, currentWorkspaceKey);
   if (current) return resolveAutomationWorkspaceSelectionKey(current);
@@ -49,11 +59,7 @@ function workspaceLabelFromPath(path: string): string {
   return path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? path;
 }
 
-/**
- * 构建纯项目候选，供不允许“无项目会话”的边界使用。
- * 定时任务表单额外展示的单一“无项目会话”目标由 useAutomationProjectOptions 显式归并；
- * recentProjects、conversation backing 与失效目录不能作为普通项目混入这里。
- */
+/** 构建纯项目候选；定时任务/工作流「运行于」只接受已打开且可写的项目。 */
 export function buildAutomationWorkspaceOptions(
   tabs: readonly WindowTabState[],
 ): AutomationWorkspaceOption[] {

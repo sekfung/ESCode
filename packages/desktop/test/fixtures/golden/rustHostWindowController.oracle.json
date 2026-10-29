@@ -427,7 +427,9 @@
     },
     "deleteActive": false,
     "deleteArchived": {
-      "deletedTaskIds": ["t-archive"],
+      "deletedTaskIds": [
+        "t-archive"
+      ],
       "skippedTaskIds": [],
       "failedTaskIds": []
     },

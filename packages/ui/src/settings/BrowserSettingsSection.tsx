@@ -17,7 +17,6 @@ import { Switch } from "@/components/ui/switch.js";
 import { toast } from "@/components/ui/toast.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useServices } from "@/hooks/useServices.js";
-import { useESCodeSessionService } from "@/hooks/useESCodeSessionService.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { invalidateDeferredDraftSessionForSkillChange } from "@/lib/escodeDraftSkillInvalidation.js";
 import { logger } from "@/logger.js";
@@ -81,11 +80,6 @@ export function BrowserSettingsSection({
   const { intl } = useESCodeIntl();
   const platform = usePlatform();
   const { pluginManagementService, skillsService } = useServices();
-  const escodeSessionService = useESCodeSessionService(
-    workspacePath ?? undefined,
-    undefined,
-    workspaceIdentity,
-  );
   const browserUsePlugin = usePluginManagementStore((state) =>
     state.plugins.find((plugin) => plugin.id === OFFICIAL_BROWSER_USE_PLUGIN_ID),
   );
@@ -119,7 +113,6 @@ export function BrowserSettingsSection({
 
   const refreshAfterPluginChange = useCallback(async () => {
     await invalidateDeferredDraftSessionForSkillChange({
-      escodeSessionService,
       workspacePath,
       workspaceIdentity: normalizedWorkspaceIdentity ?? undefined,
       reason: "settings-browser-use-plugin-enabled",
@@ -138,7 +131,6 @@ export function BrowserSettingsSection({
     skillStoreWorkspacePath,
     skillsService,
     workspacePath,
-    escodeSessionService,
   ]);
 
   const handleBrowserEnabledChange = useCallback(

@@ -1,5 +1,6 @@
 import { useCallback, type KeyboardEvent } from "react";
-import { TID_AUTOMATIONS_PAGE_TAB, testId } from "@escode/shared";
+import { TID_AUTOMATIONS_PAGE_TAB } from "@escode/shared";
+import { testId } from "@escode/shared/test-ids";
 import { cn } from "@/components/lib/utils.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 

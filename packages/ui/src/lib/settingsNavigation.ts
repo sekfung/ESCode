@@ -13,6 +13,7 @@ export type SettingsSectionId =
   | "mcp"
   | "skill"
   | "plugins"
+  | "archives"
   | "usage"
   | "subagents"
   | "commands"
@@ -20,6 +21,7 @@ export type SettingsSectionId =
   | "workspaceFileSearch"
   | "computerUse"
   | "automations"
+  | "remoteDevices"
   | "shortcuts";
 
 export type SettingsPluginTabTarget = "plugins" | "mcps" | "skills" | "commands";
@@ -214,6 +216,8 @@ export function setPendingSettingsSectionIntent(
     pluginOrigin?: SettingsPluginNavigationOrigin;
     pluginScopeKey?: string;
     modelProviderId?: string;
+    sourceServerId?: string;
+    sourceServerDetails?: boolean;
   } = {},
 ): void {
   if (typeof window === "undefined") {

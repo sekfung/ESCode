@@ -38,6 +38,8 @@ export interface WorkspaceTabState extends TabState {
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
   remoteHistoryId?: string;
+  /** Desktop bind 返回的旧 route tab rekey 提示；不参与 remote session 路由。 */
+  previousWorkspaceIdentity?: string;
   workspaceIdentity?: string;
   localWorkspacePath?: string;
   workspacePurpose?: WorkspacePurpose;
@@ -48,6 +50,8 @@ export interface WorkspaceTabOptions {
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
   remoteHistoryId?: string;
+  /** Desktop bind 返回的旧 route tab rekey 提示；不参与 remote session 路由。 */
+  previousWorkspaceIdentity?: string;
   workspaceIdentity?: string;
   localWorkspacePath?: string;
   workspacePurpose?: WorkspacePurpose;

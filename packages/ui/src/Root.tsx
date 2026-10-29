@@ -53,7 +53,11 @@ import { useRootProviderSettingsSnapshot } from "@/root/useRootProviderSettingsS
 import { useDesktopNativeThemeSync } from "@/root/useDesktopNativeThemeSync.js";
 import { useRootPlatformEffects } from "@/root/useRootPlatformEffects.js";
 import { useRootWorkspaceActions } from "@/root/useRootWorkspaceActions.js";
-import { registerBaseWorkspaceServices } from "@/store/remoteWorkspaceSessionStore.js";
+import {
+  registerBaseWorkspaceServices,
+  useRemoteWorkspaceSessionStore,
+} from "@/store/remoteWorkspaceSessionStore.js";
+import { attachRemoteProjectWorkspace } from "@/project-sidebar/index.js";
 import type { RootProps } from "@/root/types.js";
 import { DiffsWorkerPoolProvider } from "@/root/DiffsWorkerPoolProvider.js";
 import { ScopedErrorBoundary } from "@/ErrorBoundary.js";
@@ -414,6 +418,7 @@ function RootInner({
     preferDirectoryBrowser: shouldPreferDirectoryBrowser,
     openDirectoryBrowser: handleOpenDirectoryBrowser,
     onOpenRemoteConnection: allowRemoteWorkspace ? handleOpenRemoteConnection : undefined,
+    openRemoteProjectWorkspace: openPreparedRemoteProjectWorkspace,
     workbenchGroupClientMode: "desktop-continuous",
   });
   const handleRemoteWorkspaceActivated = useCallback(
@@ -441,6 +446,7 @@ function RootInner({
     handleConnectRemote,
     handleReconnectRemoteWorkspace,
     handleRemoteWorkspaceTabsClosed,
+    remoteWorkspaceController,
   } = useRemoteWorkspaceHistory({
     intl,
     services,
@@ -457,6 +463,42 @@ function RootInner({
     addTab,
     onWorkspaceActivated: handleRemoteWorkspaceActivated,
   });
+
+  async function openPreparedRemoteProjectWorkspace(target: {
+    expectedMembershipId?: string;
+    hostId: string;
+    workspacePath: string;
+    workspaceIdentity?: string;
+    projectId: string | null;
+    isCurrent?: () => boolean;
+  }): Promise<void> {
+    if (!target.workspaceIdentity) throw new Error("project.workspace-identity-required");
+    if (!services.remoteProjectService) throw new Error("remote-project.service-unavailable");
+    await attachRemoteProjectWorkspace({
+      ...target,
+      workspaceIdentity: target.workspaceIdentity,
+      remoteService: services.remoteProjectService,
+      ...(target.expectedMembershipId ? { projectService: services.projectService } : {}),
+      findSession: (identity) =>
+        Object.values(useRemoteWorkspaceSessionStore.getState().sessionsById).find(
+          (session) => session.workspaceIdentity === identity,
+        ),
+      connect: handleConnectRemote,
+      cancel: handleCancelRemoteProject,
+      bind: async (remoteSessionId, path, isCurrent) => {
+        const session = useRemoteWorkspaceSessionStore.getState().sessionsById[remoteSessionId];
+        await remoteWorkspaceController.dispatch({
+          type: "open-project",
+          sourceServerId: session?.sourceServerId ?? "",
+          path,
+          remoteSessionId,
+          draftProjectId: target.projectId,
+          preparedWorkspaceIdentity: target.workspaceIdentity,
+          isCurrent,
+        });
+      },
+    });
+  }
 
   useEffect(() => {
     // Bugfix: fileDisplay 默认不传 basePath 时需要落到“当前激活 workspace”。

@@ -151,19 +151,21 @@
     {
       "label": "offered disabled, user alwaysOn",
       "config": {
-        "mode": "disabled",
-        "enabled": false,
+        "mode": "alwaysOn",
+        "enabled": true,
         "source": "remote",
-        "offeredMode": "disabled"
+        "offeredMode": "disabled",
+        "userMode": "alwaysOn"
       }
     },
     {
       "label": "offered disabled, user onDemand",
       "config": {
-        "mode": "disabled",
-        "enabled": false,
+        "mode": "onDemand",
+        "enabled": true,
         "source": "remote",
-        "offeredMode": "disabled"
+        "offeredMode": "disabled",
+        "userMode": "onDemand"
       }
     },
     {
@@ -172,7 +174,8 @@
         "mode": "disabled",
         "enabled": false,
         "source": "remote",
-        "offeredMode": "disabled"
+        "offeredMode": "disabled",
+        "userMode": "disabled"
       }
     },
     {

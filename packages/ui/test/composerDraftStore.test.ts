@@ -141,4 +141,54 @@ describe("Composer Draft 持久选择", () => {
     expect(() => read()).not.toThrow();
     expect(read()).toBeNull();
   });
+
+  it("根草稿保存项目/分组归属，正文更新不会抹掉意图", () => {
+    persistV4ComposerDraft(workspace, undefined, V4_DRAFT_SCOPE_ROOT, {
+      text: "draft",
+      mode: "build",
+      projectId: "project-a",
+      taskGroupId: "group-a",
+    });
+    expect(read(V4_DRAFT_SCOPE_ROOT)).toMatchObject({
+      projectId: "project-a",
+      taskGroupId: "group-a",
+    });
+
+    persistV4ComposerDraft(workspace, undefined, V4_DRAFT_SCOPE_ROOT, {
+      text: "draft updated",
+      mode: "build",
+    });
+    expect(read(V4_DRAFT_SCOPE_ROOT)).toMatchObject({
+      text: "draft updated",
+      projectId: "project-a",
+      taskGroupId: "group-a",
+    });
+  });
+
+  it("显式 null 清除项目/分组归属", () => {
+    persistV4ComposerDraft(workspace, undefined, V4_DRAFT_SCOPE_ROOT, {
+      text: "draft",
+      mode: "build",
+      projectId: "project-a",
+      taskGroupId: "group-a",
+    });
+    persistV4ComposerDraft(workspace, undefined, V4_DRAFT_SCOPE_ROOT, {
+      text: "draft",
+      mode: "build",
+      projectId: null,
+      taskGroupId: null,
+    });
+    expect(read(V4_DRAFT_SCOPE_ROOT)).toMatchObject({ projectId: null, taskGroupId: null });
+  });
+
+  it("会话草稿不保留组织态副本", () => {
+    persistV4ComposerDraft(workspace, undefined, "session-a", {
+      text: "promoted",
+      mode: "build",
+      projectId: "project-a",
+      taskGroupId: "group-a",
+    });
+    expect(read("session-a")).not.toHaveProperty("projectId");
+    expect(read("session-a")).not.toHaveProperty("taskGroupId");
+  });
 });

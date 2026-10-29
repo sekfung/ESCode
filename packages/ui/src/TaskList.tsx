@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- TaskList 同时承接 workspace 列表渲染、行内操作和外部数据源兼容，先集中收口避免 UI 结构漂移。 */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Settings2 } from "lucide-react";
 import type { ESCodeTaskMeta } from "@escode/shared";
 import { TID_TASK_LIST, TID_TASK_EMPTY, TID_TASK_SETTINGS_BUTTON } from "@escode/shared";
@@ -14,6 +14,7 @@ import { MemoTaskItem, TaskListItemContextMenuContent } from "@/TaskListItem.js"
 import { TaskListLoadingHint } from "@/TaskListLoadingHint.js";
 import { TaskRenameDialog } from "@/TaskRenameDialog.js";
 import { compareESCodeTaskListItems } from "@/lib/taskListOrdering.js";
+import { buildTaskWorkspaceKey } from "@/lib/taskQueryCache.js";
 import { logger } from "@/logger.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 
@@ -34,6 +35,12 @@ export const TaskList = memo(function TaskList({
   activeTaskId,
   sortBy = "manual",
   isWorkspaceActive = true,
+  taskRowVariant = "default",
+  hoverEnabled = true,
+  isArchived = false,
+  mobileActiveTaskKey,
+  onOpenFileTree,
+  organizationActions,
   onSelectTask,
   showCreateButton = true,
   showFooter = true,
@@ -55,6 +62,12 @@ export const TaskList = memo(function TaskList({
   activeTaskId: string | null;
   sortBy?: "manual" | "created" | "updated";
   isWorkspaceActive?: boolean;
+  taskRowVariant?: "default" | "timeline";
+  hoverEnabled?: boolean;
+  isArchived?: boolean;
+  mobileActiveTaskKey?: string | null;
+  onOpenFileTree?: () => void | Promise<void>;
+  organizationActions?: ReactNode;
   onSelectTask: (taskId: string) => void;
   showCreateButton?: boolean;
   showFooter?: boolean;
@@ -361,6 +374,13 @@ export const TaskList = memo(function TaskList({
         task={task}
         isPinned={isPinned}
         isActive={isWorkspaceActive && task.taskId === activeTaskId}
+        variant={taskRowVariant}
+        hoverEnabled={hoverEnabled}
+        isArchived={isArchived}
+        isMobileActive={
+          mobileActiveTaskKey ===
+          `${buildTaskWorkspaceKey(workspacePath, workspaceIdentity)}:${task.taskId}`
+        }
         onSelectTask={handleSelectTaskItem}
         onArchiveTaskInline={handleArchiveTaskFromInline}
         onCancelArchiveConfirm={handleCancelArchiveConfirm}
@@ -370,6 +390,7 @@ export const TaskList = memo(function TaskList({
         onArchiveTask={handleArchiveTask}
         onMarkTaskAsUnread={handleMarkTaskAsUnread}
         onOpenTaskContextMenu={handleOpenTaskContextMenu}
+        onOpenFileTree={onOpenFileTree ? () => onOpenFileTree() : undefined}
         actionsDisabled={Boolean(readOnlyReason)}
         actionsDisabledReason={readOnlyReason}
         intl={intl}
@@ -453,6 +474,8 @@ export const TaskList = memo(function TaskList({
                   remoteSessionId={remoteSessionId}
                   task={contextMenuTask}
                   isPinned={pinnedTaskIdSet.has(contextMenuTask.taskId)}
+                  isArchived={isArchived}
+                  organizationActions={organizationActions}
                   intl={intl}
                   onTogglePinTask={handleTogglePinTask}
                   onStartRenameTask={handleStartRenameTask}

@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- task item 同时承载默认列表和 timeline 两行布局的共享交互，先保持动作链路集中避免归档/置顶回归。 */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, Clock, CloudUpload, ListTree, LoaderIcon, Pin } from "lucide-react";
 import { isCronTask, type ESCodeTaskMeta } from "@escode/shared";
 import { TID_TASK_ARCHIVE, TID_TASK_ITEM, testId } from "@escode/shared";
@@ -56,6 +56,9 @@ interface TaskListItemProps {
   onOpenTaskContextMenu?: (taskId: string) => void;
   onOpenFileTree?: (task: ESCodeTaskMeta) => void;
   variant?: "default" | "timeline";
+  hoverEnabled?: boolean;
+  isArchived?: boolean;
+  isMobileActive?: boolean;
   showPinAction?: boolean;
   intl: TaskListItemIntl;
   actionsDisabled?: boolean;
@@ -101,6 +104,9 @@ function areTaskListItemPropsEqual(left: TaskListItemProps, right: TaskListItemP
     left.isActive === right.isActive &&
     left.isArchiveConfirming === right.isArchiveConfirming &&
     left.variant === right.variant &&
+    left.hoverEnabled === right.hoverEnabled &&
+    left.isArchived === right.isArchived &&
+    left.isMobileActive === right.isMobileActive &&
     left.showPinAction === right.showPinAction &&
     left.intl === right.intl &&
     left.actionsDisabled === right.actionsDisabled &&
@@ -131,6 +137,9 @@ export const MemoTaskItem = memo(function TaskListItem({
   onOpenTaskContextMenu,
   onOpenFileTree,
   variant = "default",
+  hoverEnabled = true,
+  isArchived = false,
+  isMobileActive = false,
   showPinAction = true,
   intl,
   actionsDisabled = false,
@@ -335,16 +344,22 @@ export const MemoTaskItem = memo(function TaskListItem({
   const showTimelineIdleIndicator =
     variant === "timeline" && leadingIndicator === "none" && !isPinned;
   // 远程 workspace标记和置顶状态共用左侧 leading 槽。
-  const showPinnedState = isPinned && leadingIndicator === "none";
-  const shouldMountWorkspaceTaskActions = hoverActionsVisible || focusActionsVisible || isHoverNone;
+  const showPinnedState = isPinned && leadingIndicator === "none" && !isMobileActive;
   // Bugfix：hover:none 只代表触屏端需要常驻 action，不代表应永久隐藏时间、状态和变更摘要。
   // 元信息仅在真实 hover / focus 交互时让位，保持旧触屏布局的“元信息 + action”语义。
-  const shouldSuppressWorkspaceTaskMetadata = hoverActionsVisible || focusActionsVisible;
+  const shouldSuppressWorkspaceTaskMetadata =
+    hoverEnabled && (hoverActionsVisible || focusActionsVisible);
+  const shouldMountWorkspaceTaskActions =
+    !hoverEnabled || shouldSuppressWorkspaceTaskMetadata || isHoverNone;
   const taskTimeLabel = formatTaskRelativeTime(task.updatedAt, intl);
   const taskChangeSummary = getTaskChangeSummary(task);
   const isRemoteTask = Boolean(task.workspaceIdentity?.trim());
   const archiveLabel = intl.formatMessage({
-    id: isArchiveConfirming ? "common.confirm" : "taskList.archive",
+    id: isArchiveConfirming
+      ? "common.confirm"
+      : isArchived
+        ? "taskList.unarchive"
+        : "taskList.archive",
   });
   const taskTitleWithChanges = formatTaskTitleWithChanges(taskTitle, taskChangeSummary, intl);
   const workspaceLabel = getPathLeaf(task.workspacePath);
@@ -699,6 +714,8 @@ export function TaskListItemContextMenuContent({
   remoteSessionId,
   task,
   isPinned,
+  isArchived = false,
+  organizationActions,
   intl,
   onTogglePinTask,
   onStartRenameTask,
@@ -711,6 +728,8 @@ export function TaskListItemContextMenuContent({
   remoteSessionId?: string;
   task: ESCodeTaskMeta;
   isPinned: boolean;
+  isArchived?: boolean;
+  organizationActions?: ReactNode;
   intl: TaskListItemIntl;
   onTogglePinTask: (taskId: string, pinned: boolean) => void;
   onStartRenameTask: (taskId: string, currentTitle: string) => void;
@@ -769,8 +788,10 @@ export function TaskListItemContextMenuContent({
 
   return (
     <TaskListItemContextMenu
+      organizationActions={organizationActions}
       intl={intl}
       isPinned={isPinned}
+      isArchived={isArchived}
       fileManagerLabel={fileManagerLabel}
       taskSessionFile={taskSessionFile}
       activeSessionId={task.taskId}

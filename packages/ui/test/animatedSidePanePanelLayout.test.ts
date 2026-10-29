@@ -130,7 +130,7 @@ describe("AnimatedSidePanePanel layout", () => {
         hasReviewTab: false,
         supportsEmbeddedBrowser: false,
       }),
-    ).toEqual(["review", "terminal"]);
+    ).toEqual(["terminal", "review"]);
 
     expect(
       resolveOpenTabLauncherItemIds({
@@ -138,7 +138,7 @@ describe("AnimatedSidePanePanel layout", () => {
         hasReviewTab: false,
         supportsEmbeddedBrowser: true,
       }),
-    ).toEqual(["review", "terminal", "browser"]);
+    ).toEqual(["browser", "terminal", "review"]);
   });
 
   it("adds the side conversation launcher only when a desktop parent task is available", () => {
@@ -148,14 +148,14 @@ describe("AnimatedSidePanePanel layout", () => {
         developerToolsEnabled: false,
         hasReviewTab: false,
       }),
-    ).toEqual(["selection-side-conversation", "review", "terminal", "browser"]);
+    ).toEqual(["browser", "terminal", "review", "selection-side-conversation"]);
     expect(
       resolveOpenTabLauncherItemIds({
         canOpenSelectionSideConversation: false,
         developerToolsEnabled: false,
         hasReviewTab: false,
       }),
-    ).toEqual(["review", "terminal", "browser"]);
+    ).toEqual(["browser", "terminal", "review"]);
   });
 
   it("hides the side conversation entry without an active task and on mobile", () => {

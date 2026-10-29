@@ -31,7 +31,11 @@ vi.mock("lucide-react", () => {
     createElement("svg", { "data-icon": name, ...props });
 
   return {
+    BlocksIcon: createIcon("blocks"),
+    CableIcon: createIcon("cable"),
     CheckIcon: createIcon("check"),
+    ChevronDown: createIcon("chevron-down"),
+    WandIcon: createIcon("wand"),
     CircleAlert: createIcon("circle-alert"),
     Cloud: createIcon("cloud"),
     CopyIcon: createIcon("copy"),
@@ -441,9 +445,10 @@ describe("WorkspaceSidebarItem remote notice", () => {
       tab: createRemoteWorkspaceTab({ remoteSessionId: "remote-session-1" }),
     });
 
-    expect(html).toContain('data-icon="upload-cloud"');
-    expect(html).toContain("同步 Skill");
-    expect(html).toContain("同步 MCP");
+    expect(html).toContain('data-icon="wand"');
+    expect(html).toContain('data-icon="cable"');
+    expect(html).toContain("remote.syncSkills");
+    expect(html).toContain("remote.syncMcp");
   });
 
   it("未连接远程工作区的更多菜单不显示同步 Skills 和 MCP 入口", () => {

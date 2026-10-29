@@ -11,7 +11,7 @@ import { refreshSharedSkillStoreForWorkspace } from "@/lib/skillStoreRefresh.js"
 import { mergeSlashCommandsAfterCommandRefresh } from "@/settings/pluginSlashCommandRefresh.js";
 import { useCommandsStore } from "@/store/commandsStore.js";
 import { useMcpStore } from "@/store/mcpStore.js";
-import { usePluginManagementStore } from "@/store/pluginManagementStore.js";
+import { notifyPluginManagementChange } from "@/store/pluginManagementStoreLoading.js";
 import { useESCodeSessionStore } from "@/store/escodeSessionStore.js";
 
 function toMessage(error: unknown): string {
@@ -91,7 +91,8 @@ export async function refreshWorkspacePluginCapabilitiesAfterRemoteSync(params: 
   workspaceIdentity?: string | null;
   workspacePath?: string | null;
   escodeAgentService: IESCodeAgentService;
-  escodeSessionService: Pick<IESCodeSessionService, "closeSession">;
+  /** 过渡期接受旧调用方传入；上游已由 draft 失效入口统一处理。 */
+  escodeSessionService?: IESCodeSessionService;
 }): Promise<void> {
   const workspacePath = params.workspacePath;
   if (!workspacePath) {
@@ -99,17 +100,7 @@ export async function refreshWorkspacePluginCapabilitiesAfterRemoteSync(params: 
   }
   const workspaceIdentity = params.workspaceIdentity?.trim() || null;
   const workspaceIdentityParam = workspaceIdentity ?? undefined;
-  const pluginStore = usePluginManagementStore.getState();
-
-  if (
-    pluginStore.workspacePath === workspacePath &&
-    pluginStore.workspaceIdentity === workspaceIdentity
-  ) {
-    await pluginStore.refresh(params.escodeAgentService);
-  }
-
   await invalidateDeferredDraftSessionForSkillChange({
-    escodeSessionService: params.escodeSessionService,
     workspacePath,
     workspaceIdentity: workspaceIdentityParam,
     reason: params.reason,
@@ -128,4 +119,11 @@ export async function refreshWorkspacePluginCapabilitiesAfterRemoteSync(params: 
   await useMcpStore
     .getState()
     .ensureLoadedForWorkspace(workspacePath, params.mcpSyncService, workspaceIdentityParam);
+  // 同步入口可能没有打开全局设置；按真实目标通知所有已挂载投影。
+  notifyPluginManagementChange({
+    workspacePath,
+    workspaceIdentity,
+    authorityKey: null,
+    scope: "user",
+  });
 }

@@ -23,18 +23,18 @@ export function resolveOpenTabLauncherItemIds({
 }): OpenTabLauncherItemId[] {
   const itemIds: OpenTabLauncherItemId[] = [];
 
-  if (canOpenSelectionSideConversation) {
-    itemIds.push("selection-side-conversation");
+  if (supportsEmbeddedBrowser) {
+    itemIds.push("browser");
   }
+
+  itemIds.push("terminal");
 
   if (!hasReviewTab) {
     itemIds.push("review");
   }
 
-  itemIds.push("terminal");
-
-  if (supportsEmbeddedBrowser) {
-    itemIds.push("browser");
+  if (canOpenSelectionSideConversation) {
+    itemIds.push("selection-side-conversation");
   }
 
   if (supportsSerialPort) {

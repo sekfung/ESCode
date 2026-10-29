@@ -14,7 +14,7 @@ import {
   TID_SETTINGS_MEMORY_SEARCH_INPUT,
   TID_SETTINGS_MEMORY_WORKSPACE,
   testId,
-} from "@escode/shared";
+} from "@escode/shared/test-ids";
 import { Alert, AlertDescription } from "@/components/ui/alert.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";

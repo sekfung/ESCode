@@ -184,6 +184,10 @@ export interface WorkspaceESCodeUIState {
   groupedDraftTask: GroupedDraftTaskState | null;
   /** 用户发起当前草稿的入口；预热不改变来源。 */
   draftCreateSource: SessionCreateSource;
+  /** 当前草稿的项目归属；显式 null 表示“不在项目中”，undefined 表示未选择。 */
+  draftProjectId?: string | null;
+  /** 当前草稿的分组归属；只在根草稿保存，提升后由任务事实提供。 */
+  draftTaskGroupId?: string | null;
   /** 首发创建后、grouped sqlite order 落地前，真实 task 继承草稿锚点的本地定位。 */
   promotedGroupedDraftTaskByTaskId: Record<string, GroupedDraftTaskState>;
   /** 当前 workspace 选中的 ESCode Agent provider */
@@ -250,9 +254,15 @@ export interface ESCodeSessionStoreState {
     options?: {
       groupedDraftPlacement?: GroupedDraftTaskPlacement;
       createSource?: SessionCreateSource;
+      /** 新建草稿的项目归属。 */
+      projectId?: string | null;
+      /** 新建草稿的分组归属；缺省从 groupedDraftPlacement 派生。 */
+      taskGroupId?: string | null;
     },
   ) => void;
   clearGroupedDraftTask: (workspacePath: string, workspaceIdentity?: string) => void;
+  /** 只清除草稿的分组意图，保留正文、项目与模型。 */
+  clearDraftTaskGroup: (workspacePath: string, workspaceIdentity?: string) => void;
   bindRuntimeProvider: (
     workspacePath: string,
     provider: ESCodeProvider,

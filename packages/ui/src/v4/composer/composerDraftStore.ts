@@ -24,6 +24,10 @@ export interface V4ComposerDraft {
   lastPlanTransitionId?: string;
   lastPermissionGrantId?: string;
   modelSelection?: ModelSelection;
+  /** 草稿所属项目；显式 null 表示“不在项目中”，undefined 表示本次未改。 */
+  projectId?: string | null;
+  /** 草稿所属任务分组；只在根草稿（未提升）保存。 */
+  taskGroupId?: string | null;
   updatedAt: number;
 }
 
@@ -134,6 +138,12 @@ function readDraft(value: unknown): V4ComposerDraft | null {
       ? { lastPlanTransitionId: value.lastPlanTransitionId }
       : {}),
     ...(modelSelection ? { modelSelection } : {}),
+    ...(typeof value.projectId === "string" || value.projectId === null
+      ? { projectId: value.projectId }
+      : {}),
+    ...(typeof value.taskGroupId === "string" || value.taskGroupId === null
+      ? { taskGroupId: value.taskGroupId }
+      : {}),
     updatedAt:
       typeof value.updatedAt === "number" && Number.isFinite(value.updatedAt) ? value.updatedAt : 0,
   };
@@ -159,10 +169,57 @@ function writeDraftFile(key: string, file: V4DraftFile) {
   }
 }
 
+/** Composer 作用域描述；当前 fork 仍是“一 workspace 一草稿文件”，scope 只用于兼容调用形状。 */
+export interface ComposerScope {
+  projectId: string | null;
+  workspaceIdentity?: string;
+  clientNamespace?: string;
+}
+
+export function resolveComposerScope(
+  projectId: string | null,
+  workspaceIdentity?: string,
+  clientNamespace?: string,
+): ComposerScope {
+  return {
+    projectId,
+    ...(workspaceIdentity ? { workspaceIdentity } : {}),
+    ...(clientNamespace ? { clientNamespace } : {}),
+  };
+}
+
+/** 读取根草稿的作用域；没有草稿时返回 null。 */
+export function readComposerWorkspaceScope(
+  workspacePath: string,
+  workspaceIdentity?: string,
+  clientNamespace?: string,
+): ComposerScope | null {
+  const draft = readV4ComposerDraft(workspacePath, workspaceIdentity, V4_DRAFT_SCOPE_ROOT);
+  if (!draft) return null;
+  return resolveComposerScope(draft.projectId ?? null, workspaceIdentity, clientNamespace);
+}
+
+/** 关闭分组草稿行时只清除任务分组意图，保留正文、项目与模型。 */
+export function clearV4ComposerDraftTaskGroup(
+  workspacePath: string,
+  workspaceIdentity: string | undefined,
+  _scope?: ComposerScope | null,
+) {
+  const key = getV4ComposerDraftStorageKey(workspacePath, workspaceIdentity);
+  const file = readDraftFile(key);
+  const draft = file.scopes[V4_DRAFT_SCOPE_ROOT];
+  if (!draft || draft.taskGroupId === undefined) return true;
+  const next = { ...draft };
+  delete next.taskGroupId;
+  file.scopes[V4_DRAFT_SCOPE_ROOT] = { ...next, updatedAt: Date.now() };
+  return writeDraftFile(key, file);
+}
+
 export function readV4ComposerDraft(
   workspacePath: string,
   workspaceIdentity: string | undefined,
   scopeId: string,
+  _scope?: ComposerScope | null,
 ): V4ComposerDraft | null {
   const key = getV4ComposerDraftStorageKey(workspacePath, workspaceIdentity);
   const draft = readDraftFile(key).scopes[scopeId];
@@ -177,19 +234,36 @@ export function persistV4ComposerDraft(
   workspaceIdentity: string | undefined,
   scopeId: string,
   draft: Omit<V4ComposerDraft, "updatedAt">,
+  _scope?: ComposerScope | null,
 ) {
   const key = getV4ComposerDraftStorageKey(workspacePath, workspaceIdentity);
   const file = readDraftFile(key);
+  const saved = file.scopes[scopeId];
+  // 正文/模型各自更新草稿时不能抹掉项目意图；显式传 null 才清除项目归属。
+  const next = {
+    ...draft,
+    ...(draft.taskGroupId === undefined && saved?.taskGroupId !== undefined
+      ? { taskGroupId: saved.taskGroupId }
+      : {}),
+    ...(draft.projectId === undefined && saved?.projectId !== undefined
+      ? { projectId: saved.projectId }
+      : {}),
+  };
+  // 提升后的会话草稿不再保留组织态副本；归属由 Host 任务事实提供。
+  if (scopeId !== V4_DRAFT_SCOPE_ROOT) {
+    delete next.projectId;
+    delete next.taskGroupId;
+  }
   if (
-    !draft.text.trim() &&
+    !next.text.trim() &&
     !draft.editorStateJson &&
-    !draft.mention &&
-    !draft.mode &&
-    !draft.modelSelection
+    !next.mention &&
+    !next.mode &&
+    !next.modelSelection
   ) {
     delete file.scopes[scopeId];
   } else {
-    file.scopes[scopeId] = { ...draft, updatedAt: Date.now() };
+    file.scopes[scopeId] = { ...next, updatedAt: Date.now() };
   }
   return writeDraftFile(key, file);
 }

@@ -293,9 +293,9 @@ describe("WorkspaceHeaderTitleSection", () => {
       }),
     );
 
-    expect(html).toContain("root [SSH: linux-arm64]");
+    expect(html).toContain("root");
     expect(html).toContain('data-icon="cloud"');
-    expect(html).not.toContain(">root</span><span");
+    expect(html).not.toContain("[SSH:");
     expect(html).not.toContain(">localhost:2223</span>");
   });
 
@@ -336,7 +336,7 @@ describe("WorkspaceHeaderTitleSection", () => {
       }),
     );
 
-    expect(html).toContain("settings.skills.remoteSync.open");
-    expect(html).toContain("settings.mcp.remoteSync.open");
+    expect(html).toContain("remote.syncSkills");
+    expect(html).toContain("remote.syncMcp");
   });
 });

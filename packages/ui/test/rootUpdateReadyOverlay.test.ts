@@ -333,7 +333,9 @@ describe("Root update ready overlay", () => {
 
     const html = await renderRoot();
 
-    expect(html).toContain('data-testid="settings-page"');
+    // SettingsPage 保留 lazy 边界（U4 首屏优化）：SSR 只能渲染启动壳，不能断言设置页本体；
+    // 本用例要验证的是设置模式下不会挂载更新按钮。
+    expect(html).toContain('data-testid="root-startup-loading"');
     expect(html).not.toContain('data-testid="update-ready-button"');
   }, 15_000);
 });

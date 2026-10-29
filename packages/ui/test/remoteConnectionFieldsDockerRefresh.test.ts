@@ -247,21 +247,23 @@ describe("RemoteConnectionFields Docker refresh", () => {
 
   it("shows an empty Docker container hint in the chooser when no containers are available", () => {
     const html = renderDockerFields({
+      dockerContainer: "escode-dev",
       dockerContainers: [],
       refreshDockerContainers: vi.fn(),
     });
 
-    expect(html).toContain("未检测到运行中容器");
+    expect(html).toContain("没有运行中的容器");
   });
 
   it("shows the same short hint when Docker availability detection reports unavailable", () => {
     const html = renderDockerFields({
       dockerAvailable: false,
+      dockerContainer: "escode-dev",
       dockerContainers: [],
       refreshDockerContainers: vi.fn(),
     });
 
-    expect(html).toContain("未检测到运行中容器");
+    expect(html).toContain("Docker 不可用");
     expect(html).not.toContain("当前环境未检测到可用的 Docker 运行环境");
   });
 
@@ -274,11 +276,11 @@ describe("RemoteConnectionFields Docker refresh", () => {
 
     expect(html).toContain('data-testid="docker-container-input"');
     expect(html).toContain('value="manual-dev"');
-    expect(html).toContain("escode-dev");
   });
 
   it("shows a helper hint when the manual Docker container input is empty", () => {
     const html = renderDockerFields({
+      dockerContainer: "",
       manualDockerContainer: "",
       refreshDockerContainers: vi.fn(),
     });

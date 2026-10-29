@@ -1,4 +1,8 @@
 import { PluginUiWorkspaceProvider } from "@/plugin-ui/index.js";
+import {
+  projectIdForWorkspacePath,
+  useProjectIdByWorkspace,
+} from "@/hooks/useProjectIdByWorkspace.js";
 /* eslint-disable max-lines -- App 当前集中编排 workspace 级状态、导航、Git 派生数据和 shell wiring；已将新增 side pane memory 桥接抽出，剩余拆分需要按 shell 边界单独重构。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -124,6 +128,8 @@ export function App({
   isWindowsDesktop,
   supportsEmbeddedBrowser: explicitSupportsEmbeddedBrowser,
 }: AppProps) {
+  // 项目归属只从当前 Host 的项目树派生；旧 Host/旧 Server 为空表，草稿按未归类处理。
+  const projectIdByWorkspace = useProjectIdByWorkspace(services);
   // 展示 label 统一从快捷键生效表取（用户改键后 tooltip 同步更新），不再硬编码键位。
   const toggleSidebarShortcutLabel = useShortcutCommandLabel("toggleSidebar");
   const newTaskShortcutLabel = useShortcutCommandLabel("newTask");
@@ -704,6 +710,10 @@ export function App({
         currentWorkspaceState.activeTaskId === null
           ? currentWorkspaceState.groupedDraftTask?.placement
           : undefined;
+      const projectIdByWorkspacePath = projectIdForWorkspacePath(
+        projectIdByWorkspace,
+        targetWorkspacePath,
+      );
 
       // 空态里的 workspace 选择器要表达"在这个项目里开始工作"，
       // 目标 workspace 如果已经记住了自己的 Agent，切过去后应当继续沿用那份选择；
@@ -746,6 +756,7 @@ export function App({
         {
           groupedDraftPlacement,
           createSource: createSource ?? (groupedDraftPlacement ? "group" : "project"),
+          projectId: projectIdByWorkspacePath,
         },
       );
       if (
@@ -765,6 +776,7 @@ export function App({
       workspaceAbsPath,
       workspaceIdentity,
       workspaceShellESCodeState.selectedProvider,
+      projectIdByWorkspace,
     ],
   );
 

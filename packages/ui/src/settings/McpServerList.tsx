@@ -1,10 +1,9 @@
+import { type McpServerStatus, type ESCodeMcpServer } from "@escode/shared";
 import {
   TID_MCP_OPEN_AUTHORIZATION_BUTTON,
   TID_MCP_SERVER_ROW,
   testId,
-  type McpServerStatus,
-  type ESCodeMcpServer,
-} from "@escode/shared";
+} from "@escode/shared/test-ids";
 import { Button } from "@/components/ui/button.js";
 import { Switch } from "@/components/ui/switch.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";

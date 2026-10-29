@@ -109,10 +109,21 @@ function renderRootActions({
   activeWorkspacePath = "/workspace-a",
   activeWorkspaceIdentity = null,
   workbenchGroupClientMode = "desktop-continuous",
+  services = {},
+  openRemoteProjectWorkspace,
 }: {
   activeWorkspacePath?: string;
   activeWorkspaceIdentity?: string | null;
   workbenchGroupClientMode?: "desktop-continuous" | "web-remote-replayable";
+  services?: unknown;
+  openRemoteProjectWorkspace?: (target: {
+    hostId: string;
+    workspacePath: string;
+    workspaceIdentity?: string;
+    expectedMembershipId?: string;
+    projectId: string | null;
+    isCurrent?: () => boolean;
+  }) => Promise<void>;
 } = {}) {
   let handleCreateTask: ((request?: CreateTaskRequest) => void) | null = null;
   let handleSelectConversationWorkspace: ((path: string) => void) | null = null;
@@ -137,7 +148,7 @@ function renderRootActions({
     const actions = useRootWorkspaceActions({
       intl: { formatMessage: ({ id }: { id: string }) => id },
       platform: {} as never,
-      services: {} as never,
+      services: services as never,
       tabStoreApi: { getState: () => tabState } as never,
       addTab,
       activeWorkspacePath: tabState.activeWorkspacePath,
@@ -149,6 +160,7 @@ function renderRootActions({
       updateAppSettings: vi.fn(),
       setOAuthError: vi.fn(),
       setUser: vi.fn(),
+      openRemoteProjectWorkspace,
       workbenchGroupClientMode,
     });
     handleCreateTask = actions.handleCreateTask;
@@ -322,5 +334,182 @@ describe("root new task workbench context", () => {
     expect(addTab).toHaveBeenCalledWith("/Users/demo/.escode/workspace/default", {
       workspacePurpose: "conversation",
     });
+  });
+});
+
+describe("root remote project creation", () => {
+  beforeEach(resetState);
+  afterEach(resetState);
+
+  function preparedRemote(projectId = "project-1") {
+    return {
+      workspacePath: "/remote/project",
+      workspaceIdentity: "remote:ssh:dev:/remote/project",
+      additionalDirectories: [],
+      projectId,
+    };
+  }
+
+  it("resolves the remote project, calls prepareSession and opens the prepared workspace", async () => {
+    const prepareSession = vi.fn(async () => preparedRemote());
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree: vi.fn() } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({
+        projectId: "project-1",
+        hostId: "dev",
+        remoteProjectMembershipId: "membership-1",
+        onComplete,
+        onError,
+      });
+    });
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+
+    expect(prepareSession).toHaveBeenCalledWith({ projectId: "project-1", hostId: "dev" });
+    expect(openRemoteProjectWorkspace).toHaveBeenCalledWith({
+      hostId: "dev",
+      workspacePath: "/remote/project",
+      workspaceIdentity: "remote:ssh:dev:/remote/project",
+      expectedMembershipId: "membership-1",
+      projectId: "project-1",
+      isCurrent: expect.any(Function),
+    });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the active draft project when the request omits projectId", async () => {
+    useESCodeSessionStore
+      .getState()
+      .startDraft("/workspace-a", undefined, undefined, { projectId: "draft-project" });
+    const prepareSession = vi.fn(async () => preparedRemote("draft-project"));
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree: vi.fn() } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({ hostId: "dev", onComplete });
+    });
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+
+    expect(prepareSession).toHaveBeenCalledWith({ projectId: "draft-project", hostId: "dev" });
+    expect(openRemoteProjectWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: "draft-project", hostId: "dev" }),
+    );
+  });
+
+  it("resolves the project from the active task through the host tree", async () => {
+    useESCodeSessionStore.getState().setActiveTaskId("/workspace-a", "task-1");
+    const readTree = vi.fn(async () => ({
+      tasks: [
+        {
+          taskId: "task-1",
+          workspacePath: "/workspace-a",
+          projectId: "task-project",
+        },
+      ],
+    }));
+    const prepareSession = vi.fn(async () => preparedRemote("task-project"));
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({ hostId: "dev", onComplete });
+    });
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+
+    expect(readTree).toHaveBeenCalledWith({ hostId: "dev" });
+    expect(prepareSession).toHaveBeenCalledWith({ projectId: "task-project", hostId: "dev" });
+  });
+
+  it("does not prepare or navigate when the initiating request is already stale", async () => {
+    const prepareSession = vi.fn(async () => preparedRemote());
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree: vi.fn() } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({
+        projectId: "project-1",
+        hostId: "dev",
+        isCurrent: () => false,
+        onComplete,
+        onError,
+      });
+    });
+
+    expect(prepareSession).not.toHaveBeenCalled();
+    expect(openRemoteProjectWorkspace).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("reports prepareSession failures through onError without opening a workspace", async () => {
+    const error = new Error("project.primary-root-unavailable");
+    const prepareSession = vi.fn(async () => {
+      throw error;
+    });
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree: vi.fn() } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({
+        projectId: "project-1",
+        hostId: "dev",
+        onComplete,
+        onError,
+      });
+    });
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(error));
+
+    expect(openRemoteProjectWorkspace).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("rejects remote creation without a project instead of falling back to the active workspace", async () => {
+    const prepareSession = vi.fn(async () => preparedRemote());
+    const openRemoteProjectWorkspace = vi.fn(async () => {});
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+    const { getHandleCreateTask } = renderRootActions({
+      services: { projectService: { prepareSession, readTree: vi.fn() } },
+      openRemoteProjectWorkspace,
+    });
+
+    await act(async () => {
+      getHandleCreateTask()({ hostId: "dev", onComplete, onError });
+    });
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "project.remote-project-required",
+        }),
+      ),
+    );
+
+    expect(prepareSession).not.toHaveBeenCalled();
+    expect(openRemoteProjectWorkspace).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

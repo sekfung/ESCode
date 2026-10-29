@@ -9,6 +9,7 @@ import type {
   IPlatformService,
   RemoteTarget,
   RemoteWorkspaceSessionEntry,
+  SourceServerUpdateTarget,
   UpdateStatePayload,
   UserInfo,
 } from "@escode/shared";
@@ -69,6 +70,21 @@ export interface CreateTaskOptions {
   initialPromptMention?: ComposerMentionPrefill;
   /** 新任务落在哪个 workspace；缺省取活动 workspace。 */
   targetWorkspace?: { workspacePath: string; workspaceIdentity?: string };
+  /** 新任务所属 Host；缺省为当前 Host。 */
+  hostId?: string;
+  /** 远端项目成员身份；本地任务为空。 */
+  remoteProjectMembershipId?: string;
+  /** 设备回连完成前的有效性检查；失效后丢弃迟到结果。 */
+  isCurrent?: () => boolean | Promise<boolean>;
+  /** 远端目录选择创建任务后的完成回调。 */
+  onComplete?: () => void;
+  onError?: (error: unknown) => void;
+  /** 新任务的项目归属；null 表示明确未归类。 */
+  projectId?: string | null;
+  /** 新任务的分组归属；null 表示明确未分组。 */
+  taskGroupId?: string | null;
+  /** 从旧草稿转交给新任务的初始内容；由调用方显式提供。 */
+  initialComposerDraft?: import("@/v4/composer/composerDraftStore.js").V4ComposerDraft | null;
 }
 
 export type CreateTaskRequest = ESCodeProvider | CreateTaskOptions;
@@ -95,7 +111,7 @@ export interface AppProps {
   onResolveConversationWorkspace?: () => Promise<string>;
   onOpenWorkspace: () => void;
   onOpenFolderFromWorkspaceMenu: () => void;
-  onOpenRemoteWorkspace?: () => void;
+  onOpenRemoteWorkspace?: (preference?: RemoteConnectionOpenPreference) => void | boolean;
   remoteConnectionInProgress?: boolean;
   onReturnToWorkspace?: () => void;
   allowOpenWorkspace?: boolean;
@@ -286,4 +302,43 @@ export interface WorkspaceShellLayoutProps extends AppProps {
   setIsTerminalOpen: (open: boolean) => void;
   setGitSelectedSourceId: (value: GitChangeSourceId) => void;
   taskFindDialogProps: TaskFindDialogProps;
+}
+
+export interface RemoteWorkspaceRecoveryStatus {
+  mode: "automatic" | "manual";
+  attempt?: number;
+  limit?: number;
+}
+export interface RemoteConnectionFeedbackOptions {
+  announceReusedConnection?: boolean;
+}
+export type DeviceAdditionResult =
+  | { kind: "connected"; sourceServerId: string | undefined }
+  | { kind: "cancelled"; background?: boolean };
+export interface DeviceAdditionReturnTarget {
+  kind: "connect-device" | "add-device";
+  isCurrent(): boolean;
+  onVisibilityChange?(visible: boolean): void;
+  canFinish?(result: DeviceAdditionResult): Promise<boolean>;
+  finish(result: DeviceAdditionResult): void | Promise<void>;
+}
+export interface RemoteConnectionOpenPreference {
+  returnTarget?: DeviceAdditionReturnTarget;
+  completion?: "device-management";
+  initialFailure?: {
+    code?: string;
+    message: string;
+    logs?: import("@/hooks/useRemoteConnectionLogs.js").RemoteConnectionLogEntry[];
+    profileId?: string;
+    failedTarget?: SourceServerUpdateTarget;
+    resolvedWslTarget?: Required<Extract<RemoteTarget, { kind: "wsl" }>>;
+  };
+  preferredDirectoryPath?: string;
+  preferredWorkspaceTabId?: string;
+  preferredProjectEntryId?: string;
+  preferredTarget?: RemoteTarget;
+  preferredKind?: RemoteTarget["kind"];
+  preferredWslDistro?: string;
+  preferredSourceServerId?: string;
+  preferredProfileId?: string;
 }

@@ -11,7 +11,7 @@ import {
   TID_MODEL_PROVIDER_API_FORMAT_ITEM,
   TID_MODEL_PROVIDER_API_FORMAT_TRIGGER,
   testId,
-} from "@escode/shared";
+} from "@escode/shared/test-ids";
 
 export const PROVIDER_CONNECTION_API_FORMATS: readonly ProviderApiType[] = [
   "anthropic-messages",

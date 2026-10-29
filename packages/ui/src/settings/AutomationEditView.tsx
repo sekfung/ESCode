@@ -1253,9 +1253,8 @@ export function AutomationEditView({
   // 目标项目 key(仅新建时可改;编辑锁定为 automation 所属项目)。
   const [workspaceKey, setWorkspaceKey] = useState<string | null>(null);
 
-  const localWorkspaceOptions = useAutomationProjectOptions({
-    includeConversationWorkspace: true,
-  });
+  // 上游改为项目模型后，自动化目标直接来自 projectService（不再从打开的 tab 派生）。
+  const localWorkspaceOptions = useAutomationProjectOptions();
   const editingWorkspaceOption = editing
     ? findAutomationWorkspaceOptionByKey(localWorkspaceOptions, editing.workspaceKey)
     : undefined;

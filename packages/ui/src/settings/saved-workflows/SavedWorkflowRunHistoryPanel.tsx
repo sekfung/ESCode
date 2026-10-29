@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Ban, ChevronRight, CircleCheck, Loader2, TriangleAlert } from "lucide-react";
-import { TID_WORKFLOW_RUN_ROW, testId, type ESCodeSavedWorkflowRun } from "@escode/shared";
+import { TID_WORKFLOW_RUN_ROW, type ESCodeSavedWorkflowRun } from "@escode/shared";
+import { testId } from "@escode/shared/test-ids";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
