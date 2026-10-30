@@ -1,26 +1,21 @@
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import { selectUpstreamProviderModelById } from "../../../helpers/upstream-provider.js";
+import { selectV4TaskById } from "../../../helpers/v4-conversation.js";
 import {
   connectSSHWorkspaceAndSendFirstTurn,
   prepareSSHLifecycle,
   readTaskRowInWorkspace,
-  reconnectSSHWorkspace,
   sendSSHFollowTurn,
-  waitForRemoteWorkspaceDisconnected,
   waitForRendererAfterColdRestart,
   type SSHLifecycleProvider,
   type SSHLifecycleTask,
   SSH_LIFECYCLE_MODEL_ID,
 } from "../../../helpers/ssh-remote-lifecycle.js";
-import {
-  readHostProcesses,
-  readRemoteTabSnapshot,
-  waitForRemoteTab,
-} from "../../../helpers/ssh-remote-p0.js";
+import { readHostProcesses, waitForRemoteTab } from "../../../helpers/ssh-remote-p0.js";
 
 const CASE_MARKER = "E2E_SSH_P0_COLD_RECONNECT";
 
-describe(`${CASE_MARKER}: SSH cold restart and manual reconnect`, () => {
+describe(`${CASE_MARKER}: SSH cold restart auto reconnect`, () => {
   let provider: SSHLifecycleProvider | null = null;
 
   after(async () => {
@@ -54,27 +49,35 @@ describe(`${CASE_MARKER}: SSH cold restart and manual reconnect`, () => {
     // browser.reloadSession 才会重启 Electron/Main/Host/CLI；renderer reload 不足以证明冷恢复。
     await browser.reloadSession();
     await waitForRendererAfterColdRestart(CASE_MARKER);
-    await waitForRemoteWorkspaceDisconnected(taskA.identity, CASE_MARKER);
-    await waitForRemoteWorkspaceDisconnected(taskB.identity, CASE_MARKER);
-    expect((await readRemoteTabSnapshot(taskA.identity)).secretPersistedInTab).toBe(false);
-    expect((await readRemoteTabSnapshot(taskB.identity)).secretPersistedInTab).toBe(false);
-
-    await reconnectSSHWorkspace(workspaceA, CASE_MARKER);
+    // 默认开启冷启动自动重连（remoteStartupAutoReconnectEnabled ?? true）：
+    // 不点手动重连，等待 A/B 各自自动拿到新的 remoteSessionId。
     const reconnectedA = await waitForRemoteTab({
       caseMarker: CASE_MARKER,
       expectedIdentity: taskA.identity,
       expectedPath: workspaceA,
+      requireActive: false,
+      timeoutMs: 90_000,
     });
     const reconnectedB = await waitForRemoteTab({
       caseMarker: CASE_MARKER,
       expectedIdentity: taskB.identity,
       expectedPath: workspaceB,
       requireActive: false,
+      timeoutMs: 90_000,
     });
     expect(reconnectedA.remoteSessionId).not.toBe(taskA.remoteSessionId);
     expect(reconnectedB.remoteSessionId).not.toBe(taskB.remoteSessionId);
-    expect(await readHostProcesses()).toHaveLength(1);
+    expect(reconnectedA.secretPersistedInTab).toBe(false);
+    expect(reconnectedB.secretPersistedInTab).toBe(false);
+    // 冷启动后本地 window Host 重建，远端 scope 仍只允许一个 Node Host。
+    expect(
+      (await readHostProcesses()).filter((host) =>
+        host.name.startsWith("escode-host-remote-"),
+      ).length,
+    ).toBe(1);
 
+    // 模型选择作用于当前激活 workspace：先激活 A 的原任务。
+    await selectV4TaskById(taskA.taskId, 30_000);
     await selectUpstreamProviderModelById(SSH_LIFECYCLE_MODEL_ID, {
       includePlainModelFallback: false,
       providerId: provider.id,
