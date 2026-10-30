@@ -49,6 +49,19 @@ describe(`${CASE_MARKER}: SSH cold restart auto reconnect`, () => {
     // browser.reloadSession 才会重启 Electron/Main/Host/CLI；renderer reload 不足以证明冷恢复。
     await browser.reloadSession();
     await waitForRendererAfterColdRestart(CASE_MARKER);
+    const dumpTabs = () =>
+      browser.execute(() => {
+        const store = (
+          window as Window & {
+            __escodeTabStoreE2E?: { getState?: () => { tabs?: Array<Record<string, unknown>> } };
+          }
+        ).__escodeTabStoreE2E;
+        return (store?.getState?.().tabs ?? []).map((tab) => ({
+          path: tab.workspacePath,
+          identity: tab.workspaceIdentity,
+          sessionId: tab.remoteSessionId,
+        }));
+      });
     // 默认开启冷启动自动重连（remoteStartupAutoReconnectEnabled ?? true）：
     // 不点手动重连，等待 A/B 各自自动拿到新的 remoteSessionId。
     const reconnectedA = await waitForRemoteTab({
@@ -57,6 +70,10 @@ describe(`${CASE_MARKER}: SSH cold restart auto reconnect`, () => {
       expectedPath: workspaceA,
       requireActive: false,
       timeoutMs: 90_000,
+    }).catch(async (error: unknown) => {
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}; tabs=${JSON.stringify(await dumpTabs())}`,
+      );
     });
     const reconnectedB = await waitForRemoteTab({
       caseMarker: CASE_MARKER,
