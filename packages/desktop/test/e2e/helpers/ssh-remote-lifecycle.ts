@@ -360,7 +360,9 @@ export async function listRemoteESCodeServerPids(config: SSHConnectionConfig): P
   return result.stdout
     .split("\n")
     .flatMap((line) => {
-      const match = line.match(/^\s*(\d+)\s+.*(?:^|\s)escode-server\.cjs(?:\s|$)/u);
+      // 参数形如 `node /root/.escode/server/zcode-server.cjs`：前面是路径分隔符；
+      // 品牌映射未替换远端 bundle 文件名，两种名字都接受。
+      const match = line.match(/^\s*(\d+)\s+.*(?:^|[\s/])(?:escode|zcode)-server\.cjs(?:\s|$)/u);
       return match ? [Number.parseInt(match[1]!, 10)] : [];
     })
     .filter((pid) => Number.isSafeInteger(pid) && pid > 0);
@@ -373,21 +375,24 @@ export async function stopOwnedSSHServer(
 ): Promise<number> {
   const currentPids = await listRemoteESCodeServerPids(config);
   const owned = currentPids.filter((pid) => !beforePids.includes(pid));
-  if (owned.length !== 1) {
+  if (owned.length === 0) {
     throw new Error(
-      `${caseMarker}: 只允许终止本 case 新建的一个 escode-server，before=${beforePids.join(",")}, current=${currentPids.join(",")}`,
+      `${caseMarker}: 没有属于本 case 的 escode-server，before=${beforePids.join(",")}, current=${currentPids.join(",")}`,
     );
   }
-  const pid = owned[0]!;
-  const result = await runSSHCommand(config, `kill -TERM -- ${pid}`);
+  // 同一 server 可能有 node 主进程与子进程（本次实测两个 PID）；只终止本 case 新建的集合。
+  const result = await runSSHCommand(config, `kill -TERM -- ${owned.join(" ")}`);
   if (result.code !== 0) {
-    throw new Error(`${caseMarker}: 终止远端 escode-server ${pid} 失败: ${result.stderr}`);
+    throw new Error(`${caseMarker}: 终止远端 escode-server ${owned.join(",")} 失败: ${result.stderr}`);
   }
-  await browser.waitUntil(async () => !(await listRemoteESCodeServerPids(config)).includes(pid), {
+  await browser.waitUntil(async () => {
+    const remaining = await listRemoteESCodeServerPids(config);
+    return owned.every((pid) => !remaining.includes(pid));
+  }, {
     timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
-    timeoutMsg: `${caseMarker}: 远端 escode-server ${pid} 没有退出`,
+    timeoutMsg: `${caseMarker}: 远端 escode-server ${owned.join(",")} 没有退出`,
   });
-  return pid;
+  return owned[0]!;
 }
 
 export async function waitForRendererAfterColdRestart(caseMarker: string): Promise<void> {
