@@ -3,10 +3,7 @@ import type { RemoteConnectionPresentation } from "@/lib/remoteConnectionPresent
 import { resolveRemoteConnectionPresentation } from "@/lib/remoteConnectionPresentation.js";
 import type { ReconnectRemoteWorkspaceOptions } from "@/root/reconnectRemoteWorkspaceHistoryEntry.js";
 import { getErrorMessage } from "@/lib/errorMessage.js";
-import {
-  getSourceServerUpdateTarget,
-  hostRemoteWorkspaceConnectFailedResponseSchema,
-} from "@escode/shared";
+import { getSourceServerUpdateTarget, resolvedWslTargetSchema } from "@escode/shared";
 
 /** 只分派用户意图；连接状态、失败和日志仍归 Root/Host，向导仅接管需要交互的流程。 */
 export async function requestRemoteProjectConnection({
@@ -75,8 +72,9 @@ export async function requestRemoteProjectConnection({
         typeof error.profileId === "string"
           ? error.profileId
           : undefined;
-      const resolvedWslTarget =
-        hostRemoteWorkspaceConnectFailedResponseSchema.shape.resolvedWslTarget.safeParse(
+      const resolvedWslTarget = resolvedWslTargetSchema
+        .optional()
+        .safeParse(
           (code === "source-server-install-required" ||
             code === "source-server-upgrade-required") &&
             error &&

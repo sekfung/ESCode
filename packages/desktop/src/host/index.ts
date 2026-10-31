@@ -1281,7 +1281,8 @@ const windowHostAttachmentRegistry = createWindowHostAttachmentRegistry<
       // 本 fork 的 Source 配置仍由本地设置权威承载；不把远端项目 scope 冒充 source 配置。
       throw new Error(`Source Server settings scope is unavailable: ${scope.sourceServerId}`);
     }
-    // 远程 workspace 只由 Rust Host 提供 attachment；Node Host 显式失败，不回退本地服务。
+    // 远程 workspace attachment 由 Rust Host 承载；Node Host 收到 remote scope 必须显式失败，
+    // 不能回退到本地服务。
     throw new Error(
       `Remote workspace attachment is served by the Rust Host: ${scope.remoteSessionId}`,
     );

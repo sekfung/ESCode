@@ -184,8 +184,8 @@ settings 判定而误弹引导。修复只补服务装配；引导触发规则�
 通过真实 RPC 验证读写路由和错误传播；浏览器回归使用真实引导组件、服务装配和手机 allowlist，
 任务入口与传输环境使用隔离夹具，不代替真机配对及 SSH/WSL/Docker 传输端到端验收。
 
-- RPC 回归：`packages/desktop/test/hostRemoteWorkspaceServices.test.ts`、
-  `packages/desktop/test/windowHostAttachmentRpcPolicy.test.ts`。
+- RPC 回归：`packages/desktop/test/rustHostUserConfig.test.ts`（Rust Host `onboarding-record` 观测）、
+  `packages/services/test/onboardingRecordService.test.ts`。
 - 浏览器候选用例（待人工审阅）：
   `packages/desktop/test/e2e/manual-review/pending/mobile-remote-onboarding.mjs`，
   从仓库根目录执行 `pnpm exec tsx <用例路径>`。

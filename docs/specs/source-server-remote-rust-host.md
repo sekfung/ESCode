@@ -161,13 +161,13 @@ Host 解析 release ──► 校验 compatibility ──► 安装 ──► �
 
 ## 7. 分期
 
-| 阶段 | 内容                                                               | 退出条件                                                                   |
-| ---- | ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| S1   | 协议/兼容字段、只读展示（本轮 v3.16.2 同步 W1/W3）                 | schema 测试与类型检查通过；远程仍由 Node Host 服务                         |
-| S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                          |
-| S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                 |
-| S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）     |
-| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-4 完成 server Rust transport 与 Main 路由，§12.6；Node Host 侧 handler 删除与 E2E 待 S5-f-5） |
+| 阶段 | 内容                                                               | 退出条件                                                                                                                                               |
+| ---- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S1   | 协议/兼容字段、只读展示（本轮 v3.16.2 同步 W1/W3）                 | schema 测试与类型检查通过；远程仍由 Node Host 服务                                                                                                     |
+| S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                                                                                                      |
+| S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                                                                                             |
+| S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）                                                                                 |
+| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零进程 E2E 与 Windows/macOS 主链待补） |
 
 ## 8. 非目标
 
@@ -1498,9 +1498,9 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 ```text
 1. 直接首连 target → Rust Host（Main）                         [已完成，Linux SSH 真实 E2E：desktop-e2e-20261031-122307-136]
-2. 移除 node-host route 的创建；保留读取旧 route 的兼容代码一个版本  [已完成（2026-11-01）：非 server Host backend 分支删除；server 目标 Main 侧 Node 路由删除（S5-f-4），Host 侧 handler 待 S5-f-5]
-3. 删除 ProviderProvisioningExecute / ExecutionResult 远端分支     [Main 发送端已删除（S5-f-4）；Host 处理端待 S5-f-5]
-4. 删除 renderer 远端 MessagePort 通道选择                        [已删除 `attachRemoteWorkspaceSessionHost`（S5-f-4，仅导出无生产调用方）；Host 侧 remote attachment 分支待 S5-f-5]
+2. 移除 node-host route 的创建；保留读取旧 route 的兼容代码一个版本  [已完成（2026-11-01）：非 server Host backend 分支删除；server 目标 Main 侧 Node 路由删除（S5-f-4），Host 侧 handler/注册表删除（S5-f-5）]
+3. 删除 ProviderProvisioningExecute / ExecutionResult 远端分支     [已完成（2026-11-01）：Main 发送端（S5-f-4）与 Host 处理端、共享 schema（S5-f-5）均已删除]
+4. 删除 renderer 远端 MessagePort 通道选择                        [已完成（2026-11-01）：`attachRemoteWorkspaceSessionHost` 删除（S5-f-4）；Host 侧 remote attachment 仅保留显式失败（S5-f-5）]
 5. 删除 ESCODE_RUST_HOST=0 远程分支                              [已完成（S5-b）]
 6. 删除 Node remote deploy / preflight / installer（先 dep:refs 证明）[已完成（2026-11-01）]
 7. 清理文档、脚本、fixture 中的 Node 远程路径引用                  [已完成（2026-10-31；保留历史记录与 Web kind:"server" 说明）]
@@ -1582,15 +1582,14 @@ previousSourceServerId 存在且 != handshake.sourceServerId
    （2026-11-01 更新）：
    - Web 自连：`POST /api/connect-remote` 与 `/ws/remote/:id` 已删除；`serverInfoHttp.test.ts`
      断言两者返回 404，`rg "api/connect-remote"` 不再命中生产调用方。
-   - Host 侧：`ProviderProvisioningExecute` 只由 `packages/desktop/src/main/desktopRemoteSessions.ts` 的
-     `owner: "node-host"` + `target.kind === "server"` 分支发送，`packages/desktop/src/host/index.ts` 处理；
-     SSH/WSL/Docker 由 Rust Host 的 `SourceServerProviderProvisioning` 承担。
-   - 测试：`packages/desktop/test/remoteProviderProvisioningService.test.ts`（Host facade）、
-     `packages/desktop/test/desktopRemoteSessionsRustHostMode.test.ts`（server-only Node 路径与显式拒绝）。
+   - Host 侧：`ProviderProvisioningExecute` 的 Main 发送端与 Host 处理端已删除（S5-f-4/S5-f-5），
+     SSH/WSL/Docker 全部由 Rust Host 的 `SourceServerProviderProvisioning` 承担。
+   - 测试：`packages/desktop/test/desktopRemoteSessionsRustHostMode.test.ts`（server 走 resolver、
+     缺 resolver 显式失败），`packages/shared/test/windowHostControlProtocol.test.ts`（保留的 host 协议面）。
 
 ### 12.5 完成判据
 
-> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，Desktop `kind: "server"` 已改由 Rust Host 建链（S5-f-1~f-4），但 per-window Node Host 的 handler、`connectServerRemote` 与 `windowRemoteConnectionRegistry` 仍留在 `packages/desktop/src/host/index.ts`，尚无生产调用方；删除与零进程 E2E 属 S5-f-5。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
+> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，per-window Node Host 的远程 handler、`serverRemoteConnection`、`windowRemoteConnectionRegistry` 及相关共享协议项已删除（S5-f-5），但零 `escode-host-remote-*` 的 server 真实 E2E、两窗口共享实例与重启恢复尚未执行。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`
@@ -1608,12 +1607,12 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 #### 12.6.1 分层：差异只在「链路」
 
-| 环节    | ssh / wsl / docker                        | `kind: "server"`                                          |
-| ------- | ----------------------------------------- | --------------------------------------------------------- |
-| 启动    | `TransportCommand` 拉起远端 stdio         | 不拉起进程；HTTP 探测 + WebSocket 升级                    |
-| 握手    | `escode-hello` / `escode-hello-ack` 行    | 无 hello；`GET /api/server-info` 提供版本与身份           |
-| 帧面    | `rpc_wire` Regular 帧                     | 同一帧面，WS 二进制消息就是帧字节                         |
-| 链路之上 | `RemoteChannelClient` → channel → 实例表 | 完全一致，不新增第二条业务路径                            |
+| 环节     | ssh / wsl / docker                       | `kind: "server"`                                |
+| -------- | ---------------------------------------- | ----------------------------------------------- |
+| 启动     | `TransportCommand` 拉起远端 stdio        | 不拉起进程；HTTP 探测 + WebSocket 升级          |
+| 握手     | `escode-hello` / `escode-hello-ack` 行   | 无 hello；`GET /api/server-info` 提供版本与身份 |
+| 帧面     | `rpc_wire` Regular 帧                    | 同一帧面，WS 二进制消息就是帧字节               |
+| 链路之上 | `RemoteChannelClient` → channel → 实例表 | 完全一致，不新增第二条业务路径                  |
 
 ```
 Main/Renderer              Rust Host                                escode-server
@@ -1678,25 +1677,25 @@ Main/Renderer              Rust Host                                escode-serve
 
 #### 12.6.7 验收场景
 
-| #   | 场景                                                                   | 证据                                                            |
-| --- | ---------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 1   | 端点解析：http/https/ws/wss、子路径、尾部 `/ws`、空白、非法协议        | Rust 单测，逐条对齐 TS `serverRemoteConnection.test.ts`         |
-| 2   | info/capability 鉴权头与 capability 头升级成功                         | Rust 集成：本地 `escode-server` fixture                        |
-| 3   | Initialize 后 channel 可用，WS 断开时 `closed` 信号置位                | 同上                                                            |
-| 4   | 首连回填 `profileId` / `sourceServerId`，App 重启恢复并原位重连        | Desktop E2E（真实 `escode-server`）                            |
-| 5   | 同一 workspace 双窗口共享同一实例                                      | 同上                                                            |
-| 6   | 失败显式报错，且不出现 Node UtilityProcess 远程进程                    | 断言零 `escode-host-remote-*`                                   |
-| 7   | 删除 node-host 分支后 `rg` / `dep:refs` 无生产引用                     | 命令输出登记                                                    |
+| #   | 场景                                                            | 证据                                                    |
+| --- | --------------------------------------------------------------- | ------------------------------------------------------- |
+| 1   | 端点解析：http/https/ws/wss、子路径、尾部 `/ws`、空白、非法协议 | Rust 单测，逐条对齐 TS `serverRemoteConnection.test.ts` |
+| 2   | info/capability 鉴权头与 capability 头升级成功                  | Rust 集成：本地 `escode-server` fixture                 |
+| 3   | Initialize 后 channel 可用，WS 断开时 `closed` 信号置位         | 同上                                                    |
+| 4   | 首连回填 `profileId` / `sourceServerId`，App 重启恢复并原位重连 | Desktop E2E（真实 `escode-server`）                     |
+| 5   | 同一 workspace 双窗口共享同一实例                               | 同上                                                    |
+| 6   | 失败显式报错，且不出现 Node UtilityProcess 远程进程             | 断言零 `escode-host-remote-*`                           |
+| 7   | 删除 node-host 分支后 `rg` / `dep:refs` 无生产引用              | 命令输出登记                                            |
 
 #### 12.6.8 切片
 
-| 切片    | 内容                                                        | 退出条件                        |
-| ------- | ----------------------------------------------------------- | ------------------------------- |
-| S5-f-1  | 端点解析 + `TransportTarget::Server` 解析（纯函数）         | §12.6.7-1                       |
-| S5-f-2  | info/capability + WS 链路接入 `RemoteConnection`（无子进程） | §12.6.7-2/3                     |
-| S5-f-3  | `establish` 按 transport 收口 install/probe，身份从 info 投影 | 单测 + 兼容判定                 |
-| S5-f-4  | Main 把 server target 路由到 `source-server-resolve-profile`，删除 node-host 分支 | TS 断言不调用 `ensureWindowHost` |
-| S5-f-5  | E2E + 文档收口                                              | §12.6.7-4/5/6/7                 |
+| 切片   | 内容                                                                              | 退出条件                         |
+| ------ | --------------------------------------------------------------------------------- | -------------------------------- |
+| S5-f-1 | 端点解析 + `TransportTarget::Server` 解析（纯函数）                               | §12.6.7-1                        |
+| S5-f-2 | info/capability + WS 链路接入 `RemoteConnection`（无子进程）                      | §12.6.7-2/3                      |
+| S5-f-3 | `establish` 按 transport 收口 install/probe，身份从 info 投影                     | 单测 + 兼容判定                  |
+| S5-f-4 | Main 把 server target 路由到 `source-server-resolve-profile`，删除 node-host 分支 | TS 断言不调用 `ensureWindowHost` |
+| S5-f-5 | E2E + 文档收口                                                                    | §12.6.7-4/5/6/7                  |
 
 **S5-f-2 实现记录（2026-11-01）**
 
@@ -1709,7 +1708,7 @@ Main/Renderer              Rust Host                                escode-serve
   （WS 二进制消息 ↔ `rpc_wire` 帧 ↔ `RemoteChannelClient`，关闭时置位 `closed`）。
   capture 只记录去掉 token 的 URL。
 - `RemoteConnection` 改为链路无关：`info: ConnectionInfo`（stdio hello 或 server-info 投影）
-  + `child: Option<Child>`；server 目标的 `platform` / `arch` / `pid` 保持 `None`，不编造占位值。
+  - `child: Option<Child>`；server 目标的 `platform` / `arch` / `pid` 保持 `None`，不编造占位值。
 - 验证：`pnpm check:escode-host`、`pnpm test:escode-host`（69 个测试目标全部 ok）、
   `source_server_websocket` 8 例、`source_server_info` 8 例、`source_server_endpoints` 12 例。
   尚未接入 `establish`（S5-f-3）与 Main 路由（S5-f-4）。
@@ -1778,3 +1777,49 @@ scoped capability。per-window Node Host 的远程 workspace 分支随之删除�
 - 未完成：`packages/desktop/src/host/index.ts` 的 remote registry / `ProviderProvisioningExecute` /
   `serverRemoteConnection.ts` 删除，以及 `ConnectRemoteWorkspace` 等共享协议项的移除，随 S5-f-5 的
   `rg`/`dep:refs` 证据一起收口。
+
+**S5-f-5 实现记录（2026-11-01，Node Host 远程路径删除）**
+
+目标：`kind: "server"` 与 ssh/wsl/docker 一样只走 Rust Host 后，per-window Node Host 的远程分支已无
+生产调用方；本切片删除该分支及其协议面，Node Host 只保留本地服务。
+
+- `packages/desktop/src/host/index.ts`（2272 → 约 1750 行）：
+  - 删除 `windowRemoteConnectionRegistry`、`connectServerRemote`、`remoteConnectionProgressContext`、
+    `createHostRemoteWorkspaceProxyState` 的远程接线，以及 `HostRemoteConnectionCapabilities`。
+  - 删除 handler：`ConnectRemoteWorkspace`、`CancelRemoteWorkspaceConnect`、`BindRemoteWorkspaceContext`、
+    `DisposeRemoteWorkspaceSession`、`ProviderProvisioningExecute`。
+  - `AttachServicePort` 不再 await 远程 scoped services；收到 `kind: "remote"` scope 时显式抛
+    `Remote workspace attachment is served by the Rust Host`，不静默回退本地服务。
+  - `materializeRecording` / `resolveAutomationTargetServices` 对 `remoteSessionId` 显式失败。
+  - shutdown 阶段移除 `remote-registry-dispose`；拓扑日志只保留 attachment 数。
+- 删除文件（`rg` 复核无生产引用）：`host/serverRemoteConnection.ts`、`host/windowRemoteConnectionRegistry.ts`、
+  `host/remoteDynamicWorkflowUserMode.ts`、`host/remoteWorkspaceServiceCollection.ts`、
+  `host/remoteProviderProvisioningService.ts`、`host/remoteMediaPreviewProxy.ts` 及其 helpers、
+  `server/src/remote/remoteConnectionProgressContext.ts`；对应 7 个测试文件同步删除
+  （`hostRemoteWorkspaceServices.test.ts` 覆盖的 server service collection 一并退役）。
+- `packages/shared`：删除 `ConnectRemoteWorkspace` / `CancelRemoteWorkspaceConnect` /
+  `BindRemoteWorkspaceContext` / `DisposeRemoteWorkspaceSession` / `ProviderProvisioningExecute` /
+  `RemoteWorkspaceConnected` / `ConnectFailed` / `ContextBound` / `ContextBindFailed` / `Closed` /
+  `ConnectionLog` / `Acquired` / `ProviderProvisioningSourceChanged` / `ProviderProvisioningExecutionResult`
+  枚举与 zod schema、`remoteAssetDirsSchema`。`windowHostControlProtocol.test.ts` 重写为保留面
+  （CUA PiP focus、attachment scope、AttachServicePort）。
+- 保留与迁移：
+  - `resolvedWslTargetSchema` 从 `ConnectFailed` 响应中抽出为独立导出——renderer 的安装/升级等待仍需
+    校验“本次已解析 WSL 身份”，`requestRemoteProjectConnection` 改用它。
+  - `windowHostAttachmentScopeSchema` 保留 `kind: "remote"` 形态，仅用于 Node Host 显式拒绝；生产侧
+    已无 remote scope 发送方（Main 走 Rust scoped capability）。
+  - `hostRemoteWorkspaceProxyState.ts` 保留：本地 `ESCodeTaskService` 的 reporting/session-route 包装仍使用。
+  - `renderer/src/remoteWorkspaceSessionServices.ts` 的 `buildServerRemoteWorkspaceSessionServices` 保留
+    （只描述 server 目标使用远端服务面的语义）。
+- 证据（2026-11-01，本机 Linux x64）：
+  - `rg -n "ConnectRemoteWorkspace|…|ProviderProvisioningExecutionResult" packages apps` 仅剩
+    `resolveRemoteWorkspaceClosedFallback`（UI 历史恢复辅助，与协议无关）与
+    `onProviderProvisioningSourceChanged`（本地 Source 持久化回调，仍在用）。
+  - `rg -l "windowRemoteConnectionRegistry|remoteDynamicWorkflowUserMode|remoteWorkspaceServiceCollection|remoteMediaPreviewProxy|remoteConnectionProgressContext"` 命中 0；
+    `serverRemoteConnection` 命中仅剩 Rust 端点文件，`remoteProviderProvisioningService` 仅剩 UI 否定断言。
+  - `pnpm typecheck` 通过；`pnpm lint` 196 条既有 warning / 0 error；`pnpm architecture:check --changed` OK；
+    `pnpm exec vitest run` 覆盖 `desktopRemoteSessionsRustHostMode`、`windowHostAttachmentRegistry`、
+    `windowHostControllerService`、`remoteWorkspaceSessionServices`、`remoteConnectionFlowRecovery`、
+    `settingsWorkspaceServiceRouting`、`validation`、`windowHostControlProtocol` 共 182 例通过。
+- 未完成：真实 `escode-server` 的 server 直连 E2E（首连、应用重启恢复、原地重连、两窗口共享实例、
+  零 `escode-host-remote-*`）与 Windows/macOS 主链；在这些证据补齐前 S5 与总目标仍不得标记完成。

@@ -6,6 +6,7 @@ import {
   hostIncomingMessageSchema,
   webRemoteControlAppPayloadSchema,
   hostResponseMessageSchema,
+  resolvedWslTargetSchema,
   wslConnectOptionsSchema,
   escodePersistedMessageSchema,
 } from "../src/validation.js";
@@ -39,6 +40,22 @@ it("accepts persisted user messages with video attachments", () => {
 });
 
 describe("hostResponseMessageSchema", () => {
+  it("只接受完整的已解析 WSL 目标，用于安装/升级等待", () => {
+    expect(
+      resolvedWslTargetSchema.safeParse({ kind: "wsl", distro: "Ubuntu", user: "dev" }).success,
+    ).toBe(true);
+    for (const value of [
+      undefined,
+      { kind: "wsl" },
+      { kind: "wsl", distro: "Ubuntu" },
+      { kind: "wsl", distro: " ", user: "dev" },
+      { kind: "wsl", distro: "Ubuntu", user: "" },
+      { kind: "wsl", distro: "Ubuntu", user: "dev", password: "secret" },
+    ]) {
+      expect(resolvedWslTargetSchema.safeParse(value).success).toBe(false);
+    }
+  });
+
   it("rejects unsafe WSL user values but keeps empty default-user compatibility", () => {
     expect(
       wslConnectOptionsSchema.safeParse({
@@ -281,56 +298,6 @@ describe("hostResponseMessageSchema", () => {
     });
 
     expect(parsed.success).toBe(false);
-  });
-
-  it("accepts window Host connect payload with remote ESCode Agent asset dirs", () => {
-    const parsed = hostIncomingMessageSchema.safeParse({
-      type: "connect-remote-workspace",
-      requestId: "connect-docker-1",
-      target: {
-        kind: "docker",
-        container: "demo",
-      },
-      remoteAssets: {
-        mockCdnDir: "/tmp/mock-cdn",
-        remoteCdnBaseUrl: "",
-        remoteCdnBaseUrls: ["https://cdn.codegeex.cn/zcode/electron/releases/0.0.0-test"],
-        remoteCacheDir: "/tmp/remote-cache",
-        sourceServerArtifactPolicy: "development-content-addressed",
-      },
-    });
-
-    expect(parsed.success).toBe(true);
-    if (parsed.success && parsed.data.type === "connect-remote-workspace") {
-      expect(parsed.data.remoteAssets.sourceServerArtifactPolicy).toBe(
-        "development-content-addressed",
-      );
-    }
-  });
-
-  it("accepts encrypted SSH private key passphrase in window Host connect payload", () => {
-    const parsed = hostIncomingMessageSchema.safeParse({
-      type: "connect-remote-workspace",
-      requestId: "connect-ssh-1",
-      target: {
-        kind: "ssh",
-        host: "demo.internal",
-        port: 22,
-        username: "root",
-        sshConfigAlias: "demo-alias",
-        privateKeyPath: "~/.ssh/id_ed25519",
-        privateKeyPassphrase: "key-secret",
-      },
-      remoteAssets: {},
-    });
-
-    expect(parsed.success).toBe(true);
-    if (parsed.success && parsed.data.type === "connect-remote-workspace") {
-      expect(parsed.data.target).toMatchObject({
-        kind: "ssh",
-        sshConfigAlias: "demo-alias",
-      });
-    }
   });
 
   it("accepts combined workspace session snapshots in settings", () => {

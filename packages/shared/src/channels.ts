@@ -492,14 +492,6 @@ export const HostMessageTypes = {
   DatabaseStartupControl: "database-startup-control",
   /** 初始化本地服务 */
   InitLocal: "init-local",
-  /** main → window Host：在当前窗口建立一个远程 logical session */
-  ConnectRemoteWorkspace: "connect-remote-workspace",
-  /** main → window Host：取消尚未完成的远程连接 */
-  CancelRemoteWorkspaceConnect: "cancel-remote-workspace-connect",
-  /** main → window Host：为 logical session 绑定 canonical workspace 身份 */
-  BindRemoteWorkspaceContext: "bind-remote-workspace-context",
-  /** main → window Host：释放一个远程 logical session */
-  DisposeRemoteWorkspaceSession: "dispose-remote-workspace-session",
   /** main → host：复用现有服务，对新的 RPC MessagePort 暴露服务 */
   AttachServicePort: "attach-service-port",
   /** main → host：精确释放一个 RPC MessagePort attachment */
@@ -532,8 +524,6 @@ export const HostMessageTypes = {
   PluginSandboxRegisterResult: "plugin-sandbox-register-result",
   /** Main → Host：全局前台 ESCode 窗口派生的 producer focus fact。 */
   CuaPipFocusChanged: "cua-pip-focus-changed",
-  /** main → host：要求 Host 现读本地 Source，并同步指定 Remote Environment。 */
-  ProviderProvisioningExecute: "provider-provisioning-execute",
   /** main → host：资源管理器请求 Host 采样其后代进程（Agent / MCP / 终端）的 CPU 与内存 */
   ResourceUsageSnapshotRequest: "resource-usage-snapshot-request",
   ResourceUsageSnapshotCancel: "resource-usage-snapshot-cancel",
@@ -543,18 +533,6 @@ export const HostMessageTypes = {
 /** host process → main process 的反馈消息类型 */
 export const HostResponseTypes = {
   DatabaseStartupState: "database-startup-state",
-  /** window Host → main：按 requestId 上报远程连接过程日志 */
-  RemoteWorkspaceConnectionLog: "remote-workspace-connection-log",
-  /** window Host → main：远程 logical session 已建立 */
-  RemoteWorkspaceConnected: "remote-workspace-connected",
-  /** window Host → main：workspace canonical 准备完成，可安全建立新 attachment */
-  RemoteWorkspaceContextBound: "remote-workspace-context-bound",
-  /** window Host → main：workspace canonical 准备失败 */
-  RemoteWorkspaceContextBindFailed: "remote-workspace-context-bind-failed",
-  /** window Host → main：远程 logical session 建立失败 */
-  RemoteWorkspaceConnectFailed: "remote-workspace-connect-failed",
-  /** window Host → main：已连接的远程 logical session 关闭 */
-  RemoteWorkspaceClosed: "remote-workspace-closed",
   /** host 进程日志上报 */
   Log: "log",
   /** host 内拉起新的 agent 子进程 */
@@ -575,8 +553,6 @@ export const HostResponseTypes = {
   WorkspaceRunningTaskCountChanged: "workspace-running-task-count-changed",
   /** host → main：Windows desktop-local CUA turn 的操作提示状态 */
   CuaOperationState: "cua-operation-state",
-  /** host → main：workspace generation 已可安全 attach */
-  RemoteWorkspaceAcquired: "remote-workspace-acquired",
   /** 广播消息 */
   Broadcast: "broadcast",
   /** host → main：申请跨窗口原子 claim */
@@ -613,10 +589,6 @@ export const HostResponseTypes = {
   LocalMediaPreviewPathAuthorizeRequest: "local-media-preview-path-authorize-request",
   /** host → main：登记已校验的插件 UI HTML 与 CSP，换取 sandbox 句柄（PluginSandboxRegisterRequestPayload） */
   PluginSandboxRegisterRequest: "plugin-sandbox-register-request",
-  /** host → main：本地 Provisioning Source 成功持久化。 */
-  ProviderProvisioningSourceChanged: "provider-provisioning-source-changed",
-  /** host → main：一次 Remote Environment 同步执行完毕。 */
-  ProviderProvisioningExecutionResult: "provider-provisioning-execution-result",
 } as const;
 
 // ============================================================================

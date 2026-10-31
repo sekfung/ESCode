@@ -7,10 +7,6 @@ import { browserCommandSchema } from "./browser-use/commands.js";
 import { browserCommandResultSchema } from "./browser-use/result.js";
 import { modelSelectionSchema } from "./model-selection.js";
 import { escodeProcessDiagnosticSchema } from "./process-diagnostic.js";
-import {
-  providerProvisioningErrorCodeSchema,
-  providerProvisioningTriggerSchema,
-} from "./provider-provisioning.js";
 import { escodeProviderSchema } from "./providers.js";
 import { REMOTE_ASSET_INSTALL_MODES } from "./remoteAssetInstallMode.js";
 import { isKnownRemoteResourcePackageId } from "./remoteResourcePackages.js";
@@ -28,7 +24,6 @@ import {
   taskStreamMirrorTargetSchema,
 } from "./task-realtime-core.js";
 import { wslUserSchema } from "./wslUserValidation.js";
-import { sourceServerArtifactPolicySchema } from "./source-server/release.js";
 import { compatibilityManifestSchema } from "./source-server/compatibility.js";
 import { legacyESCodeProviderSchema } from "./escode-agent-policy.js";
 import { errorAttributionSchema } from "./escode-protocol-v4/snapshot.js";
@@ -185,14 +180,6 @@ export const broadcastMessageSchema = z.object({
   sourceWindowId: z.number().int().optional(),
 });
 
-export const remoteAssetDirsSchema = z.object({
-  mockCdnDir: z.string().optional(),
-  remoteCdnBaseUrl: z.string().optional(),
-  remoteCdnBaseUrls: z.array(z.string()).optional(),
-  remoteCacheDir: z.string().optional(),
-  sourceServerArtifactPolicy: sourceServerArtifactPolicySchema.optional(),
-});
-
 const hostAgentWarmupTargetSchema = z.object({
   workspacePath: nonEmptyStringSchema,
   workspaceIdentity: nonEmptyStringSchema.optional(),
@@ -268,39 +255,12 @@ export const windowHostAttachmentScopeSchema = z.discriminatedUnion("kind", [
 ]);
 export type WindowHostAttachmentScope = z.infer<typeof windowHostAttachmentScopeSchema>;
 
-export const hostConnectRemoteWorkspaceMessageSchema = z
+/** WSL 安装/升级等待使用本次已解析身份；预览失败也不能重新选择系统默认值。 */
+export const resolvedWslTargetSchema = z
   .object({
-    type: z.literal("connect-remote-workspace"),
-    requestId: nonEmptyStringSchema,
-    target: remoteTargetSchema,
-    remoteAssets: remoteAssetDirsSchema,
-    workspacePath: nonEmptyStringSchema.optional(),
-    workspaceIdentity: nonEmptyStringSchema.optional(),
-  })
-  .strict();
-
-export const hostCancelRemoteWorkspaceConnectMessageSchema = z
-  .object({
-    type: z.literal("cancel-remote-workspace-connect"),
-    requestId: nonEmptyStringSchema,
-  })
-  .strict();
-
-export const hostBindRemoteWorkspaceContextMessageSchema = z
-  .object({
-    type: z.literal("bind-remote-workspace-context"),
-    requestId: nonEmptyStringSchema,
-    remoteSessionId: nonEmptyStringSchema,
-    workspacePath: nonEmptyStringSchema,
-    workspaceIdentity: nonEmptyStringSchema,
-  })
-  .strict();
-
-export const hostDisposeRemoteWorkspaceSessionMessageSchema = z
-  .object({
-    type: z.literal("dispose-remote-workspace-session"),
-    requestId: nonEmptyStringSchema,
-    remoteSessionId: nonEmptyStringSchema,
+    kind: z.literal("wsl"),
+    distro: nonEmptyStringSchema,
+    user: wslUserSchema.refine((value) => value.length > 0),
   })
   .strict();
 
@@ -475,16 +435,6 @@ export const hostCuaPipFocusChangedMessageSchema = z
   })
   .strict();
 
-export const hostProviderProvisioningExecuteMessageSchema = z
-  .object({
-    type: z.literal("provider-provisioning-execute"),
-    requestId: nonEmptyStringSchema,
-    environmentKey: nonEmptyStringSchema,
-    remoteSessionId: nonEmptyStringSchema,
-    trigger: providerProvisioningTriggerSchema,
-  })
-  .strict();
-
 export const hostResourceUsageSnapshotRequestMessageSchema = z
   .object({
     type: z.literal("resource-usage-snapshot-request"),
@@ -505,10 +455,6 @@ export const hostIncomingMessageSchema = z.discriminatedUnion("type", [
     .object({ type: z.literal("resource-usage-snapshot-cancel"), requestId: nonEmptyStringSchema })
     .strict(),
   hostInitLocalMessageSchema,
-  hostConnectRemoteWorkspaceMessageSchema,
-  hostCancelRemoteWorkspaceConnectMessageSchema,
-  hostBindRemoteWorkspaceContextMessageSchema,
-  hostDisposeRemoteWorkspaceSessionMessageSchema,
   hostAttachServicePortMessageSchema,
   hostDetachServicePortMessageSchema,
   hostDisposeMessageSchema,
@@ -525,75 +471,7 @@ export const hostIncomingMessageSchema = z.discriminatedUnion("type", [
   hostLocalMediaPreviewPathAuthorizeResultMessageSchema,
   hostPluginSandboxRegisterResultMessageSchema,
   hostCuaPipFocusChangedMessageSchema,
-  hostProviderProvisioningExecuteMessageSchema,
 ]);
-
-export const hostRemoteWorkspaceConnectedResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-connected"),
-    requestId: nonEmptyStringSchema,
-    descriptor: windowHostRemoteWorkspaceDescriptorSchema,
-  })
-  .strict();
-
-export const hostRemoteWorkspaceConnectionLogResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-connection-log"),
-    requestId: nonEmptyStringSchema,
-    level: z.enum(["info", "warn", "error"]),
-    message: nonEmptyStringSchema,
-  })
-  .strict();
-
-export const hostRemoteWorkspaceConnectFailedResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-connect-failed"),
-    requestId: nonEmptyStringSchema,
-    error: nonEmptyStringSchema,
-    reasonCode: nonEmptyStringSchema.optional(),
-    retryable: z.boolean().optional(),
-    profileId: z.string().uuid().optional(),
-    /** WSL 安装/升级等待使用本次已解析身份；预览失败也不能重新选择系统默认值。 */
-    resolvedWslTarget: z
-      .object({
-        kind: z.literal("wsl"),
-        distro: nonEmptyStringSchema,
-        user: wslUserSchema.refine((value) => value.length > 0),
-      })
-      .strict()
-      .optional(),
-  })
-  .strict();
-
-export const hostRemoteWorkspaceContextBoundResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-context-bound"),
-    requestId: nonEmptyStringSchema,
-    // Desktop tab rekey only；手机 replayable attachment 不消费该提示。
-    previousWorkspaceIdentity: nonEmptyStringSchema.optional(),
-  })
-  .strict();
-
-export const hostRemoteWorkspaceContextBindFailedResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-context-bind-failed"),
-    requestId: nonEmptyStringSchema,
-    error: nonEmptyStringSchema,
-    reasonCode: nonEmptyStringSchema.optional(),
-    retryable: z.boolean().optional(),
-  })
-  .strict();
-
-export const hostRemoteWorkspaceClosedResponseSchema = z
-  .object({
-    type: z.literal("remote-workspace-closed"),
-    remoteSessionId: nonEmptyStringSchema,
-    reason: z.enum(["connection-closed", "disposed", "connect-cancelled"]),
-    exitCode: z.number().int().nullable().optional(),
-    signal: z.string().nullable().optional(),
-    error: z.string().optional(),
-  })
-  .strict();
 
 export const hostLogResponseSchema = z.object({
   type: z.literal("log"),
@@ -876,24 +754,6 @@ export const hostPluginSandboxRegisterRequestResponseSchema = z
     "Invalid sandbox provenance",
   );
 
-export const hostProviderProvisioningSourceChangedResponseSchema = z
-  .object({
-    type: z.literal("provider-provisioning-source-changed"),
-    trigger: providerProvisioningTriggerSchema.exclude(["environment-online"]),
-  })
-  .strict();
-
-export const hostProviderProvisioningExecutionResultResponseSchema = z
-  .object({
-    type: z.literal("provider-provisioning-execution-result"),
-    requestId: nonEmptyStringSchema,
-    environmentKey: nonEmptyStringSchema,
-    status: z.enum(["applied", "already-applied", "unsupported", "failed", "rollback_failed"]),
-    error: z.string().optional(),
-    errorCode: providerProvisioningErrorCodeSchema.optional(),
-  })
-  .strict();
-
 export const hostResourceUsageProcessSchema = z
   .object({
     pid: z.number().int().positive(),
@@ -924,12 +784,6 @@ export const hostResponseMessageSchema = z.discriminatedUnion("type", [
     .object({ type: z.literal("database-startup-state"), state: databaseStartupStateSchema })
     .strict(),
   hostResourceUsageSnapshotResultResponseSchema,
-  hostRemoteWorkspaceConnectionLogResponseSchema,
-  hostRemoteWorkspaceConnectedResponseSchema,
-  hostRemoteWorkspaceContextBoundResponseSchema,
-  hostRemoteWorkspaceContextBindFailedResponseSchema,
-  hostRemoteWorkspaceConnectFailedResponseSchema,
-  hostRemoteWorkspaceClosedResponseSchema,
   hostLogResponseSchema,
   hostAgentProcessSpawnedResponseSchema,
   hostAgentProcessReadyResponseSchema,
@@ -955,8 +809,6 @@ export const hostResponseMessageSchema = z.discriminatedUnion("type", [
   hostBrowserExecuteRequestResponseSchema,
   hostLocalMediaPreviewPathAuthorizeRequestResponseSchema,
   hostPluginSandboxRegisterRequestResponseSchema,
-  hostProviderProvisioningSourceChangedResponseSchema,
-  hostProviderProvisioningExecutionResultResponseSchema,
   hostCronRunResultResponseSchema,
   hostCronSchedulerWakeRequestResponseSchema,
 ]);
