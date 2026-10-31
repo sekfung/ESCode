@@ -58,7 +58,7 @@ pub(super) async fn pre_tool_use(
     tools: &dyn ToolPort,
     turn: &TurnFacts,
     call: &mut Value,
-    definitions: &[Value],
+    registry: &[Value],
 ) -> Result<PreHook, ToolOutput> {
     let session = turn.mcp_meta["session_id"].as_str().unwrap_or_default();
     let input = input(turn, "PreToolUse", call, &arguments(call));
@@ -87,7 +87,7 @@ pub(super) async fn pre_tool_use(
             .as_str()
             .unwrap_or_default()
             .to_owned();
-        match super::tool_input_checks::checked_input(definitions, &name, call) {
+        match super::tool_input_checks::checked_input(registry, &name, call) {
             Err(content) => {
                 let output = ToolOutput {
                     failed: true,

@@ -151,7 +151,7 @@ test("announces deferred MCP tools once and does not repeat on the next user tur
   }
 });
 
-test("DeferredToolCall before ToolSearch is rejected without executing the target", async () => {
+test("DeferredToolCall before ToolSearch executes the deferred target", async () => {
   const f = await fixture({
     mode: "yolo",
     env: { ESCODE_TOOL_SEARCH_MODE: "local" },
@@ -181,11 +181,77 @@ test("DeferredToolCall before ToolSearch is rejected without executing the targe
     await h.subscribe(`conversation/${sid}`);
     await send(h, sid, "call without searching");
     const result = toolMessage(f.requests, 1, "defer-early");
-    assert.match(
-      String(result?.content),
-      /Call ToolSearch with query "select:mcp__local_echo__echo" first/,
+    // 未搜索不是准入条件（上游 resolveDeferredToolCall 同）：目标按注册表 schema 校验后执行。
+    assert.match(String(result?.content), /too soon/);
+    const calls = (await readFile(server.calls, "utf8"))
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line).arguments.text);
+    assert.deepEqual(calls, ["too soon"]);
+    assert.deepEqual(h.schemaErrors, []);
+    await h.close();
+  } finally {
+    await f.close();
+  }
+});
+
+test("invalid undiscovered input returns schema guidance and does not execute", async () => {
+  const f = await fixture({
+    mode: "yolo",
+    env: { ESCODE_TOOL_SEARCH_MODE: "local" },
+    respond(req, res) {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      const last = req.messages.at(-1);
+      if (last.role === "user") {
+        event(res, {
+          tool_calls: [call("invalid", "DeferredToolCall", { name: MCP_TOOL, input: {} })],
+        });
+        end(res, "tool_calls");
+      } else if (last.role === "tool" && last.tool_call_id === "invalid") {
+        event(res, { tool_calls: [call("search", "ToolSearch", { query: "echo" })] });
+        end(res, "tool_calls");
+      } else if (last.role === "tool" && last.tool_call_id === "search") {
+        event(res, {
+          tool_calls: [call("known", "DeferredToolCall", { name: MCP_TOOL, input: {} })],
+        });
+        end(res, "tool_calls");
+      } else {
+        event(res, { content: "done" });
+        end(res, "stop");
+      }
+    },
+  });
+  const server = await stdioServer(f.root);
+  try {
+    const h = f.start();
+    const ack = await h.command(
+      h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [server.config] }),
     );
-    // 目标工具未执行：MCP server 没有收到任何 tools/call。
+    const sid = (ack.result as { sessionId: string }).sessionId;
+    await h.subscribe(`conversation/${sid}`);
+    await send(h, sid, "call with bad input");
+
+    const invalid = String(toolMessage(f.requests, 1, "invalid")?.content);
+    assert.match(invalid, /InputValidationError/);
+    assert.match(invalid, /This tool's schema was not sent to the API/);
+    assert.match(invalid, /call ToolSearch with query "select:mcp__local_echo__echo"/);
+    assert.match(
+      invalid,
+      /For reference, this tool's input schema is: \{"type":"object","properties":\{"text":\{"type":"string"\}\},"required":\["text"\]\}/,
+    );
+    assert.match(
+      invalid,
+      /Call DeferredToolCall with \{name: "mcp__local_echo__echo", input: \{\.\.\.\}\}\./,
+    );
+
+    // 已发现后同样的非法入参只回普通校验文案，不再给 schema 与加载提示。
+    const known = String(toolMessage(f.requests, 3, "known")?.content);
+    assert.match(known, /InputValidationError/);
+    assert.ok(!known.includes("This tool's schema was not sent to the API"));
+    assert.ok(!known.includes("select:mcp__local_echo__echo"));
+
+    // 两次都未执行目标工具。
     assert.equal((await readFile(server.calls, "utf8").catch(() => "")).trim(), "");
     assert.deepEqual(h.schemaErrors, []);
     await h.close();

@@ -38,17 +38,14 @@ pub(super) async fn prepare(
 }
 
 /// `Err(文案)`：校验失败；`Ok(Some(参数原文))`：去掉未知键后的参数；`Ok(None)`：原样执行。
-/// 定义中没有该工具时不校验。
+/// schema 取自本会话注册表（上游 `registry.get(name).inputSchema`）：注册表里没有该工具时不校验。
 pub(super) fn checked_input(
-    definitions: &[Value],
+    registry: &[Value],
     name: &str,
     call: &Value,
 ) -> Result<Option<String>, String> {
     use crate::domain::{json_order::Json, schema_order, tool_input_validation as validation};
-    let Some(schema) = definitions
-        .iter()
-        .find(|d| d["function"]["name"] == name)
-        .and_then(|d| schema_order::ordered(&d["function"]["parameters"]))
+    let Some(schema) = registered_parameters(registry, name).and_then(|p| schema_order::ordered(&p))
     else {
         return Ok(None);
     };
@@ -81,6 +78,36 @@ pub(super) fn checked_input(
         }
     }
     Ok((stripped != args).then(|| stripped.compact()))
+}
+
+/// 注册表定义里的 `parameters`：未发现延迟工具的纠错提示要把这份 schema 原样回灌模型。
+pub(super) fn registered_parameters(registry: &[Value], name: &str) -> Option<Value> {
+    registry
+        .iter()
+        .find(|definition| definition["function"]["name"] == name)
+        .map(|definition| definition["function"]["parameters"].clone())
+}
+
+/// 校验失败原因的回灌文案：目标延迟工具未进入已发现集合时，追加上游 call-runner 的 schema 纠错
+/// （退化原因 + 当前 schema + 精确加载方式）；已发现或未启用 ToolSearch 时原样返回。
+pub(super) fn failure_content(
+    registry: &[Value],
+    name: &str,
+    content: String,
+    search: Option<&super::agent_loop_surface::ToolSearchContext>,
+) -> String {
+    let Some(search) = search.filter(|search| search.undiscovered_deferred(name)) else {
+        return content;
+    };
+    let Some(schema) = registered_parameters(registry, name) else {
+        return content;
+    };
+    let local = search.mode
+        == escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Local;
+    format!(
+        "{content}{}",
+        escode_cli_domain::tool_search_catalog::undiscovered_schema_guidance(name, &schema, local)
+    )
 }
 
 /// TS ToolRegistry.get + call-runner 的 registry miss：别名（TaskStop / TaskOutput 的旧名）映射到规范名，

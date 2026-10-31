@@ -328,7 +328,6 @@ pub(super) async fn run(
                             model: root_model,
                             turn: &turn_facts,
                             memory_root: memory_root.as_deref(),
-                            definitions: &definitions,
                             registered: &registered,
                             workflow_skill_loaded,
                             tool_search: tool_search.as_ref(),

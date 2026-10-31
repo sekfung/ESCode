@@ -46,7 +46,10 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
   - Node 的模型文案都来自同一 JSON Schema 格式化，即发给模型的工具定义里的 `parameters`；
   - Rust 用各工具自己的 `Tool failed: …` 文案。
 - 规则：
-  - 所有工具，含内置与会话侧工具，在权限请求之前按发给模型的定义 `parameters` 校验，失败文案同 MCP；
+  - 所有工具，含内置与会话侧工具，在权限请求之前按本会话注册表快照里的定义 `parameters` 校验，失败文案同 MCP；
+    （2026-11-01 收口）schema 来源从“本轮模型可见面”改为“注册表快照”，与上游 `registry.get(name).inputSchema`
+    一致：可见工具的两份定义逐字相同，被可见性隐藏但仍在注册表里的工具（local 模式下未发现的延迟工具、
+    Cron/WebSearch 隐藏项）现在也校验，不再是“定义里没有就不校验”。
   - 未知键的处理取决于 TS runtime schema（zod）是否 strict，由 zod 实测得出：
     - 以下内置工具丢弃未知键：
       - 顶层：Agent、Edit、ExitPlanMode、Glob、Grep、Read、Skill、WebFetch、Write；
@@ -62,7 +65,8 @@ TS oracle：`core/src/tool/{json-schema,tool-input-validation-issues,input-valid
     MCP 工具不补。
   - 属性顺序：内置工具 schema（`tool_schemas.json`）按声明顺序登记到 `domain::schema_order`（内容寻址缓存），
     校验时用 `schema_order::ordered` 取声明顺序，问题顺序与发给模型的定义都与 Node 一致。
-  - 定义中没有该工具时（如 ToolSearch 尚未加载的延迟工具）不校验。
+  - 注册表里没有该工具时（注册表查找已先返回 `Tool not found`）不校验；未发现延迟工具的校验失败会由
+    `tool_dispatch` 追加纠错提示，见 [rust-tool-search.md](rust-tool-search.md) §5.3。
 - 宽松写法（TS runtime schema 的 preprocess/transform，按 contracts 源码逐项移植）：
   - Bash `timeout` 的数字字符串转数字；
   - Bash `run_in_background`/`dangerouslyDisableSandbox` 与 Edit `replace_all` 的

@@ -19,9 +19,7 @@ pub(super) struct ExecutionContext<'a> {
     pub turn: &'a super::context::TurnFacts,
     /// 主会话启用记忆时的记忆根（权限放行记忆 Markdown 写入）。
     pub memory_root: Option<&'a str>,
-    /// 本轮发给模型的工具定义；执行前按其 parameters 校验入参。
-    pub definitions: &'a [Value],
-    /// 本会话注册的工具（可见性过滤之前）：查不到的调用回 `Tool not found`。
+    /// 本会话注册的工具（可见性过滤之前）：查不到的调用回 `Tool not found`，入参按这里的 schema 校验。
     pub registered: &'a [Value],
     /// 会话历史里是否成功加载过 `dynamic-workflows` 技能（TS 技能门 `hasLoadedSkill`）。
     pub workflow_skill_loaded: bool,
@@ -43,7 +41,6 @@ pub(super) async fn execute(
         model,
         turn,
         memory_root,
-        definitions,
         registered: context_registered,
         workflow_skill_loaded,
         tool_search,
@@ -143,13 +140,8 @@ pub(super) async fn execute(
                     .unwrap_or(Value::Null);
             let target = args["name"].as_str().unwrap_or_default();
             let input = args.get("input").cloned().unwrap_or(Value::Null);
-            let resolved = {
-                let discovered = search
-                    .discovered
-                    .lock()
-                    .map_err(|_| anyhow::anyhow!("Tool search state unavailable"))?;
-                resolve_deferred_call(target, &input, &search.catalog, &discovered, search.mode)
-            };
+            // 上游 resolveDeferredToolCall：发现状态不参与准入，只校验包装入参、目录归属与 deferred 标记。
+            let resolved = resolve_deferred_call(target, &input, &search.catalog, search.mode);
             match resolved {
                 Ok((resolved, resolved_input)) => {
                     call["function"]["name"] = resolved.clone().into();
@@ -191,10 +183,16 @@ pub(super) async fn execute(
     }
     call["function"]["name"] = tool_name.clone().into();
     let name = tool_name.as_str();
-    // TS validateInitialModelToolInput：入参先按发给模型的定义 parameters 校验，失败时不请求权限、不调用工具，
-    // 把问题回传模型（docs/specs/rust-tool-input-validation.md；Rust 之前 MCP 原样透传、内置工具用各自文案）。
-    match checked_input(definitions, name, &call) {
+    // TS validateInitialModelToolInput：入参先按注册表定义里的 parameters 校验，失败时不请求权限、
+    // 不调用工具，把问题回传模型（docs/specs/rust-tool-input-validation.md）。
+    match checked_input(context_registered, name, &call) {
         Err(content) => {
+            let content = super::tool_input_checks::failure_content(
+                context_registered,
+                name,
+                content,
+                tool_search,
+            );
             let output = crate::contract::ToolOutput {
                 failed: true,
                 ..crate::contract::ToolOutput::text(content)
@@ -237,7 +235,7 @@ pub(super) async fn execute(
         }
     };
     // PreToolUse hooks（docs/specs/rust-hooks.md）：预处理之后、权限之前。
-    let pre = match super::tool_hooks::pre_tool_use(tools, turn, &mut call, definitions).await {
+    let pre = match super::tool_hooks::pre_tool_use(tools, turn, &mut call, context_registered).await {
         Ok(pre) => pre,
         Err(output) => {
             let denied = output.control.denied;

@@ -124,6 +124,29 @@ pub fn deferred_tool_call_description() -> &'static str {
     "Immediately call one deferred tool and return its result. Use ToolSearch to load its complete definition, then pass its exact name and input object. Only deferred tools can be called here; call resident tools directly using their normal tool calls."
 }
 
+/// 未发现延迟工具的校验纠错（上游 `call-runner.ts` 的 `UNDISCOVERED_TOOL_SCHEMA_EXPLANATION`）：
+/// 只有名字进入提示、schema 未交付时，模型会把类型化参数写成字符串，客户端解析器随即拒绝；
+/// 因此校验失败要带上退化原因、当前 schema 与精确加载方式，避免模型盲目重试。
+pub fn undiscovered_schema_guidance(name: &str, schema: &Value, local: bool) -> String {
+    // 上游是 `JSON.stringify(entry.inputSchema)`：压缩、按声明顺序；没有登记时回落排序形式。
+    let schema = crate::schema_order::ordered(schema)
+        .map(|ordered| ordered.compact())
+        .or_else(|| serde_json::to_string(schema).ok())
+        .unwrap_or_else(|| "{}".into());
+    let mut guidance = format!(
+        "\n\nThis tool's schema was not sent to the API — it was not in the discovered-tool set derived from message history. \
+Without the schema in your prompt, typed parameters (arrays, numbers, booleans) get emitted as strings and the client-side parser rejects them. \
+Load the tool first: call ToolSearch with query \"select:{name}\", then retry this call. \
+For reference, this tool's input schema is: {schema}"
+    );
+    if local {
+        guidance.push_str(&format!(
+            "\nCall DeferredToolCall with {{name: \"{name}\", input: {{...}}}}."
+        ));
+    }
+    guidance
+}
+
 /// 控制工具的模型可见定义；只在模式启用时注入。
 pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
     if mode == ResolvedToolSearchMode::Off {

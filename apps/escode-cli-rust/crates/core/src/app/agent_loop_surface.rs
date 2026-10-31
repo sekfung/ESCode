@@ -39,6 +39,17 @@ impl ToolSearchContext {
     pub(super) fn local_media(&self, matches: &[String], definitions: &[Value]) -> Vec<Value> {
         tool_search_catalog::local_media(matches, definitions, &self.deferred, &self.visible())
     }
+
+    /// 上游 call-runner 的 guidance 条件：目录里仍是 deferred，且不在运行时已发现集合里。
+    /// 与 `visible()` 不同，这里用实时集合——同批次早先的搜索算作已发现。
+    pub(super) fn undiscovered_deferred(&self, name: &str) -> bool {
+        self.deferred.contains(name)
+            && !self
+                .discovered
+                .lock()
+                .map(|discovered| discovered.contains(name))
+                .unwrap_or(true)
+    }
 }
 
 pub(super) struct ToolSurface {

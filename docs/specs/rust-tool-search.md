@@ -11,9 +11,10 @@
 - **ToolSearch**：在“延迟工具目录”里按关键词或 `select:<tool_name>` 查找工具，返回
   `{ matches, query, total_deferred_tools }`；local 模式在同一工具结果里用 `<functions>` 块展开命中工具的
   完整 schema，native 模式改回 `tool_reference`；命中的工具从下一轮起以完整 schema 进入模型工具面。
-- **DeferredToolCall**：按 `{name, input}` 调用一个已发现的延迟工具；目标未发现时拒绝并提示先
-  `select:<tool_name>` 搜索，不执行目标工具。未搜索本身不是执行禁令：模型若直接按名称调用，
-  仍走普通工具调度路径（local 模式下该工具不在工具面，通常不会被模型选中）。
+- **DeferredToolCall**：按 `{name, input}` 调用一个延迟工具。是否已发现不是准入条件（上游
+  `resolveDeferredToolCall` 只校验包装入参、目录归属与 `deferred` 标记）：未发现时仍解包成目标工具调用，
+  按注册表里的真实 schema 校验入参，校验失败再回灌下文 §5.3 的纠错提示。模型若直接按名称调用，
+  同样走普通工具调度路径（local 模式下该工具不在工具面，通常不会被模型选中）。
 
 模式：
 
@@ -57,9 +58,9 @@ tool call = ToolSearch(query)
      matches 同时并集进 discovered，下一轮展开 schema
 
 tool call = DeferredToolCall({name,input})
-  ├─ name 必须在 discovered 且属于 deferred catalog
-  ├─ 否 → 交回模型：先调用 ToolSearch 加载
-  └─ 是 → 重写为 name 的正常调用，走原权限/校验/执行路径
+  ├─ name 必须属于 deferred catalog（否则交回模型：只能调用延迟工具）
+  └─ 重写为 name 的正常调用，走原权限/校验/执行路径
+     未发现时校验失败 → 追加 §5.3 的纠错提示（退化原因 + 当前 schema + 精确加载方式）
 ```
 
 ## 3. 接口
@@ -233,12 +234,49 @@ tool call = DeferredToolCall({name,input})
 - E2E：local ToolSearch 加载 MCP 工具后不压缩直接冷恢复（`session/resume` 重新带上 MCP 配置）→
   下一轮工具面仍包含该工具定义，公告不重复。（同一测试文件）
 
+### 5.3 未发现延迟工具的入参校验纠错（2026-11-01）
+
+上游 `apps/zcode-cli/packages/core/src/tool/executor/call-runner.ts` 的
+`UNDISCOVERED_TOOL_SCHEMA_EXPLANATION`：延迟工具尚未进入已发现集合时，模型提示里没有它的 schema，
+类型化参数（数组、数字、布尔）会退化成字符串，然后被客户端解析器拒绝。只有校验失败时才追加纠错，
+成功调用不追加。
+
+触发条件（与上游一致，三者同时成立）：
+
+- ToolSearch 已启用（`tool_search` 非空，即 `local` / `native`）；
+- 目标工具在 catalog 里且 `deferred == true`；
+- 目标工具不在 `discovered`（用运行时实时集合，不用批次开始的 `visible` 快照）。
+
+文案（逐字对齐上游）：
+
+```
+\n\nThis tool's schema was not sent to the API — it was not in the discovered-tool set derived from message history. Without the schema in your prompt, typed parameters (arrays, numbers, booleans) get emitted as strings and the client-side parser rejects them. Load the tool first: call ToolSearch with query "select:<name>", then retry this call. For reference, this tool's input schema is: <schema>
+```
+
+- `<schema>` 是注册表定义里的 `function.parameters`，按声明顺序紧凑输出（`schema_order::ordered`
+  有登记时用声明顺序，否则回落排序形式），等价上游 `JSON.stringify(entry.inputSchema)`。
+- `local` 模式末尾再加一行：`Call DeferredToolCall with {name: "<name>", input: {...}}.`；`native` 不加。
+- 注册表里没有该工具（`Tool not found` 已在更早的注册表查找处返回）时不追加，不伪造 schema。
+- 提示追加在校验失败文案之后，不改变失败判定、不请求权限、不执行目标工具。
+
+入参校验的 schema 来源（2026-11-01 收口）：统一用本会话注册表快照 `registered`（上游
+`deps.registry.get(name).inputSchema`），不再用本轮模型可见面 `definitions`。两者对可见工具逐字相同；
+差别只在被可见性隐藏但仍在注册表里的工具（local 未发现的延迟工具、Cron/WebSearch 隐藏项）——
+这些工具现在也按真实 schema 校验，此前会跳过校验直接执行。
+
+验收：
+
+- domain 单测：`resolve_deferred_call` 不因未发现而拒绝；guidance 文案（native/local 后缀、schema 文本）逐字匹配。
+- E2E（local）：未发现时直接调用 MCP 工具或 `DeferredToolCall` 且缺必填参数 → 结果含退化原因、
+  `select:<name>`、当前 schema 与 `DeferredToolCall` 提示；成功入参不追加提示。
+
 ## 6. 验收
 
 - `off`：工具面、请求体、权限与当前完全一致（golden 对比）。
 - `local`：延迟工具不出现在首轮工具面；ToolSearch 结果内带命中工具的完整 schema，顶层 tools 不新增目标定义；
   下一轮出现；DeferredToolCall 可执行且走目标工具权限。
-- 未发现的 DeferredToolCall：返回可执行提示，不执行目标工具。
+- 未发现的 DeferredToolCall：解包为目标工具调用；入参合法则执行，非法则返回 §5.3 纠错提示且不执行目标工具。
+- 未发现直接调用（`native` 与 `local`）：校验失败追加 §5.3 提示；已发现或关闭 ToolSearch 时文案与普通校验失败一致。
 - `native`：非 Anthropic provider 显式报错；Anthropic 请求包含 `advanced-tool-use-2025-11-20` beta 与 `tool_reference`。
 - 成功提示：`cargo test -p escode-cli-model tool_search` 覆盖连续 tool 结果段后的 `Tool loaded.`
   追加位置与条数；失败结果、local 文本结果与无引用结果不追加。

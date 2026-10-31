@@ -5,12 +5,11 @@
 //! 不读文件、不发网络请求，也不持有会话状态。
 
 use serde_json::{Value, json};
-use std::collections::HashSet;
 
 pub use super::tool_search_definitions::{
     control_definitions, deferred_tool_call_description, local_already_loaded_reminder,
     local_loaded_reminder, local_media, local_tool_search_description,
-    native_tool_search_description, schema_block,
+    native_tool_search_description, schema_block, undiscovered_schema_guidance,
 };
 pub use super::tool_search_query::search_tools;
 
@@ -188,7 +187,6 @@ pub fn resolve_deferred_call(
     name: &str,
     input: &Value,
     catalog: &[ToolSearchCandidate],
-    discovered: &HashSet<String>,
     mode: ResolvedToolSearchMode,
 ) -> Result<(String, Value), String> {
     if mode != ResolvedToolSearchMode::Local {
@@ -206,11 +204,8 @@ pub fn resolve_deferred_call(
             "Call {name} directly using its normal tool call; DeferredToolCall only accepts deferred tools."
         ));
     }
-    if !discovered.contains(name) {
-        return Err(format!(
-            "Tool schema for {name} is not loaded. Call ToolSearch with query \"select:{name}\" first."
-        ));
-    }
+    // 未发现不是准入条件（上游 resolveDeferredToolCall 同）：目标入参照常按注册表 schema 校验，
+    // 失败时由调用方追加“先加载再重试”的纠错提示。
     Ok((candidate.name.clone(), input.clone()))
 }
 
@@ -317,29 +312,17 @@ mod tests {
     }
 
     #[test]
-    fn deferred_call_requires_discovery_and_deferred_target() {
+    fn deferred_call_admits_undiscovered_deferred_target_but_not_resident() {
         let catalog = vec![
             tool("mcp__github__create_issue", "create an issue", true),
             tool("Read", "read files", false),
         ];
-        let mut discovered = HashSet::new();
-        assert!(
-            resolve_deferred_call(
-                "mcp__github__create_issue",
-                &json!({}),
-                &catalog,
-                &discovered,
-                ResolvedToolSearchMode::Local
-            )
-            .is_err()
-        );
-        discovered.insert("mcp__github__create_issue".into());
+        // 上游不把发现状态作为准入条件：未发现也解包，交给目标工具的入参校验/权限。
         assert_eq!(
             resolve_deferred_call(
                 "mcp__github__create_issue",
                 &json!({"title":"x"}),
                 &catalog,
-                &discovered,
                 ResolvedToolSearchMode::Local
             )
             .unwrap(),
@@ -348,15 +331,47 @@ mod tests {
                 json!({"title":"x"})
             )
         );
+        // 常驻工具必须直接调用，不能经包装入口。
         assert!(
+            resolve_deferred_call("Read", &json!({}), &catalog, ResolvedToolSearchMode::Local)
+                .is_err()
+        );
+        // 目录外的名字仍然拒绝，不触发目标生命周期。
+        assert!(
+            resolve_deferred_call("mcp__x__missing", &json!({}), &catalog, ResolvedToolSearchMode::Local)
+                .is_err()
+        );
+        // 非 local 模式没有 DeferredToolCall。
+        assert_eq!(
             resolve_deferred_call(
                 "mcp__github__create_issue",
-                &json!({}),
+                &json!({"title":"x"}),
                 &catalog,
-                &discovered,
-                ResolvedToolSearchMode::Off
+                ResolvedToolSearchMode::Native
             )
-            .is_err()
+            .is_err(),
+            true
+        );
+    }
+
+    #[test]
+    fn undiscovered_guidance_matches_upstream_copy_and_suffix() {
+        let schema = json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"]});
+        let native = undiscovered_schema_guidance("mcp__a__echo", &schema, false);
+        assert!(native.starts_with(
+            "\n\nThis tool's schema was not sent to the API — it was not in the discovered-tool set \
+derived from message history. Without the schema in your prompt, typed parameters (arrays, \
+numbers, booleans) get emitted as strings and the client-side parser rejects them. Load the tool \
+first: call ToolSearch with query \"select:mcp__a__echo\", then retry this call. For reference, \
+this tool's input schema is: "
+        ));
+        assert!(native.ends_with("\"required\":[\"text\"],\"type\":\"object\"}"));
+        assert!(!native.contains("Call DeferredToolCall"));
+        assert_eq!(
+            undiscovered_schema_guidance("mcp__a__echo", &schema, true),
+            format!(
+                "{native}\nCall DeferredToolCall with {{name: \"mcp__a__echo\", input: {{...}}}}."
+            )
         );
     }
 
