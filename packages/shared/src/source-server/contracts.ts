@@ -48,15 +48,26 @@ export const dockerProfileTargetSchema = z
   })
   .strict();
 
+/** `kind: "server"` 直连同样归 Connection Profile（spec §12.6.2）：URL 是身份，token 只存引用。 */
+export const serverProfileTargetSchema = z
+  .object({
+    kind: z.literal("server"),
+    url: nonEmptyStringSchema,
+    tokenCredentialKey: credentialKeySchema.optional(),
+  })
+  .strict();
+
 export const sourceServerProfileTargetSchema = z.discriminatedUnion("kind", [
   sshProfileTargetSchema,
   wslProfileTargetSchema,
   dockerProfileTargetSchema,
+  serverProfileTargetSchema,
 ]);
 
 export type SSHProfileTarget = z.infer<typeof sshProfileTargetSchema>;
 export type WSLProfileTarget = z.infer<typeof wslProfileTargetSchema>;
 export type DockerProfileTarget = z.infer<typeof dockerProfileTargetSchema>;
+export type ServerProfileTarget = z.infer<typeof serverProfileTargetSchema>;
 export type SourceServerProfileTarget = z.infer<typeof sourceServerProfileTargetSchema>;
 
 /** 升级授权只绑定执行身份，不携带凭据或可变 Profile 内容。 */
@@ -144,28 +155,21 @@ const connectionProfileBaseShape = {
   retiredAt: timestampSchema.optional(),
 };
 
+/** 同一份 base shape 按 transport 收窄 target；各 variant 仍严格拒绝未知字段。 */
+function connectionProfileOf<T extends string, Target extends z.ZodTypeAny>(
+  transport: T,
+  target: Target,
+) {
+  return z
+    .object({ ...connectionProfileBaseShape, transport: z.literal(transport), target })
+    .strict();
+}
+
 export const connectionProfileSchema = z.discriminatedUnion("transport", [
-  z
-    .object({
-      ...connectionProfileBaseShape,
-      transport: z.literal("ssh"),
-      target: sshProfileTargetSchema,
-    })
-    .strict(),
-  z
-    .object({
-      ...connectionProfileBaseShape,
-      transport: z.literal("wsl"),
-      target: wslProfileTargetSchema,
-    })
-    .strict(),
-  z
-    .object({
-      ...connectionProfileBaseShape,
-      transport: z.literal("docker"),
-      target: dockerProfileTargetSchema,
-    })
-    .strict(),
+  connectionProfileOf("ssh", sshProfileTargetSchema),
+  connectionProfileOf("wsl", wslProfileTargetSchema),
+  connectionProfileOf("docker", dockerProfileTargetSchema),
+  connectionProfileOf("server", serverProfileTargetSchema),
 ]);
 
 export type ConnectionProfile = z.infer<typeof connectionProfileSchema>;

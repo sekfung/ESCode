@@ -694,10 +694,6 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
-/** 仅 Web `kind: "server"` 目标的 per-window Node Host（显式所有权；ssh/wsl/docker 由 App 级 Rust Host 服务）。 */
-const remoteWindowHostProcessMap = new Map<number, ElectronUtilityProcess>();
-/** 远程-only Node Host 的 `InitLocal` 完成信号；连接必须在服务就绪后下发。 */
-const remoteWindowHostReady = new WeakMap<ElectronUtilityProcess, Promise<void>>();
 const cuaPipFocusRouter = createCuaPipFocusRouter({
   send: (windowId, event) => {
     windowHostProcessMap.get(windowId)?.postMessage({
@@ -814,120 +810,10 @@ app.on("browser-window-created", (_event, win) => {
   win.once("closed", () => cuaPipFocusRouter.removeWindow(windowKey));
 });
 
-/**
- * 仅 `kind: "server"` 的 Web 服务端目标仍由 per-window Node Host 承载。SSH/WSL/Docker 与
- * Connection Profile 已由 App 级 Rust Host 服务；该 Node Host 与本地 `ESCODE_RUST_HOST`
- * 开关无关，首次 Connect/Bind 时懒创建，只服务远程 `ScopedServicePort`。
- */
-async function ensureRemoteWindowHost(win: BrowserWindow): Promise<ElectronUtilityProcess> {
-  const windowId = win.webContents.id;
-  const existing = remoteWindowHostProcessMap.get(windowId);
-  if (existing) {
-    await remoteWindowHostReady.get(existing);
-    return existing;
-  }
-  const label = `remote-${windowId}`;
-  logger.info(
-    `[createWindow] remote workspace host: node (${label}); local window host is Rust Host`,
-  );
-  const child = spawnHostProcess(
-    win,
-    label,
-    {
-      type: HostMessageTypes.InitLocal,
-      deviceMid,
-      agentSpawnFallbackCwd: getConversationWorkspaceDir(),
-      runtimeProcessEnvPatch: {},
-      escodeBuiltinProviderConfigFilePath: resolveESCodeBuiltinProviderConfigFilePath(),
-    },
-    {
-      hostProcessLocalEnv,
-      desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
-      logger,
-      broadcastHub,
-      taskRealtimeBus,
-      windowHostProcessMap: remoteWindowHostProcessMap,
-      hostRunningTaskCountMap,
-      onCuaOperationStateChanged: (source, event) =>
-        windowsCuaOperationIndicator.handleState(source, event),
-      onCuaOperationStateSourceExited: (source) => windowsCuaOperationIndicator.clearSource(source),
-      onCronRunResult: forwardCronRunResult,
-      onCronSchedulerWakeRequested: wakeCronScheduler,
-      authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
-      registerPluginSandbox: (input) => {
-        const host = getPluginSandboxHost();
-        if (!host) throw new Error("Plugin UI sandbox host is not installed.");
-        const { requestId: _requestId, ...registerInput } = input as { requestId?: string };
-        return host.registerFromHost(registerInput as Parameters<typeof host.registerFromHost>[0]);
-      },
-      handleBrowserExecuteRequest: ({ win: browserWin, ...request }) =>
-        runBrowserCommandOnView({ win: browserWin, ...request }),
-    },
-    { attachInitialServicePort: false, bindDatabaseStartup: false },
-  );
-  const ready = waitForRemoteHostServicesReady(child, label);
-  remoteWindowHostReady.set(child, ready);
-  remoteWindowHostProcessMap.set(windowId, child);
-  try {
-    await ready;
-  } catch (error) {
-    // 服务未就绪时不能下发 ConnectRemoteWorkspace；清掉半成品 Host，允许下次重试。
-    remoteWindowHostProcessMap.delete(windowId);
-    disposeHostProcess(child, `${label}:init-failed`, disposingHostProcessTimers, logger);
-    throw error;
-  }
-  return child;
-}
-
-/**
- * 远程-only Node Host 的 InitLocal 是异步的（DB 启动后才创建 services）。
- * 若立刻下发 ConnectRemoteWorkspace，Host 会以 "Local Host services are not initialized." 失败。
- * 以 Host 自己发布的 `databaseStartupState.ready` 作为唯一就绪事实，不做超时轮询兜底。
- */
-function waitForRemoteHostServicesReady(
-  child: ElectronUtilityProcess,
-  label: string,
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error(`${label}: Host services did not become ready within 30s`));
-    }, 30_000);
-    const cleanup = () => {
-      clearTimeout(timeout);
-      child.removeListener("message", onMessage);
-      child.removeListener("exit", onExit);
-    };
-    const onMessage = (message: unknown) => {
-      if (!message || typeof message !== "object") return;
-      const record = message as { type?: unknown; state?: { phase?: unknown } };
-      if (record.type !== HostResponseTypes.DatabaseStartupState) return;
-      if (record.state?.phase === "ready") {
-        cleanup();
-        resolve();
-      } else if (record.state?.phase === "failed") {
-        cleanup();
-        reject(new Error(`${label}: Host services failed to initialize`));
-      }
-    };
-    const onExit = () => {
-      cleanup();
-      reject(new Error(`${label}: Host exited before services were ready`));
-    };
-    child.on("message", onMessage);
-    child.once("exit", onExit);
-  });
-}
-
 const remoteSessionManager = createRemoteWorkspaceSessionManager({
   logger,
-  // Web 服务端目标的 Node Host 始终写独立 map，避免混入本地窗口的 `windowHostProcessMap`
-  // （后者被 cron 派发、窗口 reload/close 与 app quit 当作本地 Host 处理）。
-  // `ESCODE_RUST_HOST` 只决定本地 window Host，不再参与远程路径选择。
-  windowHostProcessMap: remoteWindowHostProcessMap,
-  ensureWindowHost: ensureRemoteWindowHost,
-  // S3-c（spec §10.12）：带 Connection Profile 的远端 workspace 由 Rust Host 服务；Node Host
-  // 只保留给尚未迁移的直连目标（S5 删除）。
+  // S3-c/S5-f-4（spec §10.12/§12.6）：所有远端 workspace（含 `kind: "server"`）都由 App 级
+  // Rust Host 服务，Main 不再创建 per-window Node Host 远程进程。
   // 桌面远端窗口与 Node 路径一致使用 desktop-continuous；手机/Web 的共享 Host attachment
   // 不经过这里（spec §10.15）。
   attachRustRemoteScope: (scope) =>
@@ -941,8 +827,6 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   resolveRustRemoteProfile: (request, resolveOptions) =>
     rustHostManager.resolveRemoteProfile(request, resolveOptions),
   cancelRustRemoteProfile: (requestId) => rustHostManager.cancelRemoteProfile(requestId),
-  resolveRemoteAssetDirs: () =>
-    resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
   resolveWslTarget: resolveCanonicalWslTarget,
 });
 
@@ -1278,11 +1162,7 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   cronScheduler = null;
 
   const hostProcesses = [
-    ...new Set([
-      ...windowHostProcessMap.values(),
-      ...remoteWindowHostProcessMap.values(),
-      ...listDisposingHostProcesses(),
-    ]),
+    ...new Set([...windowHostProcessMap.values(), ...listDisposingHostProcesses()]),
   ];
   logger.info(
     `[app-quit] waiting for host process cleanup (${reason}), kind=${activeAppShutdownKind}, hosts=${hostProcesses.length}, forceKillDelayMs=${activeAppShutdownPolicy.forceKillDelayMs}, waitTimeoutMs=${activeAppShutdownPolicy.waitTimeoutMs}`,
@@ -2030,10 +1910,6 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
     syncPostUpdateReleaseNotesToWindow,
     disposeRemoteWorkspaceSessionsForWindow: (windowId, reason) => {
       remoteSessionManager.disposeRemoteWorkspaceSessionsForWindow(windowId, reason);
-      const child = remoteWindowHostProcessMap.get(windowId);
-      if (!child) return;
-      remoteWindowHostProcessMap.delete(windowId);
-      disposeHostProcess(child, `remote-${windowId}:${reason}`, disposingHostProcessTimers, logger);
     },
     reattachRemoteWorkspaceSessionsForWindow:
       remoteSessionManager.reattachRemoteWorkspaceSessionsForWindow,

@@ -42,7 +42,7 @@ export interface DockerConnectOptions extends ProfileScopedRemoteTarget {
   container: string;
 }
 
-export interface ServerConnectOptions {
+export interface ServerConnectOptions extends ProfileScopedRemoteTarget {
   kind: "server";
   /** 已运行的 escode-server HTTP(S)/WS(S) 入口。 */
   url: string;

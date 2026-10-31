@@ -106,6 +106,9 @@ export const serverConnectOptionsSchema = z.object({
   token: z.string().optional(),
   workspacePath: z.string().optional(),
   serverId: nonEmptyStringSchema.optional(),
+  // spec §12.6.2：server 直连同样由 Connection Profile 承载，回填后与其它 transport 一致。
+  profileId: nonEmptyStringSchema.optional(),
+  sourceServerId: nonEmptyStringSchema.optional(),
 });
 
 export const remoteTargetSchema = z.discriminatedUnion("kind", [

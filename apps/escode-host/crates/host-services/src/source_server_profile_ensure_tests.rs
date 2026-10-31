@@ -174,3 +174,105 @@ async fn invalid_target_is_rejected_without_writing() {
     assert_eq!(stored["unrelated"], json!(true));
     assert_eq!(stored["connectionProfiles"], json!([]));
 }
+
+#[tokio::test]
+async fn creates_server_profile_with_token_only_in_credentials() {
+    let (dir, registry, home) = registry_with(json!({})).await;
+    let service = credentials(&dir);
+
+    let profile = registry
+        .ensure_profile(
+            &json!({
+                "kind": "server",
+                "url": "  https://studio.example.com/escode/  ",
+                "token": "s3cret-token",
+                "workspacePath": "/srv/work",
+            }),
+            Some(&service),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(profile.transport, "server");
+    assert_eq!(profile.target["kind"], json!("server"));
+    assert_eq!(
+        profile.target["url"],
+        json!("https://studio.example.com/escode/")
+    );
+    assert_eq!(
+        profile.target["tokenCredentialKey"],
+        json!(format!("connection-profile:{}:token", profile.profile_id))
+    );
+    assert!(profile.target.get("token").is_none());
+    assert!(
+        profile.target.get("workspacePath").is_none(),
+        "workspacePath 属于会话范围，不进入 Profile 身份"
+    );
+    let key = profile.target["tokenCredentialKey"].as_str().unwrap();
+    assert_eq!(
+        service.load(key).await.unwrap().as_deref(),
+        Some("s3cret-token")
+    );
+    let stored = settings::read(&home).await.unwrap();
+    assert!(!stored.to_string().contains("s3cret-token"));
+}
+
+#[tokio::test]
+async fn server_profile_identity_uses_trimmed_url_only() {
+    let (dir, registry, _home) = registry_with(json!({})).await;
+    let service = credentials(&dir);
+    let first = registry
+        .ensure_profile(
+            &json!({"kind": "server", "url": "https://studio.example.com"}),
+            Some(&service),
+        )
+        .await
+        .unwrap();
+    let second = registry
+        .ensure_profile(
+            &json!({"kind": "server", "url": "  https://studio.example.com  "}),
+            None,
+        )
+        .await
+        .unwrap();
+    let websocket = registry
+        .ensure_profile(
+            &json!({"kind": "server", "url": "wss://studio.example.com"}),
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(second.profile_id, first.profile_id);
+    assert_ne!(
+        websocket.profile_id, first.profile_id,
+        "协议不同是不同目标，不做 http/ws 互转"
+    );
+}
+
+#[tokio::test]
+async fn server_profile_keeps_token_reference_when_reconnect_has_no_token() {
+    let (dir, registry, _home) = registry_with(json!({})).await;
+    let service = credentials(&dir);
+    let first = registry
+        .ensure_profile(
+            &json!({"kind": "server", "url": "https://studio.example.com", "token": "abc"}),
+            Some(&service),
+        )
+        .await
+        .unwrap();
+
+    let second = registry
+        .ensure_profile(
+            &json!({"kind": "server", "url": "https://studio.example.com"}),
+            Some(&service),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(second.profile_id, first.profile_id);
+    assert_eq!(
+        second.target["tokenCredentialKey"], first.target["tokenCredentialKey"],
+        "未携带新 token 时必须保留已有引用"
+    );
+}

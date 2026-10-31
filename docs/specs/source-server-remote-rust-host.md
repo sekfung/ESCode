@@ -167,7 +167,7 @@ Host 解析 release ──► 校验 compatibility ──► 安装 ──► �
 | S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                          |
 | S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                 |
 | S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）     |
-| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f 补齐 `kind: "server"` 的 Rust transport，设计见 §12.6，切片推进中） |
+| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-4 完成 server Rust transport 与 Main 路由，§12.6；Node Host 侧 handler 删除与 E2E 待 S5-f-5） |
 
 ## 8. 非目标
 
@@ -1498,9 +1498,9 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 ```text
 1. 直接首连 target → Rust Host（Main）                         [已完成，Linux SSH 真实 E2E：desktop-e2e-20261031-122307-136]
-2. 移除 node-host route 的创建；保留读取旧 route 的兼容代码一个版本  [非 server 目标已完成（2026-11-01 Host backend 分支删除）；server 目标保留]
-3. 删除 ProviderProvisioningExecute / ExecutionResult 远端分支     [S5-c 已调查：仅 server 目标可达，保留]
-4. 删除 renderer 远端 MessagePort 通道选择                        [S5-c 已调查：仅 server 目标可达，保留]
+2. 移除 node-host route 的创建；保留读取旧 route 的兼容代码一个版本  [已完成（2026-11-01）：非 server Host backend 分支删除；server 目标 Main 侧 Node 路由删除（S5-f-4），Host 侧 handler 待 S5-f-5]
+3. 删除 ProviderProvisioningExecute / ExecutionResult 远端分支     [Main 发送端已删除（S5-f-4）；Host 处理端待 S5-f-5]
+4. 删除 renderer 远端 MessagePort 通道选择                        [已删除 `attachRemoteWorkspaceSessionHost`（S5-f-4，仅导出无生产调用方）；Host 侧 remote attachment 分支待 S5-f-5]
 5. 删除 ESCODE_RUST_HOST=0 远程分支                              [已完成（S5-b）]
 6. 删除 Node remote deploy / preflight / installer（先 dep:refs 证明）[已完成（2026-11-01）]
 7. 清理文档、脚本、fixture 中的 Node 远程路径引用                  [已完成（2026-10-31；保留历史记录与 Web kind:"server" 说明）]
@@ -1590,7 +1590,7 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 ### 12.5 完成判据
 
-> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，Desktop `kind: "server"` 直连仍由 per-window Node Host 承载（`connectServerRemote` + `ProviderProvisioningExecute` + renderer MessagePort），Rust Host 尚无 server-URL transport；补齐 Rust transport 的设计已登记（§12.6 S5-f），按切片推进；退役该入口需产品确认。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
+> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，Desktop `kind: "server"` 已改由 Rust Host 建链（S5-f-1~f-4），但 per-window Node Host 的 handler、`connectServerRemote` 与 `windowRemoteConnectionRegistry` 仍留在 `packages/desktop/src/host/index.ts`，尚无生产调用方；删除与零进程 E2E 属 S5-f-5。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`
@@ -1731,3 +1731,50 @@ Main/Renderer              Rust Host                                escode-serve
   新增 `server_link_establishes_and_binds_identity`（HTTP+WS 同端口 fixture，断言 online、
   `sourceServerId`、`currentVersion`、两条 workspace 绑定与 canonical identity）与
   `server_link_reuses_the_existing_connection`。
+
+**S5-f-4 设计记录（2026-11-01）**
+
+目标：Main 不再区分 `kind: "server"` 与 ssh/wsl/docker 的路由；所有远程 target 都先经
+`POST /api/source-server-resolve-profile` 得到 `profileId` / `sourceServerId`，再申请 Rust Host 的
+scoped capability。per-window Node Host 的远程 workspace 分支随之删除。
+
+- Connection Profile 增加 `transport = "server"`（`target = { kind: "server", url, tokenCredentialKey? }`）：
+  - `shared/src/source-server/contracts.ts` 的 `sourceServerTransportKindSchema`、
+    `sourceServerProfileTargetSchema`、`connectionProfileSchema` 同步扩展，否则 TS 读回 Rust 写入的
+    settings 会整份失败。
+  - `RemoteTarget` 的 server 形态补 `profileId` / `sourceServerId`，与其它 transport 共用
+    `ProfileScopedRemoteTarget`；`serverConnectOptionsSchema` 同步允许这两个字段。
+  - Rust `normalize_target` 只保留 `url`（trim）；Profile 身份键与 spec §12.6.2 一致，就是 trim 后的
+    `target.url`，不把 `https://x` 与 `wss://x` 归一成同一目标。
+  - token 只写 `CredentialService`（`connection-profile:<profileId>:token`），settings 只保存
+    `tokenCredentialKey`；复用 Profile 且本次未带 token 时保留旧引用，不清空。
+- Main 路由：`resolveRemoteTarget` 删除 `if (target.kind === "server") return { target }` 分支，
+  统一走 resolver/single-flight；`remoteScopeOf` 对 server 也读 `target.profileId`；
+  `createRemoteWorkspaceSession` 只保留 Rust scope 路径，缺 resolver 时显式
+  `REMOTE_RUST_HOST_UNAVAILABLE`。
+- 删除范围（§12.1 第 1/3/4 项）：
+  - `desktopRemoteSessions`：`owner: "node-host"` route、`windowHostProcessMap` / `ensureWindowHost`、
+    `ConnectRemoteWorkspace` / `DisposeRemoteWorkspaceSession` 远端分支、`ProviderProvisioningExecute`
+    发送端、`attachRemoteWorkspaceSessionHost`（仅导出、无生产调用方）。
+  - `packages/desktop/src/host/index.ts`：per-window Node Host 的远程连接注册表、
+    `windowRemoteConnectionRegistry`、`ProviderProvisioningExecute` 处理与 remote scope attachment 分支。
+  - `packages/shared`：`ConnectRemoteWorkspace` / `CancelRemoteWorkspaceConnect` /
+    `BindRemoteWorkspaceContext` / `DisposeRemoteWorkspaceSession` / `ProviderProvisioningExecute` 及对应
+    响应 schema/枚举；`AttachServicePort` 仅保留 local scope。
+  - `packages/desktop/src/host/serverRemoteConnection.ts`：Rust 链路（§12.6.1）已覆盖 GET info、POST
+    capability、WS 升级与帧泵，删除前用 `pnpm dep:refs` 复核无生产引用。
+- 保留：`packages/desktop/src/renderer/src/remoteWorkspaceSessionServices.ts` 的
+  `buildServerRemoteWorkspaceSessionServices`——它描述 server 目标“只使用远端服务面”的语义，与链路
+  实现无关，Rust route 仍然适用。
+- 验证（2026-11-01 本机 Linux x64）：`pnpm typecheck`、`pnpm lint`（201 条既有 warning / 0 error）、
+  `pnpm architecture:check --changed`、`pnpm check:escode-host`、`node scripts/check-escode-host-boundaries.mjs`
+  全部通过；Rust `source_server::writes::profile_ensure` 8 例通过（新增 server token/身份键/保留引用 3 例）；
+  `desktopRemoteSessionsRustHostMode.test.ts` 4 例（server 走 resolver、缺 resolver 显式失败、取消语义）、
+  `remoteWorkspaceSessionServices`、`windowHostAttachmentRegistry`、`windowHostControllerService`、
+  `windowRemoteConnectionRegistry`、`serverRemoteConnection`、`windowHostControlProtocol`、
+  `remoteProviderProvisioningService`、`remoteWorkspaceServicePortBridge` 共 130+ 例通过。
+  已知既有失败：`packages/ui/test/sshDialogFlow.test.ts` 3 例（profile 目标断言未含 S3-c 的
+  `profileId`/`sourceServerId`），已用 `git stash` 在未改动的基线上复现，与本次改动无关。
+- 未完成：`packages/desktop/src/host/index.ts` 的 remote registry / `ProviderProvisioningExecute` /
+  `serverRemoteConnection.ts` 删除，以及 `ConnectRemoteWorkspace` 等共享协议项的移除，随 S5-f-5 的
+  `rg`/`dep:refs` 证据一起收口。

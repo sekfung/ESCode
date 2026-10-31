@@ -1,161 +1,126 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
-  BrowserWindow: { fromId: vi.fn() },
-  MessageChannelMain: class MessageChannelMain {
-    readonly port1 = { id: "port-1", close: vi.fn() };
-    readonly port2 = { id: "port-2", close: vi.fn() };
-  },
+  BrowserWindow: { fromId: vi.fn(), getAllWindows: vi.fn(() => []) },
 }));
 
-import { HostMessageTypes, HostResponseTypes } from "@escode/shared";
 import { createRemoteWorkspaceSessionManager } from "../src/main/desktopRemoteSessions.js";
 
-// S5-a（docs/specs/source-server-remote-rust-host.md §12.2）：ssh/wsl/docker 远程 workspace 已走
-// Rust Host；per-window Node Host 只保留给显式 Web 服务端（`kind: "server"`）。
+// S5-a/S5-f-4（docs/specs/source-server-remote-rust-host.md §12.2/§12.6）：所有远程 workspace
+// （含 `kind: "server"`）都由 App 级 Rust Host 承载；Main 不再创建 per-window Node Host。
+
+const SERVER_TARGET = {
+  kind: "server" as const,
+  url: "https://example.test",
+  token: "secret-token",
+};
+
+function windowStub(webContentsId: number) {
+  return {
+    webContents: {
+      id: webContentsId,
+      send: vi.fn(),
+      postMessage: vi.fn(),
+      isDestroyed: vi.fn(() => false),
+    },
+    isDestroyed: vi.fn(() => false),
+  };
+}
+
+function loggerStub() {
+  return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+}
+
+/** resolver 成功返回 server Profile，并记录请求体供断言。 */
+function createServerHarness(options?: {
+  attachRustRemoteScope?: (scope: unknown) => Promise<{
+    port: unknown;
+    dispose(): void;
+    onLost?(listener: (reason: unknown) => void): void;
+    onClosed?(listener: (event: unknown) => void): void;
+  }>;
+}) {
+  const resolveCalls: Array<{ target?: Record<string, unknown> }> = [];
+  const resolveRustRemoteProfile = vi.fn(async (request: { target?: Record<string, unknown> }) => {
+    resolveCalls.push(request);
+    return {
+      profileId: "11111111-1111-4111-8111-111111111111",
+      sourceServerId: "22222222-2222-4222-8222-222222222222",
+      target: {
+        kind: "server",
+        url: "https://example.test",
+        tokenCredentialKey: "connection-profile:11111111-1111-4111-8111-111111111111:token",
+      },
+    };
+  });
+  const attachRustRemoteScope =
+    options?.attachRustRemoteScope ??
+    vi.fn(async () => ({ port: { id: "port" }, dispose: vi.fn() }));
+  const manager = createRemoteWorkspaceSessionManager({
+    logger: loggerStub(),
+    resolveRustRemoteProfile,
+    attachRustRemoteScope,
+  });
+  return { manager, resolveCalls, attachRustRemoteScope };
+}
 
 describe("remote workspace host ownership in Rust mode", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("keeps the per-window Node Host path only for a Web server target", async () => {
-    const child = {
-      pid: 4321,
-      on: vi.fn(),
-      once: vi.fn(),
-      removeListener: vi.fn(),
-      postMessage: vi.fn(),
-    };
-    const ensureWindowHost = vi.fn(async () => child);
-    const windowHostProcessMap = new Map<number, typeof child>();
-    const manager = createRemoteWorkspaceSessionManager({
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      windowHostProcessMap: windowHostProcessMap as never,
-      ensureWindowHost: ensureWindowHost as never,
-      resolveRemoteAssetDirs: () => ({}) as never,
+  it("routes a server target through the Rust resolver instead of a window Node Host", async () => {
+    const { manager, resolveCalls, attachRustRemoteScope } = createServerHarness();
+    const win = windowStub(7);
+
+    const sessionId = await (async () => {
+      const pending = manager.createRemoteWorkspaceSession(
+        win as never,
+        SERVER_TARGET as never,
+        "request-server",
+      );
+      await vi.waitFor(() => expect(win.webContents.postMessage).toHaveBeenCalled());
+      const [, payload] = win.webContents.postMessage.mock.calls[0] as [
+        string,
+        { sessionId: string; attachmentId: string },
+      ];
+      manager.confirmRendererAttachmentReady(7, {
+        sessionId: payload.sessionId,
+        attachmentId: payload.attachmentId,
+      });
+      return pending;
+    })();
+
+    expect(resolveCalls[0]?.target).toMatchObject({
+      kind: "server",
+      url: "https://example.test",
+      token: "secret-token",
     });
-    const win = {
-      webContents: {
-        id: 7,
-        send: vi.fn(),
-        isDestroyed: vi.fn(() => false),
+    expect(attachRustRemoteScope).toHaveBeenCalledWith({
+      sourceServerId: "22222222-2222-4222-8222-222222222222",
+      profileId: "11111111-1111-4111-8111-111111111111",
+      workspaceIdentity: "remote:server:example.test:/",
+    });
+    expect(sessionId).toBeTruthy();
+    expect(win.webContents.postMessage.mock.calls[0]?.[1]).toMatchObject({
+      sessionId,
+      target: {
+        kind: "server",
+        profileId: "11111111-1111-4111-8111-111111111111",
+        sourceServerId: "22222222-2222-4222-8222-222222222222",
       },
-      isDestroyed: vi.fn(() => false),
-    };
-
-    const pending = manager.createRemoteWorkspaceSession(
-      win as never,
-      { kind: "server", url: "https://example.test" } as never,
-      "request-1",
-    );
-    let rejected: unknown;
-    pending.catch((error) => {
-      rejected = error;
     });
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    if (rejected) throw rejected;
-    expect(child.postMessage).toHaveBeenCalled();
-    expect(ensureWindowHost).toHaveBeenCalledWith(win);
-    expect(windowHostProcessMap.get(7)).toBe(child);
-    expect(child.postMessage.mock.calls[0]?.[0]).toMatchObject({
-      type: HostMessageTypes.ConnectRemoteWorkspace,
-      requestId: "request-1",
-    });
-
-    manager.cancelPendingRemoteWorkspaceSessionsForWindow(7);
   });
 
-  // S5-b（spec §12.2 / §12.5）：远程缺少 Rust Host resolver 时必须显式报错，不能回退 Node Host。
-  it("rejects ssh with REMOTE_RUST_HOST_UNAVAILABLE instead of falling back to Node Host", async () => {
-    const ensureWindowHost = vi.fn();
-    const manager = createRemoteWorkspaceSessionManager({
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      windowHostProcessMap: new Map() as never,
-      ensureWindowHost: ensureWindowHost as never,
-      resolveRemoteAssetDirs: () => ({}) as never,
-    });
-    const win = {
-      webContents: {
-        id: 8,
-        send: vi.fn(),
-        isDestroyed: vi.fn(() => false),
-      },
-      isDestroyed: vi.fn(() => false),
-    };
+  // S5-a/S5-f-4（spec §12.2 / §12.5）：缺少 Rust resolver 时必须显式报错，不能回退 Node Host。
+  it("rejects a server target with REMOTE_RUST_HOST_UNAVAILABLE instead of falling back", async () => {
+    const manager = createRemoteWorkspaceSessionManager({ logger: loggerStub() });
+    const win = windowStub(8);
 
     await expect(
-      manager.createRemoteWorkspaceSession(
-        win as never,
-        { kind: "ssh", host: "example.test", port: 22, username: "dev" } as never,
-        "request-no-rust",
-      ),
+      manager.createRemoteWorkspaceSession(win as never, SERVER_TARGET as never, "request-no-rust"),
     ).rejects.toMatchObject({ code: "REMOTE_RUST_HOST_UNAVAILABLE" });
-    expect(ensureWindowHost).not.toHaveBeenCalled();
-  });
-
-  it("rejects a Node Host descriptor for a non-server workspace", async () => {
-    const listeners = new Map<string, (message: unknown) => void>();
-    const child = {
-      pid: 4321,
-      on: vi.fn((event: string, listener: (message: unknown) => void) => {
-        listeners.set(event, listener);
-      }),
-      once: vi.fn(),
-      removeListener: vi.fn(),
-      postMessage: vi.fn(),
-    };
-    const windowHostProcessMap = new Map<number, typeof child>();
-    const manager = createRemoteWorkspaceSessionManager({
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-      windowHostProcessMap: windowHostProcessMap as never,
-      ensureWindowHost: (async () => child) as never,
-      resolveRemoteAssetDirs: () => ({}) as never,
-    });
-    const win = {
-      webContents: {
-        id: 7,
-        send: vi.fn(),
-        isDestroyed: vi.fn(() => false),
-      },
-      isDestroyed: vi.fn(() => false),
-    };
-
-    const pending = manager.createRemoteWorkspaceSession(
-      win as never,
-      { kind: "server", url: "https://example.test" } as never,
-      "request-rogue",
-    );
-    await vi.waitFor(() =>
-      expect(child.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: HostMessageTypes.ConnectRemoteWorkspace,
-          requestId: "request-rogue",
-        }),
-      ),
-    );
-
-    listeners.get("message")?.({
-      type: HostResponseTypes.RemoteWorkspaceConnected,
-      requestId: "request-rogue",
-      descriptor: {
-        remoteSessionId: "remote-session-rogue",
-        target: { kind: "ssh", host: "example.test", username: "dev" },
-        workspacePath: "/srv/repo",
-        workspaceIdentity: "remote:ssh:example.test:22:dev:/srv/repo",
-        generation: 1,
-      },
-    });
-
-    await expect(pending).rejects.toMatchObject({ code: "REMOTE_RUST_HOST_REQUIRED" });
-    expect(child.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: HostMessageTypes.DisposeRemoteWorkspaceSession,
-        remoteSessionId: "remote-session-rogue",
-      }),
-    );
-    expect(windowHostProcessMap.get(7)).toBe(child);
+    expect(win.webContents.postMessage).not.toHaveBeenCalled();
   });
 
   // S5-a cancel（spec §12.2）：首连解析阶段取消必须命中 Host 的 caller key，而不是等 session 建好。
@@ -208,18 +173,6 @@ describe("remote workspace host ownership in Rust mode", () => {
   });
 });
 
-function windowStub(webContentsId: number) {
-  return {
-    webContents: {
-      id: webContentsId,
-      send: vi.fn(),
-      postMessage: vi.fn(),
-      isDestroyed: vi.fn(() => false),
-    },
-    isDestroyed: vi.fn(() => false),
-  };
-}
-
 /** 记录 resolver 请求并模拟 fetch：AbortSignal 中止时 reject。 */
 function createCancelHarness() {
   const resolveCalls: Array<{ request: { requestId?: string }; signal?: AbortSignal }> = [];
@@ -234,9 +187,7 @@ function createCancelHarness() {
   );
   const cancelRustRemoteProfile = vi.fn(async () => true);
   const manager = createRemoteWorkspaceSessionManager({
-    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    windowHostProcessMap: new Map() as never,
-    resolveRemoteAssetDirs: () => ({}) as never,
+    logger: loggerStub(),
     resolveRustRemoteProfile,
     cancelRustRemoteProfile,
   });

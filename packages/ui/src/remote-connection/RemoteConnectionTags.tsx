@@ -1,5 +1,5 @@
-import { Box, Server, TerminalSquare } from "lucide-react";
-import type { SourceServerTransportKind } from "@escode/shared";
+import { Box, Globe, Server, TerminalSquare } from "lucide-react";
+import type { RemoteTarget } from "@escode/shared";
 import { cn } from "@/components/lib/utils.js";
 import { useESCodeIntl } from "@/i18n/IntlProvider.js";
 import {
@@ -10,6 +10,12 @@ import {
 export { formatConnectionProfileTarget } from "@/lib/remoteConnectionPresentation.js";
 
 export type RemoteConnectionDisplayStatus = RemoteConnectionStatus;
+
+/**
+ * 类型标签接受的 transport：Connection Profile 的 `server`（spec §12.6）与向导可选类型共用一套
+ * 展示映射；向导仍只列 ssh/wsl/docker（`server` 是 dev-only 入口）。
+ */
+export type RemoteConnectionKind = RemoteTarget["kind"];
 
 /**
  * 连接类型的唯一配色来源。类型 token 只表达连接类型（DESIGN.md），
@@ -37,10 +43,18 @@ export const REMOTE_KIND_PRESENTATION = {
       "bg-remote-docker-surface text-remote-docker-foreground ring-1 ring-inset ring-remote-docker-border",
     tileClassName: "bg-remote-docker-surface text-remote-docker-foreground",
   },
+  // 直连已运行的 ESCode 服务；仅开发态入口，沿用 SSH 的主机色板避免新增未定义 token。
+  server: {
+    Icon: Globe,
+    className: "border-remote-ssh-border bg-remote-ssh-surface text-remote-ssh-foreground",
+    selectedClassName:
+      "bg-remote-ssh-surface text-remote-ssh-foreground ring-1 ring-inset ring-remote-ssh-border",
+    tileClassName: "bg-remote-ssh-surface text-remote-ssh-foreground",
+  },
 } as const;
 
 /** 候选列表行左侧的类型图标块。 */
-export function RemoteConnectionKindTile({ kind }: { kind: SourceServerTransportKind }) {
+export function RemoteConnectionKindTile({ kind }: { kind: RemoteConnectionKind }) {
   const { Icon, tileClassName } = REMOTE_KIND_PRESENTATION[kind];
   return (
     <span
@@ -59,7 +73,7 @@ export function RemoteConnectionKindTag({
   kind,
   className,
 }: {
-  kind: SourceServerTransportKind;
+  kind: RemoteConnectionKind;
   className?: string;
 }) {
   const { intl } = useESCodeIntl();

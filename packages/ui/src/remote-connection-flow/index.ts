@@ -1019,7 +1019,9 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
         : undefined;
       if (
         failedProfileId &&
-        (!failedProfile || !isSameSourceServerUpdateTarget(failedProfile.target, target))
+        (!failedProfile ||
+          failedProfile.target.kind === "server" ||
+          !isSameSourceServerUpdateTarget(failedProfile.target, target))
       ) {
         throw new Error(intl.formatMessage({ id: "project.connectionUnavailable" }));
       }
@@ -1383,6 +1385,8 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
         if (
           failure?.code === "source-server-upgrade-required" &&
           failure.failedTarget &&
+          // server 直连没有 Node 升级链（spec §12.6.5），只比较可更新的 ssh/wsl/docker 目标。
+          target.kind !== "server" &&
           !isSameSourceServerUpdateTarget(target, failure.failedTarget)
         ) {
           // 新 Profile 的凭据也不能混入旧失败目标；先交回原身份，让恢复校验提供显式重试。

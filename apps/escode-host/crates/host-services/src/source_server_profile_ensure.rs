@@ -147,6 +147,11 @@ fn profile_target_identity_key(target: &Value) -> Result<String> {
             "kind": "docker",
             "container": string_field(object, "container").map(str::trim).unwrap_or_default(),
         }),
+        // spec §12.6.2：URL 原样作为身份键，不做 http/ws 协议互转（同一 host 的两种入口仍是两个目标）。
+        "server" => serde_json::json!({
+            "kind": "server",
+            "url": string_field(object, "url").map(str::trim).unwrap_or_default(),
+        }),
         other => bail!("Unsupported connection transport: {other}"),
     };
     Ok(key.to_string())
@@ -160,6 +165,10 @@ async fn persist_credentials(
     credentials: Option<&CredentialService>,
     rollback: &mut CredentialRollback,
 ) -> Result<Value> {
+    if kind_of(&target) == "server" {
+        return persist_server_token(profile_id, input, target, current, credentials, rollback)
+            .await;
+    }
     if kind_of(&target) != "ssh" {
         return Ok(target);
     }
@@ -180,7 +189,11 @@ async fn persist_credentials(
     .map(str::trim)
     .filter(|value| !value.is_empty());
     if password.is_none() && passphrase.is_none() {
-        preserve_credential_keys(&mut target, current)?;
+        preserve_credential_keys(
+            &mut target,
+            current,
+            &["passwordCredentialKey", "privateKeyPassphraseCredentialKey"],
+        )?;
         return Ok(target);
     }
     let service = credentials.context(
@@ -228,14 +241,56 @@ async fn persist_credentials(
     Ok(target)
 }
 
-fn preserve_credential_keys(target: &mut Value, current: Option<&Value>) -> Result<()> {
+/// server 直连 token：只落凭据服务，settings 保存 `tokenCredentialKey` 引用。
+///
+/// 本次未携带 token（重启恢复/仅重连）时必须保留旧引用，否则已保存的认证会丢失。
+async fn persist_server_token(
+    profile_id: &str,
+    input: &Value,
+    mut target: Value,
+    current: Option<&Value>,
+    credentials: Option<&CredentialService>,
+    rollback: &mut CredentialRollback,
+) -> Result<Value> {
+    let token = string_field(
+        input
+            .as_object()
+            .context("Connection target must be an object")?,
+        "token",
+    )
+    .map(str::trim)
+    .filter(|value| !value.is_empty());
+    let Some(token) = token else {
+        preserve_credential_keys(&mut target, current, &["tokenCredentialKey"])?;
+        return Ok(target);
+    };
+    let service = credentials.context(
+        "source server credentials need dataBaseDir: Main must pass dataBaseDir in rpcListen",
+    )?;
+    let key = current
+        .and_then(|current| string_field(current.as_object()?, "tokenCredentialKey"))
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("connection-profile:{profile_id}:token"));
+    rollback.save(service, &key, token).await?;
+    target
+        .as_object_mut()
+        .context("Server Connection Profile target must be an object")?
+        .insert("tokenCredentialKey".to_owned(), Value::from(key));
+    Ok(target)
+}
+
+fn preserve_credential_keys(
+    target: &mut Value,
+    current: Option<&Value>,
+    fields: &[&str],
+) -> Result<()> {
     let Some(current) = current.and_then(Value::as_object) else {
         return Ok(());
     };
     let object = target
         .as_object_mut()
-        .context("SSH Connection Profile target must be an object")?;
-    for field in ["passwordCredentialKey", "privateKeyPassphraseCredentialKey"] {
+        .context("Connection Profile target must be an object")?;
+    for &field in fields {
         if let Some(value) = current
             .get(field)
             .and_then(Value::as_str)
@@ -266,6 +321,7 @@ fn default_display_name(target: &Value) -> Option<String> {
                 .to_owned(),
         ),
         "docker" => string_field(object, "container").map(str::to_owned),
+        "server" => string_field(object, "url").map(str::to_owned),
         _ => None,
     }
 }

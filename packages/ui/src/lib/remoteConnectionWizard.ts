@@ -325,9 +325,7 @@ function profileScopeFields(profile: ConnectionProfile): {
   };
 }
 
-export function buildRemoteTargetFromProfile(
-  profile: ConnectionProfile,
-): Exclude<RemoteTarget, { kind: "server" }> {
+export function buildRemoteTargetFromProfile(profile: ConnectionProfile): RemoteTarget {
   const scope = profileScopeFields(profile);
   switch (profile.target.kind) {
     case "ssh":
@@ -352,6 +350,17 @@ export function buildRemoteTargetFromProfile(
       };
     case "docker":
       return { ...scope, kind: "docker", container: profile.target.container };
+    case "server":
+      // server Profile 同样由 Rust Host 建连（spec §12.6）：只回传 URL 与凭据引用，token 明文经
+      // CredentialService 解析，绝不写回 target。
+      return {
+        ...scope,
+        kind: "server",
+        url: profile.target.url,
+        ...(profile.target.tokenCredentialKey
+          ? { tokenCredentialKey: profile.target.tokenCredentialKey }
+          : {}),
+      };
   }
 }
 
@@ -378,6 +387,8 @@ export function profileMatchesRemoteTarget(
     case "docker":
       return profile.target.kind === "docker" && profile.target.container === target.container;
   }
+  // 早退条件已保证 kind 一致；server Profile 不会走到这里（调用方只比较可更新目标）。
+  return false;
 }
 
 export function findSourceServerUpgradeProfileId(

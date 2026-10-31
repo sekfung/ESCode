@@ -29,6 +29,18 @@ pub(super) fn normalize_target(target: &Value) -> Result<Value> {
             normalized.insert("kind".to_owned(), Value::from("docker"));
             normalized.insert("container".to_owned(), Value::from(container));
         }
+        // server 直连（spec §12.6.2）：身份只看 trim 后的 URL；token 由 ensureProfile 写入凭据服务，
+        // 这里只允许 tokenCredentialKey 引用进入 settings。
+        "server" => {
+            let url = string_field(object, "url")
+                .map(str::trim)
+                .unwrap_or_default();
+            if url.is_empty() {
+                bail!("Server URL is required");
+            }
+            normalized.insert("kind".to_owned(), Value::from("server"));
+            normalized.insert("url".to_owned(), Value::from(url));
+        }
         other => bail!("Unsupported connection transport: {other}"),
     }
     Ok(Value::Object(normalized))

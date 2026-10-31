@@ -1,36 +1,26 @@
 /* eslint-disable max-lines -- Main 的完整薄转发契约集中维护请求与端口关联。 */
 import { randomUUID } from "node:crypto";
-import { BrowserWindow, MessageChannelMain } from "electron";
-import type { MessagePortMain, UtilityProcess as ElectronUtilityProcess } from "electron";
+import { BrowserWindow } from "electron";
+import type { MessagePortMain } from "electron";
 import {
   type BindRemoteWorkspaceSessionContextResult,
   buildRemoteWorkspaceIdentity,
   buildServerRemoteWorkspaceIdentity,
-  buildRemoteEnvironmentKey,
-  buildSshRemoteHostKey,
-  HostMessageTypes,
-  HostResponseTypes,
-  hostResponseMessageSchema,
   InternalChannels,
   PlatformChannels,
   type RemoteTarget,
-  type ProviderProvisioningTrigger,
   type ScopedServicePortPayload,
   type WorkspacePurpose,
   type WindowHostRemoteWorkspaceDescriptor,
   stripRemoteTargetSecrets,
 } from "@escode/shared";
-import type { RemoteAssetDirs } from "./desktopRuntimeEnv.js";
 import type { RustHostRemoteScope } from "./rustHostBridge.js";
-import { ProviderProvisioningEnvironmentCoordinator } from "./providerProvisioningEnvironmentCoordinator.js";
 
 interface RemoteWorkspaceSessionContext {
   workspacePath: string;
   workspaceIdentity?: string;
   workspacePurpose?: WorkspacePurpose;
 }
-
-type ProfileRemoteTarget = Exclude<RemoteTarget, { kind: "server" }>;
 
 interface ResolvedProfileScope {
   profileId: string;
@@ -39,11 +29,11 @@ interface ResolvedProfileScope {
 
 interface ResolvedRemoteTarget {
   target: RemoteTarget;
-  profileScope?: ResolvedProfileScope;
+  profileScope: ResolvedProfileScope;
 }
 
 /** 首连 single-flight 键：与 Rust 的 Profile 身份键一致，不含密码/口令/展示字段。 */
-function profileTargetIdentityKey(target: ProfileRemoteTarget): string {
+function profileTargetIdentityKey(target: RemoteTarget): string {
   switch (target.kind) {
     case "ssh":
       return JSON.stringify({
@@ -61,6 +51,9 @@ function profileTargetIdentityKey(target: ProfileRemoteTarget): string {
       });
     case "docker":
       return JSON.stringify({ kind: "docker", container: target.container.trim() });
+    // spec §12.6.2：server 身份只看 trim 后的 URL，不做 http/ws 协议互转。
+    case "server":
+      return JSON.stringify({ kind: "server", url: target.url.trim() });
   }
 }
 
@@ -94,32 +87,22 @@ interface PendingProfileResolution {
 
 interface RemoteAttachmentRoute {
   webContentsId: number;
-  /**
-   * 这条 route 的服务面 owner（S3-c，spec §10.12）：`node-host` 只服务显式 Web 服务端
-   * (`kind: "server"`)；`rust-host` = App 级 Rust Host 的 ssh/wsl/docker remote scope。
-   * 两者不共用同一条 route。
-   */
-  owner: "node-host" | "rust-host";
-  /** `rust-host` route 的桥接句柄（dispose 即关闭 `/ws` 与端口）。 */
+  /** Rust Host 的 `/ws` 桥接句柄（dispose 即关闭连接与端口）。 */
   rustAttachment?: RustScopeAttachment;
   // Main 只保留端口转发所需的 request/session 关联和脱敏 descriptor；连接/任务事实归 Host。
   descriptor: WindowHostRemoteWorkspaceDescriptor;
   rendererAttachmentId?: string;
   pendingRendererAttachment?: {
     attachmentId: string;
-    previousAttachmentId?: string;
     reason: string;
-    /** `rust-host` route：候选 attachment 的桥接句柄（ready 后提升为 `rustAttachment`）。 */
+    /** 候选 attachment 的桥接句柄（ready 后提升为 `rustAttachment`）。 */
     rustAttachment?: RustScopeAttachment;
-    /** rust route 在附件（capability/安装）就绪、端口交付后才开始计时。 */
+    /** 附件（capability/安装）就绪、端口交付后才开始计时。 */
     timeout?: NodeJS.Timeout;
     resolve: () => void;
     reject: (error: Error) => void;
   };
   attachmentState: "attachable" | "closed";
-  connectedAtMonotonicMs: number;
-  connectFinalized: boolean;
-  providerProvisioningDispose?: () => void;
 }
 
 /** Rust Host 远端 scope 的 attachment；`onLost` 在 `/ws` 非主动关闭时触发（spec §10.14）。 */
@@ -138,41 +121,17 @@ type RustScopeAttachmentLostReason =
   | { reason: "host-exited"; exit?: unknown }
   | { reason: "socket-closed"; code?: number; reasonText?: string };
 
-interface PendingProviderProvisioningExecution {
-  readonly child: ElectronUtilityProcess;
-  readonly trigger: ProviderProvisioningTrigger;
-  readonly startedAtMonotonicMs: number;
-  readonly resolve: () => void;
-  readonly reject: (error: Error) => void;
-}
-
-function closeMessagePort(port: MessagePortMain | undefined): void {
-  if (!port) return;
-  try {
-    port.close();
-  } catch {
-    // MessagePort 关闭失败不影响 Host 内 attachment 的 close/dispose 幂等收口。
-  }
-}
-
 export function createRemoteWorkspaceSessionManager(options: {
   logger: {
     info: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
   };
-  windowHostProcessMap: Map<number, ElectronUtilityProcess>;
-  /**
-   * 仅 Web `kind: "server"` 的远程 workspace 需要 per-window Node Host；ssh/wsl/docker 由 App 级
-   * Rust Host 服务（S5-a/S5-b）。首次 Connect/Bind 时懒创建并写回 `windowHostProcessMap`。
-   */
-  ensureWindowHost?: (win: BrowserWindow) => Promise<ElectronUtilityProcess>;
-  resolveRemoteAssetDirs: () => RemoteAssetDirs;
   resolveWslTarget?: (
     target: Extract<RemoteTarget, { kind: "wsl" }>,
   ) => Promise<Extract<RemoteTarget, { kind: "wsl" }>>;
   /**
-   * 首连解析（S5-a，spec §12.2）：无 Profile 归属的 ssh/wsl/docker 目标交给 Rust Host
+   * 首连解析（S5-a，spec §12.2；S5-f-4 起含 `kind: "server"`）：无 Profile 归属的目标交给 Rust Host
    * 匹配/创建 Profile、连接并回填 `sourceServerId`。缺省 = 当前 Host 不服务远端 workspace。
    */
   resolveRustRemoteProfile?: (
@@ -192,10 +151,6 @@ export function createRemoteWorkspaceSessionManager(options: {
    * 缺省 = 该 Host 不支持取消；取消仍会结束本地等待，但不会中止远端连接。
    */
   cancelRustRemoteProfile?: (requestId: string) => Promise<unknown>;
-  createMessageChannel?: () => {
-    port1: MessagePortMain;
-    port2: MessagePortMain;
-  };
   /**
    * 远端 scope 的 attachment（S3-c，spec §10.12）：`RemoteTarget` 携带 `profileId` 时，连接事实由
    * Rust Host 按 Connection Profile 建立，Main 只把 `/ws` 桥接到 renderer。缺省 = 该 Host 不服务
@@ -208,32 +163,21 @@ export function createRemoteWorkspaceSessionManager(options: {
     onClosed?(listener: (event: RustScopeAttachmentClosedEvent) => void): void;
   }>;
   rendererAttachmentReadyTimeoutMs?: number;
-  monotonicNowMs?: () => number;
-  providerProvisioningCoordinator?: ProviderProvisioningEnvironmentCoordinator;
 }) {
   const pendingByRequestKey = new Map<string, PendingConnect>();
   const routesBySessionId = new Map<string, RemoteAttachmentRoute>();
-  const listenedHosts = new WeakSet<ElectronUtilityProcess>();
-  const pendingProviderProvisioningExecutions = new Map<
-    string,
-    PendingProviderProvisioningExecution
-  >();
-  const providerProvisioningCoordinator =
-    options.providerProvisioningCoordinator ?? new ProviderProvisioningEnvironmentCoordinator();
   let appShutdownStarted = false;
-  const monotonicNowMs = options.monotonicNowMs ?? (() => performance.now());
   const pendingProfileResolutions = new Map<string, RemoteProfileResolutionFlight>();
   const pendingProfileResolutionCallers = new Map<string, PendingProfileResolution>();
 
   /**
-   * 非 server 目标一律由 Rust Host 服务（S5-a）。已有完整 Profile 归属时直接路由；
-   * 首连或历史快照缺字段时，由 Rust Host 创建/匹配 Profile 并回填 `sourceServerId`。
+   * 所有远程目标（含 `kind: "server"`，S5-f-4）都由 Rust Host 服务。已有完整 Profile 归属时直接
+   * 路由；首连或历史快照缺字段时，由 Rust Host 创建/匹配 Profile 并回填 `sourceServerId`。
    */
   async function resolveRemoteTarget(
     target: RemoteTarget,
     caller: { webContentsId: number; requestId: string },
   ): Promise<ResolvedRemoteTarget> {
-    if (target.kind === "server") return { target };
     const resolvedTarget =
       target.kind === "wsl" && options.resolveWslTarget
         ? await options.resolveWslTarget(target)
@@ -307,7 +251,7 @@ export function createRemoteWorkspaceSessionManager(options: {
       );
     }
     const effectiveTarget = stripRemoteTargetSecrets({
-      ...(profileTarget as unknown as ProfileRemoteTarget),
+      ...(profileTarget as unknown as RemoteTarget),
       profileId: resolved.profileId,
       sourceServerId: resolved.sourceServerId,
     });
@@ -323,7 +267,7 @@ export function createRemoteWorkspaceSessionManager(options: {
   /** 建立首连解析 flight：一个目标身份一条，Host 请求 key 单独生成（不复用 renderer requestId）。 */
   function startProfileResolutionFlight(
     key: string,
-    target: ProfileRemoteTarget,
+    target: RemoteTarget,
     profileId: string | undefined,
     resolveRemoteProfile: NonNullable<typeof options.resolveRustRemoteProfile>,
   ): RemoteProfileResolutionFlight {
@@ -381,7 +325,7 @@ export function createRemoteWorkspaceSessionManager(options: {
   function remoteScopeOf(route: RemoteAttachmentRoute): RustHostRemoteScope {
     const descriptor = route.descriptor;
     const sourceServerId = descriptor.sourceServerId?.trim();
-    const profileId = descriptor.target.kind === "server" ? undefined : descriptor.target.profileId;
+    const profileId = descriptor.target.profileId;
     if (!sourceServerId || !profileId?.trim() || !descriptor.workspaceIdentity?.trim()) {
       throw Object.assign(
         new Error(
@@ -399,32 +343,6 @@ export function createRemoteWorkspaceSessionManager(options: {
 
   function requestKey(webContentsId: number, requestId: string): string {
     return `${webContentsId}\0${requestId}`;
-  }
-
-  async function getWindowHost(win: BrowserWindow): Promise<ElectronUtilityProcess> {
-    let child = options.windowHostProcessMap.get(win.webContents.id);
-    if ((!child || child.pid == null) && options.ensureWindowHost) {
-      child = await options.ensureWindowHost(win);
-      options.windowHostProcessMap.set(win.webContents.id, child);
-    }
-    if (!child || child.pid == null) {
-      throw new Error(`未找到窗口 Local Host，windowId=${win.webContents.id}`);
-    }
-    ensureHostListener(child, win.webContents.id);
-    return child;
-  }
-
-  function getWindowHostSync(win: BrowserWindow): ElectronUtilityProcess {
-    const child = options.windowHostProcessMap.get(win.webContents.id);
-    if (!child || child.pid == null) {
-      throw new Error(`未找到窗口 Local Host，windowId=${win.webContents.id}`);
-    }
-    ensureHostListener(child, win.webContents.id);
-    return child;
-  }
-
-  function createMessageChannel() {
-    return options.createMessageChannel?.() ?? new MessageChannelMain();
   }
 
   function emitConnectionLog(
@@ -455,26 +373,6 @@ export function createRemoteWorkspaceSessionManager(options: {
     });
   }
 
-  function detachServicePort(
-    child: ElectronUtilityProcess,
-    attachmentId: string,
-    reason: string,
-  ): void {
-    try {
-      child.postMessage({
-        type: HostMessageTypes.DetachServicePort,
-        attachmentId,
-      });
-    } catch (error) {
-      // 候选 port 的回收属于幂等清理，不能因 Host 已退出导致 ready promise 再次悬空。
-      options.logger.warn("[window-host-remote] detach renderer attachment failed", {
-        attachmentId,
-        reason,
-        error,
-      });
-    }
-  }
-
   /**
    * Desktop Main → Preload → Renderer 的 remote scope 元数据（spec §10.12）。
    *
@@ -498,11 +396,9 @@ export function createRemoteWorkspaceSessionManager(options: {
   }
 
   /**
-   * 把一个 route 的 attachment 交付给 renderer。
-   *
-   * `node-host` route：先让 per-window Node Host 绑定一个 MessagePort（仅 Web 服务端）。
-   * `rust-host` route（S3-c，spec §10.12）：向 Rust Host 申请 scoped capability 并桥接 `/ws`；
-   * 失败是显式错误（不换 Node Host 服务同一 workspace），候选 attachment 立即收口。
+   * 把一个 route 的 attachment 交付给 renderer（S3-c，spec §10.12）：向 Rust Host 申请 scoped
+   * capability 并桥接 `/ws`；失败是显式错误（不换其它 Host 服务同一 workspace），候选 attachment
+   * 立即收口。
    */
   async function attachRendererPort(
     win: BrowserWindow,
@@ -512,8 +408,6 @@ export function createRemoteWorkspaceSessionManager(options: {
     if (win.isDestroyed() || win.webContents.isDestroyed()) {
       throw new Error("窗口已关闭，无法 attachment 远程 workspace");
     }
-    const rustRoute = route.owner === "rust-host";
-    const child = rustRoute ? undefined : await getWindowHost(win);
     const descriptor = route.descriptor;
     const workspacePath = descriptor.workspacePath;
     const workspaceIdentity = descriptor.workspaceIdentity;
@@ -523,18 +417,16 @@ export function createRemoteWorkspaceSessionManager(options: {
       );
     }
     // scope 先解析：缺字段属于契约错误，不应先建端口再失败。
-    const rustScope = rustRoute ? remoteScopeOf(route) : undefined;
+    const rustScope = remoteScopeOf(route);
     const attachmentId = randomUUID();
     const scopedServicePort = buildScopedServicePortPayload(descriptor, attachmentId, {
       workspacePath,
       workspaceIdentity,
     });
-    const previousAttachmentId = route.rendererAttachmentId;
     const superseded = route.pendingRendererAttachment;
     if (superseded) {
       if (superseded.timeout) clearTimeout(superseded.timeout);
       route.pendingRendererAttachment = undefined;
-      if (child) detachServicePort(child, superseded.attachmentId, "superseded");
       superseded.rustAttachment?.dispose();
       superseded.reject(
         new Error(`renderer attachment 已被后续换代替代，sessionId=${descriptor.remoteSessionId}`),
@@ -543,14 +435,13 @@ export function createRemoteWorkspaceSessionManager(options: {
 
     return new Promise<void>((resolve, reject) => {
       // renderer attachment ready 只覆盖「端口送达 → renderer 注册完服务」这段握手。
-      // rust route 的端口要等 Host 建连（首次连接含安装，spec §11.3）后才能交付，
-      // 因此计时器在附件就绪后才启动；连接/安装进度由 Source Server 状态机发布。
+      // 端口要等 Host 建连（首次连接含安装，spec §11.3）后才能交付，因此计时器在附件就绪后
+      // 才启动；连接/安装进度由 Source Server 状态机发布。
       const armReadyTimeout = (): NodeJS.Timeout => {
         const timer = setTimeout(() => {
           const pending = route.pendingRendererAttachment;
           if (!pending || pending.attachmentId !== attachmentId) return;
           route.pendingRendererAttachment = undefined;
-          if (child) detachServicePort(child, attachmentId, "ready-timeout");
           pending.rustAttachment?.dispose();
           const error = new Error(
             `renderer attachment ready 超时，sessionId=${descriptor.remoteSessionId}`,
@@ -565,86 +456,47 @@ export function createRemoteWorkspaceSessionManager(options: {
         timer.unref?.();
         return timer;
       };
-      route.pendingRendererAttachment = {
-        attachmentId,
-        previousAttachmentId,
-        reason,
-        ...(rustRoute ? {} : { timeout: armReadyTimeout() }),
-        resolve,
-        reject,
-      };
+      route.pendingRendererAttachment = { attachmentId, reason, resolve, reject };
 
-      if (rustRoute) {
-        const attachRustRemoteScope = options.attachRustRemoteScope;
-        if (!attachRustRemoteScope || !rustScope) {
-          const error = Object.assign(
+      const attachRustRemoteScope = options.attachRustRemoteScope;
+      if (!attachRustRemoteScope) {
+        route.pendingRendererAttachment = undefined;
+        reject(
+          Object.assign(
             new Error("当前 Host 不服务 Connection Profile 远端 workspace（Rust Host 未启用）"),
             { code: "REMOTE_RUST_HOST_UNAVAILABLE" as const },
-          );
-          route.pendingRendererAttachment = undefined;
-          reject(error);
-          return;
-        }
-        void attachRustRemoteScope(rustScope)
-          .then((attachment) => {
-            const pending = route.pendingRendererAttachment;
-            // ready 超时/被换代/route 已释放：迟到的候选立即收口，不泄漏 `/ws`。
-            if (!pending || pending.attachmentId !== attachmentId) {
-              attachment.dispose();
-              return;
-            }
-            pending.rustAttachment = attachment;
-            attachment.onLost?.((reason) =>
-              handleRustAttachmentLost(win, route, attachment, reason),
-            );
-            attachment.onClosed?.((event) =>
-              handleRustAttachmentLost(win, route, attachment, {
-                reason: "socket-closed",
-                ...event,
-              }),
-            );
-            pending.timeout = armReadyTimeout();
-            win.webContents.postMessage(InternalChannels.ScopedServicePort, scopedServicePort, [
-              attachment.port as MessagePortMain,
-            ]);
-          })
-          .catch((error: unknown) => {
-            const pending = route.pendingRendererAttachment;
-            if (!pending || pending.attachmentId !== attachmentId) return;
-            route.pendingRendererAttachment = undefined;
-            if (pending.timeout) clearTimeout(pending.timeout);
-            reject(error instanceof Error ? error : new Error(String(error)));
-          });
+          ),
+        );
         return;
       }
-
-      const { port1, port2 } = createMessageChannel();
-      try {
-        child.postMessage(
-          {
-            type: HostMessageTypes.AttachServicePort,
-            requestId: randomUUID(),
-            attachmentId,
-            clientMode: "desktop-continuous",
-            scope: {
-              kind: "remote",
-              remoteSessionId: descriptor.remoteSessionId,
-              workspacePath: descriptor.workspacePath,
-              workspaceIdentity: descriptor.workspaceIdentity,
-            },
-          },
-          [port2],
-        );
-        win.webContents.postMessage(InternalChannels.ScopedServicePort, scopedServicePort, [port1]);
-      } catch (error) {
-        const pending = route.pendingRendererAttachment;
-        if (pending?.timeout) clearTimeout(pending.timeout);
-        route.pendingRendererAttachment = undefined;
-        detachServicePort(child, attachmentId, "delivery-failed");
-        closeMessagePort(port1);
-        closeMessagePort(port2);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+      void attachRustRemoteScope(rustScope)
+        .then((attachment) => {
+          const pending = route.pendingRendererAttachment;
+          // ready 超时/被换代/route 已释放：迟到的候选立即收口，不泄漏 `/ws`。
+          if (!pending || pending.attachmentId !== attachmentId) {
+            attachment.dispose();
+            return;
+          }
+          pending.rustAttachment = attachment;
+          attachment.onLost?.((reason) => handleRustAttachmentLost(win, route, attachment, reason));
+          attachment.onClosed?.((event) =>
+            handleRustAttachmentLost(win, route, attachment, {
+              reason: "socket-closed",
+              ...event,
+            }),
+          );
+          pending.timeout = armReadyTimeout();
+          win.webContents.postMessage(InternalChannels.ScopedServicePort, scopedServicePort, [
+            attachment.port as MessagePortMain,
+          ]);
+        })
+        .catch((error: unknown) => {
+          const pending = route.pendingRendererAttachment;
+          if (!pending || pending.attachmentId !== attachmentId) return;
+          route.pendingRendererAttachment = undefined;
+          if (pending.timeout) clearTimeout(pending.timeout);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        });
     });
   }
 
@@ -670,153 +522,28 @@ export function createRemoteWorkspaceSessionManager(options: {
 
     if (pending.timeout) clearTimeout(pending.timeout);
     route.pendingRendererAttachment = undefined;
-    const child =
-      route.owner === "node-host"
-        ? options.windowHostProcessMap.get(route.webContentsId)
-        : undefined;
-    if (route.owner === "node-host" && (!child || child.pid == null)) {
-      pending.reject(new Error(`窗口 Local Host 已退出，sessionId=${payload.sessionId}`));
-      return;
-    }
     route.rendererAttachmentId = pending.attachmentId;
-    if (route.owner === "rust-host") {
-      // 候选 attachment 就绪后才淘汰旧句柄：换代期间 renderer 仍可用旧 port。
-      route.rustAttachment?.dispose();
-      route.rustAttachment = pending.rustAttachment;
-    } else if (pending.previousAttachmentId && child) {
-      // Host generation bind 会 fail-closed 立即失效 A；Main 仍需等 renderer 注册 B
-      // 后再提升 route 并做幂等清理。reload 复挂没有 generation 换代，也因此不会提前拆掉可用旧 port。
-      detachServicePort(child, pending.previousAttachmentId, "candidate-promoted");
-    }
+    // 候选 attachment 就绪后才淘汰旧句柄：换代期间 renderer 仍可用旧 port。
+    route.rustAttachment?.dispose();
+    route.rustAttachment = pending.rustAttachment;
     options.logger.info(
       `[window-host-remote] renderer attachment ready, sessionId=${payload.sessionId}, reason=${pending.reason}`,
     );
-    route.connectFinalized = true;
     pending.resolve();
   }
 
-  function handleConnected(
-    child: ElectronUtilityProcess,
-    webContentsId: number,
-    requestId: string,
-    descriptor: WindowHostRemoteWorkspaceDescriptor,
-  ): void {
-    const key = requestKey(webContentsId, requestId);
-    const pending = pendingByRequestKey.get(key);
-    if (descriptor.target.kind !== "server") {
-      pendingByRequestKey.delete(key);
-      child.postMessage({
-        type: HostMessageTypes.DisposeRemoteWorkspaceSession,
-        requestId: randomUUID(),
-        remoteSessionId: descriptor.remoteSessionId,
-      });
-      pending?.reject(
-        Object.assign(new Error(`远程 ${descriptor.target.kind} workspace 必须由 Rust Host 服务`), {
-          code: "REMOTE_RUST_HOST_REQUIRED" as const,
-        }),
-      );
-      return;
-    }
-    if (!pending) {
-      child.postMessage({
-        type: HostMessageTypes.DisposeRemoteWorkspaceSession,
-        requestId: randomUUID(),
-        remoteSessionId: descriptor.remoteSessionId,
-      });
-      return;
-    }
-    pendingByRequestKey.delete(key);
-    const route: RemoteAttachmentRoute = {
-      webContentsId,
-      owner: "node-host",
-      descriptor,
-      attachmentState: "attachable",
-      connectedAtMonotonicMs: monotonicNowMs(),
-      connectFinalized: false,
-    };
-    routesBySessionId.set(descriptor.remoteSessionId, route);
-    const environmentKey = buildRemoteEnvironmentKey(descriptor.target);
-    const registration = providerProvisioningCoordinator.register(
-      environmentKey,
-      descriptor.remoteSessionId,
-      (trigger) =>
-        executeProviderProvisioning(child, descriptor.remoteSessionId, environmentKey, trigger),
-    );
-    route.providerProvisioningDispose = registration.dispose;
-    void registration.initialSync
-      .then(() => attachRendererPort(pending.win, route, "connect"))
-      .then(() => {
-        emitConnectionLog(pending.win, {
-          requestId,
-          sessionId: descriptor.remoteSessionId,
-          level: "info",
-          message: `远程 ${descriptor.target.kind} workspace 已连接`,
-        });
-        pending.resolve(descriptor.remoteSessionId);
-      })
-      .catch((error: unknown) => {
-        route.providerProvisioningDispose?.();
-        routesBySessionId.delete(descriptor.remoteSessionId);
-        child.postMessage({
-          type: HostMessageTypes.DisposeRemoteWorkspaceSession,
-          requestId: randomUUID(),
-          remoteSessionId: descriptor.remoteSessionId,
-        });
-        emitConnectionLog(pending.win, {
-          requestId,
-          sessionId: descriptor.remoteSessionId,
-          level: "error",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        pending.reject(error instanceof Error ? error : new Error(String(error)));
-      });
-  }
-
-  function executeProviderProvisioning(
-    child: ElectronUtilityProcess,
-    remoteSessionId: string,
-    environmentKey: string,
-    trigger: ProviderProvisioningTrigger,
-  ): Promise<void> {
-    const requestId = randomUUID();
-    return new Promise<void>((resolve, reject) => {
-      pendingProviderProvisioningExecutions.set(requestId, {
-        child,
-        trigger,
-        startedAtMonotonicMs: monotonicNowMs(),
-        resolve,
-        reject,
-      });
-      try {
-        child.postMessage({
-          type: HostMessageTypes.ProviderProvisioningExecute,
-          requestId,
-          environmentKey,
-          remoteSessionId,
-          trigger,
-        });
-      } catch (error) {
-        pendingProviderProvisioningExecutions.delete(requestId);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-  }
-
-  function detachRouteAttachments(
-    route: RemoteAttachmentRoute,
-    reason: string,
-    error: Error,
-  ): void {
-    const child = options.windowHostProcessMap.get(route.webContentsId);
+  /** 连接/窗口关闭时收口端口：候选与已交付的 attachment 都要 dispose，避免 `/ws` 泄漏。 */
+  function detachRouteAttachments(route: RemoteAttachmentRoute, error: Error): void {
     if (route.pendingRendererAttachment) {
       const pending = route.pendingRendererAttachment;
       if (pending.timeout) clearTimeout(pending.timeout);
       route.pendingRendererAttachment = undefined;
-      if (child) detachServicePort(child, pending.attachmentId, reason);
+      pending.rustAttachment?.dispose();
       pending.reject(error);
     }
     if (route.rendererAttachmentId) {
-      if (child) detachServicePort(child, route.rendererAttachmentId, reason);
+      route.rustAttachment?.dispose();
+      route.rustAttachment = undefined;
       route.rendererAttachmentId = undefined;
     }
   }
@@ -863,8 +590,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     retireActiveRoute(route, "rust-attachment-lost", () => {
       route.attachmentState = "closed";
     });
-    route.providerProvisioningDispose?.();
-    detachRouteAttachments(route, "rust-attachment-lost", new Error(message));
+    detachRouteAttachments(route, new Error(message));
     if (win.isDestroyed() || win.webContents.isDestroyed()) return;
     win.webContents.send(PlatformChannels.RemoteSessionClosed, {
       sessionId,
@@ -886,164 +612,6 @@ export function createRemoteWorkspaceSessionManager(options: {
     mutate();
   }
 
-  function handleClosed(
-    webContentsId: number,
-    event: {
-      remoteSessionId: string;
-      reason: "connection-closed" | "disposed" | "connect-cancelled";
-      exitCode?: number | null;
-      signal?: string | null;
-      error?: string;
-    },
-  ): void {
-    const route = routesBySessionId.get(event.remoteSessionId);
-    if (!route || route.webContentsId !== webContentsId) return;
-    if (event.reason !== "connection-closed") {
-      route.providerProvisioningDispose?.();
-      retireActiveRoute(route, "disposed", () => {
-        routesBySessionId.delete(event.remoteSessionId);
-      });
-      detachRouteAttachments(
-        route,
-        "session-released",
-        new Error(`远程 workspace 已释放，sessionId=${event.remoteSessionId}`),
-      );
-      return;
-    }
-    retireActiveRoute(route, "connection-closed", () => {
-      route.attachmentState = "closed";
-    });
-    route.providerProvisioningDispose?.();
-    // 连接断开只把 route 标成 closed，已暴露的 desktop attachment 仍留在窗口 Host；
-    // sessionId 换代后 Main 又会删除 route，导致旧 ChannelServer 永久失去回收入口。
-    detachRouteAttachments(
-      route,
-      "session-connection-closed",
-      new Error(`远程 workspace 已关闭，sessionId=${event.remoteSessionId}`),
-    );
-    const win = BrowserWindow.getAllWindows().find(
-      (candidate) => candidate.webContents.id === webContentsId,
-    );
-    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
-      win.webContents.send(PlatformChannels.RemoteSessionClosed, {
-        sessionId: event.remoteSessionId,
-        reason: "host-exit" as const,
-        exitCode: event.exitCode ?? null,
-        signal: event.signal ?? null,
-      });
-      emitConnectionLog(win, {
-        sessionId: event.remoteSessionId,
-        level: "warn",
-        message: event.error || "远程 workspace 连接已断开",
-      });
-    }
-  }
-
-  function ensureHostListener(child: ElectronUtilityProcess, webContentsId: number): void {
-    if (listenedHosts.has(child)) return;
-    listenedHosts.add(child);
-    child.on("message", (message: unknown) => {
-      const parsed = hostResponseMessageSchema.safeParse(message);
-      if (!parsed.success) return;
-      if (parsed.data.type === HostResponseTypes.RemoteWorkspaceConnectionLog) {
-        const pending = pendingByRequestKey.get(requestKey(webContentsId, parsed.data.requestId));
-        if (!pending) return;
-        // 多个远程连接共享 window Host，不能再从进程 label/stdout 猜日志归属；
-        // Host 已带上连接 requestId，Main 只向对应发起窗口做薄转发。
-        emitConnectionLog(pending.win, {
-          requestId: parsed.data.requestId,
-          level: parsed.data.level,
-          message: parsed.data.message,
-        });
-        return;
-      }
-      if (parsed.data.type === HostResponseTypes.ProviderProvisioningSourceChanged) {
-        void providerProvisioningCoordinator.requestAll(parsed.data.trigger);
-        return;
-      }
-      if (parsed.data.type === HostResponseTypes.ProviderProvisioningExecutionResult) {
-        const pending = pendingProviderProvisioningExecutions.get(parsed.data.requestId);
-        if (!pending || pending.child !== child) return;
-        pendingProviderProvisioningExecutions.delete(parsed.data.requestId);
-        const logContext = {
-          environmentKey: parsed.data.environmentKey,
-          trigger: pending.trigger,
-          status: parsed.data.status,
-          durationMs: Math.max(0, monotonicNowMs() - pending.startedAtMonotonicMs),
-        };
-        if (parsed.data.status !== "applied" && parsed.data.status !== "already-applied") {
-          const errorCode =
-            parsed.data.errorCode ??
-            (parsed.data.status === "unsupported"
-              ? "capability-unavailable"
-              : "target-apply-failed");
-          // 首次失败以前在 warning 前返回，连接面板也只剩开始日志，无法区分本地与远端故障。
-          // 仅记录经过 schema 校验的阶段码；远端 error 自由文本仍不进入日志或反馈。
-          options.logger.warn("[provider-provisioning] Environment sync did not apply", {
-            ...logContext,
-            errorCode,
-          });
-          if (pending.trigger === "environment-online") {
-            pending.reject(
-              new Error(`Provider Provisioning 首次同步失败 (${parsed.data.status}; ${errorCode})`),
-            );
-            return;
-          }
-        } else {
-          options.logger.info("[provider-provisioning] Environment sync completed", logContext);
-        }
-        pending.resolve();
-        return;
-      }
-      if (parsed.data.type === HostResponseTypes.RemoteWorkspaceConnected) {
-        handleConnected(child, webContentsId, parsed.data.requestId, parsed.data.descriptor);
-        return;
-      }
-      if (parsed.data.type === HostResponseTypes.RemoteWorkspaceConnectFailed) {
-        const key = requestKey(webContentsId, parsed.data.requestId);
-        const pending = pendingByRequestKey.get(key);
-        if (!pending) return;
-        pendingByRequestKey.delete(key);
-        emitConnectionLog(pending.win, {
-          requestId: parsed.data.requestId,
-          level: "error",
-          message: parsed.data.error,
-        });
-        pending.reject(new Error(parsed.data.error));
-        return;
-      }
-      if (parsed.data.type === HostResponseTypes.RemoteWorkspaceClosed) {
-        handleClosed(webContentsId, parsed.data);
-      }
-    });
-    child.once("exit", () => {
-      const error = new Error("窗口 Local Host 已退出");
-      for (const [requestId, pendingExecution] of pendingProviderProvisioningExecutions) {
-        if (pendingExecution.child !== child) continue;
-        pendingProviderProvisioningExecutions.delete(requestId);
-        pendingExecution.reject(error);
-      }
-      for (const [key, pending] of Array.from(pendingByRequestKey)) {
-        if (pending.webContentsId === webContentsId) {
-          pendingByRequestKey.delete(key);
-          pending.reject(error);
-        }
-      }
-      for (const [sessionId, route] of Array.from(routesBySessionId)) {
-        if (route.webContentsId !== webContentsId) continue;
-        route.providerProvisioningDispose?.();
-        retireActiveRoute(route, "host-exit", () => {
-          routesBySessionId.delete(sessionId);
-        });
-        if (route.pendingRendererAttachment) {
-          if (route.pendingRendererAttachment.timeout)
-            clearTimeout(route.pendingRendererAttachment.timeout);
-          route.pendingRendererAttachment.reject(error);
-        }
-      }
-    });
-  }
-
   async function createRemoteWorkspaceSession(
     win: BrowserWindow,
     target: RemoteTarget,
@@ -1055,23 +623,12 @@ export function createRemoteWorkspaceSessionManager(options: {
     }
     // renderer 的 requestId 同时用于 resolve 取消关联：首连在建时也能精确取消（spec §12.2）。
     const resolvedRequestId = requestId ?? randomUUID();
-    // S5-a（spec §12.2）：ssh/wsl/docker 首连先由 Rust Host 建立/复用 Profile；建连事实与
-    // 实例都在 Host，Main 只申请 scoped capability 并桥接 `/ws`。只有 `server` 保留 Node/HTTP。
+    // S5-a/S5-f-4（spec §12.2/§12.6）：所有 target（含 `kind: "server"`）先由 Rust Host 建立/复用
+    // Profile；建连事实与实例都在 Host，Main 只申请 scoped capability 并桥接 `/ws`。
     const resolved = await resolveRemoteTarget(target, {
       webContentsId: win.webContents.id,
       requestId: resolvedRequestId,
     });
-    if (resolved.profileScope) {
-      return createRustRemoteWorkspaceSession(
-        win,
-        resolved.target as ProfileRemoteTarget,
-        resolved.profileScope,
-        requestId,
-        context,
-      );
-    }
-    const child = await getWindowHost(win);
-    const resolvedTarget = resolved.target;
     if (appShutdownStarted) {
       // WSL identity 解析跨 await，期间退出屏障可能已清空 Main 请求关联并开始回收 Host。
       // 恢复后必须重新验证生命周期，禁止在 shutdown barrier 之后注册迟到请求。
@@ -1080,38 +637,19 @@ export function createRemoteWorkspaceSessionManager(options: {
     if (win.isDestroyed() || win.webContents.isDestroyed()) {
       throw new Error("窗口已关闭，无法创建远程工作区连接");
     }
-    const key = requestKey(win.webContents.id, resolvedRequestId);
-    if (pendingByRequestKey.has(key)) {
-      throw new Error(`远程连接 requestId 重复，requestId=${resolvedRequestId}`);
-    }
-    emitConnectionLog(win, {
-      requestId: resolvedRequestId,
-      level: "info",
-      message: `正在通过窗口 Host 连接 ${resolvedTarget.kind} workspace`,
-    });
-    return new Promise<string>((resolve, reject) => {
-      pendingByRequestKey.set(key, {
-        requestId: resolvedRequestId,
-        webContentsId: win.webContents.id,
-        win,
-        resolve,
-        reject,
-      });
-      child.postMessage({
-        type: HostMessageTypes.ConnectRemoteWorkspace,
-        requestId: resolvedRequestId,
-        target: resolvedTarget,
-        remoteAssets: options.resolveRemoteAssetDirs(),
-        ...(context?.workspacePath ? { workspacePath: context.workspacePath } : {}),
-        ...(context?.workspaceIdentity ? { workspaceIdentity: context.workspaceIdentity } : {}),
-      });
-    });
+    return createRustRemoteWorkspaceSession(
+      win,
+      resolved.target,
+      resolved.profileScope,
+      requestId,
+      context,
+    );
   }
 
   /**
    * Rust Host 服务的远端 workspace session（spec §10.12）。
    *
-   * 没有 per-window Node Host 参与：`remoteSessionId` 是 Main 的路由键，连接由 Host 按 profile 建立；
+   * 不再有 per-window Node Host 参与：`remoteSessionId` 是 Main 的路由键，连接由 Host 按 profile 建立；
    * 首次 attach 会用临时 identity（`workspacePath ?? "/"`）申请 scoped capability，目录 bind 后
    * 换 new identity 重新签发（`RemoteGrant` 绑定签发时的 identity，不复用旧令牌）。
    */
@@ -1172,11 +710,8 @@ export function createRemoteWorkspaceSessionManager(options: {
       pendingByRequestKey.set(key, pending);
       const route: RemoteAttachmentRoute = {
         webContentsId: win.webContents.id,
-        owner: "rust-host",
         descriptor,
         attachmentState: "attachable",
-        connectedAtMonotonicMs: monotonicNowMs(),
-        connectFinalized: false,
       };
       routesBySessionId.set(remoteSessionId, route);
       void attachRendererPort(win, route, "connect")
@@ -1256,29 +791,17 @@ export function createRemoteWorkspaceSessionManager(options: {
     const win = BrowserWindow.getAllWindows().find(
       (candidate) => candidate.webContents.id === route.webContentsId,
     );
-    const child =
-      route.owner === "node-host"
-        ? options.windowHostProcessMap.get(route.webContentsId)
-        : undefined;
-    if ((route.owner === "node-host" && !child) || !win) {
-      throw new Error(`未找到远程 workspace 所属窗口 Host，sessionId=${sessionId}`);
+    if (!win) {
+      throw new Error(`未找到远程 workspace 所属窗口，sessionId=${sessionId}`);
     }
-    // Node Host：同一 parentPort 上 Bind 先于 Attach 处理。
     // Rust Host：scope 在 capability 签发时绑定 identity，bind 只需换代 attachment（下方 attach）。
-    child?.postMessage({
-      type: HostMessageTypes.BindRemoteWorkspaceContext,
-      requestId: randomUUID(),
-      remoteSessionId: sessionId,
-      workspacePath: context.workspacePath,
-      workspaceIdentity,
-    });
     route.descriptor = {
       ...route.descriptor,
       workspacePath: context.workspacePath,
       workspaceIdentity,
       generation: route.descriptor.generation + 1,
     };
-    // 同一 parentPort 上 Bind 先于 Attach 处理；IPC 只在 renderer 注册新 port 后返回。
+    // IPC 只在 renderer 注册新 port 后返回。
     await attachRendererPort(win, route, "workspace-context-bound");
     return binding;
   }
@@ -1303,37 +826,16 @@ export function createRemoteWorkspaceSessionManager(options: {
     retireActiveRoute(route, "disposed", () => {
       routesBySessionId.delete(sessionId);
     });
-    route.providerProvisioningDispose?.();
-    const child =
-      route.owner === "node-host"
-        ? options.windowHostProcessMap.get(route.webContentsId)
-        : undefined;
     if (route.pendingRendererAttachment) {
       const pending = route.pendingRendererAttachment;
       if (pending.timeout) clearTimeout(pending.timeout);
       route.pendingRendererAttachment = undefined;
-      if (child) detachServicePort(child, pending.attachmentId, "session-disposed");
       pending.rustAttachment?.dispose();
       pending.reject(new Error(`远程 workspace session 已释放，sessionId=${sessionId}`));
     }
-    if (route.owner === "rust-host") {
-      // 远端连接与实例跨窗口共享（spec §10.6）：释放本窗口的 attachment，不断开 profile 连接。
-      route.rustAttachment?.dispose();
-      route.rustAttachment = undefined;
-      return;
-    }
-    if (!child) return;
-    if (route.rendererAttachmentId) {
-      child.postMessage({
-        type: HostMessageTypes.DetachServicePort,
-        attachmentId: route.rendererAttachmentId,
-      });
-    }
-    child.postMessage({
-      type: HostMessageTypes.DisposeRemoteWorkspaceSession,
-      requestId: randomUUID(),
-      remoteSessionId: sessionId,
-    });
+    // 远端连接与实例跨窗口共享（spec §10.6）：释放本窗口的 attachment，不断开 profile 连接。
+    route.rustAttachment?.dispose();
+    route.rustAttachment = undefined;
   }
 
   /** 取消窗口/请求级首连等待者；多个 caller 共享同一 flight 时，只有最后一个离开才中止连接。 */
@@ -1361,7 +863,6 @@ export function createRemoteWorkspaceSessionManager(options: {
       retireActiveRoute(route, "window-closed", () => {
         routesBySessionId.delete(sessionId);
       });
-      route.providerProvisioningDispose?.();
       if (route.pendingRendererAttachment) {
         if (route.pendingRendererAttachment.timeout)
           clearTimeout(route.pendingRendererAttachment.timeout);
@@ -1385,9 +886,8 @@ export function createRemoteWorkspaceSessionManager(options: {
     reason: string,
     requestId?: string,
   ): void {
-    // 首连解析阶段还没有 session/Node 请求；按 caller 单独取消，最后一个 caller 才中止 Host 连接。
+    // 首连解析阶段还没有 session；按 caller 单独取消，最后一个 caller 才中止 Host 连接。
     cancelPendingProfileResolutions(webContentsId, reason, requestId);
-    const child = options.windowHostProcessMap.get(webContentsId);
     for (const pending of pendingByRequestKey.values()) {
       if (
         pending.webContentsId !== webContentsId ||
@@ -1397,83 +897,11 @@ export function createRemoteWorkspaceSessionManager(options: {
       }
       // Rust Host 路径没有 per-request 控制消息：置取消位，迟到的 scope attachment 立即收口。
       pending.cancelled = true;
-      child?.postMessage({
-        type: HostMessageTypes.CancelRemoteWorkspaceConnect,
-        requestId: pending.requestId,
-      });
     }
-  }
-
-  function attachRemoteWorkspaceSessionHost(params: {
-    windowId: number;
-    remoteSessionId: string;
-    workspacePath: string;
-    workspaceIdentity: string;
-    workspaceKey: string;
-    clientMode: "web-remote-replayable";
-  }): {
-    process: ElectronUtilityProcess;
-    port: MessagePortMain;
-    remoteKind: RemoteTarget["kind"];
-  } {
-    const route = routesBySessionId.get(params.remoteSessionId);
-    if (!route) {
-      throw Object.assign(
-        new Error(`未找到远程 workspace session，sessionId=${params.remoteSessionId}`),
-        {
-          code: "REMOTE_SESSION_MISSING" as const,
-        },
-      );
-    }
-    if (route.attachmentState !== "attachable") {
-      throw Object.assign(new Error("远程 workspace source 当前离线"), {
-        code: "REMOTE_SESSION_OFFLINE" as const,
-      });
-    }
-    if (route.owner !== "node-host" || route.descriptor.target.kind !== "server") {
-      throw Object.assign(new Error("当前 renderer remote-host attachment 只服务 Web 服务端目标"), {
-        code: "REMOTE_RUST_HOST_REQUIRED" as const,
-      });
-    }
-    const win = BrowserWindow.fromId(params.windowId);
-    if (!win || win.webContents.id !== route.webContentsId) {
-      throw Object.assign(new Error("远程 workspace session 不属于当前窗口"), {
-        code: "REMOTE_SESSION_WINDOW_MISMATCH" as const,
-      });
-    }
-    const descriptor = route.descriptor;
-    if (
-      descriptor.workspacePath !== params.workspacePath ||
-      descriptor.workspaceIdentity !== params.workspaceIdentity ||
-      params.workspaceKey !== params.workspaceIdentity
-    ) {
-      throw Object.assign(new Error("远程 workspaceKey 与 logical session 不匹配。"), {
-        code: "REMOTE_WORKSPACE_IDENTITY_MISMATCH" as const,
-      });
-    }
-    const process = getWindowHostSync(win);
-    const { port1, port2 } = createMessageChannel();
-    process.postMessage(
-      {
-        type: HostMessageTypes.AttachServicePort,
-        requestId: randomUUID(),
-        attachmentId: randomUUID(),
-        clientMode: params.clientMode,
-        scope: {
-          kind: "remote",
-          remoteSessionId: params.remoteSessionId,
-          workspacePath: params.workspacePath,
-          workspaceIdentity: params.workspaceIdentity,
-        },
-      },
-      [port2],
-    );
-    return { process, port: port1, remoteKind: descriptor.target.kind };
   }
 
   return {
     createRemoteWorkspaceSession,
-    attachRemoteWorkspaceSessionHost,
     bindRemoteWorkspaceSessionContext,
     confirmRendererAttachmentReady,
     reattachRemoteWorkspaceSessionsForWindow,
@@ -1488,7 +916,6 @@ export function createRemoteWorkspaceSessionManager(options: {
         retireActiveRoute(route, "app-shutdown", () => {
           routesBySessionId.delete(sessionId);
         });
-        route.providerProvisioningDispose?.();
         if (!route.pendingRendererAttachment) continue;
         if (route.pendingRendererAttachment.timeout)
           clearTimeout(route.pendingRendererAttachment.timeout);

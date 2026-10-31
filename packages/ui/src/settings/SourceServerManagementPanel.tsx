@@ -663,19 +663,22 @@ export function SourceServerManagementPanel({
             </Button>
           ) : null}
           {identityChangePending ? renderIdentityConfirmation(profile, "xs") : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            aria-label={intl.formatMessage({
-              id: "settings.source.editConnection",
-            })}
-            disabled={busyScopes.has(profileOperationScope(profile))}
-            onClick={() => setEditingConnection({ profile })}
-          >
-            <Pencil className="size-3.5" />
-            {intl.formatMessage({ id: "settings.source.editConnection" })}
-          </Button>
+          {/* server Profile（spec §12.6）没有可编辑的 host/auth 字段，编辑对话框只覆盖 ssh/wsl/docker。 */}
+          {profile.transport !== "server" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              aria-label={intl.formatMessage({
+                id: "settings.source.editConnection",
+              })}
+              disabled={busyScopes.has(profileOperationScope(profile))}
+              onClick={() => setEditingConnection({ profile })}
+            >
+              <Pencil className="size-3.5" />
+              {intl.formatMessage({ id: "settings.source.editConnection" })}
+            </Button>
+          ) : null}
           {server && server.preferredProfileId !== profile.profileId ? (
             <Button
               type="button"

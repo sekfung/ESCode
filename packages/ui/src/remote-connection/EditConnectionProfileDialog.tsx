@@ -124,9 +124,10 @@ function EditConnectionProfileForm({
     } else if (profile.target.kind === "wsl") {
       form.setWslDistro(profile.target.distro ?? "");
       form.setWslUser(profile.target.user ?? "");
-    } else {
+    } else if (profile.target.kind === "docker") {
       form.setManualDockerContainer(profile.target.container);
     }
+    // server Profile 没有可编辑的 host/auth 字段；入口在设置面板里隐藏编辑按钮。
   });
   useEffect(() => {
     initializeFields();
