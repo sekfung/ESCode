@@ -312,6 +312,31 @@ mod tests {
     }
 
     #[test]
+    fn select_prefix_is_case_insensitive_and_empty_select_falls_through() {
+        let catalog = vec![tool("mcp__a__echo", "echo", true)];
+        assert_eq!(
+            search_tools("Select:mcp__a__echo", &catalog, 5),
+            vec!["mcp__a__echo".to_string()]
+        );
+        assert_eq!(
+            search_tools("sElEcT:mcp__a__echo", &catalog, 5),
+            vec!["mcp__a__echo".to_string()]
+        );
+        // 上游 /^select:(.+)$/i 不匹配空目标：落到关键词搜索而不是返回空 select 结果。
+        assert!(search_tools("select:", &catalog, 5).is_empty());
+    }
+
+    #[test]
+    fn max_results_zero_returns_no_matches() {
+        let catalog = vec![tool("mcp__a__echo", "echo tool", true)];
+        assert!(search_tools("echo", &catalog, 0).is_empty());
+        assert_eq!(
+            search_tools("echo", &catalog, 1),
+            vec!["mcp__a__echo".to_string()]
+        );
+    }
+
+    #[test]
     fn deferred_call_admits_undiscovered_deferred_target_but_not_resident() {
         let catalog = vec![
             tool("mcp__github__create_issue", "create an issue", true),

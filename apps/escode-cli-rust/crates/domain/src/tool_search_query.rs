@@ -93,12 +93,14 @@ pub fn search_tools(
     catalog: &[ToolSearchCandidate],
     max_results: usize,
 ) -> Vec<String> {
-    let max_results = max_results.max(1);
     let deferred: Vec<&ToolSearchCandidate> = catalog.iter().filter(|tool| tool.deferred).collect();
 
+    // 上游 /^select:(.+)$/i：前缀大小写不敏感，且至少保留一个字符才算 select 查询。
     if let Some(select) = query
-        .strip_prefix("select:")
-        .or_else(|| query.strip_prefix("SELECT:"))
+        .get(..7)
+        .filter(|prefix| prefix.eq_ignore_ascii_case("select:"))
+        .and_then(|_| query.get(7..))
+        .filter(|rest| !rest.is_empty())
     {
         let mut names = Vec::new();
         let mut seen = HashSet::new();

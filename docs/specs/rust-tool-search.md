@@ -101,9 +101,10 @@ tool call = DeferredToolCall({name,input})
 
 搜索算法（local）：
 
-1. `select:<name>[,<name>...]`：精确命中，按名称排序，支持别名与 MCP `serverName/toolName`。
+1. `select:<name>[,<name>...]`：前缀大小写不敏感；精确命中按查询顺序、MCP 语义命中按目录顺序，
+   支持别名与 MCP `serverName/toolName`。`select:` 后为空时不算 select 查询（上游 `/^select:(.+)$/i`）。
 2. 关键词：对名称、别名、描述、`searchHint` 做大小写不敏感匹配；名称命中优先于描述命中。
-3. 结果去重、最多 `max_results` 条，空结果返回 `No matching deferred tools found`。
+3. 结果去重、最多 `max_results` 条（`0` 返回空），空结果返回 `No matching deferred tools found`。
 4. 搜索是纯函数，不读文件、不发网络请求，10s 预算内。
 
 ## 5. Rust 实现状态（2026-10-28；schema 结果投影与端到端覆盖 2026-10-31）
