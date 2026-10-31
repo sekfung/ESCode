@@ -50,6 +50,16 @@ Node 首次/二次打开 3898/3678ms、Rust 222148/1748ms，`rows` 200 行 5/22m
 未压缩冷恢复也能重建已发现集合。`escode-cli-rust-tool-search-e2e.test.ts` 覆盖
 “首次加载提醒”“再次搜索已加载提醒”“未压缩冷恢复常驻”。
 
+2026-11-01 ToolSearch 准入补充：对齐上游 `resolveDeferredToolCall`——目标是否已发现不再是
+DeferredToolCall 的准入条件，未发现时照常解包并按注册表 schema 校验；校验失败追加
+`UNDISCOVERED_TOOL_SCHEMA_EXPLANATION`（退化原因 + `select:<name>` + 当前 schema + local 的
+DeferredToolCall 提示）。入参校验的 schema 来源同时从“模型可见面”收口到“会话注册表快照”，
+隐藏但已注册的工具（local 未发现的延迟工具、Cron/WebSearch）也校验。E2E 覆盖“未发现直接执行”
+与“非法入参回灌纠错、已发现后不再追加”，见 [rust-tool-search.md](rust-tool-search.md) §5.3。
+控制工具的模型可见描述与 schema 同时对齐上游 `search/description.ts` 与 `tool-search.ts`
+（`Result format` 段、local 的 TodoWrite 示例、`max_results.default = 5`、DeferredToolCall 的
+`z.record` 入参），只影响请求文本，不改执行语义。
+
 2026-10-31 本地 bundle 切换演练：用仓库 `escode.cjs` 与 release Rust 二进制模拟包内
 `resources/glm` 路径，运行 `escode-cli-rust-installed.test.ts`，Node → Rust → Node 在同一数据目录
 完成写入、导入读取和回退续聊（1 例通过，TS 库逐字节不变）。它不等同于真实安装包/CI 演练，

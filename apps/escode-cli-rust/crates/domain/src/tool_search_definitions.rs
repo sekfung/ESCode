@@ -7,23 +7,37 @@ use super::tool_search_catalog::{
     DEFERRED_TOOL_CALL_NAME, ResolvedToolSearchMode, TOOL_SEARCH_NAME,
 };
 
-pub fn local_tool_search_description() -> &'static str {
-    "Fetches full schema definitions for deferred tools so they can be called using DeferredToolCall.\n\n\
-Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' complete JSONSchema definitions inside a <functions> block. Call deferred tools through DeferredToolCall with {name, input}, using the schema from that result; call resident tools directly.\n\n\
+/// 上游 `search/description.ts` 的模板：固定正文 + 模式专属调用约定 + 结果格式 + Query forms。
+fn tool_search_description(opening: &str, calling_convention: &str, result_note: &str) -> String {
+    format!(
+        "{opening}\n\nDeferred tools appear by name in <system-reminder> messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' complete JSONSchema definitions inside a <functions> block. {calling_convention}\n\n\
+Result format: each matched tool appears as one <function>{{\"description\": \"...\", \"name\": \"...\", \"parameters\": {{...}}}}</function> line inside the <functions> block{result_note}\n\n\
 Query forms:\n\
 - \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
 - \"notebook jupyter\" — keyword search, up to max_results best matches\n\
 - \"+slack send\" — require \"slack\" in the name, rank by remaining terms"
+    )
+}
+
+/// Local 模式的描述：schema 命中后经 DeferredToolCall 调用，附上游示例块。
+pub fn local_tool_search_description() -> String {
+    format!(
+        "{}\n\nExample (TodoWrite is deferred and already loaded):\n<example>\nDeferredToolCall({{\"name\":\"TodoWrite\",\"input\":{{\"todos\":[{{\"content\":\"Inspect the implementation\",\"status\":\"in_progress\",\"priority\":\"high\"}}]}}}})\n</example>",
+        tool_search_description(
+            "Fetches full schema definitions for deferred tools so they can be called using DeferredToolCall.",
+            "Call deferred tools through DeferredToolCall with {name, input}. Call resident tools directly using their normal tool calls, even if their definitions were returned by direct selection.",
+            ". For deferred tools, parameters describes the input object passed to DeferredToolCall.",
+        )
+    )
 }
 
 /// Native 模式的描述：schema 由 provider 展开，客户端不提供 DeferredToolCall。
-pub fn native_tool_search_description() -> &'static str {
-    "Fetches full schema definitions for deferred tools so they can be called.\n\n\
-Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' complete JSONSchema definitions inside a <functions> block. Once a tool's schema appears in that result, it is callable exactly like any tool defined at the top of the prompt.\n\n\
-Query forms:\n\
-- \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
-- \"notebook jupyter\" — keyword search, up to max_results best matches\n\
-- \"+slack send\" — require \"slack\" in the name, rank by remaining terms"
+pub fn native_tool_search_description() -> String {
+    tool_search_description(
+        "Fetches full schema definitions for deferred tools so they can be called.",
+        "Once a tool's schema appears in that result, it is callable exactly like any tool defined at the top of the prompt.",
+        " — the same encoding as the tool list at the top of this prompt.",
+    )
 }
 
 /// Local 搜索结果：把命中的完整 `function` 定义渲染成上游的 `<functions>` 块。
@@ -169,11 +183,11 @@ pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
                     },
                     "max_results": {
                         "type": "number",
-                        "description": "Maximum number of results to return (default: 5)"
+                        "description": "Maximum number of results to return (default: 5)",
+                        "default": 5
                     }
                 },
-                "required": ["query", "max_results"],
-                "additionalProperties": false
+                "required": ["query", "max_results"]
             }
         }
     })];
@@ -187,7 +201,7 @@ pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
                     "type": "object",
                     "properties": {
                         "name": {"type": "string", "minLength": 1},
-                        "input": {"type": "object"}
+                        "input": {"type": "object", "additionalProperties": {}}
                     },
                     "required": ["name", "input"],
                     "additionalProperties": false
@@ -242,6 +256,61 @@ to its schema above. No additional ToolSearch is needed before calling these too
             "<system-reminder>\nTool definitions already available in this conversation: \
 mcp__a__echo. Use DeferredToolCall with {name, input} to execute these tools. Searching again \
 does not execute them.\n</system-reminder>"
+        );
+    }
+
+    #[test]
+    fn tool_search_descriptions_match_upstream_templates() {
+        let native = native_tool_search_description();
+        assert!(native.starts_with(
+            "Fetches full schema definitions for deferred tools so they can be called.\n\n\
+Deferred tools appear by name in <system-reminder> messages."
+        ));
+        assert!(native.contains(
+            "Once a tool's schema appears in that result, it is callable exactly like any tool \
+defined at the top of the prompt."
+        ));
+        assert!(native.contains(
+            "inside the <functions> block — the same encoding as the tool list at the top of this \
+prompt.\n\nQuery forms:"
+        ));
+        assert!(!native.contains("Example (TodoWrite"));
+
+        let local = local_tool_search_description();
+        assert!(local.starts_with(
+            "Fetches full schema definitions for deferred tools so they can be called using \
+DeferredToolCall."
+        ));
+        assert!(local.contains(
+            "Call resident tools directly using their normal tool calls, even if their definitions \
+were returned by direct selection."
+        ));
+        assert!(local.contains(
+            ". For deferred tools, parameters describes the input object passed to \
+DeferredToolCall.\n\nQuery forms:"
+        ));
+        assert!(local.ends_with(
+            "DeferredToolCall({\"name\":\"TodoWrite\",\"input\":{\"todos\":[{\"content\":\"Inspect \
+the implementation\",\"status\":\"in_progress\",\"priority\":\"high\"}]}})\n</example>"
+        ));
+    }
+
+    #[test]
+    fn control_tool_schemas_match_upstream_fields() {
+        let local = control_definitions(ResolvedToolSearchMode::Local);
+        let search = &local[0]["function"]["parameters"];
+        assert_eq!(search["required"], json!(["query", "max_results"]));
+        assert_eq!(search["properties"]["max_results"]["default"], json!(5));
+        assert!(search.get("additionalProperties").is_none());
+        let deferred = &local[1]["function"]["parameters"];
+        assert_eq!(deferred["additionalProperties"], json!(false));
+        assert_eq!(
+            deferred["properties"]["input"],
+            json!({"type": "object", "additionalProperties": {}})
+        );
+        assert_eq!(
+            local[1]["function"]["description"],
+            json!(deferred_tool_call_description())
         );
     }
 

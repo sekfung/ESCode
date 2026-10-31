@@ -1,6 +1,6 @@
 # Rust runtime：Tool Search 与 Deferred Tool Call（W2）
 
-> 状态：已实现（local + native，2026-10-28；端到端覆盖 2026-10-31）
+> 状态：已实现（local + native，2026-10-28；端到端覆盖 2026-10-31；未发现 schema 纠错 2026-11-01）
 > 关联：[upstream-v3.16.2-sync.md](upstream-v3.16.2-sync.md)、[rust-tool-surface.md](rust-tool-surface.md)、[rust-tool-schema-order.md](rust-tool-schema-order.md)、[rust-tool-input-validation.md](rust-tool-input-validation.md)
 > 上游参考：`apps/zcode-cli/packages/contracts/src/tools/tool-search.ts`、`.../deferred-tool-call.ts`、`packages/core/src/tool/search/*`、`packages/core/src/tool/handlers/{tool-search,deferred-tool-call}.ts`
 
@@ -72,6 +72,18 @@ tool call = DeferredToolCall({name,input})
   native 模式另附 `tool_reference` 块。
 - `DeferredToolCall` 入参：`{ name: string, input: object }`，无独立出参（透传目标工具结果）。
 - 模型内容：local 模式返回文本结果 + `<functions>` schema 块；native 模式返回 `tool_reference` 内容块。
+- 控制工具描述与 schema（2026-11-01 对齐上游 `packages/core/src/tool/search/description.ts`、
+  `packages/contracts/src/tools/{tool-search,deferred-tool-call}.ts`）：
+  - 两种模式共用 `description.ts` 模板（`<system-reminder>`、`Result format` 段、Query forms）；
+    `native` 用 “Once a tool's schema appears …” 与 “— the same encoding as the tool list at the top of this prompt.”，
+    `local` 用 “Call deferred tools through DeferredToolCall … even if their definitions were returned by
+    direct selection.”、“. For deferred tools, parameters describes the input object passed to DeferredToolCall.”
+    并追加 `Example (TodoWrite is deferred and already loaded)` 块。
+  - `ToolSearch` schema：`required = [query, max_results]`，`max_results` 带 `default: 5`；非 strict 对象，
+    不带 `additionalProperties: false`（上游 zodToJsonSchema 产物）。
+  - `DeferredToolCall` schema：strict 对象，`additionalProperties: false`；`input` 为
+    `{"type":"object","additionalProperties":{}}`（上游 `z.record(z.unknown())`）。
+  - 以上文案与字段只影响模型可见请求；不改变执行语义与权限。
 - 公告（2026-11-01 已实现，见 §5.1）：每轮向模型通告 `addedNames` / `removedNames` /
   `readdedNames`；`readdedNames ⊆ addedNames`。
 
@@ -80,7 +92,7 @@ tool call = DeferredToolCall({name,input})
 | 位置                                                             | 改动                                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `apps/escode-cli-rust/crates/tools/src/tool_surface.rs`          | 注入两个控制工具定义；按模式拆分 resident/deferred                         |
-| `apps/escode-cli-rust/crates/tools/src/tool_schemas.json`        | 从 TS 契约生成 `ToolSearch` / `DeferredToolCall` schema                    |
+| `apps/escode-cli-rust/crates/domain/src/tool_search_definitions.rs` | `ToolSearch` / `DeferredToolCall` 描述与 schema（§3）                    |
 | `apps/escode-cli-rust/crates/core/src/app/agent_loop_surface.rs` | 计算本轮 catalog 与 discovered 展开                                        |
 | `apps/escode-cli-rust/crates/core/src/app/tool_dispatch.rs`      | 拦截 ToolSearch（local 结果带 schema 块）；DeferredToolCall 校验后重写调用 |
 | `apps/escode-cli-rust/crates/core/src/app/context.rs`            | 会话级 discovered 集合与 mode                                              |
