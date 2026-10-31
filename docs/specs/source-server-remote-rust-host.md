@@ -1713,3 +1713,21 @@ Main/Renderer              Rust Host                                escode-serve
 - 验证：`pnpm check:escode-host`、`pnpm test:escode-host`（69 个测试目标全部 ok）、
   `source_server_websocket` 8 例、`source_server_info` 8 例、`source_server_endpoints` 12 例。
   尚未接入 `establish`（S5-f-3）与 Main 路由（S5-f-4）。
+
+**S5-f-3 实现记录（2026-11-01）**
+
+- `ResolvedTransport` 改为 `link: RemoteLink`（`Process(TransportCommand)` / `Server(ServerConnect)`）
+  与 `runner`；server 链路用 `unavailable_runner()`，安装/更新对 server 目标显式拒绝
+  （`source-server-update-unsupported`），不静默跳过。
+- 生产 resolver（`domains_source_server_options`）先解析 target：server 目标只解 token 引用即返回
+  `ResolvedTransport::server`，不再要求 askpass 路径；ssh/wsl/docker 行为不变。
+- `establish` 保持单条写入路径：安装只对 `Process` 生效；身份顺序不变（`Process` 读 install.json，
+  `Server` 读 `/api/server-info`），身份变化仍先返回 `identity-change-pending` 再开链路。
+  `workspaces` 由 `AnnouncedIdentity` 摊平（stdio 单路径 / server-info 多条，保留 label 与 identity，
+  绑定前统一 canonical 化）。
+- `open_connection` / `connect_initialized` 接受 `RemoteLink`：`Server` 用调用方已取得的探测结果升级
+  并复用同一 Initialize 超时；`open_raw_connection`（更新探针）仍只服务子进程链路。
+- 验证：`pnpm check:escode-host`、`pnpm test:escode-host`（69 个测试目标全绿）；
+  新增 `server_link_establishes_and_binds_identity`（HTTP+WS 同端口 fixture，断言 online、
+  `sourceServerId`、`currentVersion`、两条 workspace 绑定与 canonical identity）与
+  `server_link_reuses_the_existing_connection`。

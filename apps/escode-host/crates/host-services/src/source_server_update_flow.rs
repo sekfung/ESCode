@@ -87,6 +87,16 @@ pub(crate) async fn update_source(
             return Err(error);
         }
     };
+    // server 目标的 runtime 由服务端自己持有，Host 不执行 local-upload / remote-download 更新。
+    let Some(command) = transport.link.process() else {
+        let error = UpdateError::new(
+            Some("source-server-update-unsupported"),
+            Some(false),
+            "server transport has no desktop-managed update",
+        );
+        publish_update_failure(&registry, &previous, &error, None);
+        return Err(error);
+    };
     let prepared = match prepare_update(transport.runner.as_ref(), &install.assets).await {
         Ok(prepared) => prepared,
         Err(cause) => {
@@ -183,7 +193,7 @@ pub(crate) async fn update_source(
         let _ = connection.shutdown().await;
     }
 
-    match open_connection(connections.options(), &transport.command).await {
+    match open_connection(connections.options(), &transport.link, None).await {
         Ok(opened) => {
             let crate::source_server_connection_open::OpenedConnection {
                 connection,
@@ -195,13 +205,8 @@ pub(crate) async fn update_source(
             if !connections.store_if_current(&profile.profile_id, attempt, connection) {
                 let _ = transaction.rollback().await;
                 if had_previous_connection {
-                    restore_connection_after_rollback(
-                        connections,
-                        &profile,
-                        attempt,
-                        &transport.command,
-                    )
-                    .await;
+                    restore_connection_after_rollback(connections, &profile, attempt, command)
+                        .await;
                 }
                 let error = UpdateError::new(
                     Some("remote-connection-canceled"),
@@ -258,13 +263,7 @@ pub(crate) async fn update_source(
             let (message, code) = failure.message();
             let rollback = transaction.rollback().await;
             let restored = if had_previous_connection {
-                restore_connection_after_rollback(
-                    connections,
-                    &profile,
-                    attempt,
-                    &transport.command,
-                )
-                .await
+                restore_connection_after_rollback(connections, &profile, attempt, command).await
             } else {
                 false
             };
@@ -340,7 +339,11 @@ async fn inspect_running_tasks(
         // 远端没有 server 可运行，运行任务必然为空；首装不需要额外连接。
         return TaskInspection::Known(Vec::new());
     }
-    match open_raw_connection(connections.options(), &transport.command).await {
+    let Some(command) = transport.link.process() else {
+        // server 链路不参与 Host 管理的更新，这里只是防御性收口。
+        return TaskInspection::Unavailable("server transport has no remote script".to_owned());
+    };
+    match open_raw_connection(connections.options(), command).await {
         Ok(connection) => {
             let client = Arc::clone(&connection.client);
             let inspection = inspect_task_client(&client, request).await;

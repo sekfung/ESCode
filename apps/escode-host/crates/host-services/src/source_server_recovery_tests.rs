@@ -23,7 +23,7 @@ use crate::source_server_connections::{
     ConnectionsOptions, SourceServerConnections, TransportFuture,
 };
 #[cfg(unix)]
-use crate::source_server_exec::ResolvedTransport;
+use crate::source_server_exec::{RemoteLink, ResolvedTransport};
 use crate::source_server_recovery::STARTUP_RECONNECT_WINDOW_MS;
 #[cfg(unix)]
 use crate::source_server_transport::TransportCommand;
@@ -58,7 +58,7 @@ fn manager(
         Box::pin(async move {
             let index = cursor.fetch_add(1, Ordering::Relaxed);
             Ok(ResolvedTransport {
-                command: commands[index.min(commands.len() - 1)].clone(),
+                link: RemoteLink::Process(commands[index.min(commands.len() - 1)].clone()),
                 runner,
             })
         })

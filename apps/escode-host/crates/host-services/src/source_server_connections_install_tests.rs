@@ -11,7 +11,7 @@ use super::*;
 #[cfg(unix)]
 use crate::source_server_connections::ConnectIntent;
 use crate::source_server_connections::{ConnectionsOptions, SourceServerConnections};
-use crate::source_server_exec::{CommandOutput, RemoteRunner, ResolvedTransport};
+use crate::source_server_exec::{CommandOutput, RemoteLink, RemoteRunner, ResolvedTransport};
 
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
@@ -146,7 +146,7 @@ async fn host_key_change_in_preflight_is_not_retryable() {
     let options = ConnectionsOptions::new("3.15.2", |_| {
         Box::pin(async {
             Ok(ResolvedTransport {
-                command: fixture_command(),
+                link: RemoteLink::Process(fixture_command()),
                 runner: Arc::new(HostKeyChangedRunner),
             })
         })

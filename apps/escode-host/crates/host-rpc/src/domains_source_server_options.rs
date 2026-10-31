@@ -20,7 +20,7 @@ pub struct HostEnvironment {
     pub remote_assets: Option<escode_host_services::source_server_bootstrap::RemoteAssetsConfig>,
 }
 
-/// 生产 transport 解析：profile → ssh / wsl / docker 启动命令。
+/// 生产 transport 解析：profile → ssh / wsl / docker 启动命令，或 server 直连链路。
 ///
 /// 密码/口令只从 `credential` 域解密后放进子进程 env（`--ssh-askpass`），secret 不进 argv。
 pub fn default_connections_options(
@@ -56,13 +56,41 @@ pub fn default_connections_options(
             use escode_host_services::source_server_transport::{
                 TransportSecrets, TransportTarget, parse_target,
             };
-            // askpass 只在 SSH 密码/口令路径被使用；缺 Host 路径时显式失败，不回退 agent 认证。
+            let target = parse_target(&profile)?;
+            // server 直连不拉起子进程，只需要 URL 与 token；其余 transport 必须有 askpass 路径
+            // （密码/口令路径使用；缺 Host 路径时显式失败，不回退 agent 认证）。
+            if let TransportTarget::Server(server) = &target {
+                let token = match &server.token_credential_key {
+                    Some(key) => {
+                        let store = credentials.clone().ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "source server credentials need dataBaseDir: Main must pass dataBaseDir in rpcListen (credential {key})"
+                            )
+                        })?;
+                        Some(
+                            store
+                                .load(key)
+                                .await
+                                .map_err(|error| anyhow::anyhow!("load credential {key}: {error}"))?
+                                .ok_or_else(|| {
+                                    anyhow::anyhow!("token not resolved for credential {key}")
+                                })?,
+                        )
+                    }
+                    None => None,
+                };
+                return Ok(escode_host_services::source_server_exec::ResolvedTransport::server(
+                    escode_host_services::source_server_exec::ServerConnect {
+                        url: server.url.clone(),
+                        token,
+                    },
+                ));
+            }
             let askpass_program = askpass_program.ok_or_else(|| {
                 anyhow::anyhow!(
                     "source server transport needs the Host executable path: Main must pass it in rpcListen"
                 )
             })?;
-            let target = parse_target(&profile)?;
             let known_hosts = match &target {
                 TransportTarget::Ssh(_) => {
                     let path = known_hosts.clone().ok_or_else(|| {
@@ -116,7 +144,7 @@ pub fn default_connections_options(
             );
             let command = executor.build_command(DEFAULT_REMOTE_SERVER_SCRIPT)?;
             Ok(escode_host_services::source_server_exec::ResolvedTransport {
-                command,
+                link: escode_host_services::source_server_exec::RemoteLink::Process(command),
                 runner: executor,
             })
         })

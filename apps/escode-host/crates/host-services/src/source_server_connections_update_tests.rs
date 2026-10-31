@@ -14,7 +14,7 @@ use crate::source_server_connections::{
     ConnectIntent, ConnectionsOptions, SourceServerConnections,
 };
 use crate::source_server_deploy_lock::AcquireOptions;
-use crate::source_server_exec::ResolvedTransport;
+use crate::source_server_exec::{RemoteLink, ResolvedTransport};
 use crate::source_server_transport::{TransportCommand, quote_posix_shell_arg};
 use crate::source_server_update::UpdateRequest;
 
@@ -45,7 +45,10 @@ fn connections_with_commands(
         Box::pin(async move {
             let index = cursor.fetch_add(1, Ordering::Relaxed);
             let command = commands[index.min(commands.len().saturating_sub(1))].clone();
-            Ok(ResolvedTransport { command, runner })
+            Ok(ResolvedTransport {
+                link: RemoteLink::Process(command),
+                runner,
+            })
         })
     })
     .with_compatibility(compatibility)

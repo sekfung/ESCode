@@ -37,40 +37,76 @@ pub trait RemoteRunner: Send + Sync {
     fn spawn_piped(&self, script: &str) -> Result<Child>;
 }
 
-/// 一次 transport 解析的产物：启动 server 的命令 + 同一链路上的脚本执行面。
+/// 一次 transport 解析出的链路：本地子进程（ssh/wsl/docker）或 server 直连。
+#[derive(Clone)]
+pub enum RemoteLink {
+    Process(TransportCommand),
+    Server(ServerConnect),
+}
+
+impl RemoteLink {
+    /// 子进程链路才有启动命令；server 直连返回 `None`，调用方必须显式处理。
+    pub fn process(&self) -> Option<&TransportCommand> {
+        match self {
+            Self::Process(command) => Some(command),
+            Self::Server(_) => None,
+        }
+    }
+}
+
+/// server 直连所需的 URL 与已解出的 token（token 只在内存里，不写日志）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerConnect {
+    pub url: String,
+    pub token: Option<String>,
+}
+
+/// 一次 transport 解析的产物：链路 + 同一链路上的脚本执行面。
 /// 安装/preflight 必须复用同一次凭据解密结果，不能二次解析出另一个目标。
 #[derive(Clone)]
 pub struct ResolvedTransport {
-    pub command: TransportCommand,
+    pub link: RemoteLink,
     pub runner: Arc<dyn RemoteRunner>,
 }
 
 impl ResolvedTransport {
-    /// 只启动 server、不执行安装脚本的调用方（测试/未配置安装）。
-    pub fn command_only(command: TransportCommand) -> Self {
-        struct UnavailableRunner;
-
-        #[async_trait::async_trait]
-        impl RemoteRunner for UnavailableRunner {
-            async fn run(
-                &self,
-                _script: &str,
-                _stdin: Option<&[u8]>,
-                _timeout: Duration,
-            ) -> Result<CommandOutput> {
-                bail!("this transport has no script runner")
-            }
-
-            fn spawn_piped(&self, _script: &str) -> Result<Child> {
-                bail!("this transport has no script runner")
-            }
-        }
-
+    /// server 直连：没有本地子进程，也不执行 Desktop 管理的安装脚本（§12.6.5）。
+    pub fn server(connect: ServerConnect) -> Self {
         Self {
-            command,
-            runner: Arc::new(UnavailableRunner),
+            link: RemoteLink::Server(connect),
+            runner: unavailable_runner(),
         }
     }
+
+    /// 只启动 server、不执行安装脚本的调用方（测试/未配置安装）。
+    pub fn command_only(command: TransportCommand) -> Self {
+        Self {
+            link: RemoteLink::Process(command),
+            runner: unavailable_runner(),
+        }
+    }
+}
+
+fn unavailable_runner() -> Arc<dyn RemoteRunner> {
+    struct UnavailableRunner;
+
+    #[async_trait::async_trait]
+    impl RemoteRunner for UnavailableRunner {
+        async fn run(
+            &self,
+            _script: &str,
+            _stdin: Option<&[u8]>,
+            _timeout: Duration,
+        ) -> Result<CommandOutput> {
+            bail!("this transport has no script runner")
+        }
+
+        fn spawn_piped(&self, _script: &str) -> Result<Child> {
+            bail!("this transport has no script runner")
+        }
+    }
+
+    Arc::new(UnavailableRunner)
 }
 
 /// transport 目标 + 已解出的凭据；只在一次连接准备期间存活。

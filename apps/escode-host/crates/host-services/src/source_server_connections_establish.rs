@@ -2,6 +2,8 @@
 //!
 //! 从 `source_server_connections.rs` 拆出以守住单文件 400 行门禁；编排顺序与状态语义不变。
 //! 未确认的身份变化在这里直接返回 `identity-change-pending`，不启动 server、不写 settings。
+//! `kind: "server"`（S5-f-3）走同一顺序，只是 probe 换成 `/api/server-info`、
+//! 链路换成 WebSocket；安装与身份记录仍是同一条写入路径。
 
 use std::sync::Arc;
 
@@ -10,6 +12,7 @@ use anyhow::Result;
 use super::SourceServerConnections;
 use crate::source_server::{
     ConnectionOperationLog, ConnectionProfile, DeclaredWorkspaceInput, HandshakeRecord,
+    ServerIdentity,
 };
 use crate::source_server_bootstrap::{apply_install, install_error_code, prepare_install};
 use crate::source_server_compatibility::CompatibilityEvaluation;
@@ -17,7 +20,10 @@ use crate::source_server_connection::RemoteConnection;
 use crate::source_server_connection_open::{OpenFailure, open_connection};
 use crate::source_server_connection_state::now_ms;
 use crate::source_server_connections::ConnectIntent;
+use crate::source_server_exec::RemoteLink;
+use crate::source_server_info::ServerRemoteInfo;
 use crate::source_server_transport::is_host_key_changed_error;
+use crate::source_server_websocket;
 use tokio::sync::watch;
 
 pub(super) struct Established {
@@ -26,6 +32,52 @@ pub(super) struct Established {
     pub version: String,
     pub compatibility: Option<CompatibilityEvaluation>,
     pub effective: ConnectionProfile,
+}
+
+/// 摊平两种身份来源：stdio probe（install.json）与 server-info。
+struct AnnouncedIdentity {
+    identity: ServerIdentity,
+    workspaces: Vec<DeclaredWorkspaceInput>,
+}
+
+impl AnnouncedIdentity {
+    fn from_probe(mut identity: ServerIdentity) -> Self {
+        let workspaces = identity
+            .workspace_path
+            .take()
+            .map(|path| DeclaredWorkspaceInput {
+                path,
+                workspace_identity: None,
+                label: None,
+            })
+            .into_iter()
+            .collect();
+        Self {
+            identity,
+            workspaces,
+        }
+    }
+
+    fn from_server_info(info: &ServerRemoteInfo) -> Self {
+        Self {
+            identity: ServerIdentity {
+                source_server_id: info.server_id.clone(),
+                // server 不披露进程身份（spec §12.6.5）。
+                os_user: None,
+                hostname: None,
+                workspace_path: None,
+            },
+            workspaces: info
+                .workspaces
+                .iter()
+                .map(|workspace| DeclaredWorkspaceInput {
+                    path: workspace.path.clone(),
+                    workspace_identity: workspace.workspace_identity.clone(),
+                    label: workspace.label.clone(),
+                })
+                .collect(),
+        }
+    }
 }
 
 impl SourceServerConnections {
@@ -39,10 +91,13 @@ impl SourceServerConnections {
             Ok(transport) => transport,
             Err(error) => return Err(self.state().fail(profile, error, None)),
         };
-        if matches!(
-            intent,
-            ConnectIntent::Explicit | ConnectIntent::ConfirmIdentityChange
-        ) && let Some(install) = self.options.install.as_ref()
+        // 安装只属于子进程链路：server 目标的 runtime 由服务端自己持有（spec §12.6.5）。
+        if transport.link.process().is_some()
+            && matches!(
+                intent,
+                ConnectIntent::Explicit | ConnectIntent::ConfirmIdentityChange
+            )
+            && let Some(install) = self.options.install.as_ref()
         {
             match prepare_install(transport.runner.as_ref(), &install.assets).await {
                 Ok(None) => {}
@@ -74,25 +129,55 @@ impl SourceServerConnections {
             }
         }
         let confirm_identity = intent == ConnectIntent::ConfirmIdentityChange;
-        let probed = match self.options.identity_probe.as_ref() {
-            Some(probe) => match (probe)(Arc::clone(&transport.runner)).await {
-                Ok(identity) => Some(identity),
-                Err(error) => return Err(self.fail_probe(profile, error)),
-            },
-            None => None,
+        // 身份必须在开链路之前确认：Process 读 install.json，Server 读 /api/server-info。
+        let mut server_probe = None;
+        let announced = match (&transport.link, self.options.identity_probe.as_ref()) {
+            (RemoteLink::Server(connect), _) => {
+                let token = connect.token.as_deref();
+                match tokio::time::timeout(
+                    self.options.initialize_timeout,
+                    source_server_websocket::probe(&connect.url, token),
+                )
+                .await
+                {
+                    Ok(Ok(probe)) => {
+                        let announced = AnnouncedIdentity::from_server_info(&probe.info);
+                        server_probe = Some(probe);
+                        Some(announced)
+                    }
+                    Ok(Err(error)) => return Err(self.state().fail(profile, error, None)),
+                    Err(_) => {
+                        return Err(self.state().fail(
+                            profile,
+                            anyhow::anyhow!(
+                                "server probe timeout: no /api/server-info within {:?}",
+                                self.options.initialize_timeout
+                            ),
+                            Some("remote-connection-timeout"),
+                        ));
+                    }
+                }
+            }
+            (RemoteLink::Process(_), Some(probe)) => {
+                match (probe)(Arc::clone(&transport.runner)).await {
+                    Ok(identity) => Some(AnnouncedIdentity::from_probe(identity)),
+                    Err(error) => return Err(self.fail_probe(profile, error)),
+                }
+            }
+            (RemoteLink::Process(_), None) => None,
         };
-        if let Some(identity) = &probed
+        if let Some(announced) = &announced
             && !confirm_identity
             && profile
                 .source_server_id
                 .as_deref()
-                .is_some_and(|previous| previous != identity.source_server_id)
+                .is_some_and(|previous| previous != announced.identity.source_server_id)
         {
             return Err(self
                 .state()
-                .identity_change_pending(profile, &identity.source_server_id));
+                .identity_change_pending(profile, &announced.identity.source_server_id));
         }
-        let opened = match open_connection(&self.options, &transport.command).await {
+        let opened = match open_connection(&self.options, &transport.link, server_probe).await {
             Ok(opened) => opened,
             Err(OpenFailure::Incompatible {
                 evaluation,
@@ -118,7 +203,7 @@ impl SourceServerConnections {
         let compatibility = opened.compatibility;
         let connection = opened.connection;
         let closed = connection.closed();
-        let Some(identity) = probed else {
+        let Some(announced) = announced else {
             return Ok(Established {
                 connection,
                 closed,
@@ -128,20 +213,12 @@ impl SourceServerConnections {
             });
         };
         let record = HandshakeRecord {
-            source_server_id: identity.source_server_id.clone(),
-            os_user: identity.os_user,
-            hostname: identity.hostname,
+            source_server_id: announced.identity.source_server_id.clone(),
+            os_user: announced.identity.os_user,
+            hostname: announced.identity.hostname,
             version: version.clone(),
             connected_at: now_ms(),
-            workspaces: identity
-                .workspace_path
-                .into_iter()
-                .map(|path| DeclaredWorkspaceInput {
-                    path,
-                    workspace_identity: None,
-                    label: None,
-                })
-                .collect(),
+            workspaces: announced.workspaces,
         };
         let outcome = match self
             .registry
@@ -188,3 +265,7 @@ impl SourceServerConnections {
         self.state().fail(profile, error, None)
     }
 }
+
+#[cfg(test)]
+#[path = "source_server_server_link_tests.rs"]
+mod server_link_tests;

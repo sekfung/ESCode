@@ -22,7 +22,7 @@ use crate::source_server::ServerIdentity;
 use crate::source_server_connections::{ConnectionsOptions, SourceServerConnections};
 use crate::source_server_exec::{CommandOutput, RemoteRunner};
 #[cfg(unix)]
-use crate::source_server_exec::{ResolvedTransport, run_command, spawn_piped_command};
+use crate::source_server_exec::{RemoteLink, ResolvedTransport, run_command, spawn_piped_command};
 use crate::source_server_transport::TransportCommand;
 
 pub(super) fn platform_arch() -> &'static str {
@@ -319,7 +319,7 @@ pub(super) fn connections_with_identity(
         let runner = Arc::clone(&runner_for_resolver);
         Box::pin(async move {
             Ok(ResolvedTransport {
-                command: fixture_command(),
+                link: RemoteLink::Process(fixture_command()),
                 runner,
             })
         })
@@ -343,7 +343,7 @@ pub(super) fn connections(
         let runner = Arc::clone(&runner_for_resolver);
         Box::pin(async move {
             Ok(ResolvedTransport {
-                command: fixture_command(),
+                link: RemoteLink::Process(fixture_command()),
                 runner,
             })
         })

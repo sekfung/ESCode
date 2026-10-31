@@ -8,9 +8,8 @@
 //! 每次重连重新申请。
 
 use std::sync::Arc;
-use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use tokio::net::TcpStream;
@@ -29,7 +28,6 @@ use crate::source_server_endpoints::{
     ServerRemoteEndpoints, authenticated_url, resolve_server_remote_endpoints,
 };
 use crate::source_server_info::{ServerRemoteInfo, parse_host_capability, parse_server_info};
-use crate::source_server_transport::ServerTarget;
 
 /// 与 TS `ESCODE_RPC_HOST_CAPABILITY_HEADER` 一致。
 pub const HOST_CAPABILITY_HEADER: &str = "x-zcode-rpc-host-capability";
@@ -43,23 +41,17 @@ pub struct ServerProbe {
     pub capability: String,
 }
 
-/// 完整链路：端点解析 → HTTP 探测 → WebSocket → 帧泵。
-pub async fn connect(
-    target: &ServerTarget,
-    token: Option<&str>,
-    timeout: Duration,
-) -> Result<RemoteConnection> {
-    let endpoints = resolve_server_remote_endpoints(&target.url)?;
-    let probe = tokio::time::timeout(timeout, probe_server(&endpoints, token))
-        .await
-        .map_err(|_| anyhow!("server probe timeout: no /api/server-info within {timeout:?}"))??;
-    let socket = tokio::time::timeout(
-        timeout,
-        open_websocket(&endpoints, token, &probe.capability),
-    )
-    .await
-    .map_err(|_| anyhow!("websocket handshake timeout: no /ws/host within {timeout:?}"))??;
-    Ok(bridge(socket, protocol_info(&probe.info)))
+/// 按 server URL 做 HTTP 探测；调用方负责超时与身份判定顺序。
+pub async fn probe(url: &str, token: Option<&str>) -> Result<ServerProbe> {
+    let endpoints = resolve_server_remote_endpoints(url)?;
+    probe_server(&endpoints, token).await
+}
+
+/// 用已取得的探测结果升级 WebSocket 并建立帧泵；capability 只能使用一次。
+pub async fn open(url: &str, token: Option<&str>, probe: ServerProbe) -> Result<RemoteConnection> {
+    let endpoints = resolve_server_remote_endpoints(url)?;
+    let socket = open_websocket(&endpoints, token, &probe.capability).await?;
+    Ok(bridge(socket, connection_info(&probe.info)))
 }
 
 /// `GET /api/server-info` + `POST /api/rpc-host-capability`。
@@ -171,7 +163,7 @@ fn drain_frames(decoder: &mut FrameDecoder, client: &RemoteChannelClient) -> boo
 }
 
 /// `/api/server-info` 到连接身份的投影：server 不披露进程身份，保持 `None`。
-fn protocol_info(info: &ServerRemoteInfo) -> ConnectionInfo {
+pub(crate) fn connection_info(info: &ServerRemoteInfo) -> ConnectionInfo {
     ConnectionInfo {
         version: info.version.clone(),
         // 兼容清单只来自 stdio hello；server 目标版本由服务端自身管理，不做本地比对。
