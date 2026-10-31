@@ -5,6 +5,7 @@ import {
   SocketProtocol,
   ChannelServer,
   ChannelClient,
+  type IChannelServer,
   type ISocket,
 } from "@escode/rpc";
 import {
@@ -114,10 +115,10 @@ export function createStdioServer(
 
 /** 先把全部服务注册到 channel server，再广播 Initialize 能力集（defer-init 的收口点）。 */
 export function exposeServicesAndReady(
-  channelServer: ChannelServer,
+  channelServer: IChannelServer,
   services: ServiceCollection,
   overrides: ReadonlyMap<string, unknown> = new Map(),
 ): void {
   services.exposeOnChannelServer(channelServer, overrides);
-  channelServer.ready();
+  channelServer.ready?.();
 }

@@ -30,6 +30,7 @@ import {
   type ServerRemoteWorkspaceInfo,
 } from "@escode/shared";
 import { createHostCapabilityStore } from "./hostCapability.js";
+import { exposeServicesAndReady } from "./stdio.js";
 
 function wrapWebSocket(ws: WebSocket): ISocket {
   const onData = new Emitter<VSBuffer>();
@@ -80,7 +81,11 @@ function setupChannelServer(
 ) {
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
-  const rawServer = new ChannelServer(protocol, "server");
+  // 修复原因：ChannelServer 构造期默认立即广播 Initialize，此时 services 还没注册任何 channel，
+  // 能力集会恒为空。Rust Host 只转发远端广播过的 channel，且只在首帧 Initialize 取能力集，
+  // 结果 provider provisioning 被判 capability-unavailable、远端 scope 只剩 window-controller。
+  // 与 stdio/desktop Host 一致：先 defer，注册完 services 与 overrides 再广播。
+  const rawServer = new ChannelServer(protocol, "server", 1000, true);
   // 用日志中间件包装，统一记录所有 RPC 调用
   const server = new LoggingChannelServer(rawServer, log);
   const agentService = services.getOptional(IESCodeAgentService);
@@ -107,7 +112,7 @@ function setupChannelServer(
       },
     });
   }
-  services.exposeOnChannelServer(server, overrides);
+  exposeServicesAndReady(server, services, overrides);
   socket.onClose(() => {
     void connectionScope?.dispose();
     rawServer.dispose();
