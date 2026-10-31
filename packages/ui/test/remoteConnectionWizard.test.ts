@@ -69,9 +69,12 @@ describe("buildRemoteTarget", () => {
         lifecycleState: "active",
       }),
     ).toEqual({
+      // S3-c：目标携带 Profile/Source 身份；凭据键不进入目标对象。
       kind: "ssh",
       host: "dev.internal",
       username: "dev",
+      profileId: "17ef20b3-622d-4a53-98c1-0cdff29f3e6d",
+      sourceServerId: "3cd4f9da-cd79-426c-9d70-75f36e9f6a87",
     });
   });
 

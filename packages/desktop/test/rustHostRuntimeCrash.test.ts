@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-host-resilience.md §2.4：runtime 崩溃时，host-rpc 必须把
 // `RuntimeClosed` 原样映射成 Renderer 可见的 `{name: "Error", message: "ESCode agent transport closed: stdout_closed"}`
@@ -50,6 +56,7 @@ describe("rust host rpc runtime crash", () => {
       });
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(join(root, "data"));
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

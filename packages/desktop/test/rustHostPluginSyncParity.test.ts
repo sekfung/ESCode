@@ -6,7 +6,13 @@ import { createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { mkdir, readFile, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 const goldenFile = new URL(
   "./fixtures/golden/rustHostPluginSyncParity.oracle.json",
@@ -127,6 +133,7 @@ describe.skipIf(!existsSync(hostBinary))("rust host plugin-sync parity", () => {
     const host = startHost(home);
     try {
       await nextMeaningful(host);
+      await prepareTasksIndex(dataBaseDir);
       host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir });
       const listening = await nextMeaningful(host);
       const services = await connectRpc(String(listening.addr), String(listening.secret));
@@ -172,6 +179,7 @@ describe.skipIf(!existsSync(hostBinary))("rust host plugin-sync parity", () => {
       const importHost = startHost(importHome);
       try {
         await nextMeaningful(importHost);
+        await prepareTasksIndex(dataBaseDir);
         importHost.send({ kind: "rpcListen", bind: "127.0.0.1:0", home: importHome, dataBaseDir });
         const importListening = await nextMeaningful(importHost);
         const importServices = await connectRpc(

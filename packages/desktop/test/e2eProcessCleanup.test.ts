@@ -92,8 +92,20 @@ describe("desktop e2e process cleanup", () => {
     expect(mainSource).toMatch(
       /async function prepareAppQuit[\s\S]*?selectAppShutdownPolicy[\s\S]*?if \(hasPreparedAppQuit\)[\s\S]*?if \(appQuitPreparationInFlight\)/u,
     );
+    // S5-f-5 后 Main 不再把 windowHostProcessMap 传给 remote session manager：远端连接只有
+    // Rust Host 一个 owner，退出屏障仍按窗口 Host + 正在回收的 Host 逐个等待。
+    const remoteSessionManagerInit =
+      /const remoteSessionManager = createRemoteWorkspaceSessionManager\(\{[\s\S]*?\n\}\);/u.exec(
+        mainSource,
+      )?.[0] ?? "";
+    expect(remoteSessionManagerInit).toContain("attachRustRemoteScope");
+    expect(remoteSessionManagerInit).toContain("resolveRustRemoteProfile");
+    expect(remoteSessionManagerInit).not.toContain("windowHostProcessMap");
     expect(mainSource).toMatch(
-      /createRemoteWorkspaceSessionManager\(\{[\s\S]*?windowHostProcessMap[\s\S]*?const hostProcesses = \[[\s\S]*?windowHostProcessMap\.values\(\)[\s\S]*?disposeHostProcessAndWait\([\s\S]*?activeAppShutdownPolicy\.forceKillDelayMs[\s\S]*?activeAppShutdownPolicy\.waitTimeoutMs/u,
+      /const hostProcesses = \[[\s\S]*?windowHostProcessMap\.values\(\)[\s\S]*?listDisposingHostProcesses\(\)[\s\S]*?disposeHostProcessAndWait\(/u,
+    );
+    expect(mainSource).toMatch(
+      /activeAppShutdownPolicy\.forceKillDelayMs[\s\S]*?activeAppShutdownPolicy\.waitTimeoutMs/u,
     );
     expect(mainSource).not.toMatch(/resolveRemoteHostShutdownPolicy/u);
     expect(mainSource).toMatch(
@@ -120,13 +132,14 @@ describe("desktop e2e process cleanup", () => {
     );
   });
 
-  it("Host rejects non-server remote targets instead of using the retired Node backend", () => {
+  it("Host rejects remote attachments instead of using the retired Node backend", () => {
     const hostSource = readFileSync(new URL("../src/host/index.ts", import.meta.url), "utf8");
 
-    expect(hostSource).toMatch(
-      /params\.target\.kind !== "server"[\s\S]*?REMOTE_RUST_HOST_REQUIRED/u,
+    // S5-f-5：Node Host 的远端 handler 已删除，收到 remote scope 必须显式失败而不是回退。
+    expect(hostSource).toMatch(/Remote workspace attachment is served by the Rust Host/u);
+    expect(hostSource).not.toMatch(
+      /setupRemoteConnection|import\("@escode\/server\/remote"\)|ConnectRemoteWorkspace|ProviderProvisioningExecute|windowRemoteConnectionRegistry/u,
     );
-    expect(hostSource).not.toMatch(/setupRemoteConnection|import\("@escode\/server\/remote"\)/u);
   });
 
   it("collects only the current run root and its child process tree", () => {

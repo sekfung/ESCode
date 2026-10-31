@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-user-config-services.md §4：TS `createSettingService` 对
 // ensureDefaultProject / updateDataBaseDir 的观察已冻结为仓内资产
@@ -64,6 +70,7 @@ describe("rust host setting extras", () => {
       const host = startHost(rustHome);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(rustHome);
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

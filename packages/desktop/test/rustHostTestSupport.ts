@@ -1,10 +1,11 @@
 // Rust Host 真实客户端测试的共享辅助（spawn Host、控制通道、capability + `/ws/host` 连接）。
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { expect } from "vitest";
 import { WebSocket, type RawData } from "ws";
 import { Emitter, SocketProtocol, VSBuffer, type ISocket } from "@escode/rpc";
 import { connectViaProtocol } from "@escode/client";
+import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
 
 export const hostBinary = resolve(
   `apps/escode-host/target/debug/escode-host${process.platform === "win32" ? ".exe" : ""}`,
@@ -45,6 +46,17 @@ export function wrapNodeWebSocket(socket: WebSocket): ISocket {
       socket.close();
     },
   };
+}
+
+/**
+ * Main 侧职责：Rust Host 的 `rpcListen` 只补 project schema，tasks 账本必须由 TS 先建好
+ * （docs/specs/rust-project-storage.md §1）。测试复用生产同一份引导，避免手写 DDL。
+ */
+export async function prepareTasksIndex(dataBaseDir: string): Promise<void> {
+  await prepareTasksIndexStorage(
+    join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"),
+    () => undefined,
+  );
 }
 
 export interface HostProcess {

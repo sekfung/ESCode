@@ -14,7 +14,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
@@ -123,6 +129,7 @@ rl.on("line", (line) => {
     const host = startHost(home);
     try {
       await nextMeaningful(host);
+      await prepareTasksIndex(dataBaseDir);
       host.send({
         kind: "rpcListen",
         bind: "127.0.0.1:0",

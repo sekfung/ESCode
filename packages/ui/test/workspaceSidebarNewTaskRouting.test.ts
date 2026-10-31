@@ -73,6 +73,9 @@ describe("workspace sidebar new-task routing", () => {
     const remoteDraftEnd = source.indexOf("});", remoteDraftStart);
     const remoteDraftSource = source.slice(remoteDraftStart, remoteDraftEnd);
 
-    expect(remoteDraftSource).toContain("startDraftInWorkspace(workspacePath, workspaceIdentity)");
+    // 远端草稿还要带上 Host 返回的 projectId，源码顺序固定为 path → identity → 选项。
+    expect(remoteDraftSource).toMatch(
+      /startDraftInWorkspace\(\s*workspacePath,\s*workspaceIdentity,/u,
+    );
   });
 });

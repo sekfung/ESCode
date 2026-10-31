@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createRustHostManager } from "../src/main/rustHostManager.js";
 import type { HostPortLike } from "../src/main/rustHostBridge.js";
+import { prepareTasksIndex } from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-window-host.md §5-7/§5-8：WorkspacePrepare 的真实 storageState 与
 // 窗口级 env patch 经控制通道到达 Main；不再由 Main 合成 ready。
@@ -38,10 +39,13 @@ describe("rust host workspace startup gate", () => {
           baseUrl: "http://127.0.0.1:9/v1",
         }),
       );
+      // Main 的职责：先建 tasks 账本，Rust Host 的 rpcListen 只补 project schema。
+      const dataBaseDir = join(root, "data");
+      await prepareTasksIndex(dataBaseDir);
       const manager = createRustHostManager({
         binary: hostBinary,
         home,
-        dataBaseDir: join(root, "data"),
+        dataBaseDir,
         enabled: true,
       });
       managers.push(manager);

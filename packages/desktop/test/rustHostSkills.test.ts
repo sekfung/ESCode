@@ -12,7 +12,13 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-skills.md：TS `createSkillsService` 的 list/变更观察已冻结为仓内资产
 // （packages/desktop/test/fixtures/golden/rustHostSkills.oracle.json）。测试只启动 Rust Host，
@@ -143,9 +149,13 @@ async function tree(root: string): Promise<Record<string, string>> {
   const walk = async (dir: string) => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
-      if (entry.isSymbolicLink()) out[path.slice(root.length)] = "<symlink>";
+      const relativePath = path.slice(root.length);
+      // `.escode/v2` 是 Main 准备的 tasks 账本（含 sqlite 二进制），不属于服务观察面；
+      // `.escode/cli` 等配置目录仍要参与冻结快照。
+      if (relativePath.endsWith("/.escode/v2")) continue;
+      if (entry.isSymbolicLink()) out[relativePath] = "<symlink>";
       else if (entry.isDirectory()) await walk(path);
-      else out[path.slice(root.length)] = await readFile(path, "utf8");
+      else out[relativePath] = await readFile(path, "utf8");
     }
   };
   await walk(root);
@@ -173,6 +183,7 @@ describe("rust host skills", () => {
       const host = startHost(fixture.home, { ESCODE_PROCESS_LABEL: "desktop" });
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(fixture.home);
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

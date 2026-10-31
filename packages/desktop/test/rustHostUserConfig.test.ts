@@ -13,7 +13,13 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-user-config-services.md：TS 用户配置类服务的观察已冻结为仓内资产
 // （packages/desktop/test/fixtures/golden/rustHostUserConfig.oracle.json）。测试只启动 Rust Host，
@@ -41,8 +47,13 @@ async function snapshot(root: string): Promise<Record<string, unknown>> {
   const walk = async (dir: string) => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
+      const relativePath = path.slice(root.length);
+      // `.escode/v2` 是 Main 准备的 tasks 账本（含 sqlite 二进制），不属于服务观察面；
+      // `.escode/cli` 等配置目录仍要参与冻结快照。
+      if (relativePath.endsWith("/.escode/v2")) continue;
       if (entry.isDirectory()) {
-        result[`${path.slice(root.length)}/`] = null;
+        // 只承载 tasks 账本的 `.escode` 目录本身不出现在快照里（否则会出现空目录项）。
+        if (!relativePath.endsWith("/.escode")) result[`${relativePath}/`] = null;
         await walk(path);
       } else {
         const text = await readFile(path, "utf8");
@@ -79,6 +90,7 @@ async function withRustHost(run: (ctx: { rustHome: string; rpc: RpcServices }) =
   const host = startHost(rustHome);
   try {
     expect((await nextMeaningful(host)).kind).toBe("hostReady");
+    await prepareTasksIndex(rustHome);
     host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home: rustHome, dataBaseDir: rustHome });
     const listening = await nextMeaningful(host);
     const rpc = await connectRpc(String(listening.addr), String(listening.secret));

@@ -8,7 +8,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 const escodeCjs = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
@@ -43,6 +49,7 @@ describe.skipIf(!existsSync(hostBinary) || !existsSync(escodeCjs))(
       const host = startHost(home);
       try {
         await nextMeaningful(host);
+        await prepareTasksIndex(dataBaseDir);
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

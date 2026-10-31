@@ -5,7 +5,13 @@ import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-git.md §7：git.generateCommitMessage 全链路——Host 读 git 状态/差分 → ModelSelection 视图的首选模型 →
 // 内嵌 runtime 的 workspace/generateText → 本地假模型服务。prompt 与校验的逐字一致由黄金样本守住。
@@ -136,6 +142,7 @@ describe("rust host git.generateCommitMessage", () => {
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(base);
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

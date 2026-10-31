@@ -282,7 +282,13 @@ it.each(["profile", "source"] as const)(
     );
     await screen.findByTestId("ssh-success");
     expect(props.onConnect).toHaveBeenCalledWith(
-      { kind: "docker", container: "dev-container" },
+      // S3-c 起目标必须携带 Profile/Source 身份，Rust Host 用它复用连接。
+      {
+        kind: "docker",
+        container: "dev-container",
+        profileId: "docker-profile",
+        sourceServerId: "source-a",
+      },
       expect.any(String),
       undefined,
     );
@@ -831,7 +837,12 @@ it("查看 A 的失败后改选 B，不能把 A 的失败或安装等待交给 B
   fireEvent.click(await screen.findByRole("button", { name: "返回列表" }));
   fireEvent.click(await screen.findByRole("button", { name: /^B/ }));
   await waitFor(() =>
-    expect(props.onConnect).toHaveBeenCalledWith(b.target, expect.any(String), undefined),
+    expect(props.onConnect).toHaveBeenCalledWith(
+      // 改选 B 后目标身份必须整体换成 B 的 Profile/Source，不能残留 A 的。
+      { ...b.target, profileId: "b", sourceServerId: "source-b" },
+      expect.any(String),
+      undefined,
+    ),
   );
 });
 

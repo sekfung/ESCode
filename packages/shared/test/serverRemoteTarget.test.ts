@@ -26,7 +26,9 @@ describe("server remote target", () => {
     }
   });
 
-  it("accepts server target in window Host connect messages", () => {
+  it("window Host connect messages no longer carry remote workspace targets", () => {
+    // spec §12.1/§12.5：ConnectRemoteWorkspace 等远端 Host 消息已随 per-window Node Host 远程路径
+    // 一并删除（S5-f-5），server 目标改由 Rust Host 直连；旧消息必须被 schema 拒绝而不是静默接受。
     const parsed = hostIncomingMessageSchema.safeParse({
       type: "connect-remote-workspace",
       requestId: "connect-server-1",
@@ -41,7 +43,7 @@ describe("server remote target", () => {
       workspaceIdentity: "remote:server:studio:/Users/dev/ESCodeProject",
     });
 
-    expect(parsed.success).toBe(true);
+    expect(parsed.success).toBe(false);
   });
 
   it("builds and parses server workspace identities", () => {

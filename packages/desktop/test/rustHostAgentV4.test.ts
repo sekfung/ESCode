@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-agent-v4.md §4：**真实 `@escode/client`**（`ProxyChannel.toService` + `ChannelClient`）
 // 经 Rust Host 的事件面收 `EventFire`：静态事件 `onAgentRuntimeLifecycle`、动态事件
@@ -29,6 +35,7 @@ describe("rust host escode-agent v4 surface", () => {
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(join(root, "data"));
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

@@ -4,7 +4,13 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, realpath, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // Phase 3 golden freeze：TS `createMediaPreviewService` / `createLocalPromptAttachmentTransferService`
 // 的观察已冻结为仓内资产（packages/desktop/test/fixtures/golden/）。测试不再实例化 TS 服务，
@@ -107,6 +113,7 @@ describe("rust host attachments", () => {
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(base);
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir: base });
         const listening = await nextMeaningful(host);
         const services = await connectRpc(String(listening.addr), String(listening.secret));
@@ -211,6 +218,7 @@ describe("rust host attachments", () => {
       const host = startHost(home);
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(base);
         host.send({
           kind: "rpcListen",
           bind: "127.0.0.1:0",

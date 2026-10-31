@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connectRpc, hostBinary, nextMeaningful, startHost } from "./rustHostTestSupport.js";
+import {
+  connectRpc,
+  hostBinary,
+  nextMeaningful,
+  prepareTasksIndex,
+  startHost,
+} from "./rustHostTestSupport.js";
 
 // docs/specs/rust-u2-credential.md §5：同一 credentials.json 上的 TS 加密观察已冻结为仓内资产
 // （packages/desktop/test/fixtures/golden/rustHostCredential.*）。测试不再实例化 TS credential 服务，
@@ -47,6 +53,7 @@ describe("rust host credential", () => {
       const wrongSecretHost = startHost(home, { ESCODE_CREDENTIAL_SECRET: "another-secret" });
       try {
         expect((await nextMeaningful(host)).kind).toBe("hostReady");
+        await prepareTasksIndex(dataBaseDir);
         host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir });
         const listening = await nextMeaningful(host);
         const services = await connectRpc(String(listening.addr), String(listening.secret));
@@ -99,6 +106,7 @@ describe("rust host credential", () => {
 
         // 密钥不匹配：解密失败的 code 与文案前缀一致。
         expect((await nextMeaningful(wrongSecretHost)).kind).toBe("hostReady");
+        await prepareTasksIndex(dataBaseDir);
         wrongSecretHost.send({ kind: "rpcListen", bind: "127.0.0.1:0", home, dataBaseDir });
         const wrongSecretListening = await nextMeaningful(wrongSecretHost);
         const wrongSecretServices = await connectRpc(
