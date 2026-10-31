@@ -28,5 +28,6 @@ mod sse;
 mod tool_media;
 mod tool_reference;
 mod tool_search;
+mod tool_search_success;
 pub mod web_search;
 use escode_cli_host::{id, now};

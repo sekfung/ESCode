@@ -35,6 +35,8 @@ impl HttpModel {
             .iter()
             .any(|tool| tool["function"]["deferLoading"] == true);
         super::tool_reference::project(&mut messages, native_tool_search);
+        // 成功提示只在请求投影派生（上游 appendToolSearchSuccessMessages）。
+        super::tool_search_success::append(&mut messages);
         let body = model_protocol::body(&self.config, messages, tools)?;
         // Bytes 克隆只增加引用计数；同一模型步骤的网络重试不再编码整段历史。
         // MCP 工具 schema 按登记的声明顺序编码（docs/specs/rust-tool-schema-order.md），其余与 serde_json 相同。

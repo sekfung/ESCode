@@ -117,6 +117,10 @@ tool call = DeferredToolCall({name,input})
 
 - 请求侧：`advanced-tool-use-2025-11-20` beta、`deferLoading` → `defer_loading`（`crates/model/src/tool_search.rs`、`anthropic_body.rs`、`provider.rs`）。
 - 结果侧：ToolSearch 命中在 native 模式返回 `tool_reference` part；工具结果以 part 数组入史，Anthropic body 投影为 `tool_result` 内的 `{"type":"tool_reference","tool_name":...}`（`model_media.rs`、`tool_reference.rs`）。
+- 成功提示（2026-11-01，对齐上游 `appendToolSearchSuccessMessages`）：native 请求投影在每段连续
+  tool 结果之后，按该段里成功 ToolSearch（结果仍含 `tool_reference`）的条数追加
+  `role=user`、`content="Tool loaded."` 的派生消息。提示只存在于请求投影，不写入历史；
+  `local`/`off` 的结果没有 `tool_reference`，不产生该提示。
 - 跨模式：会话从 native 切到 local/off 或另一家 provider 时，历史里的 `tool_reference` 在发送前降级为文本，避免未知 part 被拒（`tool_reference::project`）。
 - 包装边界：DeferredToolCall 的目标结果在模型历史/持久化工具消息上带 `_escode_model_call_wrapper: "DeferredToolCall"`，供 UI 与冷恢复区分直接调用与包装调用。
 - `auto` 是否解析为 native 取决于 provider 的 `default_enabled`；当前 Rust 默认 `false`，显式 `native` 可用。
@@ -235,6 +239,8 @@ tool call = DeferredToolCall({name,input})
   下一轮出现；DeferredToolCall 可执行且走目标工具权限。
 - 未发现的 DeferredToolCall：返回可执行提示，不执行目标工具。
 - `native`：非 Anthropic provider 显式报错；Anthropic 请求包含 `advanced-tool-use-2025-11-20` beta 与 `tool_reference`。
+- 成功提示：`cargo test -p escode-cli-model tool_search` 覆盖连续 tool 结果段后的 `Tool loaded.`
+  追加位置与条数；失败结果、local 文本结果与无引用结果不追加。
 - `auto`：能力缺失时解析为 `off`，有 `defaultEnabled` 时解析为 `native`。
 - 删除域不出现在 catalog。
 - 差分：同一 fixture 下 Node oracle 与 Rust 的 `matches`、`total_deferred_tools`、公告 delta 一致。
