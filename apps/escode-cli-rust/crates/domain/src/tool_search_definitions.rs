@@ -79,14 +79,30 @@ fn reminder(body: String) -> String {
 pub fn local_media(
     matches: &[String],
     definitions: &[Value],
+    deferred: &HashSet<String>,
     visible: &HashSet<String>,
 ) -> Vec<Value> {
-    let (already, fresh): (Vec<String>, Vec<String>) = matches
-        .iter()
-        .cloned()
-        .partition(|name| visible.contains(name));
+    // 上游 projectToolReferences：目录里不存在的引用直接丢弃；已可见的延迟工具只给
+    // “already available”提醒、不再展开 schema；常驻工具始终展开且不参与两种提醒。
+    let mut schemas = Vec::new();
+    let mut fresh = Vec::new();
+    let mut already = Vec::new();
+    for name in matches {
+        if !has_definition(definitions, name) {
+            continue;
+        }
+        let is_deferred = deferred.contains(name);
+        if is_deferred && visible.contains(name) {
+            already.push(name.clone());
+            continue;
+        }
+        schemas.push(name.clone());
+        if is_deferred {
+            fresh.push(name.clone());
+        }
+    }
     let mut parts = Vec::new();
-    if let Some(block) = schema_block(matches, definitions) {
+    if let Some(block) = schema_block(&schemas, definitions) {
         parts.push(json!({"type": "text", "text": block}));
     }
     if !fresh.is_empty() {
@@ -96,6 +112,12 @@ pub fn local_media(
         parts.push(json!({"type": "text", "text": local_already_loaded_reminder(&already)}));
     }
     parts
+}
+
+fn has_definition(definitions: &[Value], name: &str) -> bool {
+    definitions
+        .iter()
+        .any(|definition| definition["function"]["name"].as_str() == Some(name))
 }
 
 pub fn deferred_tool_call_description() -> &'static str {
@@ -156,6 +178,7 @@ pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn schema_block_renders_matched_definitions_only() {
@@ -197,5 +220,41 @@ to its schema above. No additional ToolSearch is needed before calling these too
 mcp__a__echo. Use DeferredToolCall with {name, input} to execute these tools. Searching again \
 does not execute them.\n</system-reminder>"
         );
+    }
+
+    #[test]
+    fn local_media_projects_fresh_already_resident_and_missing_tools() {
+        let definitions = vec![
+            json!({"type":"function","function":{"name":"A","description":"a","parameters":{}}}),
+            json!({"type":"function","function":{"name":"B","description":"b","parameters":{}}}),
+            json!({"type":"function","function":{"name":"Resident","description":"r","parameters":{}}}),
+        ];
+        let deferred: HashSet<String> = ["A", "B"].iter().map(|name| (*name).to_owned()).collect();
+        let names = |values: &[&str]| values.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
+        let text = |part: &Value| part["text"].as_str().unwrap_or_default().to_owned();
+
+        let first = local_media(&names(&["A", "B"]), &definitions, &deferred, &HashSet::new());
+        assert!(text(&first[0]).contains("\"name\":\"A\""));
+        assert!(text(&first[1]).starts_with("<system-reminder>\nLoaded: A, B."));
+
+        let visible: HashSet<String> = ["A"].iter().map(|name| (*name).to_owned()).collect();
+        let mixed = local_media(&names(&["A", "B"]), &definitions, &deferred, &visible);
+        assert!(!text(&mixed[0]).contains("\"name\":\"A\""));
+        assert!(text(&mixed[0]).contains("\"name\":\"B\""));
+        assert!(text(&mixed[1]).contains("Loaded: B."));
+        assert!(text(&mixed[2]).contains("already available in this conversation: A."));
+
+        let repeat = local_media(&names(&["A", "B"]), &definitions, &deferred, &deferred);
+        assert_eq!(repeat.len(), 1);
+        assert!(text(&repeat[0]).contains("already available in this conversation: A, B."));
+
+        let resident = local_media(
+            &names(&["Resident", "missing"]),
+            &definitions,
+            &deferred,
+            &deferred,
+        );
+        assert_eq!(resident.len(), 1);
+        assert!(text(&resident[0]).contains("\"name\":\"Resident\""));
     }
 }

@@ -89,9 +89,9 @@ test("local ToolSearch hides MCP tools, loads on search, executes via DeferredTo
     assert.match(String(toolMessage(f.requests, 4, "direct-1")?.content), /direct/);
 
     await send(h, mcpSession, "search again");
-    // 再次搜索已加载工具：仍展开定义，但提醒改用“会话内已加载”，不再要求立刻调用。
+    // 再次搜索已加载工具：不再重复展开定义，只给“会话内已加载”提醒。
     const again = String(toolMessage(f.requests, 6, "search-again")?.content);
-    assert.match(again, /<functions>\n<function>\{/);
+    assert.ok(!again.includes("<functions>"));
     assert.match(
       again,
       /Tool definitions already available in this conversation: mcp__local_echo__echo\./,

@@ -12,6 +12,8 @@ use tokio_util::sync::CancellationToken;
 pub(super) struct ToolSearchContext {
     pub(super) mode: ResolvedToolSearchMode,
     pub(super) catalog: Vec<ToolSearchCandidate>,
+    /// 当前 catalog 里仍标记为延迟的工具名（已按 compact 边界清除）。
+    pub(super) deferred: HashSet<String>,
     pub(super) discovered: std::sync::Mutex<HashSet<String>>,
     /// 本批调用开始时的已发现快照（上游 `visible`）：同批并行搜索互不算“已加载”。
     pub(super) visible: std::sync::Mutex<HashSet<String>>,
@@ -31,6 +33,11 @@ impl ToolSearchContext {
             .lock()
             .map(|visible| visible.clone())
             .unwrap_or_default()
+    }
+
+    /// local 结果的模型可见 part：只为新工具展开定义，已可见的延迟工具只给提醒。
+    pub(super) fn local_media(&self, matches: &[String], definitions: &[Value]) -> Vec<Value> {
+        tool_search_catalog::local_media(matches, definitions, &self.deferred, &self.visible())
     }
 }
 
@@ -163,9 +170,15 @@ pub(super) async fn prepare_tool_surface(
     } else {
         false
     };
+    let deferred: HashSet<String> = catalog
+        .iter()
+        .filter(|candidate| candidate.deferred)
+        .map(|candidate| candidate.name.clone())
+        .collect();
     let tool_search = (mode != ResolvedToolSearchMode::Off).then(|| ToolSearchContext {
         mode,
         catalog,
+        deferred,
         visible: std::sync::Mutex::new(discovered.clone()),
         discovered: std::sync::Mutex::new(discovered),
     });

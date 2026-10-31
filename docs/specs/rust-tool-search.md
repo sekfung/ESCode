@@ -99,14 +99,15 @@ tool call = DeferredToolCall({name,input})
 
 - 纯函数目录/搜索/DeferredToolCall 解析：`crates/domain/src/tool_search_catalog.rs`。
 - 控制工具定义与会话状态：`crates/core/src/app/agent_loop_surface.rs`、`crates/core/src/app/tool_dispatch.rs`、`crates/tools/src/workspace_tools.rs`。
-- 结果投影：local ToolSearch 命中把匹配工具的完整 `function` 定义渲染成 `<functions>` 文本块
-  （`tool_search_definitions::schema_block`），不把目标 schema 加进顶层 tools；定义缺失的名字跳过，
-  全部缺失时不输出空容器。
+- 结果投影：local ToolSearch 只为“批次开始前尚未交付”的延迟工具（以及常驻工具）展开完整
+  `function` 定义；已可见的延迟工具不再重复展开，只给“already available”提醒。定义缺失的引用
+  直接丢弃（上游 `projectToolReferences`），全部缺失时不输出空容器；匹配 schema 不进入顶层 tools。
 - 结果提醒（2026-11-01，对齐上游 `apps/zcode-cli/packages/core/src/tool/search/local-projection.ts`）：
   schema 块后依次追加 `<system-reminder>` 包装的“本次新加载”提醒
   （`Loaded: … Call it/them now with DeferredToolCall …`）和“会话内已加载”提醒
   （`Tool definitions already available in this conversation: … Searching again does not execute them.`）。
-  是否已加载按本轮批次开始时的已发现快照判定，同一批并行搜索互不算已加载。
+  是否已加载按本轮批次开始时的已发现快照判定，同一批并行搜索互不算已加载；已可见的延迟工具
+  不再重复展开 schema，常驻工具始终展开且不产生两种提醒。
 - 已发现事实持久化：成功 ToolSearch 结果消息顶层写 `_escode_tool_search_discovered=[name…]`
   （失败或无命中不写），local 冷恢复与压缩边界都从历史重建已发现集合。
 - 权限元数据：`crates/tools/src/tool_capability.rs`。
