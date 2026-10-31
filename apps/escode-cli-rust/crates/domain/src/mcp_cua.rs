@@ -19,6 +19,14 @@ fn matches_spec(candidate: &str) -> bool {
             .any(|p| c.starts_with(p))
 }
 
+// TS 以显式 type 为准；未写 type 但有 command 的配置在 Rust 解析中同为 stdio。
+fn is_stdio(raw: &Value) -> bool {
+    match raw["type"].as_str() {
+        Some(kind) => kind == "stdio",
+        None => raw["command"].is_string(),
+    }
+}
+
 /// TS `isESCodeCuaMcpCommand` / `isESCodeCuaMcpPackageArg`（两者判定相同）。
 pub fn is_cua_spec(value: &str) -> bool {
     matches_spec(value) || matches_spec(leaf(value))
@@ -29,12 +37,7 @@ pub fn is_retired(name: &str, raw: &Value) -> bool {
     if name == NODE_REPL {
         return false;
     }
-    // TS 以显式 type 为准；未写 type 但有 command 的配置在 Rust 解析中同为 stdio。
-    let stdio = match raw["type"].as_str() {
-        Some(kind) => kind == "stdio",
-        None => raw["command"].is_string(),
-    };
-    if !stdio {
+    if !is_stdio(raw) {
         return false;
     }
     name == "computer-use"
@@ -45,6 +48,31 @@ pub fn is_retired(name: &str, raw: &Value) -> bool {
         || raw["args"]
             .as_array()
             .is_some_and(|args| args.iter().filter_map(Value::as_str).any(is_cua_spec))
+}
+
+/// TS `computeOfficialCuaServerNames` 的最终门（`core/src/runtime/methods/mcp.ts`）：
+/// server 名、tool 名和 manifest env 都可被第三方仿造，只有 resolver 写入的官方 plugin id 与宿主
+/// 私有捕获的 authority 同时匹配才成立。authority 缺失或半组时 fail-closed。
+/// `node_repl` 是共享宿主而非 CUA MCP server（其 CUA 结果走 node_repl 图片通道），这里显式排除，
+/// 否则它注入的同一组 env 会被误当成官方 CUA，抢走 artifact 预算。
+pub fn official_authority_verified(
+    name: &str,
+    raw: &Value,
+    expected_authority: Option<&str>,
+) -> bool {
+    if name == NODE_REPL {
+        return false;
+    }
+    let Some(expected) = expected_authority.map(str::trim).filter(|a| !a.is_empty()) else {
+        return false;
+    };
+    is_stdio(raw)
+        && raw["env"]["ESCODE_PLUGIN_ID"]
+            .as_str()
+            .is_some_and(|id| id.trim().to_lowercase() == OFFICIAL_PLUGIN_ID)
+        && raw["env"]["ESCODE_CUA_PLUGIN_AUTHORITY"]
+            .as_str()
+            .is_some_and(|authority| authority.trim() == expected)
 }
 
 #[cfg(test)]
@@ -98,6 +126,43 @@ mod tests {
         assert!(!is_retired(
             "a",
             &json!({"type": "stdio", "command": "node", "args": ["server.js"]})
+        ));
+    }
+
+    #[test]
+    fn official_authority_requires_private_authority_and_official_plugin_id() {
+        let raw = json!({"type": "stdio", "command": "x", "env": {
+            "ESCODE_PLUGIN_ID": " Computer-Use@zcode-plugins-official ",
+            "ESCODE_CUA_PLUGIN_AUTHORITY": " authority ",
+        }});
+        assert!(official_authority_verified(
+            "plugin:escode-cua:computer-use",
+            &raw,
+            Some("authority")
+        ));
+        // authority 缺失/半组、错误 authority、错误 plugin id 都 fail-closed。
+        assert!(!official_authority_verified("a", &raw, None));
+        assert!(!official_authority_verified("a", &raw, Some(" ")));
+        assert!(!official_authority_verified("a", &raw, Some("other")));
+        let wrong_plugin = json!({"type": "stdio", "command": "x", "env": {
+            "ESCODE_PLUGIN_ID": "third-party",
+            "ESCODE_CUA_PLUGIN_AUTHORITY": "authority",
+        }});
+        assert!(!official_authority_verified(
+            "a",
+            &wrong_plugin,
+            Some("authority")
+        ));
+        // 非 stdio 不适用；node_repl 注入同一组 env，但不是 CUA MCP server。
+        let http = json!({"type": "http", "url": "http://x", "env": {
+            "ESCODE_PLUGIN_ID": OFFICIAL_PLUGIN_ID,
+            "ESCODE_CUA_PLUGIN_AUTHORITY": "authority",
+        }});
+        assert!(!official_authority_verified("a", &http, Some("authority")));
+        assert!(!official_authority_verified(
+            NODE_REPL,
+            &raw,
+            Some("authority")
         ));
     }
 }

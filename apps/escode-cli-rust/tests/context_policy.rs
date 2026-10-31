@@ -69,6 +69,7 @@ fn session_estimate_tracks_append_and_survives_context_reload() {
     session.context = escode_cli_domain::context::ContextState {
         offset: 2,
         summary: Some("short".into()),
+        pre_compact_discovered_tools: vec![],
     };
     session.context_tokens = None;
     let summary = session.active_context_tokens();

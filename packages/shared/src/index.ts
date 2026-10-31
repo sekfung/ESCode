@@ -42,7 +42,9 @@ export type {
 } from "./remoteResourcePackages.js";
 export type {
   DockerConnectOptions,
+  ProfileScopedRemoteTarget,
   RemoteTarget,
+  ResolvedWSLConnectOptions,
   ServerConnectOptions,
   SSHConnectOptions,
   WSLConnectOptions,

@@ -3,26 +3,10 @@ import { Client as SSHClient, type TcpConnectionDetails } from "ssh2";
 import {
   TID_TASK_ITEM,
   TID_WORKSPACE_ITEM,
-  TID_COMPOSER_REMOTE_CONNECTION,
   TID_COMPOSER_WORKSPACE_TRIGGER,
-  TID_REMOTE_KIND_SSH,
-  TID_SSH_DIALOG,
-  TID_SSH_ERROR,
-  TID_SSH_HOST_INPUT,
-  TID_SSH_PASSWORD_INPUT,
-  TID_SSH_PORT_INPUT,
-  TID_SSH_SUCCESS,
-  TID_SSH_USERNAME_INPUT,
-  buildRemoteWorkspaceIdentity,
   testId,
-  type RemoteTarget,
 } from "@escode/shared";
-import {
-  clearAppData,
-  clickTestIdByWebDriver,
-  setInputValueByTestIdDom,
-  waitForWorkspaceApp,
-} from "../helpers/desktop-app.js";
+import { clearAppData } from "../helpers/desktop-app.js";
 import {
   refreshSeededOpenAIProvidersThroughSettings,
   seedCustomOpenAIChatCompletionsProvider,
@@ -49,7 +33,12 @@ import {
   waitForResourceManagerReady,
   listHostProcessIdentities,
 } from "../helpers/resource-manager.js";
-import { runSSHCommand } from "../helpers/ssh-remote-p0.js";
+import {
+  completeSSHDeviceConnection,
+  fillSSHPasswordSettings,
+  openSSHRemoteDialog,
+  runSSHCommand,
+} from "../helpers/ssh-remote-p0.js";
 
 const CASE_MARKER = "R1_SSH_P0_01";
 const PROMPT_MARKER = "E2E_SSH_REMOTE_P0";
@@ -107,16 +96,7 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
   it("R1-SSH-P0-01 在两个 SSH workspace 各自首发，并切回 task 续发", async function () {
     this.timeout(20 * 60_000);
     const config = readSSHRuntimeConfig();
-    const target: RemoteTarget = {
-      kind: "ssh",
-      host: config.host,
-      port: config.port,
-      username: config.username,
-      password: config.password,
-    };
     const [workspaceA, workspaceB] = config.workspacePaths;
-    const identityA = buildRemoteWorkspaceIdentity(workspaceA, target);
-    const identityB = buildRemoteWorkspaceIdentity(workspaceB, target);
 
     await prepareV4ConversationE2E({ skipProvider: true });
     const initialHosts = await readHostProcesses();
@@ -144,7 +124,6 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
 
     const taskA = await connectWorkspaceAndSendFirstTurn({
       config,
-      identity: identityA,
       label: "A",
       provider,
       workspacePath: workspaceA,
@@ -155,7 +134,6 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
     );
     const taskB = await connectWorkspaceAndSendFirstTurn({
       config,
-      identity: identityB,
       label: "B",
       provider,
       workspacePath: workspaceB,
@@ -166,28 +144,28 @@ describe(`${CASE_MARKER}: SSH remote workspace P0`, () => {
     expect(await readProvisioningRecordCount(config)).toBe(provisioningRecordsAfterFirstWorkspace);
 
     expect(taskA.remoteSessionId).not.toBe(taskB.remoteSessionId);
-    // 本地 window Host 常驻；远程 scope 由窗口内独立 Node Host 服务，同一窗口只能有一个。
+    // S5：远程 scope 由 App 级 Rust Host 服务，不得再出现 per-window Node 远程进程。
     const hostsAfterTask = await readHostProcesses();
     for (const host of initialHosts) {
       expect(hostsAfterTask).toEqual(expect.arrayContaining([host]));
     }
     expect(
       hostsAfterTask.filter((host) => host.name.startsWith("escode-host-remote-")).length,
-    ).toBe(1);
+    ).toBe(0);
 
     await switchTaskAndSendFollowTurn(taskA, taskB.firstPrompt);
     await switchTaskAndSendFollowTurn(taskB, taskA.firstPrompt);
 
     await assertTaskRow(taskA, { active: false, running: false });
     await assertTaskRow(taskB, { active: true, running: false });
-    // 本地 window Host 常驻；远程 scope 由窗口内独立 Node Host 服务，同一窗口只能有一个。
+    // S5：远程 scope 由 App 级 Rust Host 服务，不得再出现 per-window Node 远程进程。
     const hostsAfterFollowTurns = await readHostProcesses();
     for (const host of initialHosts) {
       expect(hostsAfterFollowTurns).toEqual(expect.arrayContaining([host]));
     }
     expect(
       hostsAfterFollowTurns.filter((host) => host.name.startsWith("escode-host-remote-")).length,
-    ).toBe(1);
+    ).toBe(0);
   });
 });
 
@@ -267,7 +245,6 @@ function requireSecretEnv(name: string): string {
 
 async function connectWorkspaceAndSendFirstTurn(options: {
   config: SSHRuntimeConfig;
-  identity: string;
   label: "A" | "B";
   provider: { id: string; name: string };
   workspacePath: string;
@@ -276,21 +253,21 @@ async function connectWorkspaceAndSendFirstTurn(options: {
   // workspace 选择器中展示，因此先显式创建草稿，再走真实 UI 连接链路。
   await startNewV4Draft();
   await waitForDraftWorkspaceSettled();
-  await openSSHRemoteDialog();
+  await openSSHRemoteDialog(CASE_MARKER);
   await fillSSHPasswordSettings(options.config);
-  await clickLastEnabledDialogButton();
-  await waitForSSHDirectoryStep();
-  await selectRemoteDirectory(options.workspacePath);
-  await waitForWorkspaceApp(options.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
-  const tab = await waitForRemoteTab({
-    expectedIdentity: options.identity,
-    expectedPath: options.workspacePath,
+  // S5-e 后「添加设备」连接成功即关闭向导，由项目选择器承接目录并创建项目。
+  const tab = await completeSSHDeviceConnection({
+    caseMarker: CASE_MARKER,
+    workspacePath: options.workspacePath,
   });
   expect(tab.remoteKind).toBe("ssh");
   expect(tab.remoteHost).toBe(options.config.host);
   expect(tab.secretPersistedInTab).toBe(false);
   if (!tab.remoteSessionId) {
     throw new Error(`${CASE_MARKER}: workspace ${options.label} 缺少 remoteSessionId`);
+  }
+  if (!tab.workspaceIdentity) {
+    throw new Error(`${CASE_MARKER}: workspace ${options.label} 缺少稳定 workspaceIdentity`);
   }
 
   await selectUpstreamProviderModelById(MODEL_ID, {
@@ -324,7 +301,7 @@ async function connectWorkspaceAndSendFirstTurn(options: {
     firstReply,
     followPrompt,
     followReply,
-    identity: options.identity,
+    identity: tab.workspaceIdentity,
     label: options.label,
     remoteSessionId: tab.remoteSessionId,
     taskId: running.taskId,
@@ -543,229 +520,6 @@ async function createReplayTunnel(config: SSHRuntimeConfig): Promise<ReplayTunne
         });
       }),
   };
-}
-
-async function openSSHRemoteDialog(): Promise<void> {
-  await clickTestIdByWebDriver(TID_COMPOSER_WORKSPACE_TRIGGER, {
-    timeout: 30_000,
-    timeoutMsg: `${CASE_MARKER}: 空草稿没有显示 workspace 菜单`,
-  });
-  await clickTestIdByWebDriver(TID_COMPOSER_REMOTE_CONNECTION, {
-    timeout: 30_000,
-    timeoutMsg: `${CASE_MARKER}: workspace 菜单没有显示远程连接入口`,
-  });
-  await clickTestIdByWebDriver(TID_REMOTE_KIND_SSH, {
-    timeout: 30_000,
-    timeoutMsg: `${CASE_MARKER}: 远程连接向导没有显示 SSH transport`,
-  });
-  await clickLastEnabledDialogButton();
-}
-
-async function fillSSHPasswordSettings(config: SSHRuntimeConfig): Promise<void> {
-  await setInputValueByTestIdDom(TID_SSH_HOST_INPUT, config.host);
-  await setInputValueByTestIdDom(TID_SSH_PORT_INPUT, String(config.port));
-  await setInputValueByTestIdDom(TID_SSH_USERNAME_INPUT, config.username);
-  await setInputValueByTestIdDom(TID_SSH_PASSWORD_INPUT, config.password);
-}
-
-async function clickLastEnabledDialogButton(): Promise<void> {
-  let lastState = "dialog-missing";
-  await browser.waitUntil(
-    async () => {
-      const result = await browser.execute((dialogTestId) => {
-        const dialog = document.querySelector<HTMLElement>(`[data-testid="${dialogTestId}"]`);
-        if (!dialog || dialog.getClientRects().length === 0) {
-          return { clicked: false, reason: "dialog-missing" };
-        }
-        const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).filter(
-          (button) => button.getClientRects().length > 0,
-        );
-        const button = buttons.at(-1);
-        if (!button) return { clicked: false, reason: "button-missing" };
-        if (button.disabled) return { clicked: false, reason: "button-disabled" };
-        button.click();
-        return { clicked: true, reason: "clicked" };
-      }, TID_SSH_DIALOG);
-      lastState = result.reason;
-      return result.clicked;
-    },
-    {
-      timeout: 30_000,
-      interval: 100,
-      timeoutMsg: `${CASE_MARKER}: 远程连接向导主动作不可点击 (${lastState})`,
-    },
-  );
-}
-
-async function waitForSSHDirectoryStep(): Promise<void> {
-  let terminalState: {
-    error: string;
-    status: "connecting" | "error" | "success";
-  } = {
-    error: "",
-    status: "connecting",
-  };
-  await browser.waitUntil(
-    async () => {
-      terminalState = await browser.execute(
-        (successTestId, errorTestId) => {
-          const success = document.querySelector<HTMLElement>(`[data-testid="${successTestId}"]`);
-          if (success?.getClientRects().length) {
-            return { error: "", status: "success" as const };
-          }
-          const error = document.querySelector<HTMLElement>(`[data-testid="${errorTestId}"]`);
-          if (error?.getClientRects().length) {
-            return { error: error.innerText.trim(), status: "error" as const };
-          }
-          return { error: "", status: "connecting" as const };
-        },
-        TID_SSH_SUCCESS,
-        TID_SSH_ERROR,
-      );
-      return terminalState.status !== "connecting";
-    },
-    {
-      timeout: CONNECT_TIMEOUT_MS,
-      interval: 500,
-      timeoutMsg: `${CASE_MARKER}: SSH 部署/连接在 ${CONNECT_TIMEOUT_MS}ms 内没有完成`,
-    },
-  );
-  if (terminalState.status === "error") {
-    throw new Error(`${CASE_MARKER}: SSH 连接失败: ${terminalState.error}`);
-  }
-}
-
-async function selectRemoteDirectory(workspacePath: string): Promise<void> {
-  const normalizedPath = workspacePath.replace(/\/+$/, "") || "/";
-  const lastSlash = normalizedPath.lastIndexOf("/");
-  const parentPath = normalizedPath.slice(0, lastSlash) || "/";
-  const directoryName = normalizedPath.slice(lastSlash + 1);
-  if (!directoryName) {
-    throw new Error(`${CASE_MARKER}: P0 case 暂不支持选择根目录`);
-  }
-
-  await browser.waitUntil(
-    () =>
-      browser.execute((successTestId) => {
-        const success = Array.from(
-          document.querySelectorAll<HTMLElement>(`[data-testid="${successTestId}"]`),
-        ).find((element) => element.getClientRects().length > 0);
-        return Boolean(success?.querySelector<HTMLInputElement>('input[type="text"]'));
-      }, TID_SSH_SUCCESS),
-    {
-      timeout: 30_000,
-      timeoutMsg: `${CASE_MARKER}: SSH directory step 没有路径输入框`,
-    },
-  );
-
-  const pathInputs = await $$(`[data-testid="${TID_SSH_SUCCESS}"] input[type="text"]`);
-  let pathInputIndex = -1;
-  const pathInputCount = await pathInputs.length;
-  for (let index = 0; index < pathInputCount; index += 1) {
-    const candidate = pathInputs[index]!;
-    if (await candidate.isDisplayed()) {
-      pathInputIndex = index;
-      break;
-    }
-  }
-  if (pathInputIndex < 0) {
-    throw new Error(`${CASE_MARKER}: SSH directory step 没有可见路径输入框`);
-  }
-  const pathInput = pathInputs[pathInputIndex]!;
-  if (parentPath === "/") {
-    // 本 case 的 /root、/home 都是根目录的直接子目录。点击真实“上一级”控件直接使用
-    // DirectoryBrowser.currentPath，避免受控 path input 与 Enter 提交之间的竞态。
-    await browser.waitUntil(
-      () =>
-        browser.execute(
-          (successTestId, activeIndex) => {
-            const success = document.querySelectorAll<HTMLElement>(
-              `[data-testid="${successTestId}"]`,
-            )[activeIndex];
-            const upButton = Array.from(
-              success?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-            ).find((button) => button.innerText.trim() === "..");
-            if (!upButton) return false;
-            upButton.click();
-            return true;
-          },
-          TID_SSH_SUCCESS,
-          pathInputIndex,
-        ),
-      {
-        timeout: 30_000,
-        interval: 100,
-        timeoutMsg: `${CASE_MARKER}: directory browser 没有显示上一级入口`,
-      },
-    );
-  } else {
-    await pathInput.setValue(parentPath);
-    await browser.executeAsync((done) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => done()));
-    });
-    await pathInput.click();
-    await browser.keys("Enter");
-  }
-
-  // Bug 根因：直接修改 path input 并 requestSubmit 只能证明输入态变化，不能证明
-  // DirectoryBrowser 的 currentPath 已切换。等待父目录项目出现并点击，才走真实导航状态。
-  await browser.waitUntil(
-    async () =>
-      browser.execute(
-        (successTestId, expectedName, activeIndex) => {
-          const success = document.querySelectorAll<HTMLElement>(
-            `[data-testid="${successTestId}"]`,
-          )[activeIndex];
-          const entry = Array.from(
-            success?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-          ).find((button) => button.innerText.trim() === expectedName);
-          if (!entry) return false;
-          entry.click();
-          return true;
-        },
-        TID_SSH_SUCCESS,
-        directoryName,
-        pathInputIndex,
-      ),
-    {
-      timeout: 30_000,
-      interval: 100,
-      timeoutMsg: `${CASE_MARKER}: 父目录没有显示目标目录 ${directoryName}`,
-    },
-  );
-  await browser.waitUntil(
-    () =>
-      browser.execute(
-        (successTestId, expectedPath, activeIndex) => {
-          const success = document.querySelectorAll<HTMLElement>(
-            `[data-testid="${successTestId}"]`,
-          )[activeIndex];
-          const input = success?.querySelector<HTMLInputElement>('input[type="text"]');
-          return input?.value === expectedPath;
-        },
-        TID_SSH_SUCCESS,
-        normalizedPath,
-        pathInputIndex,
-      ),
-    {
-      timeout: 30_000,
-      interval: 100,
-      timeoutMsg: `${CASE_MARKER}: directory browser 没有完成目标路径导航`,
-    },
-  );
-  await clickLastEnabledDialogButton();
-  await browser.waitUntil(
-    () =>
-      browser.execute(
-        (dialogTestId) => !document.querySelector<HTMLElement>(`[data-testid="${dialogTestId}"]`),
-        TID_SSH_DIALOG,
-      ),
-    {
-      timeout: WORKSPACE_READY_TIMEOUT_MS,
-      interval: 250,
-      timeoutMsg: `${CASE_MARKER}: 选择远端目录后连接向导没有关闭`,
-    },
-  );
 }
 
 async function waitForRemoteTab(options: {

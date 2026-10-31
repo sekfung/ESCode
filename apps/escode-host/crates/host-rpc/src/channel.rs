@@ -81,6 +81,8 @@ pub struct ConnectionContext {
     pub client_mode: ClientMode,
     /// 出站水位边沿（`connection.rs` 维护）。
     pub flow: tokio::sync::watch::Receiver<FlowState>,
+    /// 绑定的远端 scope（capability 签发时确定）；`None` = 本地 scope。
+    pub remote: Option<crate::remote_scope::RemoteGrant>,
 }
 
 impl ConnectionContext {
@@ -90,12 +92,28 @@ impl ConnectionContext {
             connection_id: format!("host-rpc-{}", uuid::Uuid::new_v4()),
             client_mode,
             flow,
+            remote: None,
+        }
+    }
+
+    /// 远端 scope 连接：channel 集合由 `Channels` 的允许表 + 远端广播决定（spec §10.11）。
+    pub fn with_remote(
+        client_mode: ClientMode,
+        flow: tokio::sync::watch::Receiver<FlowState>,
+        grant: crate::remote_scope::RemoteGrant,
+    ) -> Self {
+        Self {
+            remote: Some(grant),
+            ..Self::new(client_mode, flow)
         }
     }
 }
 
 /// 连接级 channel 工厂：每条连接建一个独立实例（TS `createESCodeAgentConnectionScope`）。
 pub type ChannelFactory = Arc<dyn Fn(&ConnectionContext) -> Channel + Send + Sync>;
+
+/// 连接级 channel 集合工厂：按连接上下文一次产出多个 channel（远端 scope 转发用）。
+pub type ChannelSetFactory = Arc<dyn Fn(&ConnectionContext) -> Vec<Channel> + Send + Sync>;
 
 /// 把一个闭包包装为方法处理函数（表项用；错误为 `(name, message)`）。
 pub fn handler<F>(f: F) -> MethodHandler
@@ -189,6 +207,21 @@ impl Channel {
 pub struct Channels {
     entries: Vec<Arc<Channel>>,
     scoped: Vec<ChannelFactory>,
+    scoped_sets: Vec<ChannelSetFactory>,
+    /// 远端 scope 支持：授权器 + Host 本地允许表（未登记 = 远端 scope 不可用）。
+    remote: Option<RemoteScopeSupport>,
+}
+
+/// 远端 scope 能力：签发 capability 前调用 `ensure` 建立连接，连接级工厂据此转发。
+#[derive(Clone)]
+pub struct RemoteScopeSupport {
+    pub ensure: crate::remote_scope::RemoteScopeEnsurer,
+    /// 首连 Profile 解析（S5-a）：Main 不直接写 settings。
+    pub resolve_profile: Option<crate::remote_scope::RemoteProfileResolver>,
+    /// 首连取消（S5-a cancel）：按 caller key 中止在途连接。
+    pub cancel_profile: Option<crate::remote_scope::RemoteProfileCanceller>,
+    /// 远端 scope 连接仍注册的 Host 本地 channel（其余共享 channel 一律不注册）。
+    pub host_channels: Vec<&'static str>,
 }
 
 impl Channels {
@@ -196,7 +229,102 @@ impl Channels {
         Self {
             entries: entries.into_iter().map(Arc::new).collect(),
             scoped: Vec::new(),
+            scoped_sets: Vec::new(),
+            remote: None,
         }
+    }
+
+    /// 启用远端 scope：`ensure` 负责连接（S3-a），`host_channels` 是本地允许表。
+    pub fn with_remote_scope(
+        mut self,
+        ensure: crate::remote_scope::RemoteScopeEnsurer,
+        host_channels: Vec<&'static str>,
+    ) -> Self {
+        self.remote = Some(RemoteScopeSupport {
+            ensure,
+            resolve_profile: None,
+            cancel_profile: None,
+            host_channels,
+        });
+        self
+    }
+
+    /// 启用首连 Profile 解析；与远端 scope 共用同一 Host owner。
+    pub fn with_remote_profile_resolver(
+        mut self,
+        resolver: crate::remote_scope::RemoteProfileResolver,
+    ) -> Self {
+        if let Some(remote) = &mut self.remote {
+            remote.resolve_profile = Some(resolver);
+        }
+        self
+    }
+
+    /// 启用首连取消；与首连解析共用同一连接管理器。
+    pub fn with_remote_profile_canceller(
+        mut self,
+        canceller: crate::remote_scope::RemoteProfileCanceller,
+    ) -> Self {
+        if let Some(remote) = &mut self.remote {
+            remote.cancel_profile = Some(canceller);
+        }
+        self
+    }
+
+    /// `POST /api/source-server-cancel-profile`：按 caller key 取消在途首连。
+    pub fn cancel_remote_profile(
+        &self,
+        body: &[u8],
+    ) -> Result<bool, crate::remote_scope::RemoteProfileResolveError> {
+        let support = self.remote_scope().ok_or_else(|| {
+            crate::remote_scope::RemoteProfileResolveError::new(
+                "this Host does not serve remote workspaces",
+            )
+        })?;
+        let canceller = support.cancel_profile.as_ref().ok_or_else(|| {
+            crate::remote_scope::RemoteProfileResolveError::new(
+                "this Host does not resolve source server profiles",
+            )
+        })?;
+        let request_id = crate::remote_scope::parse_cancel_request(body)?;
+        let cancelled = canceller(&request_id);
+        escode_host_control::logging::info(
+            "source-server",
+            format!("first-connect cancel request {request_id}: hit={cancelled}"),
+        );
+        Ok(cancelled)
+    }
+
+    /// `POST /api/source-server-resolve-profile`：目标 → ensure Profile → connect → 回填 scope。
+    pub async fn resolve_remote_profile(
+        &self,
+        body: &[u8],
+    ) -> Result<
+        crate::remote_scope::ResolvedRemoteProfile,
+        crate::remote_scope::RemoteProfileResolveError,
+    > {
+        let support = self.remote_scope().ok_or_else(|| {
+            crate::remote_scope::RemoteProfileResolveError::new(
+                "this Host does not serve remote workspaces",
+            )
+        })?;
+        let resolver = support.resolve_profile.as_ref().ok_or_else(|| {
+            crate::remote_scope::RemoteProfileResolveError::new(
+                "this Host does not resolve source server profiles",
+            )
+        })?;
+        let request = crate::remote_scope::RemoteProfileRequest::parse(body)?;
+        resolver(request).await
+    }
+
+    /// 追加一个连接级 channel 集合工厂（只在远端 scope 连接上实例化）。
+    pub fn with_scoped_set(mut self, factory: ChannelSetFactory) -> Self {
+        self.scoped_sets.push(factory);
+        self
+    }
+
+    pub fn remote_scope(&self) -> Option<&RemoteScopeSupport> {
+        self.remote.as_ref()
     }
 
     /// 追加一个连接级 channel（每条连接由工厂各建一份）。
@@ -206,12 +334,39 @@ impl Channels {
     }
 
     /// 为一条连接实例化：共享 channel 复用，连接级 channel 由工厂新建。
+    ///
+    /// 远端 scope 连接（`context.remote`）只注册本地允许表里的共享 channel +
+    /// 远端广播过的转发入口；本地文件/设置等共享 channel 不得出现在远端 scope（spec §10.11）。
     pub fn connect(&self, context: &ConnectionContext) -> Channels {
-        let mut entries = self.entries.clone();
+        let remote = context.remote.is_some();
+        let mut entries: Vec<Arc<Channel>> = self.entries.clone();
         entries.extend(self.scoped.iter().map(|factory| Arc::new(factory(context))));
+        if remote {
+            let allowed = self
+                .remote
+                .as_ref()
+                .map(|support| support.host_channels.as_slice())
+                .unwrap_or_default();
+            entries.retain(|channel| allowed.contains(&channel.name));
+            for factory in &self.scoped_sets {
+                entries.extend(factory(context).into_iter().map(Arc::new));
+            }
+            // 连接级实现（如远端 window-controller）取代同名共享 channel；保留最后登记的一份。
+            let mut seen = std::collections::BTreeSet::new();
+            let mut deduped = Vec::with_capacity(entries.len());
+            for channel in entries.into_iter().rev() {
+                if seen.insert(channel.name) {
+                    deduped.push(channel);
+                }
+            }
+            deduped.reverse();
+            entries = deduped;
+        }
         Channels {
             entries,
             scoped: Vec::new(),
+            scoped_sets: Vec::new(),
+            remote: None,
         }
     }
 

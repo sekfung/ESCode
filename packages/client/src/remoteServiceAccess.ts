@@ -19,6 +19,9 @@ import {
   IESCodeSessionService,
   ICuaPermissionService,
   IFileWatcherService,
+  IProjectService,
+  IRemoteProjectService,
+  ITaskGroupService,
   IModelSelectionService,
   IProviderSettingsService,
   IProviderProvisioningTargetService,
@@ -42,6 +45,7 @@ import {
   ISettingsSyncService,
   IPromptAttachmentTransferService,
   IWindowControllerService,
+  ISourceServerManagementService,
   type IServiceAccessor,
 } from "@escode/services";
 
@@ -67,7 +71,15 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly credentialService: ICredentialService;
   readonly broadcastService: IBroadcastService;
   readonly escodeTaskService: IESCodeTaskService;
+  /** 当前 Host 的权威项目服务；`hostId` 非本机时由 Host 转发到在线 Source。 */
+  readonly projectService: IProjectService;
+  /** 任务分组组织态；与项目树同属当前窗口 Host。 */
+  readonly taskGroupService: ITaskGroupService;
+  /** 本机保存的远端项目入口；远端 owner 自身没有成员表时返回空目录。 */
+  readonly remoteProjectService: IRemoteProjectService;
   readonly windowControllerService: IWindowControllerService;
+  /** Source Server 管理面；只有 Host 广播了该 channel 才绑定（见构造函数）。 */
+  readonly sourceServerManagementService?: ISourceServerManagementService;
   readonly escodeAgentService: IESCodeAgentService;
   readonly escodeSessionService: IESCodeSessionService;
   // cuaPermissionService 在 IServiceAccessor 上是可选（远端/bots host 不提供），但桌面 renderer
@@ -144,9 +156,26 @@ export class RemoteServiceAccess implements IServiceAccessor {
     this.escodeTaskService = ProxyChannel.toService<IESCodeTaskService>(
       channelClient.getChannel(IESCodeTaskService.channelName),
     );
+    this.projectService = ProxyChannel.toService<IProjectService>(
+      channelClient.getChannel(IProjectService.channelName),
+    );
+    this.taskGroupService = ProxyChannel.toService<ITaskGroupService>(
+      channelClient.getChannel(ITaskGroupService.channelName),
+    );
+    this.remoteProjectService = ProxyChannel.toService<IRemoteProjectService>(
+      channelClient.getChannel(IRemoteProjectService.channelName),
+    );
     this.windowControllerService = ProxyChannel.toService<IWindowControllerService>(
       channelClient.getChannel(IWindowControllerService.channelName),
     );
+    // 按 Host 能力广播条件绑定：per-window Node Host 远程路径没有 source-server-management，
+    // 无条件绑定会让远端窗口的调用命中 "Unknown channel"（UI 会退化成错误态而不是回退）。
+    this.sourceServerManagementService =
+      channelClient.hasChannel?.(ISourceServerManagementService.channelName) === true
+        ? ProxyChannel.toService<ISourceServerManagementService>(
+            channelClient.getChannel(ISourceServerManagementService.channelName),
+          )
+        : undefined;
     this.escodeAgentService = ProxyChannel.toService<IESCodeAgentService>(
       channelClient.getChannel(IESCodeAgentService.channelName),
     );

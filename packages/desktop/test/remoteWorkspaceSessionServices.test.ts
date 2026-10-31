@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { IHooksService, type IServiceAccessor } from "@escode/services";
-import { ChannelClient, ChannelServer, ProxyChannel, createQueuePair } from "@escode/rpc";
+import {
+  ChannelClient,
+  ChannelServer,
+  ProxyChannel,
+  createQueuePair,
+} from "@escode/rpc";
 import {
   buildRemoteWorkspaceSessionServices,
   buildServerRemoteWorkspaceSessionServices,
@@ -13,7 +18,10 @@ function makeServices(id: string): IServiceAccessor {
     gitCheckpointService: { id, service: "gitCheckpoint" },
     systemService: { id, service: "system" },
     terminalService: { id, service: "terminal" },
-    promptAttachmentTransferService: { id, service: "prompt-attachment-transfer" },
+    promptAttachmentTransferService: {
+      id,
+      service: "prompt-attachment-transfer",
+    },
     escodeAgentService: { id, service: "escode-agent" },
     escodeTaskService: { id, service: "escode-task" },
     escodeSessionService: { id, service: "escode-session" },
@@ -36,15 +44,41 @@ function makeServices(id: string): IServiceAccessor {
 }
 
 describe("buildRemoteWorkspaceSessionServices", () => {
+  it("does not inherit the local Source Server management into remote scopes", () => {
+    const baseServices = {
+      ...makeServices("base"),
+      sourceServerManagementService: {
+        id: "base",
+        service: "source-management",
+      },
+      sourceServerWorkspaceService: { id: "base", service: "source-workspace" },
+    } as unknown as IServiceAccessor;
+    const remoteServices = makeServices("remote");
+
+    const merged = buildRemoteWorkspaceSessionServices(
+      baseServices,
+      remoteServices,
+    );
+
+    // 远端 Node Host 不注册 source-server-*；可选服务不能回落到本机 Rust Host。
+    expect(merged.sourceServerManagementService).toBeUndefined();
+    expect(merged.sourceServerWorkspaceService).toBeUndefined();
+  });
+
   it("uses remote filesystem/runtime services and keeps local global services", () => {
     const baseServices = makeServices("base");
     const remoteServices = makeServices("remote");
 
-    const merged = buildRemoteWorkspaceSessionServices(baseServices, remoteServices);
+    const merged = buildRemoteWorkspaceSessionServices(
+      baseServices,
+      remoteServices,
+    );
 
     expect(merged.fileService).toBe(remoteServices.fileService);
     expect(merged.gitService).toBe(remoteServices.gitService);
-    expect(merged.gitCheckpointService).toBe(remoteServices.gitCheckpointService);
+    expect(merged.gitCheckpointService).toBe(
+      remoteServices.gitCheckpointService,
+    );
     expect(merged.systemService).toBe(remoteServices.systemService);
     expect(merged.terminalService).toBe(remoteServices.terminalService);
     expect(merged.promptAttachmentTransferService).toBe(
@@ -52,11 +86,17 @@ describe("buildRemoteWorkspaceSessionServices", () => {
     );
     expect(merged.escodeAgentService).toBe(remoteServices.escodeAgentService);
     expect(merged.escodeTaskService).toBe(remoteServices.escodeTaskService);
-    expect(merged.escodeSessionService).toBe(remoteServices.escodeSessionService);
+    expect(merged.escodeSessionService).toBe(
+      remoteServices.escodeSessionService,
+    );
     expect(merged.fileWatcherService).toBe(remoteServices.fileWatcherService);
     // Provider/Model View 属于目标 Remote Environment；不能随 ...baseServices 回落到本地。
-    expect(merged.modelSelectionService).toBe(remoteServices.modelSelectionService);
-    expect(merged.providerSettingsService).toBe(remoteServices.providerSettingsService);
+    expect(merged.modelSelectionService).toBe(
+      remoteServices.modelSelectionService,
+    );
+    expect(merged.providerSettingsService).toBe(
+      remoteServices.providerSettingsService,
+    );
     expect(merged.skillsService).toBe(remoteServices.skillsService);
     expect(merged.skillSyncService).toBe(remoteServices.skillSyncService);
     expect(merged.mcpSyncService).toBe(remoteServices.mcpSyncService);
@@ -79,7 +119,10 @@ describe("buildRemoteWorkspaceSessionServices", () => {
     const baseServices = makeServices("base");
     const remoteServices = makeServices("remote");
 
-    const merged = buildServerRemoteWorkspaceSessionServices(baseServices, remoteServices);
+    const merged = buildServerRemoteWorkspaceSessionServices(
+      baseServices,
+      remoteServices,
+    );
 
     expect(merged.fileService).toBe(remoteServices.fileService);
     expect(merged.escodeTaskService).toBe(remoteServices.escodeTaskService);
@@ -100,7 +143,10 @@ describe("buildRemoteWorkspaceSessionServices", () => {
   // loadHooks / saveHooks / grantWorkspaceHookTrust 必须携带原始 workspacePath /
   // workspaceIdentity 到达远端实现，本机 base 侧零调用，返回值完成 RPC 往返。
   it("routes hook load/save/trust RPC through the remote channel with original workspace params", async () => {
-    const remoteLoadHooks = vi.fn(async () => ({ hooks: [], hooksEnabled: false }));
+    const remoteLoadHooks = vi.fn(async () => ({
+      hooks: [],
+      hooksEnabled: false,
+    }));
     const remoteSaveHooks = vi.fn(async () => undefined);
     const remoteGrant = vi.fn(async () => ({ accepted: true }));
     const remoteHost = {
@@ -108,13 +154,19 @@ describe("buildRemoteWorkspaceSessionServices", () => {
       saveHooks: remoteSaveHooks,
       grantWorkspaceHookTrust: remoteGrant,
     } satisfies IHooksService;
-    const baseLoadHooks = vi.fn(async () => ({ hooks: [], hooksEnabled: false }));
+    const baseLoadHooks = vi.fn(async () => ({
+      hooks: [],
+      hooksEnabled: false,
+    }));
     const baseSaveHooks = vi.fn(async () => undefined);
     const baseGrant = vi.fn(async () => ({ accepted: false }));
 
     const [serverProtocol, clientProtocol] = createQueuePair();
     const server = new ChannelServer(serverProtocol, "remote-host-test");
-    server.registerChannel(IHooksService.channelName, ProxyChannel.fromService(remoteHost));
+    server.registerChannel(
+      IHooksService.channelName,
+      ProxyChannel.fromService(remoteHost),
+    );
     const client = new ChannelClient(clientProtocol);
     const remoteHooksProxy = ProxyChannel.toService<IHooksService>(
       client.getChannel(IHooksService.channelName),
@@ -132,11 +184,15 @@ describe("buildRemoteWorkspaceSessionServices", () => {
       ...makeServices("remote"),
       hooksService: remoteHooksProxy,
     };
-    const merged = buildRemoteWorkspaceSessionServices(baseServices, remoteServices);
+    const merged = buildRemoteWorkspaceSessionServices(
+      baseServices,
+      remoteServices,
+    );
 
     const target = {
       workspacePath: "/data/xuzicang/MultiJoin",
-      workspaceIdentity: "remote:ssh:222.29.156.145:22:xuzicang:/data/xuzicang/MultiJoin",
+      workspaceIdentity:
+        "remote:ssh:222.29.156.145:22:xuzicang:/data/xuzicang/MultiJoin",
     };
 
     try {

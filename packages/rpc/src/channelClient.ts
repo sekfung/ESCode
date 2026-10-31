@@ -16,6 +16,18 @@ enum State {
   Idle,
 }
 
+/** Initialize 的能力广播：缺字段或类型不符一律视为“无能力信息”（旧 Host）。 */
+function readChannelNames(data: unknown): ReadonlySet<string> | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const channels = (data as { channels?: unknown }).channels;
+  if (!Array.isArray(channels)) {
+    return null;
+  }
+  return new Set(channels.filter((name): name is string => typeof name === "string"));
+}
+
 export class ChannelClient implements IChannelClient, IDisposable {
   private state = State.Uninitialized;
   private isDisposed = false;
@@ -25,13 +37,37 @@ export class ChannelClient implements IChannelClient, IDisposable {
   // 单独维护 reject map，避免 dispose 把事件订阅误当成挂起的 RPC 请求。
   private pendingRejections = new Map<number, (error: Error) => void>();
   private lastRequestId = 0;
+  private channelNames: ReadonlySet<string> | null = null;
   private protocolListener: IDisposable | null;
+  private readonly initialized: Promise<void>;
+  private resolveInitialized: () => void = () => undefined;
+  private rejectInitialized: (error: Error) => void = () => undefined;
 
   private readonly _onDidInitialize = new Emitter<void>();
   readonly onDidInitialize = this._onDidInitialize.event;
 
   constructor(private protocol: IMessagePassingProtocol) {
+    this.initialized = new Promise<void>((resolve, reject) => {
+      this.resolveInitialized = resolve;
+      this.rejectInitialized = reject;
+    });
+    // 连接在 Initialize 前被释放时 `waitUntilInitialized` 会拒绝；先挂一个空的 catch，
+    // 避免没人 await 时出现未处理的 rejection（调用方仍能拿到原始拒绝）。
+    void this.initialized.catch(() => undefined);
     this.protocolListener = this.protocol.onMessage((msg) => this.onBuffer(msg));
+  }
+
+  /**
+   * 等待服务端 Initialize（含 channel 能力广播）。连接建立方用它来决定可选服务绑定，
+   * 因为能力清单只有在 Initialize 之后才可用。
+   */
+  waitUntilInitialized(): Promise<void> {
+    return this.initialized;
+  }
+
+  /** Host 广播过该 channel 才返回 true；未广播（旧 Host）按不可用处理。 */
+  hasChannel(channelName: string): boolean {
+    return this.channelNames?.has(channelName) ?? false;
   }
 
   getChannel<T extends IChannel>(channelName: string): T {
@@ -215,7 +251,7 @@ export class ChannelClient implements IChannelClient, IDisposable {
 
     switch (type) {
       case ResponseType.Initialize:
-        this.onResponse({ type: ResponseType.Initialize });
+        this.onResponse({ type: ResponseType.Initialize, data: body });
         return;
       case ResponseType.PromiseSuccess:
       case ResponseType.PromiseError:
@@ -233,6 +269,8 @@ export class ChannelClient implements IChannelClient, IDisposable {
   private onResponse(response: IRawResponse): void {
     if (response.type === ResponseType.Initialize) {
       this.state = State.Idle;
+      this.channelNames = readChannelNames(response.data);
+      this.resolveInitialized();
       this._onDidInitialize.fire();
       return;
     }
@@ -256,6 +294,7 @@ export class ChannelClient implements IChannelClient, IDisposable {
     this.protocolListener = null;
 
     const rejection = reason ?? new Error("ChannelClient disposed");
+    this.rejectInitialized(rejection);
     if (!reason) {
       rejection.name = "ConnectionClosed";
     }

@@ -1,10 +1,11 @@
 /* eslint-disable max-lines -- SSH P0 helper 集中维护真实连接、远端身份、进程与 replay tunnel 生命周期，拆散会隐藏同一条安全边界。 */
 import { createConnection, createServer, type Server, type Socket } from "node:net";
+import { posix } from "node:path";
 import { Client as SSHClient, type ClientChannel, type TcpConnectionDetails } from "ssh2";
 import {
-  TID_COMPOSER_REMOTE_CONNECTION,
   TID_COMPOSER_ADD_DEVICE,
   TID_COMPOSER_WORKSPACE_TRIGGER,
+  TID_CONFIRM_DIALOG_CONFIRM,
   TID_DIRECTORY_BROWSER_PATH,
   TID_REMOTE_KIND_SSH,
   TID_SSH_DIALOG,
@@ -14,12 +15,11 @@ import {
   TID_SSH_PORT_INPUT,
   TID_SSH_SUCCESS,
   TID_SSH_USERNAME_INPUT,
-  buildRemoteWorkspaceIdentity,
-  type RemoteTarget,
 } from "@escode/shared";
 import {
   clickTestIdByWebDriver,
   setInputValueByTestIdDom,
+  waitForTestIdByDom,
   waitForWorkspaceApp,
 } from "./desktop-app.js";
 import { resolveSeededReplayBaseUrl } from "./custom-openai-provider-store.js";
@@ -35,6 +35,27 @@ import {
 
 export const SSH_CONNECT_TIMEOUT_MS = 10 * 60_000;
 export const SSH_WORKSPACE_READY_TIMEOUT_MS = 2 * 60_000;
+
+const REMOTE_BOUNDARY_CONFIRM_LABELS: readonly string[] = ["Got it", "知道了"];
+
+/**
+ * 首次远程连接成功后会先展示 Source Server 使用边界介绍，只有显式「知道了」才写入
+ * `remoteBoundaryIntroAcknowledgedVersion: 1`。SSH E2E 的目标不是介绍页本身；在等待
+ * 连接完成的轮询里点掉它，避免把向导停在介绍弹窗误判成连接未完成。
+ */
+async function acknowledgeRemoteBoundaryIfVisible(): Promise<boolean> {
+  return browser.execute(
+    (confirmTestId, labels) => {
+      const button = document.querySelector<HTMLButtonElement>(`[data-testid="${confirmTestId}"]`);
+      if (!button?.getClientRects().length) return false;
+      if (!labels.includes(button.innerText.trim())) return false;
+      button.click();
+      return true;
+    },
+    TID_CONFIRM_DIALOG_CONFIRM,
+    [...REMOTE_BOUNDARY_CONFIRM_LABELS],
+  );
+}
 
 export interface SSHConnectionConfig {
   host: string;
@@ -105,6 +126,11 @@ export async function createFirstConnectionStallingSSHProxy(
       markFirstConnectionAccepted();
       client.once("error", () => client.destroy());
       client.once("close", markFirstConnectionClosed);
+      // 原因：SSH 客户端一建连就写入 banner，取消时子进程被 SIGKILL，FIN 排在未读 banner 之后。
+      // 暂停的 readable 侧读不到 EOF，Node 只停在 CLOSE_WAIT，永远不会触发 end/close，
+      // 于是「取消后 socket 未关闭」其实是测试代理没消费收件箱（实测无 resume 时 5s 内只有 accepted）。
+      // 修复：resume 丢弃字节让 EOF 正常上浮；不转发、不主动 destroy，关闭仍以真实 FIN 为准。
+      client.resume();
       return;
     }
 
@@ -224,42 +250,128 @@ export async function connectSSHWorkspace(options: {
   caseMarker: string;
   config: SSHConnectionConfig;
   workspacePath: string;
+  /** 新建项目表单使用的名称；缺省按目录名生成，避免同名冲突。 */
+  projectName?: string;
 }): Promise<RemoteTabSnapshot> {
   await startNewV4Draft();
   await openSSHRemoteDialog(options.caseMarker);
   await fillSSHPasswordSettings(options.config);
-  await clickLastEnabledSSHDialogButton(options.caseMarker);
-  await waitForSSHDirectoryStep(options.caseMarker);
-  await selectSSHRemoteDirectory(options.workspacePath, options.caseMarker);
-  await waitForWorkspaceApp(options.workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
+  return completeSSHDeviceConnection(options);
+}
 
-  const target: RemoteTarget = {
-    kind: "ssh",
-    host: options.config.host,
-    port: options.config.port,
-    username: options.config.username,
-  };
-  return waitForRemoteTab({
-    caseMarker: options.caseMarker,
-    expectedIdentity: buildRemoteWorkspaceIdentity(options.workspacePath, target),
-    expectedPath: options.workspacePath,
+/**
+ * 「添加设备」表单填完后的共用收尾。
+ * S5-e 起连接成功即关闭向导，由 composer 项目选择器承接目录；空目录会进入新建项目表单，
+ * 首次保存还需确认目录信任。调用方不能在表单之后继续等待向导内的目录步骤。
+ */
+export async function completeSSHDeviceConnection(options: {
+  caseMarker: string;
+  workspacePath: string;
+  projectName?: string;
+}): Promise<RemoteTabSnapshot> {
+  const { caseMarker, workspacePath } = options;
+  await clickLastEnabledSSHDialogButton(caseMarker);
+  await waitForSSHDialogClosed(caseMarker);
+  await selectRemoteFolderProjectDirectory(workspacePath, caseMarker);
+  await completeRemoteProjectSelectionIfPrompted(workspacePath, caseMarker, options.projectName);
+  await waitForWorkspaceApp(workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
+  // 直连目标已由 Rust Host 建立/复用 Profile；bind 后 tab 使用 Source Server 稳定身份，
+  // 不能在握手前按 legacy `remote:ssh:*` 预生成。
+  return waitForRemoteProjectTabByPath({
+    caseMarker,
+    expectedPath: workspacePath,
+    timeoutMs: SSH_WORKSPACE_READY_TIMEOUT_MS,
   });
 }
 
+/**
+ * 目录选择器确认后的两条合法路径：命中已有项目直接进入，或弹出新建项目表单。
+ * 新建项目首次保存必须确认目录信任；已信任目录不会再出现确认框。
+ */
+async function completeRemoteProjectSelectionIfPrompted(
+  workspacePath: string,
+  caseMarker: string,
+  projectName?: string,
+): Promise<void> {
+  // 修复原因：S5-e 起目录确认成功后 ChatRemoteFolderSelection 直接切换到 ProjectEditor，
+  // 选择器消失只表示阶段推进，不表示流程结束；保存后首次信任目录还会弹出确认框。
+  // 旧实现把「选择器不存在」当作已完成，跳过信任确认后用例一直等待向导关闭。
+  const mode = await browser.waitUntil(
+    async () => {
+      const state = await browser.execute(() => ({
+        editor: Boolean(
+          document
+            .querySelector<HTMLElement>('[data-testid="virtual-project-name"]')
+            ?.getClientRects().length,
+        ),
+        picker: Boolean(
+          document
+            .querySelector<HTMLElement>('[data-testid="chat-remote-folder"]')
+            ?.getClientRects().length,
+        ),
+      }));
+      if (state.editor) return "editor" as const;
+      if (!state.picker) return "closed" as const;
+      return false;
+    },
+    {
+      timeout: 30_000,
+      interval: 200,
+      timeoutMsg: `${caseMarker}: 目录确认后既没有进入项目，也没有打开新建项目表单`,
+    },
+  );
+  if (mode === "closed") return;
+
+  const name = projectName ?? `E2E ${posix.basename(workspacePath)} ${Date.now().toString(36)}`;
+  await setInputValueByTestIdDom("virtual-project-name", name);
+  const saveButton = await $('[data-testid="virtual-project-save"]');
+  await saveButton.waitForEnabled({
+    timeout: 10_000,
+    timeoutMsg: `${caseMarker}: 项目名已填写但保存按钮不可用`,
+  });
+  await saveButton.click();
+  // 保存后有两种合法结局：未信任目录先弹确认框，或已信任目录直接创建并关闭表单。
+  // 必须等确认框真正出现并点击，不能再以选择器缺失提前返回。
+  await browser.waitUntil(
+    async () => {
+      const state = await browser.execute(() => {
+        const visible = (testId: string) =>
+          Boolean(
+            document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.getClientRects()
+              .length,
+          );
+        const trust = document.querySelector<HTMLButtonElement>(
+          '[data-testid="project-folder-trust-confirm"]',
+        );
+        if (trust?.getClientRects().length) {
+          trust.click();
+          return "trusted" as const;
+        }
+        // 已信任目录不会出现确认框；只有编辑器与选择器都卸载才算真正完成。
+        return visible("virtual-project-name") || visible("chat-remote-folder")
+          ? ("pending" as const)
+          : ("closed" as const);
+      });
+      return state !== "pending";
+    },
+    {
+      timeout: 30_000,
+      interval: 200,
+      timeoutMsg: `${caseMarker}: 保存远端项目后既没有确认目录信任，也没有关闭表单`,
+    },
+  );
+}
+
 export async function openSSHRemoteDialog(caseMarker: string): Promise<void> {
-  await clickTestIdByWebDriver(TID_COMPOSER_WORKSPACE_TRIGGER, {
+  // 草稿 composer 已切到 ProjectComposerMenu，远程连接入口由 `composer-add-device` 提供；
+  // 旧 ChatEmptyState 的 `composer-remote-connection` 不再渲染，不能再作为共享入口。
+  await openSSHDevicePicker(caseMarker);
+  // 只负责打开到 SSH 设置表单，不能在调用方填表前点主按钮：向导跨次保留草稿
+  // （`preserveDraftOnOpen`），提前点击会用上一次的目标直接发起连接并跳到目录步骤。
+  await waitForTestIdByDom(TID_SSH_HOST_INPUT, {
     timeout: 30_000,
-    timeoutMsg: `${caseMarker}: 空草稿没有显示 workspace 菜单`,
+    timeoutMsg: `${caseMarker}: SSH 向导没有进入设置表单`,
   });
-  await clickTestIdByWebDriver(TID_COMPOSER_REMOTE_CONNECTION, {
-    timeout: 30_000,
-    timeoutMsg: `${caseMarker}: workspace 菜单没有显示远程连接入口`,
-  });
-  await clickTestIdByWebDriver(TID_REMOTE_KIND_SSH, {
-    timeout: 30_000,
-    timeoutMsg: `${caseMarker}: 远程连接向导没有显示 SSH transport`,
-  });
-  await clickLastEnabledSSHDialogButton(caseMarker);
 }
 
 /** 从 composer workspace 菜单走「添加设备」入口：连接成功后由项目选择器再选目录。 */
@@ -293,11 +405,13 @@ export async function openSSHDevicePicker(caseMarker: string): Promise<void> {
 
 export async function waitForSSHDialogClosed(caseMarker: string): Promise<void> {
   await browser.waitUntil(
-    () =>
-      browser.execute(
+    async () => {
+      await acknowledgeRemoteBoundaryIfVisible();
+      return browser.execute(
         (dialogTestId) => !document.querySelector(`[data-testid="${dialogTestId}"]`),
         TID_SSH_DIALOG,
-      ),
+      );
+    },
     {
       timeout: SSH_CONNECT_TIMEOUT_MS,
       interval: 250,
@@ -310,35 +424,135 @@ export async function waitForSSHDialogClosed(caseMarker: string): Promise<void> 
 export async function selectRemoteFolderProjectDirectory(
   directoryPath: string,
   caseMarker: string,
+  expectedEntry?: string,
 ): Promise<void> {
+  try {
+    await browser.waitUntil(
+      () =>
+        browser.execute(() =>
+          Boolean(document.querySelector('[data-testid="chat-remote-folder"]')),
+        ),
+      {
+        timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+        interval: 250,
+        timeoutMsg: `${caseMarker}: 连接成功后没有打开远端项目选择器`,
+      },
+    );
+  } catch (error) {
+    const snapshot = await browser
+      .execute(() => ({
+        visibleTestIds: Array.from(document.querySelectorAll("[data-testid]"))
+          .filter((element) => (element as HTMLElement).getClientRects().length > 0)
+          .map((element) => element.getAttribute("data-testid")),
+        bodyText: (document.body.innerText ?? "").slice(0, 1_500),
+      }))
+      .catch(() => null);
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)} [visible testids: ${
+        snapshot?.visibleTestIds.join(", ") ?? "unavailable"
+      }] [body: ${snapshot?.bodyText.replaceAll("\n", " | ") ?? "unavailable"}]`,
+    );
+  }
+  // 修复原因：目录选择器挂载后先异步加载远端 home；初始导航结束前输入会与 home 结果
+  // 竞争，确认按钮还可能在 currentPath 仍是 home 时可用。先等初始输入值就绪再写目标路径。
   await browser.waitUntil(
     () =>
-      browser.execute(
-        () => Boolean(document.querySelector('[data-testid="chat-remote-folder"]')),
-      ),
+      browser.execute(() => {
+        const input = document.querySelector<HTMLInputElement>(
+          '[data-testid="directory-browser-path"]',
+        );
+        const confirm = document.querySelector<HTMLButtonElement>(
+          '[data-testid="directory-browser-confirm"]',
+        );
+        return Boolean(input?.value) && confirm?.disabled === false;
+      }),
     {
-      timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
-      interval: 250,
-      timeoutMsg: `${caseMarker}: 连接成功后没有打开远端项目选择器`,
+      timeout: 30_000,
+      interval: 100,
+      timeoutMsg: `${caseMarker}: 目录选择器初始目录未就绪`,
     },
   );
   await setInputValueByTestIdDom(TID_DIRECTORY_BROWSER_PATH, directoryPath);
-  await browser.keys("Enter");
-  await browser.waitUntil(
+  // input/change 是连续事件，React 可能延后提交；提交表单前等两帧，避免提交读到旧 state。
+  await browser.execute(
     () =>
-      browser.execute(
-        (expectedPath) =>
-          (document.querySelector('[data-testid="chat-remote-folder"]')?.textContent ?? "").includes(
-            expectedPath,
-          ),
-        directoryPath,
-      ),
-    {
-      timeout: 30_000,
-      interval: 250,
-      timeoutMsg: `${caseMarker}: 项目选择器没有进入目标目录`,
-    },
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
   );
+  // 修复原因：确认按钮读取的是导航完成后的 currentPath，而不是 input.value。
+  // WebDriver 的 Enter 只作用于当前焦点元素，Dialog 的焦点管理会让按键到不了 form，
+  // 于是 input 显示目标路径、currentPath 仍停在 home，确认后项目 root 变成 /root。
+  // 这里点击 form 的提交按钮，并用目标目录内的标记子目录证明 readdir 已按输入路径完成。
+  const submitted = await browser.execute(() => {
+    const submit = document.querySelector<HTMLButtonElement>(
+      '[data-testid="chat-remote-folder"] form button[type="submit"]',
+    );
+    if (!submit || submit.disabled) return false;
+    submit.click();
+    return true;
+  });
+  if (!submitted) throw new Error(`${caseMarker}: 目录选择器没有可用的路径提交按钮`);
+  if (expectedEntry) {
+    await browser.waitUntil(
+      () =>
+        browser.execute((entryName) => {
+          const dialog = document.querySelector('[data-testid="chat-remote-folder"]');
+          if (!dialog) return false;
+          return Array.from(dialog.querySelectorAll("button")).some(
+            (button) => (button.textContent ?? "").trim() === entryName,
+          );
+        }, expectedEntry),
+      {
+        timeout: 30_000,
+        interval: 250,
+        timeoutMsg: `${caseMarker}: 目录选择器没有进入目标目录（未看到标记目录 ${expectedEntry}）`,
+      },
+    );
+  }
+  try {
+    // 修复原因：路径只存在于 input.value，dialog 的 textContent 永远不含它；导航成功的
+    // 可观察信号是 readdir 完成后确认按钮解除 disabled（loading/error 期间保持禁用）。
+    await browser.waitUntil(
+      () =>
+        browser.execute((expectedPath) => {
+          const input = document.querySelector<HTMLInputElement>(
+            '[data-testid="directory-browser-path"]',
+          );
+          const confirm = document.querySelector<HTMLButtonElement>(
+            '[data-testid="directory-browser-confirm"]',
+          );
+          return input?.value === expectedPath && confirm?.disabled === false;
+        }, directoryPath),
+      {
+        timeout: 30_000,
+        interval: 250,
+        timeoutMsg: `${caseMarker}: 项目选择器没有进入目标目录`,
+      },
+    );
+  } catch (error) {
+    const snapshot = await browser
+      .execute(() => ({
+        dialogText: (
+          document.querySelector('[data-testid="chat-remote-folder"]')?.textContent ?? ""
+        ).slice(0, 800),
+        inputValue: (
+          document.querySelector<HTMLInputElement>('[data-testid="directory-browser-path"]')
+            ?.value ?? ""
+        ).slice(0, 300),
+        confirmDisabled:
+          document.querySelector<HTMLButtonElement>('[data-testid="directory-browser-confirm"]')
+            ?.disabled ?? null,
+      }))
+      .catch(() => null);
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)} [dialog: ${
+        snapshot?.dialogText.replaceAll("\n", " | ") ?? "unavailable"
+      }] [input: ${snapshot?.inputValue ?? "unavailable"}] [confirmDisabled: ${
+        snapshot?.confirmDisabled ?? "unavailable"
+      }]`,
+    );
+  }
   await clickTestIdByWebDriver("directory-browser-confirm", {
     timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
     timeoutMsg: `${caseMarker}: 项目选择器没有可用的目录确认按钮`,
@@ -382,6 +596,34 @@ export async function clickLastEnabledSSHDialogButton(caseMarker: string): Promi
   );
 }
 
+/** 失败步骤的次要按钮（Back to configuration）排在最后，重试必须按可见动作名点击。 */
+export async function clickSSHDialogRetry(caseMarker: string): Promise<void> {
+  let visibleLabels: string[] = [];
+  await browser.waitUntil(
+    async () => {
+      const result = await browser.execute((dialogTestId) => {
+        const dialog = document.querySelector<HTMLElement>(`[data-testid="${dialogTestId}"]`);
+        if (!dialog?.getClientRects().length) {
+          return { clicked: false, labels: [] as string[] };
+        }
+        const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).filter(
+          (button) => button.getClientRects().length > 0 && !button.disabled,
+        );
+        const labels = buttons.map((button) => button.innerText.trim());
+        const retry = buttons.find((button) => ["Retry", "重试"].includes(button.innerText.trim()));
+        retry?.click();
+        return { clicked: Boolean(retry), labels };
+      }, TID_SSH_DIALOG);
+      visibleLabels = result.labels;
+      return result.clicked;
+    },
+    {
+      timeout: 15_000,
+      timeoutMsg: `${caseMarker}: SSH 失败页没有可用的 Retry 按钮 (${visibleLabels.join(",")})`,
+    },
+  );
+}
+
 export async function waitForSSHError(
   caseMarker: string,
   timeout = SSH_CONNECT_TIMEOUT_MS,
@@ -411,6 +653,7 @@ export async function waitForSSHDirectoryStep(caseMarker: string): Promise<void>
   };
   await browser.waitUntil(
     async () => {
+      await acknowledgeRemoteBoundaryIfVisible();
       state = await browser.execute(
         (successTestId, errorTestId) => {
           const success = document.querySelector<HTMLElement>(`[data-testid="${successTestId}"]`);
@@ -524,13 +767,10 @@ export async function selectSSHRemoteDirectory(
     try {
       await browser.waitUntil(
         () =>
-          browser.execute(
-            (testId) => {
-              const input = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
-              return Boolean(input && input.getClientRects().length);
-            },
-            TID_VIRTUAL_PROJECT_NAME,
-          ),
+          browser.execute((testId) => {
+            const input = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+            return Boolean(input && input.getClientRects().length);
+          }, TID_VIRTUAL_PROJECT_NAME),
         {
           timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
           interval: 250,

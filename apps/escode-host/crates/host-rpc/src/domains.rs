@@ -5,6 +5,9 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::json;
 
+#[path = "domains_provider_provisioning.rs"]
+mod provider_provisioning;
+
 use crate::deferred_drafts::DeferredDrafts;
 use crate::domains_session::session_channel;
 use crate::domains_session_write::SessionWriteContext;
@@ -21,7 +24,7 @@ pub fn setting_channel(
     home: std::path::PathBuf,
     data_base_dir: Option<std::path::PathBuf>,
 ) -> Channel {
-    setting_channel_with_archive_signal(home, data_base_dir, None)
+    setting_channel_with_archive_signal(home, data_base_dir, None, None)
 }
 
 /// 同上，并接收自动归档设置变更的补扫信号（`Notify` 由组合根与 scheduler 共享）。
@@ -29,6 +32,7 @@ pub fn setting_channel_with_archive_signal(
     home: std::path::PathBuf,
     data_base_dir: Option<std::path::PathBuf>,
     archive_signal: Option<Arc<tokio::sync::Notify>>,
+    provisioning_trigger: Option<Arc<dyn Fn() + Send + Sync>>,
 ) -> Channel {
     let extra = crate::domains_setting_extra::extra_methods(&home, data_base_dir.as_deref());
     let read_home = home.clone();
@@ -51,6 +55,7 @@ pub fn setting_channel_with_archive_signal(
             handler(move |arg: Wire| {
                 let home = write_home.clone();
                 let archive_signal = archive_signal.clone();
+                let provisioning_trigger = provisioning_trigger.clone();
                 Box::pin(async move {
                     // `ProxyChannel.toService` 把实参打包成数组：`update(patch)` → `[patch]`。
                     let patch = arg
@@ -68,16 +73,18 @@ pub fn setting_channel_with_archive_signal(
                         .await
                         .map(|_| Wire::Undefined)
                         .map_err(|error| ("Fatal".to_owned(), format!("{error:#}")))?;
+                    let keys: Vec<String> = patch
+                        .as_object()
+                        .map(|patch| patch.keys().cloned().collect())
+                        .unwrap_or_default();
                     // 自动归档策略变更后补扫：进行中的扫描读的是旧策略，下一轮会立即再跑。
-                    if let Some(signal) = archive_signal {
-                        let keys: Vec<String> = patch
-                            .as_object()
-                            .map(|patch| patch.keys().cloned().collect())
-                            .unwrap_or_default();
-                        if crate::project_archive::should_rescan(&keys) {
-                            signal.notify_one();
-                        }
+                    if let Some(signal) = archive_signal
+                        && crate::project_archive::should_rescan(&keys)
+                    {
+                        signal.notify_one();
                     }
+                    // Provider 账号窄设置变化后推进 Provisioning；其它设置键不触发。
+                    provider_provisioning::notify_if_provisioning_key(provisioning_trigger, &keys);
                     Ok(Wire::Undefined)
                 })
             }),
@@ -137,6 +144,7 @@ pub fn channels(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -151,6 +159,7 @@ pub fn channels_with(
     media_authorizer: Option<Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
     main_broker: Option<Arc<escode_host_control::main_broker::MainBroker>>,
     client_services: Option<Arc<escode_host_services::client_services::ClientServices>>,
+    source_server_host: Option<crate::domains_source_server::HostEnvironment>,
 ) -> Channels {
     let data_base_dir_for_setting = data_base_dir.clone();
     let provider_service = provider_files.map(|files| {
@@ -159,6 +168,19 @@ pub fn channels_with(
         service.start_remote_refresh();
         service
     });
+    // Provider Provisioning（S4-g）与 Source Server registry/连接管理器同处装配。
+    let source_servers = provider_provisioning::assemble_source_servers(
+        &home,
+        data_base_dir.as_deref(),
+        provider_service.as_ref(),
+        source_server_host,
+    );
+    let source_server_registry = Arc::clone(&source_servers.registry);
+    let source_server_connections = Arc::clone(&source_servers.connections);
+    // Personal Config 写入成功 → 全部在线 Source 推进 Provisioning（S4-g）。
+    source_servers.spawn_personal_change_listener(provider_service.as_ref());
+    // S4-e：`lastOnlineAt` 串行落盘 + 启动自动连接 + 断线恢复 manager 登记。
+    source_servers.start_recovery();
     let home_for_simple = home.clone();
     let data_base_dir_for_simple = data_base_dir.clone();
     let data_base_dir_for_checkpoint = data_base_dir.clone();
@@ -302,6 +324,7 @@ pub fn channels_with(
             home.clone(),
             data_base_dir_for_setting,
             Some(Arc::clone(&archive_signal)),
+            source_servers.settings_trigger.clone(),
         ),
         crate::domains_workspace_vcs::workspace_vcs_channel(home.clone()),
         system_channel(home.clone()),
@@ -366,9 +389,15 @@ pub fn channels_with(
         );
     }
     list.push(crate::domains_project::project_channel(
-        project_read,
+        project_read.clone(),
         home_for_project,
         data_base_dir_for_project,
+        std::sync::Arc::clone(&source_server_connections),
+    ));
+    list.push(crate::domains_remote_projects::remote_projects_channel(
+        project_read,
+        std::sync::Arc::clone(&source_server_registry),
+        std::sync::Arc::clone(&source_server_connections),
     ));
     list.extend(crate::domains_provider::provider_channels(
         provider_service,
@@ -379,12 +408,30 @@ pub fn channels_with(
         &home_for_simple,
         data_base_dir_for_simple.as_deref(),
         instances_for_simple,
-        plugin_management,
-        media_authorizer,
-        main_broker,
-        client_services,
+        crate::domains_simple::SimpleChannelServices {
+            plugin_management,
+            media_authorizer,
+            main_broker,
+            client_services,
+            provisioning_trigger: source_servers.credential_trigger.clone(),
+        },
     ));
-    let channels = Channels::new(list);
+    // 远端 scope（S3-b）的 ensure 与 channel 集合必须在连接管理器交给管理面之前取好句柄。
+    let remote_scope = crate::domains_source_server::attach_source_server_channels(
+        &mut list,
+        source_server_registry,
+        source_server_connections,
+        source_servers.credentials,
+    );
+    // 远端 scope 连接只注册本地允许表 + 远端广播过的转发入口（spec §10.11）。
+    let channels = Channels::new(list)
+        .with_remote_scope(
+            remote_scope.ensurer,
+            crate::remote_scope::REMOTE_SCOPE_HOST_CHANNELS.to_vec(),
+        )
+        .with_remote_profile_resolver(remote_scope.profile_resolver)
+        .with_remote_profile_canceller(remote_scope.profile_canceller)
+        .with_scoped_set(crate::domains_source_server::remote_scope_channel_set());
     // 控制器是连接级 channel（每连接一份订阅表）；缺 dataBaseDir 时同址回显式缺口。
     let channels = match controller {
         Some(controller) => {

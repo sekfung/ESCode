@@ -1,6 +1,6 @@
 # Rust runtime：Tool Search 与 Deferred Tool Call（W2）
 
-> 状态：待实现 · 2026-10-28
+> 状态：已实现（local + native，2026-10-28；端到端覆盖 2026-10-31）
 > 关联：[upstream-v3.16.2-sync.md](upstream-v3.16.2-sync.md)、[rust-tool-surface.md](rust-tool-surface.md)、[rust-tool-schema-order.md](rust-tool-schema-order.md)、[rust-tool-input-validation.md](rust-tool-input-validation.md)
 > 上游参考：`apps/zcode-cli/packages/contracts/src/tools/tool-search.ts`、`.../deferred-tool-call.ts`、`packages/core/src/tool/search/*`、`packages/core/src/tool/handlers/{tool-search,deferred-tool-call}.ts`
 
@@ -8,8 +8,12 @@
 
 上游 v3.16.2 新增两段模型可见控制面：
 
-- **ToolSearch**：在“延迟工具目录”里按关键词或 `select:<tool_name>` 查找工具，返回匹配的工具名；命中的工具在后续轮次按需加载完整 schema。
-- **DeferredToolCall**：在 schema 已加载后，按 `{name, input}` 立即调用一个延迟工具；未通过 ToolSearch 加载的工具不能直接调用。
+- **ToolSearch**：在“延迟工具目录”里按关键词或 `select:<tool_name>` 查找工具，返回
+  `{ matches, query, total_deferred_tools }`；local 模式在同一工具结果里用 `<functions>` 块展开命中工具的
+  完整 schema，native 模式改回 `tool_reference`；命中的工具从下一轮起以完整 schema 进入模型工具面。
+- **DeferredToolCall**：按 `{name, input}` 调用一个已发现的延迟工具；目标未发现时拒绝并提示先
+  `select:<tool_name>` 搜索，不执行目标工具。未搜索本身不是执行禁令：模型若直接按名称调用，
+  仍走普通工具调度路径（local 模式下该工具不在工具面，通常不会被模型选中）。
 
 模式：
 
@@ -49,6 +53,7 @@ prepare_tool_surface
 
 tool call = ToolSearch(query)
   └─ 返回 { matches, query, total_deferred_tools }
+     local 结果同时带命中工具的 <functions> schema 块；native 带 tool_reference 块
      matches 同时并集进 discovered，下一轮展开 schema
 
 tool call = DeferredToolCall({name,input})
@@ -61,21 +66,25 @@ tool call = DeferredToolCall({name,input})
 
 - `ToolSearch` 入参：`query`（必填）、`max_results`（默认 5，模型侧 required）。
 - `ToolSearch` 出参：`{ matches: string[], query: string, total_deferred_tools: number }`。
+  local 模式另附 `<functions>` 文本块，每个命中一条
+  `<function>{"description","name","parameters"}</function>`（定义缺失的名字跳过，全部缺失时不输出空容器）；
+  native 模式另附 `tool_reference` 块。
 - `DeferredToolCall` 入参：`{ name: string, input: object }`，无独立出参（透传目标工具结果）。
-- 模型内容：local 模式返回文本结果；native 模式返回 `tool_reference` 内容块。
-- 公告：每轮向模型通告 `addedNames` / `removedNames` / `readdedNames`；`readdedNames ⊆ addedNames`。
+- 模型内容：local 模式返回文本结果 + `<functions>` schema 块；native 模式返回 `tool_reference` 内容块。
+- 公告（2026-11-01 已实现，见 §5.1）：每轮向模型通告 `addedNames` / `removedNames` /
+  `readdedNames`；`readdedNames ⊆ addedNames`。
 
 ## 4. Rust 集成点
 
-| 位置                                                             | 改动                                                                 |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `apps/escode-cli-rust/crates/tools/src/tool_surface.rs`          | 注入两个控制工具定义；按模式拆分 resident/deferred                   |
-| `apps/escode-cli-rust/crates/tools/src/tool_schemas.json`        | 从 TS 契约生成 `ToolSearch` / `DeferredToolCall` schema              |
-| `apps/escode-cli-rust/crates/core/src/app/agent_loop_surface.rs` | 计算本轮 catalog、discovered 展开、公告 delta                        |
-| `apps/escode-cli-rust/crates/core/src/app/tool_dispatch.rs`      | 拦截 ToolSearch；DeferredToolCall 校验 discovered 后重写调用         |
-| `apps/escode-cli-rust/crates/core/src/app/context.rs`            | 会话级 discovered 集合与 mode                                        |
-| `apps/escode-cli-rust/crates/model`                              | Anthropic 请求：native 模式 `tool_search` 与 `tool_reference` 内容块 |
-| `apps/escode-cli-rust/crates/protocol`                           | 不新增帧；模式来自已有 runtime preferences / 命令参数                |
+| 位置                                                             | 改动                                                                       |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `apps/escode-cli-rust/crates/tools/src/tool_surface.rs`          | 注入两个控制工具定义；按模式拆分 resident/deferred                         |
+| `apps/escode-cli-rust/crates/tools/src/tool_schemas.json`        | 从 TS 契约生成 `ToolSearch` / `DeferredToolCall` schema                    |
+| `apps/escode-cli-rust/crates/core/src/app/agent_loop_surface.rs` | 计算本轮 catalog 与 discovered 展开                                        |
+| `apps/escode-cli-rust/crates/core/src/app/tool_dispatch.rs`      | 拦截 ToolSearch（local 结果带 schema 块）；DeferredToolCall 校验后重写调用 |
+| `apps/escode-cli-rust/crates/core/src/app/context.rs`            | 会话级 discovered 集合与 mode                                              |
+| `apps/escode-cli-rust/crates/model`                              | Anthropic 请求：native 模式 `tool_search` 与 `tool_reference` 内容块       |
+| `apps/escode-cli-rust/crates/protocol`                           | 不新增帧；模式来自已有 runtime preferences / 命令参数                      |
 
 搜索算法（local）：
 
@@ -84,12 +93,15 @@ tool call = DeferredToolCall({name,input})
 3. 结果去重、最多 `max_results` 条，空结果返回 `No matching deferred tools found`。
 4. 搜索是纯函数，不读文件、不发网络请求，10s 预算内。
 
-## 5. Rust 实现状态（2026-10-28）
+## 5. Rust 实现状态（2026-10-28；schema 结果投影与端到端覆盖 2026-10-31）
 
 已实现（local）：
 
 - 纯函数目录/搜索/DeferredToolCall 解析：`crates/domain/src/tool_search_catalog.rs`。
 - 控制工具定义与会话状态：`crates/core/src/app/agent_loop_surface.rs`、`crates/core/src/app/tool_dispatch.rs`、`crates/tools/src/workspace_tools.rs`。
+- 结果投影：local ToolSearch 命中把匹配工具的完整 `function` 定义渲染成 `<functions>` 文本块
+  （`tool_search_definitions::schema_block`），不把目标 schema 加进顶层 tools；定义缺失的名字跳过，
+  全部缺失时不输出空容器。
 - 权限元数据：`crates/tools/src/tool_capability.rs`。
 - 入口：`toolSearchMode` 命令字段（V4 输入）或 `ESCODE_TOOL_SEARCH_MODE` 环境变量；未设置时为 `off`。App 偏好接入后改为读设置。
 - 测试：`cargo test -p escode-cli-domain tool_search`、`--test tool_search_differential`、`cargo test -p escode-cli-model tool_search`、`cargo test -p escode-cli-tools tool_search_state`。
@@ -107,17 +119,115 @@ tool call = DeferredToolCall({name,input})
 - `crates/domain/tests/fixtures/tool_search_cases.json` 由上游 `search.ts` 生成（12 个 query），Rust 集成测试逐条比对。
 - `crates/domain/tests/fixtures/tool_search_cases_realistic.json` 用 Rust `tool_surface.json` 的真实工具名/描述 + 6 个 MCP 工具生成（17 个 query），覆盖 cron/workflow/MCP 名称的 tokenization。
 - 实时差分：`packages/services/tests/escode-cli-rust-tool-search.test.ts` 跑上游 `search.ts` oracle 与 Rust `examples/tool_search_fixture`，对同一 catalog/query 比对（19 cases）。
-- Node 端到端差分（真实 MCP server + 模型 fixture）尚未接入；这是测试覆盖缺口，不是功能缺口。
+- 端到端覆盖（2026-10-31）：`packages/services/tests/escode-cli-rust-tool-search-e2e.test.ts` 用真实 stdio MCP server
+  - 模型 fixture 验证 local 首轮隐藏 MCP 工具、ToolSearch 命中结果含 `<functions>` schema 且当轮工具面不变、
+    DeferredToolCall 执行、未发现时拒绝且不执行目标、下一用户轮展开 schema，以及 off 基线不注入控制工具。
+- 本 fork 的 Node CLI 把 `toolSearchMode` 固定为 `off`
+  （`apps/escode-cli/packages/bootstrap/src/escode-protocol/server-operations.ts:3104`），没有 Node 端到端可差分；
+  搜索算法继续与上游 `search.ts` oracle 逐条比对。
+- 目录增删/恢复公告（2026-11-01 已实现，设计见 §5.1）：`crates/domain/src/tool_search_announcement.rs`
+  按上游文案与增量规则生成公告消息，core 在步骤结束时落盘并投影到下一轮输入。
+- 公告 oracle 现状（2026-11-01 复核）：上游 `upstream/main`（`zai-org/ZCode`）已有完整实现与用例——
+  `apps/zcode-cli/packages/core/src/tool/search/exposure.ts` 的 `buildToolSearchAnnouncement`（增量计算、
+  `LOCAL_ADDED_TOOLS_NOTICE` / `ADDED_TOOLS_NOTICE`、30 行删除阈值、段落间空行与 MCP 名称聚合）、
+  `packages/core/src/tool/search/history.ts`（`collectToolSearchHistory` / `projectToolReferences`）、
+  `packages/contracts/src/tools/tool-search.ts` 的 `ToolSearchAnnouncementSchema`，以及
+  `packages/core/tests/tool-search-additions.test.ts`、`tool-search-announcement-persistence.test.ts`、
+  `tool-search-announcement-runtime.test.ts`。
+- 本 fork 的 TS CLI 树没有 `apps/escode-cli/packages/core/src/tool/search/`（`toolSearchMode` 固定 `off`），
+  仓库内仍没有可直接运行的 Node oracle。Rust 实现逐字沿用上述上游模块的文案、阈值与排序规则，
+  并由 domain 单测（增量规则、30/31 删除阈值、MCP 分组）与 `escode-cli-rust-tool-search-e2e.test.ts` 覆盖；
+  在把上游模块同步进 fork 之前，不宣称与本 fork Node runtime 做过帧级差分。
+
+### 5.1 目录公告实现设计（2026-11-01）
+
+文案、增量规则与 metadata 键逐字对齐上游 `buildToolSearchAnnouncement`，不新增配置或实验开关。
+
+状态与所有者：
+
+- 公告事实的唯一 owner 是会话消息：`role=user`、正文 `<system-reminder>…</system-reminder>`、
+  `_escode_source="tool_search_announcement"`、
+  `_escode_tool_search_announcement={addedNames,removedNames,readdedNames}`。
+  `readdedNames ⊆ addedNames`；名字事实不进入会话元数据表或运行时缓存。
+- `announced` / `listed` 每次从保留消息重新扫描：`addedNames` 加入 `announced`，非 `readdedNames` 的
+  加入 `listed`；`removedNames` 从 `announced` 删除。
+- `deferred` 来自本轮 ToolSearch catalog（`prepare_tool_surface` 过滤前的目录），
+  `available` 来自本轮注册目录（过滤前的 `registered` 快照）。两者都由 core 注入，domain 不读全局状态。
+
+增量规则（与上游一致）：
+
+- `addedNames = deferred − announced ∪ (deferred ∩ announced ∩ ¬listed)`，即“新增”或“曾被压缩掉列名”；
+  `readdedNames = deferred ∩ ¬announced ∩ listed`（此前公告过、随后移除、现在恢复）。
+- `removedNames = announced − available`，按完整当前作用域判定；deferred→alwaysLoad 仍算可用，不公告移除。
+- 无 added、无 removed 时不写公告（纯 Continue / 无变化轮）。
+
+渲染：
+
+- 新增段逐行列出名字：`native` 用 `The following deferred tools are now available via ToolSearch…`，
+  `local` 用 `The following deferred tools are available via ToolSearch…`；`local` 文案同时说明
+  `DeferredToolCall` 与常驻工具可直接调用。
+- 恢复段按 MCP server 聚合（`mcp__server__*`，带计数），只保留一句
+  `N deferred tool(s) … available again … Load via ToolSearch as before.`。
+- 删除段在 ≤30 个名字时逐行列出，>30 时按同一分组聚合；删除段后追加 ambient-context 提示。
+  各段之间用空行分隔。
+- 聚合排序按 `localeCompare` 语义（大小写不敏感、再按原串兜底），名字列表按 UTF-16 默认排序。
+
+投影与恢复：
+
+- 关闭 ToolSearch 时只在请求投影中隐藏公告消息，不删除存储事实（`RunContext.projection`）。
+- 公告在请求投影里按上游 bubble 规则移到本轮真实输入之前：跨过同轮其它 reminder，
+  遇到工具/助手消息即停（公告仍留在它所属的步骤之后）。
+- `native` 模式的已发现集合在会话冷恢复时从历史 tool_reference part 与 compact 边界重新派生，
+  并回填 `ToolPort`，与进程内记录取并集；`local` 模式的历史没有 tool_reference，
+  恢复后仍以存储的公告增量为准，不重复通告。
+
+压缩边界（2026-11-01 实现，见 §5.2）：
+
+- 已发现工具名随压缩边界持久化，冷恢复后并入 `discovered`，与上游
+  `compactBoundary.preCompactDiscoveredTools` 语义一致。
+
+### 5.2 压缩边界中的已发现工具（2026-11-01）
+
+所有者与持久化：
+
+- 已发现工具名存进 `ContextState.preCompactDiscoveredTools`（`crates/domain/src/context.rs`），
+  随会话 `context` 持久化（`rust_session.body`）。不新增表列、migration 或缓存，旧行缺字段按空集合读入，
+  空集合不写出字段。
+- 唯一写入者是 `RunContext::compact()` 成功路径：`ContextPort` 事务提交后才切换边界与工作副本；
+  失败时边界与已发现集合都不变。
+- 取值 = 当前 canonical 历史里的 `tool_reference`、上一检查点的边界名单、`ToolPort` 本进程已发现集合的并集，
+  排序去重后写入。关闭 ToolSearch 时同样写入（上游 compact 语义）。
+
+读取：
+
+- `prepare_tool_surface` 冷恢复时把边界名单并入 `discovered` 并回填 `ToolPort`，与历史 `tool_reference` 取并集。
+- `local` 模式把边界名单里的工具视为已发现：本轮工具面保留其定义，catalog 的 `deferred` 标记清除，
+  公告生成因此不会把它们重新算作新增目录项；`native` 模式维持原有 `deferLoading` 规则。
+- `ReadSessionContext` 的合成 compaction part 不写完整 `CompactBoundaryPayload`：Rust 侧没有
+  `boundaryId`/`traceId` 等价事实，且当前 App 与 TS CLI 都不消费该字段（`toolSearchMode` 固定 `off`）。
+  需要 App 展示边界时再补完整 payload。
+
+不做：不把摘要正文或公告正文写进边界；不从搜索结果推测已发现；不改变 compact 摘要请求本身。
+
+验收：
+
+- 旧 `ContextState` JSON（无字段）读入为空集合；写入后序列化含排序去重的名单。
+- E2E：local ToolSearch 下经 ToolSearch 加载 MCP 工具 → 手动 `/compact` → 关闭 runtime 冷恢复 →
+  下一轮工具面仍包含该工具定义，公告不把它当作新增项。（`escode-cli-rust-tool-search-e2e.test.ts`）
 
 ## 6. 验收
 
 - `off`：工具面、请求体、权限与当前完全一致（golden 对比）。
-- `local`：延迟工具不出现在首轮工具面；ToolSearch 命中后下一轮出现；DeferredToolCall 可执行且走目标工具权限。
+- `local`：延迟工具不出现在首轮工具面；ToolSearch 结果内带命中工具的完整 schema，顶层 tools 不新增目标定义；
+  下一轮出现；DeferredToolCall 可执行且走目标工具权限。
 - 未发现的 DeferredToolCall：返回可执行提示，不执行目标工具。
 - `native`：非 Anthropic provider 显式报错；Anthropic 请求包含 `advanced-tool-use-2025-11-20` beta 与 `tool_reference`。
 - `auto`：能力缺失时解析为 `off`，有 `defaultEnabled` 时解析为 `native`。
 - 删除域不出现在 catalog。
 - 差分：同一 fixture 下 Node oracle 与 Rust 的 `matches`、`total_deferred_tools`、公告 delta 一致。
+- 公告（2026-11-01，`escode-cli-rust-tool-search-e2e.test.ts`）：local 首轮注入一次新增公告并逐行列出
+  MCP 工具，下一用户轮不重复；`off` 不产生公告。domain 用例覆盖 30/31 删除阈值、MCP 分组恢复段、
+  压缩后重建与“恢复提示不算完整列名”的后缀补齐。
 - `pnpm typecheck`、`pnpm lint`、`pnpm check:escode-cli-rust`、`pnpm test:escode-cli-rust` 通过。
 
 ## 7. 非目标

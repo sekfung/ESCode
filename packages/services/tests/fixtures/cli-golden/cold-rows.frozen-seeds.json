@@ -1,0 +1,1107 @@
+[
+  {
+    "seed": "migration.real",
+    "sessions": [
+      {
+        "id": "ts-session",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedInterrupted",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "old question",
+            "origin": "realUser",
+            "attachments": [
+              {
+                "ref": "file://<root>/old.txt",
+                "fileName": "old.txt",
+                "mime": "text/plain",
+                "bytes": 0
+              }
+            ]
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "actions": {
+              "canRetry": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:2>",
+            "text": "old answer",
+            "state": "complete"
+          },
+          {
+            "rowId": 4,
+            "turnId": "<id:1>",
+            "entityId": "<id:3>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:2>",
+            "toolCallId": "<id:3>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"old.txt\"}",
+            "input": {
+              "file_path": "old.txt"
+            },
+            "output": {
+              "text": "stored file result"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 5,
+            "turnId": "<id:1>",
+            "entityId": "<id:4>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:4>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:2>",
+            "toolCallId": "<id:4>",
+            "toolName": "Write",
+            "status": "cancelled",
+            "inputText": "{\"file_path\":\"must-not-exist.txt\",\"content\":\"not replayed\"}",
+            "input": {
+              "file_path": "must-not-exist.txt",
+              "content": "not replayed"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "migration.compact",
+    "sessions": [
+      {
+        "id": "compact-ts",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "userInput",
+            "text": "summarized text",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:2>",
+            "entityId": "<id:2>",
+            "productTurnId": "<id:2>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 4,
+            "turnId": "<id:2>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:2>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "preserved tail",
+            "origin": "realUser"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "migration.workspaces",
+    "sessions": [
+      {
+        "id": "local",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "local history",
+            "origin": "realUser"
+          }
+        ]
+      },
+      {
+        "id": "remote",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "remote history",
+            "origin": "realUser"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "migration-shapes.shapes",
+    "sessions": [
+      {
+        "id": "shape-session",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:2>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "timelineMarker",
+            "lane": "lightBoundary",
+            "marker": {
+              "type": "modelChange",
+              "toProvider": "fixture",
+              "toModel": "core-model",
+              "toThought": ""
+            }
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "userInput",
+            "text": "first question",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 4,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:3>",
+            "text": "first answer",
+            "state": "complete"
+          },
+          {
+            "rowId": 5,
+            "turnId": "<id:4>",
+            "entityId": "<id:5>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "kind": "timelineMarker",
+            "lane": "lightBoundary",
+            "marker": {
+              "type": "modelChange",
+              "fromProvider": "fixture",
+              "fromModel": "core-model",
+              "toProvider": "fixture",
+              "toModel": "other-model",
+              "toThought": ""
+            }
+          },
+          {
+            "rowId": 6,
+            "turnId": "<id:4>",
+            "entityId": "<id:4>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 7,
+            "turnId": "<id:4>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "after rewind",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 8,
+            "turnId": "<id:4>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:4>",
+            "actions": {
+              "canFork": true,
+              "canRetry": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:6>",
+            "text": "branch answer",
+            "state": "complete"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "session-context-differential.legacy",
+    "sessions": [
+      {
+        "id": "sess_seeded-other-workspace",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "rotate the auth tokens in vault.ts",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:1>",
+            "entityId": "<id:2>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:3>",
+            "toolCallId": "<id:2>",
+            "toolName": "Edit",
+            "status": "success",
+            "inputText": "{\"file_path\":\"vault.ts\",\"old_string\":\"ttl=1h\",\"new_string\":\"ttl=15m\"}",
+            "input": {
+              "file_path": "vault.ts",
+              "old_string": "ttl=1h",
+              "new_string": "ttl=15m"
+            },
+            "output": {
+              "text": "edited"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 4,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "actions": {
+              "canFork": true,
+              "canRetry": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:3>",
+            "text": "Shortened the token TTL to 15 minutes.",
+            "state": "complete"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "history-request-differential.legacy",
+    "sessions": [
+      {
+        "id": "history-request",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "userInput",
+            "text": "question 0",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:1>",
+            "entityId": "<id:2>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:3>",
+            "toolCallId": "<id:2>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f0.txt\"}",
+            "input": {
+              "file_path": "f0.txt"
+            },
+            "output": {
+              "text": "content 0"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 4,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:3>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:3>",
+            "text": "answer 0",
+            "state": "complete"
+          },
+          {
+            "rowId": 5,
+            "turnId": "<id:4>",
+            "entityId": "<id:4>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:4>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 6,
+            "turnId": "<id:4>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:4>",
+            "kind": "userInput",
+            "text": "question 1",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 7,
+            "turnId": "<id:4>",
+            "entityId": "<id:5>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:5>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:6>",
+            "toolCallId": "<id:5>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f1.txt\"}",
+            "input": {
+              "file_path": "f1.txt"
+            },
+            "output": {
+              "text": "content 1"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 8,
+            "turnId": "<id:4>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:4>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:6>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:6>",
+            "text": "answer 1",
+            "state": "complete"
+          },
+          {
+            "rowId": 9,
+            "turnId": "<id:7>",
+            "entityId": "<id:7>",
+            "productTurnId": "<id:7>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:7>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 10,
+            "turnId": "<id:7>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:7>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:7>",
+            "kind": "userInput",
+            "text": "question 2",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 11,
+            "turnId": "<id:7>",
+            "entityId": "<id:8>",
+            "productTurnId": "<id:7>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:8>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:9>",
+            "toolCallId": "<id:8>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f2.txt\"}",
+            "input": {
+              "file_path": "f2.txt"
+            },
+            "output": {
+              "text": "content 2"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 12,
+            "turnId": "<id:7>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:7>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:9>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:9>",
+            "text": "answer 2",
+            "state": "complete"
+          },
+          {
+            "rowId": 13,
+            "turnId": "<id:10>",
+            "entityId": "<id:10>",
+            "productTurnId": "<id:10>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:10>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 14,
+            "turnId": "<id:10>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:10>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:10>",
+            "kind": "userInput",
+            "text": "question 3",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 15,
+            "turnId": "<id:10>",
+            "entityId": "<id:11>",
+            "productTurnId": "<id:10>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:11>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:12>",
+            "toolCallId": "<id:11>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f3.txt\"}",
+            "input": {
+              "file_path": "f3.txt"
+            },
+            "output": {
+              "text": "content 3"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 16,
+            "turnId": "<id:10>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:10>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:12>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:12>",
+            "text": "answer 3",
+            "state": "complete"
+          },
+          {
+            "rowId": 17,
+            "turnId": "<id:13>",
+            "entityId": "<id:13>",
+            "productTurnId": "<id:13>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:13>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 18,
+            "turnId": "<id:13>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:13>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:13>",
+            "kind": "userInput",
+            "text": "question 4",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 19,
+            "turnId": "<id:13>",
+            "entityId": "<id:14>",
+            "productTurnId": "<id:13>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:14>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:15>",
+            "toolCallId": "<id:14>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f4.txt\"}",
+            "input": {
+              "file_path": "f4.txt"
+            },
+            "output": {
+              "text": "content 4"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 20,
+            "turnId": "<id:13>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:13>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:15>",
+            "actions": {
+              "canFork": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:15>",
+            "text": "answer 4",
+            "state": "complete"
+          },
+          {
+            "rowId": 21,
+            "turnId": "<id:16>",
+            "entityId": "<id:16>",
+            "productTurnId": "<id:16>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:16>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 22,
+            "turnId": "<id:16>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:16>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:16>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "question 5",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 23,
+            "turnId": "<id:16>",
+            "entityId": "<id:17>",
+            "productTurnId": "<id:16>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:17>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:18>",
+            "toolCallId": "<id:17>",
+            "toolName": "Read",
+            "status": "success",
+            "inputText": "{\"file_path\":\"f5.txt\"}",
+            "input": {
+              "file_path": "f5.txt"
+            },
+            "output": {
+              "text": "content 5"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          },
+          {
+            "rowId": 24,
+            "turnId": "<id:16>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:16>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:18>",
+            "actions": {
+              "canFork": true,
+              "canRetry": true
+            },
+            "kind": "assistantText",
+            "assistantResponseId": "<id:18>",
+            "text": "answer 5",
+            "state": "complete"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "import-lifecycle.sessions",
+    "sessions": [
+      {
+        "id": "first",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "",
+            "origin": "realUser",
+            "attachments": [
+              {
+                "ref": "turn-attachment/2/0",
+                "fileName": "first.txt",
+                "mime": "text/plain",
+                "bytes": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "second",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 0,
+            "state": "completedSuccess",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "",
+            "origin": "realUser",
+            "attachments": [
+              {
+                "ref": "missing.txt",
+                "fileName": "second.txt",
+                "mime": "text/plain",
+                "bytes": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "seed": "migration-boundaries.membership",
+    "sessions": [
+      {
+        "id": "legacy",
+        "rows": [
+          {
+            "rowId": 1,
+            "turnId": "<id:1>",
+            "entityId": "<id:1>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "kind": "turnHeader",
+            "origin": "userInput",
+            "executionKind": "agent",
+            "historyRoundCount": 1,
+            "state": "completedInterrupted",
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>",
+            "activeMs": "<duration>",
+            "outputTokens": 0
+          },
+          {
+            "rowId": 2,
+            "turnId": "<id:1>",
+            "entityId": "<entityId>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:1>",
+            "actions": {
+              "canEdit": true,
+              "editDisposition": "rewind"
+            },
+            "kind": "userInput",
+            "text": "historical question",
+            "origin": "realUser"
+          },
+          {
+            "rowId": 3,
+            "turnId": "<id:1>",
+            "entityId": "<id:2>",
+            "productTurnId": "<id:1>",
+            "visibility": "visible",
+            "createdAt": "<timestamp>",
+            "createdAtSeq": "<seq:2>",
+            "kind": "toolCall",
+            "assistantResponseId": "<id:3>",
+            "toolCallId": "<id:2>",
+            "toolName": "ExitPlanMode",
+            "status": "success",
+            "inputText": "{\"plan\":\"Historical plan remains readable\"}",
+            "input": {
+              "plan": "Historical plan remains readable"
+            },
+            "output": {
+              "text": "accepted"
+            },
+            "startedAt": "<timestamp>",
+            "endedAt": "<timestamp>"
+          }
+        ]
+      },
+      {
+        "id": "fork",
+        "rows": []
+      },
+      {
+        "id": "workflow",
+        "rows": []
+      },
+      {
+        "id": "child",
+        "rows": []
+      }
+    ]
+  }
+]

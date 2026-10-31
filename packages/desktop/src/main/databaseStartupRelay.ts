@@ -32,6 +32,17 @@ export function onLocalDatabaseStartupReady(listener: () => void): void {
   else readyListeners.add(listener);
 }
 
+/**
+ * Rust Host 模式没有 Node Host 的启动 relay：tasks-index 由 Main 准备完成后直接标记本地存储就绪，
+ * 让依赖它的 scheduler 与 Node Host 路径保持同一触发点。重复调用幂等。
+ */
+export function markLocalDatabaseStartupReady(): void {
+  if (localStorageReady) return;
+  localStorageReady = true;
+  for (const listener of readyListeners) listener();
+  readyListeners.clear();
+}
+
 const windowBindings = new WeakMap<BrowserWindow, () => void>();
 const hostStartupIds = new WeakMap<UtilityProcess, string>();
 export function getDatabaseStartupPortPayload(
@@ -65,11 +76,7 @@ export function bindDatabaseStartupRelay(
       terminalLogged = true;
       logDatabaseStartupTerminal(state);
     }
-    if (state.phase === "ready" && !localStorageReady) {
-      localStorageReady = true;
-      for (const listener of readyListeners) listener();
-      readyListeners.clear();
-    }
+    if (state.phase === "ready") markLocalDatabaseStartupReady();
   };
   const receive = (state: DatabaseStartupState) => {
     if (disposed || exited || state.startupId !== startupId) return;

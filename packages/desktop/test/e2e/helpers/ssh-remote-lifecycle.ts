@@ -5,11 +5,9 @@ import {
   TID_WORKSPACE_CLOSE,
   TID_WORKSPACE_ITEM,
   TID_WORKSPACE_MORE_BUTTON,
-  buildRemoteWorkspaceIdentity,
   testId,
-  type RemoteTarget,
 } from "@escode/shared";
-import { clickTestIdByDom, clickTestIdByWebDriver, waitForWorkspaceApp } from "./desktop-app.js";
+import { clickTestIdByDom, clickTestIdByWebDriver } from "./desktop-app.js";
 import { createCustomOpenAIChatCompletionsProvider } from "./custom-openai-provider.js";
 import { selectUpstreamProviderModelById } from "./upstream-provider.js";
 import {
@@ -25,17 +23,13 @@ import {
   waitForV4ConversationState,
 } from "./v4-conversation.js";
 import {
-  clickLastEnabledSSHDialogButton,
+  connectSSHWorkspace,
   createSSHReplayTunnel,
-  fillSSHPasswordSettings,
-  openSSHRemoteDialog,
   readHostProcesses,
   readRemoteTabSnapshot,
   readSSHRuntimeConfig,
   runSSHCommand,
-  selectSSHRemoteDirectory,
   waitForRemoteTab,
-  waitForSSHDirectoryStep,
   type ReplayTunnel,
   type SSHConnectionConfig,
   type SSHRuntimeConfig,
@@ -92,32 +86,20 @@ export async function connectSSHWorkspaceAndSendFirstTurn(options: {
   label: "A" | "B";
   workspacePath: string;
 }): Promise<SSHLifecycleTask> {
-  const target: RemoteTarget = {
-    kind: "ssh",
-    host: options.config.host,
-    port: options.config.port,
-    username: options.config.username,
-  };
-  const identity = buildRemoteWorkspaceIdentity(options.workspacePath, target);
-
-  await startNewV4Draft();
-  await openSSHRemoteDialog(options.caseMarker);
-  await fillSSHPasswordSettings(options.config);
-  await clickLastEnabledSSHDialogButton(options.caseMarker);
-  await waitForSSHDirectoryStep(options.caseMarker);
-  await selectSSHRemoteDirectory(options.workspacePath, options.caseMarker);
-  await waitForWorkspaceApp(options.workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
-
-  const tab = await waitForRemoteTab({
+  // S5-e 后「添加设备」连接成功即关闭向导，统一由 connectSSHWorkspace 走项目选择器。
+  const tab = await connectSSHWorkspace({
     caseMarker: options.caseMarker,
-    expectedIdentity: identity,
-    expectedPath: options.workspacePath,
+    config: options.config,
+    workspacePath: options.workspacePath,
   });
   expect(tab.remoteKind).toBe("ssh");
   expect(tab.remoteHost).toBe(options.config.host);
   expect(tab.secretPersistedInTab).toBe(false);
   if (!tab.remoteSessionId) {
     throw new Error(`${options.caseMarker}: workspace ${options.label} 缺少 remoteSessionId`);
+  }
+  if (!tab.workspaceIdentity) {
+    throw new Error(`${options.caseMarker}: workspace ${options.label} 缺少稳定 identity`);
   }
 
   await selectUpstreamProviderModelById(SSH_LIFECYCLE_MODEL_ID, {
@@ -172,7 +154,7 @@ export async function connectSSHWorkspaceAndSendFirstTurn(options: {
 
   return {
     ...task,
-    identity,
+    identity: tab.workspaceIdentity,
     label: options.label,
     remoteSessionId: tab.remoteSessionId,
     taskId: running.taskId,
@@ -225,26 +207,19 @@ export async function reconnectSSHWorkspaceThroughUI(options: {
   remoteSessionId: string;
   identity: string;
 }> {
-  const identity = buildSSHIdentity(options.config, options.workspacePath);
-  await startNewV4Draft();
-  await openSSHRemoteDialog(options.caseMarker);
-  await fillSSHPasswordSettings(options.config);
-  await clickLastEnabledSSHDialogButton(options.caseMarker);
-  await waitForSSHDirectoryStep(options.caseMarker);
-  await selectSSHRemoteDirectory(options.workspacePath, options.caseMarker);
-  await waitForWorkspaceApp(options.workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
-  const tab = await waitForRemoteTab({
+  // S5-e 后重连同样走设备入口：向导关闭 → 项目选择器 → 打开 workspace。
+  const tab = await connectSSHWorkspace({
     caseMarker: options.caseMarker,
-    expectedIdentity: identity,
-    expectedPath: options.workspacePath,
+    config: options.config,
+    workspacePath: options.workspacePath,
   });
-  if (!tab.remoteSessionId) {
-    throw new Error(`${options.caseMarker}: 重连后缺少 remoteSessionId`);
+  if (!tab.remoteSessionId || !tab.workspaceIdentity) {
+    throw new Error(`${options.caseMarker}: 重连后缺少 remoteSessionId/workspaceIdentity`);
   }
   expect(tab.remoteKind).toBe("ssh");
   expect(tab.remoteHost).toBe(options.config.host);
   expect(tab.secretPersistedInTab).toBe(false);
-  return { identity, remoteSessionId: tab.remoteSessionId };
+  return { identity: tab.workspaceIdentity, remoteSessionId: tab.remoteSessionId };
 }
 
 export async function removeSSHWorkspace(workspacePath: string, caseMarker: string): Promise<void> {
@@ -383,15 +358,20 @@ export async function stopOwnedSSHServer(
   // 同一 server 可能有 node 主进程与子进程（本次实测两个 PID）；只终止本 case 新建的集合。
   const result = await runSSHCommand(config, `kill -TERM -- ${owned.join(" ")}`);
   if (result.code !== 0) {
-    throw new Error(`${caseMarker}: 终止远端 escode-server ${owned.join(",")} 失败: ${result.stderr}`);
+    throw new Error(
+      `${caseMarker}: 终止远端 escode-server ${owned.join(",")} 失败: ${result.stderr}`,
+    );
   }
-  await browser.waitUntil(async () => {
-    const remaining = await listRemoteESCodeServerPids(config);
-    return owned.every((pid) => !remaining.includes(pid));
-  }, {
-    timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
-    timeoutMsg: `${caseMarker}: 远端 escode-server ${owned.join(",")} 没有退出`,
-  });
+  await browser.waitUntil(
+    async () => {
+      const remaining = await listRemoteESCodeServerPids(config);
+      return owned.every((pid) => !remaining.includes(pid));
+    },
+    {
+      timeout: SSH_WORKSPACE_READY_TIMEOUT_MS,
+      timeoutMsg: `${caseMarker}: 远端 escode-server ${owned.join(",")} 没有退出`,
+    },
+  );
   return owned[0]!;
 }
 
@@ -451,16 +431,6 @@ export async function readTaskRowInWorkspace(
   );
 }
 
-export function buildSSHIdentity(config: SSHConnectionConfig, workspacePath: string): string {
-  const target: RemoteTarget = {
-    kind: "ssh",
-    host: config.host,
-    port: config.port,
-    username: config.username,
-  };
-  return buildRemoteWorkspaceIdentity(workspacePath, target);
-}
-
 export async function prepareSSHLifecycle(caseMarker: string): Promise<{
   config: SSHRuntimeConfig;
   initialHosts: Array<{ name: string; pid: number }>;
@@ -469,12 +439,8 @@ export async function prepareSSHLifecycle(caseMarker: string): Promise<{
   const config = readSSHRuntimeConfig(caseMarker);
   await prepareV4ConversationE2E({ skipProvider: true });
   const initialHosts = await readHostProcesses();
-  // M5 默认走 Rust Host；显式 0/false 才回到 Node Host。
-  const rustMode = !["0", "false"].includes(
-    (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
-  );
-  if (rustMode) expect(initialHosts.length).toBeGreaterThanOrEqual(1);
-  else expect(initialHosts).toHaveLength(1);
+  // `ESCODE_RUST_HOST` 只影响本地 window Host；远程 SSH 始终由 Rust Host 服务。
+  expect(initialHosts.length).toBeGreaterThanOrEqual(1);
   const provider = await createSSHLifecycleProvider(config, caseMarker);
   return { config, initialHosts, provider };
 }

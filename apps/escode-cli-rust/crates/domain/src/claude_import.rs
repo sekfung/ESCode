@@ -9,6 +9,10 @@ use anyhow::{Result, ensure};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+/// 导入消息的 canonical 标记（对齐 TS `metadata.migrationSource`）：重导入据此删除旧导入段，
+/// 即使它已经不在会话开头（Node 重导入把新导入段追加在续聊之后）。模型请求会剥离 `_escode_` 前缀键。
+pub const IMPORT_SOURCE: &str = "claudeCode";
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ClaudeHistory {
@@ -159,7 +163,8 @@ pub fn build(session: &mut Session, history: &ClaudeHistory, created: u64) {
             row["text"] = message.content.clone().into();
             row["origin"] = "realUser".into();
             session.rows.push(row);
-            session.append_message(json!({"role":"user","content":message.content}));
+            session.append_message(json!({"role":"user","content":message.content,
+                "_escode_import_source":IMPORT_SOURCE}));
         } else {
             let mut row = session.row("assistantText", &turn, &format!("{entity}_text"), at);
             row["text"] = message.content.clone().into();
@@ -167,7 +172,8 @@ pub fn build(session: &mut Session, history: &ClaudeHistory, created: u64) {
             row["state"] = "complete".into();
             session.rows.push(row);
             session.append_message(json!({"role":"assistant","content":message.content,
-                "_escode_origin":{"provider":"unknown","model":"unknown"}}));
+                "_escode_origin":{"provider":"unknown","model":"unknown"},
+                "_escode_import_source":IMPORT_SOURCE}));
         }
     }
     session.updated_at = session.updated_at.max(last);

@@ -153,12 +153,7 @@ async function observe(kind: "node" | "rust") {
         applied = applyConversationDeltas(applied, frame.payload.deltas);
     }
     const scrubState = (value: unknown) =>
-      JSON.parse(
-        scrub(JSON.stringify(value ?? null)).replace(
-          /"(\w*(?:At|Ms|revision|Sequence))":\d+/g,
-          '"$1":0',
-        ),
-      );
+      JSON.parse(scrub(JSON.stringify(value ?? null)).replace(/"(\w*(?:At|Ms))":\d+/g, '"$1":0'));
     const notificationRequest = requests[steps.length + 1];
     const notification = notificationRequest?.messages
       ?.filter((m: any) => m.role === "user")

@@ -181,5 +181,9 @@ pub(super) fn snapshot_bytes(
         source_path: None,
         media_type: mime.into(),
         total_bytes: bytes.len() as u64,
+        original_bytes: None,
+        reference_reason: None,
+        preview_total_lines: None,
+        preview_notice: None,
     })
 }

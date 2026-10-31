@@ -69,6 +69,9 @@ impl ProviderService {
         };
         let value = store::update(&self.personal_path, |doc| transform(doc, &builtin)).await?;
         lock(&self.state).gate = ChangeGate::new(FULL_READ_EVERY);
+        // Personal 写入路径成功后通知 Provisioning；`Write::Skip` 也只会产生一次幂等尾随同步。
+        self.personal_changes
+            .send_modify(|revision| *revision = revision.wrapping_add(1));
         Ok(value)
     }
 

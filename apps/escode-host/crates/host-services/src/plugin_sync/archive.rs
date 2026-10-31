@@ -11,7 +11,7 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 
 pub const METADATA_ARCHIVE_PATH: &str = ".escode-plugin-sync.json";
-use super::archive_tar::{self, BLOCK};
+use crate::ustar::{self as archive_tar, BLOCK};
 
 pub enum ArchiveEntry {
     Source {

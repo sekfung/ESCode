@@ -3,3 +3,5 @@
 //! `escode-cli-host` 的 process_group/process_tree，本 crate 不重复实现。
 pub mod atomic_write;
 pub mod bounded;
+pub mod rpc_serialization;
+pub mod rpc_wire;

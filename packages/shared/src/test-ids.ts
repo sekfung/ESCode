@@ -283,6 +283,7 @@ export const TID_WORKSPACE_LIST = "workspace-list";
 export const TID_WORKSPACE_ITEM = "workspace-item";
 /** 侧边栏关闭工作区按钮（动态后缀为 workspacePath） */
 export const TID_WORKSPACE_CLOSE = "workspace-close";
+export const TID_WORKSPACE_RECONNECT = "workspace-reconnect";
 /** 项目视图里的对话二级分区 */
 export const TID_CONVERSATION_SECTION = "conversation-section";
 /** 项目视图里的项目二级分区 */
@@ -303,6 +304,8 @@ export const TID_DIRECTORY_BROWSER_PATH = "directory-browser-path";
 export const TID_COMPOSER_PROJECT_DETACH = "composer-project-detach";
 /** Composer workspace 菜单的非项目工作入口 */
 export const TID_COMPOSER_WORK_OUTSIDE_PROJECT = "composer-work-outside-project";
+/** 侧栏项目分区添加菜单里的远程连接入口 */
+export const TID_PROJECT_ADD_REMOTE_CONNECTION = "project-add-remote-connection";
 // ChatView
 /** 聊天视图容器 */
 export const TID_CHAT_VIEW = "chat-view";

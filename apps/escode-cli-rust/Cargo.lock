@@ -596,6 +596,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "encoding_rs",
  "escode-cli-core-api",
  "escode-cli-domain",
  "escode-cli-protocol",

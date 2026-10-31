@@ -25,6 +25,9 @@ mod plugin_describe_scan;
 mod plugin_failure;
 mod plugin_frontmatter;
 mod plugin_git;
+mod plugin_hooks;
+#[cfg(test)]
+mod plugin_hooks_tests;
 mod plugin_install;
 mod plugin_install_cache;
 mod plugin_install_entry;

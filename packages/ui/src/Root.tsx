@@ -10,7 +10,6 @@ import {
   APP_RUNTIME_PREFERENCES_CHANGED_BROADCAST_CHANNEL,
   DesktopCommandIds,
   appRuntimePreferencesChangedBroadcastPayloadSchema,
-  type RemoteTarget,
 } from "@escode/shared";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { Button } from "@/components/ui/button.js";
@@ -76,6 +75,11 @@ import { ensureProviderFamilyDomainMigration } from "@/lib/providerFamilyDomainM
 import { useSettings } from "@/hooks/useSettingService.js";
 import { CLOSE_ACTIVE_CONTEXT_REQUEST_EVENT } from "@/lib/closeActiveContext.js";
 import { AssistantCodeCommentFeatureProvider } from "@/AssistantCodeCommentFeatureProvider.js";
+import type {
+  DeviceAdditionResult,
+  DeviceAdditionReturnTarget,
+  RemoteConnectionOpenPreference,
+} from "@/app-shell/types.js";
 
 const DEFAULT_LUCIDE_STROKE_WIDTH = 1.5;
 
@@ -86,11 +90,6 @@ const DEFAULT_LUCIDE_STROKE_WIDTH = 1.5;
 const SettingsPage = lazy(() =>
   import("@/SettingsPage.js").then((module) => ({ default: module.SettingsPage })),
 );
-
-interface RemoteConnectionOpenPreference {
-  preferredKind?: RemoteTarget["kind"];
-  preferredWslDistro?: string;
-}
 
 /**
  * Root —— 应用根组件
@@ -331,6 +330,86 @@ function RootInner({
   const addTab = useTabStore((state) => state.addTab);
   const activateTabByPath = useTabStore((state) => state.activateTabByPath);
   const tabStoreApi = useTabStoreApi();
+  const deviceAdditionReturn = useRef<{
+    target: DeviceAdditionReturnTarget;
+    completion?: "checking" | "delivered";
+    tabId: string | null;
+    workspaceKey?: string;
+  } | null>(null);
+  const finishDeviceAddition = useCallback(
+    async (
+      result: DeviceAdditionResult,
+      background = false,
+      canDeliver: () => boolean = () => true,
+    ) => {
+      const pending = deviceAdditionReturn.current;
+      if (!pending) return false;
+      if (pending.completion && result.kind === "connected") return true;
+      pending.completion = "checking";
+      const isCurrent = () =>
+        deviceAdditionReturn.current === pending && pending.target.isCurrent();
+      const deliver = (value: DeviceAdditionResult, inBackground: boolean) => {
+        if (!isCurrent()) return;
+        const tabs = tabStoreApi.getState();
+        const tab = tabs.tabs.find((item) => item.id === pending.tabId);
+        const workspaceKey =
+          tab?.kind === "workspace"
+            ? tab.workspaceIdentity?.trim() || tab.workspacePath
+            : undefined;
+        if ((pending.tabId && !tab) || pending.workspaceKey !== workspaceKey) return;
+        if (pending.tabId && !inBackground) tabs.activateTab(pending.tabId);
+        logger.lifecycle.info("[Root] device addition delivered", {
+          kind: value.kind,
+          sourceServerId: value.kind === "connected" ? value.sourceServerId : undefined,
+          tabId: pending.tabId,
+        });
+        logger.debug("[Root] return from device addition", {
+          kind: value.kind,
+          tabId: pending.tabId,
+        });
+        pending.completion = "delivered";
+        return pending.target.finish(value);
+      };
+      try {
+        if (result.kind === "connected" && pending.target.canFinish) {
+          const valid = await pending.target.canFinish(result);
+          if (!isCurrent()) return true;
+          if (!valid) {
+            logger.lifecycle.info("[Root] device addition return target rejected", {
+              sourceServerId: result.sourceServerId,
+              tabId: pending.tabId,
+            });
+            await deliver({ kind: "cancelled", background: true }, true);
+            return true;
+          }
+        }
+        if (result.kind === "connected" && !canDeliver()) {
+          logger.lifecycle.info("[Root] device addition delivery deferred", {
+            sourceServerId: result.sourceServerId,
+            tabId: pending.tabId,
+          });
+          pending.completion = undefined;
+          return true;
+        }
+        const finished = deliver(result, background);
+        if (result.kind === "cancelled" && deviceAdditionReturn.current === pending) {
+          deviceAdditionReturn.current = null;
+        }
+        await finished;
+      } catch (error) {
+        if (!isCurrent()) return true;
+        // 读取失败不是取消：保留返回目标，让连接流程显示原因并允许重试。
+        logger.lifecycle.warn("[Root] device addition delivery failed", {
+          error,
+          tabId: pending.tabId,
+        });
+        pending.completion = undefined;
+        throw error;
+      }
+      return true;
+    },
+    [tabStoreApi],
+  );
   const refreshProviderState = useRootProviderStateRefresh(services);
   useRootProviderSettingsSnapshot(services);
   useEffect(() => {
@@ -386,10 +465,42 @@ function RootInner({
     registerBaseWorkspaceServices(services);
   }, [services]);
 
-  const handleOpenRemoteConnection = useCallback((preference?: RemoteConnectionOpenPreference) => {
-    setRemoteConnectionOpenPreference(preference ?? null);
-    setRemoteConnectionDialogOpen(true);
-  }, []);
+  const handleOpenRemoteConnection = useCallback(
+    (preference?: RemoteConnectionOpenPreference) => {
+      if (
+        preference?.returnTarget &&
+        (remoteConnectionInProgress ||
+          (deviceAdditionReturn.current && !deviceAdditionReturn.current.completion))
+      ) {
+        return false;
+      }
+      if (!remoteConnectionInProgress) {
+        // 新入口替换仍在资格校验的旧返回目标，先解除旧门禁再使其迟到结果失效。
+        deviceAdditionReturn.current?.target.onVisibilityChange?.(false);
+        const tabs = tabStoreApi.getState();
+        const tab = tabs.tabs.find((item) => item.id === tabs.activeTabId);
+        deviceAdditionReturn.current = preference?.returnTarget
+          ? {
+              target: preference.returnTarget,
+              tabId: tabs.activeTabId,
+              workspaceKey:
+                tab?.kind === "workspace"
+                  ? tab.workspaceIdentity?.trim() || tab.workspacePath
+                  : undefined,
+            }
+          : null;
+        logger.lifecycle.info("[Root] device addition started", {
+          kind: preference?.returnTarget?.kind,
+          tabId: tabs.activeTabId,
+          workspaceKey: deviceAdditionReturn.current?.workspaceKey,
+        });
+        setRemoteConnectionOpenPreference(preference ?? null);
+      }
+      deviceAdditionReturn.current?.target.onVisibilityChange?.(true);
+      setRemoteConnectionDialogOpen(true);
+    },
+    [remoteConnectionInProgress, tabStoreApi],
+  );
   const handleOpenDirectoryBrowser = useCallback(() => {
     setDirectoryBrowserOpen(true);
   }, []);
@@ -425,11 +536,19 @@ function RootInner({
     ({
       workspacePath,
       workspaceIdentity,
+      projectId,
     }: {
       workspacePath: string;
       workspaceIdentity: string;
+      projectId?: string | null;
     }) => {
-      startDraftInWorkspace(workspacePath, workspaceIdentity);
+      // 远端项目创建/选择由 Host 返回权威 projectId；draft owner 必须带上它，
+      // 否则只开 tab 不绑定项目，draftProjectId 为空、首发无法落回该项目。
+      startDraftInWorkspace(
+        workspacePath,
+        workspaceIdentity,
+        projectId === undefined ? undefined : { projectId },
+      );
     },
     [startDraftInWorkspace],
   );
@@ -734,6 +853,11 @@ function RootInner({
   }, [isSettingsTabActive, workspaceShellPath]);
 
   const handleRemoteConnectionDialogOpenChange = useCallback((open: boolean) => {
+    const target =
+      deviceAdditionReturn.current?.completion === "delivered"
+        ? undefined
+        : deviceAdditionReturn.current?.target;
+    if (target?.isCurrent()) target.onVisibilityChange?.(open);
     setRemoteConnectionDialogOpen(open);
     if (!open) {
       setRemoteConnectionOpenPreference(null);
@@ -742,6 +866,19 @@ function RootInner({
 
   const remoteConnectionDialog = allowRemoteWorkspace ? (
     <SSHDialog
+      completion={remoteConnectionOpenPreference?.completion}
+      allowUnidentifiedDeviceManagement={
+        remoteConnectionOpenPreference?.returnTarget?.kind === "add-device"
+      }
+      onCancelled={(background) => {
+        void finishDeviceAddition(
+          { kind: "cancelled", ...(background ? { background: true } : {}) },
+          background,
+        ).catch((error) => logger.warn("[Root] device addition cancellation failed", error));
+      }}
+      onDeviceConnected={async (sourceServerId, canDeliver) => {
+        await finishDeviceAddition({ kind: "connected", sourceServerId }, false, canDeliver);
+      }}
       onConnect={handleConnectRemote}
       onSelectProject={handleSelectRemoteProject}
       onCancelSession={handleCancelRemoteProject}
@@ -754,6 +891,11 @@ function RootInner({
       onFlowRequestIdChange={setRemoteConnectionRequestId}
       preferredKind={remoteConnectionOpenPreference?.preferredKind}
       preferredWslDistro={remoteConnectionOpenPreference?.preferredWslDistro}
+      preferredSourceServerId={remoteConnectionOpenPreference?.preferredSourceServerId}
+      preferredProfileId={remoteConnectionOpenPreference?.preferredProfileId}
+      preferredDirectoryPath={remoteConnectionOpenPreference?.preferredDirectoryPath}
+      preferredTarget={remoteConnectionOpenPreference?.preferredTarget}
+      initialFailure={remoteConnectionOpenPreference?.initialFailure}
       hideTriggerWhenClosed
     />
   ) : null;

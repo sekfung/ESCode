@@ -329,6 +329,17 @@ async fn huge_unicode_read_and_shell_output_are_bounded() {
         .await
         .unwrap();
     let c = CancellationToken::new();
+    // TS `READ_MAX_FILE_SIZE_BYTES`：未给 limit 的整文件读取超过 256 KiB 直接报错，不再自拟 64 KiB 截断。
+    assert!(
+        tools
+            .call("s", "Read", &json!({"file_path":"large"}), &c)
+            .await
+            .is_err()
+    );
+    // 未超过 256 KiB、但超过 token 预算时，改为有界部分视图。
+    tokio::fs::write(root.path().join("large"), "x".repeat(120_000))
+        .await
+        .unwrap();
     let read = tools
         .call("s", "Read", &json!({"file_path":"large"}), &c)
         .await

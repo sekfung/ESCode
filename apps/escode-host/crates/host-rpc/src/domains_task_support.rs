@@ -17,10 +17,7 @@ pub const GLM_PROVIDER: &str = "glm";
 
 /// TS `getAppConfigDir()` = `<dataBaseDir>/.escode/v2`，索引文件名 `tasks-index.sqlite`。
 pub fn tasks_index_path(data_base_dir: &Path) -> PathBuf {
-    data_base_dir
-        .join(".escode")
-        .join("v2")
-        .join("tasks-index.sqlite")
+    escode_host_services::tasks_index::database_path(data_base_dir)
 }
 
 /// 懒打开的索引句柄（失败不缓存，下次调用重试）。

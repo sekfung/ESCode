@@ -1,9 +1,4 @@
-import {
-  TID_CONFIRM_DIALOG_CONFIRM,
-  TID_SSH_DIALOG,
-  buildRemoteWorkspaceIdentity,
-  type RemoteTarget,
-} from "@escode/shared";
+import { TID_CONFIRM_DIALOG_CONFIRM } from "@escode/shared";
 import {
   clearAppData,
   clickTestIdByDom,
@@ -18,12 +13,13 @@ import {
   readHostProcesses,
   readSSHRuntimeConfig,
   selectSSHRemoteDirectory,
-  waitForRemoteTab,
+  waitForRemoteProjectTabByPath,
+  waitForSSHDialogClosed,
   waitForSSHDirectoryStep,
-  waitForSSHError,
   type FirstConnectionStallingSSHProxy,
   SSH_WORKSPACE_READY_TIMEOUT_MS,
 } from "../../../helpers/ssh-remote-p0.js";
+import { readRemoteTabs } from "../../../helpers/source-server-rust-remote-state.js";
 
 const CASE_MARKER = "E2E_SSH_P0_CANCEL_RETRY";
 const CONNECTION_CLOSE_TIMEOUT_MS = 30_000;
@@ -51,17 +47,10 @@ describe(`${CASE_MARKER}: SSH pending cancel 后立即重试`, () => {
       host: "127.0.0.1",
       port: proxy.port,
     };
-    const target: RemoteTarget = {
-      kind: "ssh",
-      host: proxiedConfig.host,
-      port: proxiedConfig.port,
-      username: proxiedConfig.username,
-    };
-    const identity = buildRemoteWorkspaceIdentity(workspacePath, target);
-
     await prepareV4ConversationE2E({ skipProvider: true });
     const initialHosts = await readHostProcesses();
     expect(initialHosts).toHaveLength(1);
+    const initialTabs = await readRemoteTabs();
 
     await openSSHRemoteDialog(CASE_MARKER);
     await fillSSHPasswordSettings({
@@ -81,18 +70,20 @@ describe(`${CASE_MARKER}: SSH pending cancel 后立即重试`, () => {
       CONNECTION_CLOSE_TIMEOUT_MS,
       `${CASE_MARKER}: 取消后首个 SSH socket 没有关闭`,
     );
-    await waitForSSHError(CASE_MARKER, CONNECTION_CLOSE_TIMEOUT_MS);
-    await clickSSHDialogBackButton();
+    // 取消契约（spec §12.2）：Escape + 确认走「停止连接」，向导直接关闭且不展示错误页，
+    // 也不产生 logical session；改凭据重试必须重新进入向导，而不是复用被取消的 pending 目标。
+    await waitForSSHDialogClosed(CASE_MARKER);
+    expect(await readRemoteTabs()).toEqual(initialTabs);
 
+    await openSSHRemoteDialog(CASE_MARKER);
     await fillSSHPasswordSettings(proxiedConfig);
     await clickLastEnabledSSHDialogButton(CASE_MARKER);
     await waitForSSHDirectoryStep(CASE_MARKER);
     await selectSSHRemoteDirectory(workspacePath, CASE_MARKER);
     await waitForWorkspaceApp(workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
 
-    const tab = await waitForRemoteTab({
+    const tab = await waitForRemoteProjectTabByPath({
       caseMarker: CASE_MARKER,
-      expectedIdentity: identity,
       expectedPath: workspacePath,
     });
     expect(tab.remoteSessionId).toBeTruthy();
@@ -100,33 +91,6 @@ describe(`${CASE_MARKER}: SSH pending cancel 后立即重试`, () => {
     expect(await readHostProcesses()).toEqual(initialHosts);
   });
 });
-
-async function clickSSHDialogBackButton(): Promise<void> {
-  let visibleLabels: string[] = [];
-  await browser.waitUntil(
-    async () => {
-      const result = await browser.execute((dialogTestId) => {
-        const dialog = document.querySelector<HTMLElement>(`[data-testid="${dialogTestId}"]`);
-        if (!dialog?.getClientRects().length) {
-          return { clicked: false, labels: [] as string[] };
-        }
-        const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).filter(
-          (button) => button.getClientRects().length > 0 && !button.disabled,
-        );
-        const labels = buttons.map((button) => button.innerText.trim());
-        const back = buttons.find((button) => ["Back", "返回"].includes(button.innerText.trim()));
-        back?.click();
-        return { clicked: Boolean(back), labels };
-      }, TID_SSH_DIALOG);
-      visibleLabels = result.labels;
-      return result.clicked;
-    },
-    {
-      timeout: 15_000,
-      timeoutMsg: `${CASE_MARKER}: 取消后 SSH 向导没有可用的返回按钮 (${visibleLabels.join(",")})`,
-    },
-  );
-}
 
 async function waitForPromise<T>(
   promise: Promise<T>,

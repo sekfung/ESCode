@@ -17,11 +17,23 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Child;
 use tokio_util::sync::CancellationToken;
 
+/// 任意子进程链路：`program` + `args` 的 stdin/stdout 承载与 `app-server --stdio`
+/// 相同的 NDJSON 帧面。远端 transport（ssh / wsl / docker）只需给出启动命令。
+#[derive(Clone, Debug)]
+pub struct ProcessSpec {
+    pub program: PathBuf,
+    pub args: Vec<std::ffi::OsString>,
+    /// 额外环境变量；同名键覆盖 `RuntimeOptions.env`（transport 的 askpass / host-key
+    /// 策略必须由调用方固定）。
+    pub env: std::collections::BTreeMap<String, String>,
+}
+
 /// 选择器：默认 embedded；`child` 需要 CLI 可执行文件路径。
 #[derive(Clone, Debug)]
 pub enum Link {
     Embedded,
     Child { binary: PathBuf },
+    Process(ProcessSpec),
 }
 
 /// Windows 子进程启动所必需的系统变量（平台底座，不是业务事实）。
@@ -123,60 +135,80 @@ impl RuntimeLink {
                     .arg("--surface")
                     .arg("desktop")
                     .arg("--cwd")
-                    .arg(&options.cwd)
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .env_clear()
-                    .envs(options.env.iter().map(|(k, v)| (k.clone(), v.clone())))
-                    .env("HOME", &options.home)
-                    .env("USERPROFILE", &options.home);
-                #[cfg(windows)]
-                for name in WINDOWS_BASE_ENV {
-                    // 快照里显式给出的值优先（Windows 环境变量名大小写不敏感）。
-                    if options.env.keys().any(|key| key.eq_ignore_ascii_case(name)) {
-                        continue;
-                    }
-                    if let Some(value) = escode_cli_core_api::env::var_os(name) {
-                        command.env(*name, value);
-                    }
-                }
+                    .arg(&options.cwd);
                 if let Some(data_dir) = &options.data_dir {
                     command.arg("--data-dir").arg(data_dir);
                 }
                 if let Some(config) = &options.config {
                     command.arg("--config").arg(config);
                 }
-                if let Some(identity) = &options.workspace_identity {
-                    command.env("ESCODE_WORKSPACE_IDENTITY", identity);
-                }
-                let mut child = command
-                    .kill_on_drop(true)
-                    .spawn()
-                    .with_context(|| format!("Cannot start runtime child {}", binary.display()))?;
-                // 修复：stderr 先前被 piped 却无人读取，子进程日志写满管道缓冲（约 64 KiB）后
-                // 会阻塞在 write 上、整个实例停摆。这里逐行转发到 Host 的 stderr（与 Host 日志同一出口）。
-                if let Some(stderr) = child.stderr.take() {
-                    tokio::spawn(async move {
-                        let mut lines = BufReader::new(stderr).lines();
-                        while let Ok(Some(line)) = lines.next_line().await {
-                            logging::warn("runtime-link", format!("runtime-child: {line}"));
-                        }
-                    });
-                }
-                let stdin = child.stdin.take().context("Runtime child stdin missing")?;
-                let stdout = child
-                    .stdout
-                    .take()
-                    .context("Runtime child stdout missing")?;
-                Ok(Self {
-                    reader: RuntimeReader::Child(BufReader::new(stdout)),
-                    writer: RuntimeWriter::Child(stdin),
-                    lifecycle: Lifecycle::Child(Box::new(ChildRuntime { child })),
-                })
+                spawn_child(command, &options, &Default::default())
+            }
+            Link::Process(spec) => {
+                let mut command = tokio::process::Command::new(&spec.program);
+                command.args(&spec.args);
+                spawn_child(command, &options, &spec.env)
             }
         }
     }
+}
+
+/// 启动一条 stdio 子进程链路，并接管 stdin/stdout/stderr。
+fn spawn_child(
+    mut command: tokio::process::Command,
+    options: &RuntimeOptions,
+    extra_env: &std::collections::BTreeMap<String, String>,
+) -> Result<RuntimeLink> {
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .env_clear()
+        .envs(options.env.iter().map(|(k, v)| (k.clone(), v.clone())))
+        .env("HOME", &options.home)
+        .env("USERPROFILE", &options.home)
+        .envs(extra_env.iter().map(|(k, v)| (k.clone(), v.clone())));
+    #[cfg(windows)]
+    for name in WINDOWS_BASE_ENV {
+        // 快照里显式给出的值优先（Windows 环境变量名大小写不敏感）。
+        if options.env.keys().any(|key| key.eq_ignore_ascii_case(name))
+            || extra_env.keys().any(|key| key.eq_ignore_ascii_case(name))
+        {
+            continue;
+        }
+        if let Some(value) = escode_cli_core_api::env::var_os(name) {
+            command.env(*name, value);
+        }
+    }
+    if let Some(identity) = &options.workspace_identity {
+        command.env("ESCODE_WORKSPACE_IDENTITY", identity);
+    }
+    let mut child = command.kill_on_drop(true).spawn().with_context(|| {
+        format!(
+            "Cannot start runtime child {:?}",
+            command.as_std().get_program()
+        )
+    })?;
+    // 修复：stderr 先前被 piped 却无人读取，子进程日志写满管道缓冲（约 64 KiB）后
+    // 会阻塞在 write 上、整个实例停摆。这里逐行转发到 Host 的 stderr（与 Host 日志同一出口）。
+    if let Some(stderr) = child.stderr.take() {
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                logging::warn("runtime-link", format!("runtime-child: {line}"));
+            }
+        });
+    }
+    let stdin = child.stdin.take().context("Runtime child stdin missing")?;
+    let stdout = child
+        .stdout
+        .take()
+        .context("Runtime child stdout missing")?;
+    Ok(RuntimeLink {
+        reader: RuntimeReader::Child(BufReader::new(stdout)),
+        writer: RuntimeWriter::Child(stdin),
+        lifecycle: Lifecycle::Child(Box::new(ChildRuntime { child })),
+    })
 }
 
 impl RuntimeWriter {

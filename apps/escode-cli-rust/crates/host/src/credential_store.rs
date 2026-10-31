@@ -109,6 +109,48 @@ impl CredentialStore {
             .map(|key| Ok((key.trim().to_owned(), self.decrypt(&raw, key.trim())?)))
             .collect()
     }
+    /// Provisioning allowlist 读取：只关心列出的 key，其它条目（含非字符串坏值）不参与也不阻断。
+    ///
+    /// 与 `read_raw` 不同：这里不做损坏备份/覆盖，因为 Source 只读取事实；坏 JSON 与 allowlist
+    /// 非字符串值都必须整份失败，避免把未知内容当成 Secret 同步。
+    pub async fn load_allowlisted(
+        &self,
+        keys: &[&str],
+    ) -> Result<BTreeMap<String, Option<String>>> {
+        let bytes = match tokio::fs::read(&self.path).await {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(keys.iter().map(|key| ((*key).to_owned(), None)).collect());
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!(
+                        "Unable to read shared ESCode credentials: {}",
+                        self.path.display()
+                    )
+                });
+            }
+        };
+        let parsed: Value = serde_json::from_slice(&bytes).with_context(|| {
+            format!(
+                "Shared ESCode credentials are not valid JSON: {}",
+                self.path.display()
+            )
+        })?;
+        let Some(map) = parsed.as_object() else {
+            bail!("Credential Store 必须是 JSON 对象");
+        };
+        let mut entries = BTreeMap::new();
+        for key in keys {
+            let value = match map.get(*key) {
+                None => None,
+                Some(Value::String(encrypted)) => Some(self.cipher.decrypt(encrypted)?),
+                Some(_) => bail!("Credential allowlist value must be a string: {key}"),
+            };
+            entries.insert((*key).to_owned(), value);
+        }
+        Ok(entries)
+    }
     /// 锁内 read-modify-write；`mutate` 返回 false 表示无需写回。
     async fn mutate(
         &self,

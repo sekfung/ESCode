@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "caseName": "source-server-rust-provisioning",
+  "spec": "./test/e2e/conversation-session/source-server-rust-provisioning.test.ts",
+  "fixtures": [
+    {
+      "id": "source-server-rust-provisioning-title",
+      "description": "Rust Host provisioning case 的会话标题响应。",
+      "metadata": {
+        "kind": "case-local",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题只用于会话列表展示，不参与 provisioning 断言。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/chat/completions",
+        "bodyIncludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "statusMessage": "OK",
+        "headers": {
+          "cache-control": "no-cache",
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "body": "data: {\"id\":\"chatcmpl-source-server-rust-provisioning-title\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-source-server-rust-provisioning-title\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Rust provisioning E2E\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-source-server-rust-provisioning-title\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":32,\"completion_tokens\":4,\"total_tokens\":36}}\n\ndata: [DONE]\n\n"
+      }
+    },
+    {
+      "id": "source-server-rust-provisioning-first-reply",
+      "description": "远端经 SSH 反向转发访问本地 Personal Provider 后返回的首轮文本。",
+      "metadata": {
+        "kind": "case-local",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "只验证远端发起模型请求并收到本地 replay 响应，不依赖真实模型内容。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/chat/completions",
+        "lastUserMessageIncludes": [
+          "SOURCE_SERVER_RUST_PROVISIONING_FIRST_PROMPT"
+        ],
+        "bodyIncludes": [
+          "SOURCE_SERVER_RUST_PROVISIONING_FIRST_PROMPT",
+          "e2e-rust-provisioning-model"
+        ],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "statusMessage": "OK",
+        "headers": {
+          "cache-control": "no-cache",
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "body": "data: {\"id\":\"chatcmpl-source-server-rust-provisioning-first\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-source-server-rust-provisioning-first\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"SOURCE_SERVER_RUST_PROVISIONING_FIRST_REPLY\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-source-server-rust-provisioning-first\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-provisioning-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":128,\"completion_tokens\":8,\"total_tokens\":136}}\n\ndata: [DONE]\n\n"
+      }
+    }
+  ]
+}

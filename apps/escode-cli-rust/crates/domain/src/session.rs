@@ -9,6 +9,18 @@ pub struct StoredAttachment {
     pub source_path: Option<String>,
     pub media_type: String,
     pub total_bytes: u64,
+    /// 本地路径附件的原始大小（文本预览快照只保存有界正文，`total_bytes` 是预览大小）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_bytes: Option<u64>,
+    /// 只交付路径引用、不复制正文时的 TS 原因（`binary_file` / `*_too_large`）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_reason: Option<String>,
+    /// 文本附件预览的 TS `totalLines`（用于 Read reminder）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_total_lines: Option<u64>,
+    /// 文本附件预览的 TS `partialViewNotice`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_notice: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -161,6 +173,10 @@ pub struct Session {
     #[serde(skip)]
     pub api_retry: Option<super::model::RetryState>,
     pub usage: Value,
+    /// 模型上下文窗口容量（进程内事实，来自本轮 `Event::ContextUsage`）。
+    /// 只用于 `usage.contextWindow.maxTokens`；不落库，冷恢复后由下一次模型选择重新带入。
+    #[serde(skip)]
+    pub context_window_max_tokens: Option<u64>,
     pub last_error: Option<Value>,
     /// 本进程内最近一次运行的模型失败分类（工作流 actor 回合失败按它回报给 TS driver 分类，不落库）。
     #[serde(skip)]
@@ -244,16 +260,59 @@ impl Session {
         super::session_recovery::row_base(json!({"rowId":self.row_highwater,
             "turnId":turn,"productTurnId":turn,"entityId":entity,"kind":kind,"createdAt":now,"createdAtSeq":self.seq+1}))
     }
+    /// V4 `control.availability` 投影；oracle 是 TS `computeAvailability`（docs/specs/rust-availability-projection.md）。
+    /// availability 使用产品态 reasonCode；命令拒绝的 `guard.*` 前缀只属于 ack，两者不能混用。
+    /// 修复：原先 compact 恒 true、fork 用 `history.responses.is_empty()`、sendQueuedNow 只看 `queued_now`，
+    /// 导致 draft 会话在 App 里可点压缩/立即发送，且 reasonCode 与 Node 不一致。
+    pub fn availability(&self) -> Value {
+        let running = matches!(self.phase.as_str(), "running" | "prewarming");
+        let compacting = running && self.compact_instructions.is_some();
+        let draft = self.phase == "draft";
+        let deny = |code: &str| json!({"allowed":false,"reasonCode":code});
+        let allow = || json!({"allowed":true});
+        let fork = if compacting {
+            deny("compactOperationLock")
+        } else if draft {
+            deny("forkTargetNotStable")
+        } else {
+            allow()
+        };
+        let compact = if compacting {
+            deny("compactOperationLock")
+        } else if draft {
+            deny("idleCannotCompact")
+        } else {
+            allow()
+        };
+        let send_now = if compacting {
+            deny("compactOperationLock")
+        } else if running {
+            allow()
+        } else {
+            deny("sendQueuedNowRequiresRunning")
+        };
+        let status = self.goal.as_ref().map(|goal| goal.status.as_str());
+        let pause = match status {
+            Some("active" | "verifying" | "notSatisfied") => allow(),
+            Some(_) => deny("goalNotActive"),
+            None => deny("noGoalToPause"),
+        };
+        let resume = match status {
+            Some("paused") => allow(),
+            Some(_) => deny("goalNotPaused"),
+            None => deny("noGoalToResume"),
+        };
+        json!({"fork":fork,"compact":compact,"switchModelConfig":allow(),
+            "setFollowupMode":allow(),"queueEdit":allow(),"sendQueuedNow":send_now,
+            "pauseGoal":pause,"resumeGoal":resume})
+    }
     pub fn patch(&self) -> Value {
         let mut patch = json!({"revision":self.revision,
             "control":{"phase":self.phase,"sessionEnded":self.ended(),"canStop":self.running(),
                 "stopState":if self.running(){"stoppable"}else{"idle"},"stopTargetKind":if self.running(){"mixed"}else{"unknown"},
                 "activeWorks":self.run_id.as_ref().map(|id| vec![json!({"kind":"primaryTurn","foregroundExecutionId":id,"startedAt":self.updated_at})]).unwrap_or_default(),
                 "lastError":self.last_error,"apiRetry":self.api_retry},
-            "availability":{"fork":if self.history.responses.is_empty(){json!({"allowed":false,"reasonCode":"guard.forkTargetNotStable"})}else{json!({"allowed":true})},"compact":{"allowed":true},"switchModelConfig":{"allowed":true},
-                "setFollowupMode":{"allowed":true},"queueEdit":{"allowed":true},"sendQueuedNow":if self.queued_now.is_none(){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":"guard.queuePromotionBusy"})},
-                "pauseGoal":if self.goal.as_ref().is_some_and(super::goal::Goal::active){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":if self.goal.is_none(){"noGoalToPause"}else{"goalNotActive"}})},
-                "resumeGoal":if self.goal.as_ref().is_some_and(|g|matches!(g.status.as_str(),"paused"|"failed"|"notSatisfied")) && !self.running(){json!({"allowed":true})}else{json!({"allowed":false,"reasonCode":if self.goal.is_none(){"noGoalToResume"}else{"goalNotPaused"}})}},
+            "availability":self.availability(),
             "inputRouting":{"mode":if self.running(){if self.followup_mode=="guide"{"guide"}else{"enqueue"}}else if !self.auto_drain && !self.queue.is_empty(){"choice"}else{"startNow"}},
             "meta":{"title":self.title,"titleSource":self.projected_title_source()},
             "config":{"provider":self.provider,"model":self.model,"thought":self.reasoning_level,"thoughtLevels":if self.thought_levels.is_empty(){vec![self.reasoning_level.clone()]}else{self.thought_levels.clone()},
@@ -289,10 +348,20 @@ impl Session {
         let mut value = self.patch();
         let tail = self.rows.len().saturating_sub(60);
         value["protocolVersion"] = 1.into();
+        // Node 的 initialProjectionState 显式带 `modelTransition: null`；补丁只在迁移时写该键。
+        value["modelTransition"] = Value::Null;
         value["sessionId"] = self.id.clone().into();
         value["logEpoch"] = self.epoch.clone().into();
         value["seq"] = self.seq.into();
         value["rows"] = json!({"window":self.rows[tail..],"totalCount":self.rows.len(),"firstRowId":self.rows.first().map(|v|&v["rowId"])});
+        // Node `initialProjectionState` 始终带这两个键；Rust 的 patch 只在有值时才写。
+        if value.get("subagents").is_none() {
+            value["subagents"] =
+                json!({"revision":0,"childSessionIds":[],"running":[],"endedTotal":0});
+        }
+        if value.get("workspaceHookAdmission").is_none() {
+            value["workspaceHookAdmission"] = Value::Null;
+        }
         value
     }
     pub fn summary(&self) -> Value {
@@ -337,6 +406,8 @@ impl Session {
         self.epoch = epoch;
         self.seq = 0;
         self.run_id = None;
+        // 冷恢复不能把崩溃前未收口的压缩指令带进下一次运行（压缩已中断）。
+        self.compact_instructions = None;
         self.api_retry = None;
         self.pending.clear();
         self.queue.clear();
@@ -371,3 +442,7 @@ fn public_queue_item(item: &Value) -> Value {
         _ => item.clone(),
     }
 }
+
+#[cfg(test)]
+#[path = "session_availability_tests.rs"]
+mod availability_tests;

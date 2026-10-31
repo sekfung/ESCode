@@ -13,7 +13,8 @@ const LIMIT: usize = 1024;
 #[derive(Default, Clone)]
 pub struct FileState {
     entries: HashMap<PathBuf, Observation>,
-    ranges: HashMap<(PathBuf, u64, Option<u64>), Stamp>,
+    /// `None` 表示 TS `isPartialView`：同键记录存在但永不命中缓存。
+    ranges: HashMap<(PathBuf, u64, Option<u64>), Option<Stamp>>,
 }
 
 #[derive(Clone)]
@@ -76,7 +77,14 @@ impl FileState {
         if self.ranges.len() >= LIMIT {
             self.ranges.clear();
         }
-        self.ranges.insert((path, offset, limit), stamp);
+        self.ranges.insert((path, offset, limit), Some(stamp));
+    }
+    /// TS `updateReadFileState` 记录 token 部分视图：覆盖同键旧记录，但不参与去重。
+    pub(super) fn invalidate_range(&mut self, path: PathBuf, offset: u64, limit: Option<u64>) {
+        if self.ranges.len() >= LIMIT {
+            self.ranges.clear();
+        }
+        self.ranges.insert((path, offset, limit), None);
     }
     /// TS `isCachedReadFresh`：同一路径与范围的上次读取之后文件未变（mtime 与大小都相同）。
     pub(super) fn range_fresh(
@@ -86,6 +94,6 @@ impl FileState {
         limit: Option<u64>,
         stamp: Stamp,
     ) -> bool {
-        self.ranges.get(&(path.to_owned(), offset, limit)) == Some(&stamp)
+        self.ranges.get(&(path.to_owned(), offset, limit)) == Some(&Some(stamp))
     }
 }

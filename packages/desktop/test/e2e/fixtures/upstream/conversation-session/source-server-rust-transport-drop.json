@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "caseName": "source-server-rust-transport-drop",
+  "spec": "./test/e2e/conversation-session/source-server-rust-transport-drop.test.ts",
+  "fixtures": [
+    {
+      "id": "rust-transport-drop-title",
+      "description": "标题辅助响应，只需稳定 task row。",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题内容不属于链路恢复断言。"
+      },
+      "maxMatches": 4,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/chat/completions",
+        "bodyIncludes": [
+          "Generate a concise title",
+          "E2E_SOURCE_SERVER_RUST_TRANSPORT_DROP"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "body": "data: {\"id\":\"rust-transport-drop-title\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"title\\\":\\\"Rust transport drop\\\"}\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"rust-transport-drop-title\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+      }
+    },
+    {
+      "id": "rust-transport-drop-first",
+      "description": "链路中断前首发响应。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "slow-stream",
+        "source": "synthetic",
+        "syntheticReason": "稳定验证断线前已完成一轮对话。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/chat/completions",
+        "lastUserMessageIncludes": [
+          "E2E_SOURCE_SERVER_RUST_TRANSPORT_DROP_A_FIRST_PROMPT"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "delayMs": 1200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "body": "data: {\"id\":\"rust-transport-drop-first\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"SOURCE_SERVER_RUST_TRANSPORT_DROP_REPLY\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"rust-transport-drop-first\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+      }
+    },
+    {
+      "id": "rust-transport-drop-follow",
+      "description": "原位重连后的续发响应。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "slow-stream",
+        "source": "synthetic",
+        "syntheticReason": "稳定验证重连后仍命中同一 task 并携带断线前历史。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/chat/completions",
+        "lastUserMessageIncludes": [
+          "E2E_SOURCE_SERVER_RUST_TRANSPORT_DROP_A_FOLLOW_PROMPT"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "delayMs": 1200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "body": "data: {\"id\":\"rust-transport-drop-follow\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"SOURCE_SERVER_RUST_TRANSPORT_DROP_REPLY\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"rust-transport-drop-follow\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"e2e-rust-transport-drop-model\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+      }
+    }
+  ]
+}

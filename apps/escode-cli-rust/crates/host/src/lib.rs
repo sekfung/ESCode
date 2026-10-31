@@ -17,6 +17,8 @@ pub mod net_config;
 pub mod output_encoding;
 pub mod process_group;
 mod realpath;
+pub mod text_file;
+mod text_file_tokens;
 pub mod tls_ca;
 pub use realpath::{realpath, realpath_for_create, realpath_sync, simplify_verbatim};
 mod question_timing;

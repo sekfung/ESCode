@@ -4,7 +4,7 @@ use super::*;
 #[test]
 fn generated_assets_are_self_consistent() {
     verify_assets().expect("生成资产自校验");
-    assert_eq!(schema::SCHEMA_VERSION, 2);
+    assert_eq!(schema::SCHEMA_VERSION, 3);
     assert_eq!(schema::EXPECTED_MIGRATIONS.len(), 6, "六个 tasks 迁移");
     assert_eq!(
         schema::EXPECTED_PROJECT_MIGRATIONS.len(),

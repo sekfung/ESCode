@@ -12,7 +12,6 @@ import {
   VSBuffer,
   SocketProtocol,
   ChannelServer,
-  ChannelClient,
   LoggingChannelServer,
   type ISocket,
 } from "@escode/rpc";
@@ -20,25 +19,16 @@ import {
   ServiceCollection,
   IESCodeAgentService,
   createESCodeAgentConnectionScope,
-  IFileService,
-  IGitService,
-  ISvnService,
-  IWorkspaceVcsService,
-  ISystemService,
-  ITerminalService,
   IProviderProvisioningTargetService,
 } from "@escode/services";
 import {
   formatLogPrefix,
-  formatZodError,
-  remoteTargetSchema,
   SERVER_REMOTE_PROTOCOL_VERSION,
   ESCODE_RPC_HOST_CAPABILITY_HEADER,
   ESCODE_VERSION,
   type ServerRemoteInfo,
   type ServerRemoteWorkspaceInfo,
 } from "@escode/shared";
-import { connectRemote, createRemoteBackend, type RemoteConnection } from "./remote/index.js";
 import { createHostCapabilityStore } from "./hostCapability.js";
 
 function wrapWebSocket(ws: WebSocket): ISocket {
@@ -122,13 +112,6 @@ function setupChannelServer(
     void connectionScope?.dispose();
     rawServer.dispose();
   });
-}
-
-/** 存储 web 模式下的远程连接，key 为随机 ID */
-const remoteConnections = new Map<string, RemoteConnection>();
-
-function generateId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 export interface HttpServerOptions {
@@ -343,62 +326,6 @@ export function createHttpServer(
     await next();
   });
   app.get("/ws/host", upgradeTrustedHostWebSocket);
-
-  // Web 模式下发起远程连接
-  app.post("/api/connect-remote", async (c) => {
-    const rawBody = await c.req.json();
-    const parsedBody = remoteTargetSchema.safeParse(rawBody);
-    if (!parsedBody.success) {
-      return c.json({ error: `Invalid request body: ${formatZodError(parsedBody.error)}` }, 400);
-    }
-    const body = parsedBody.data;
-
-    try {
-      const backend = await createRemoteBackend(body);
-      const connection = await connectRemote(backend);
-      const id = generateId();
-      remoteConnections.set(id, connection);
-
-      return c.json({ id });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
-    }
-  });
-
-  // 远程连接的 WebSocket 端点，将远程 services 桥接给浏览器
-  app.get(
-    "/ws/remote/:id",
-    upgradeWebSocket((c) => {
-      const id = c.req.param("id");
-      return {
-        onOpen(_event, ws) {
-          if (!id) {
-            ws.close(4000, "Missing remote connection id");
-            return;
-          }
-          const connection = remoteConnections.get(id);
-          if (!connection) {
-            ws.close(4004, "Remote connection not found");
-            return;
-          }
-          // 一个连接只给一个 WS 客户端使用，取出后从 Map 移除
-          remoteConnections.delete(id);
-
-          // 将远程 services 包装为 ServiceCollection，复用 exposeOnChannelServer 统一注册
-          const remoteServices = new ServiceCollection()
-            .register(IFileService, connection.services.fileService)
-            .register(IGitService, connection.services.gitService)
-            .registerOptional(ISvnService, connection.services.svnService)
-            .registerOptional(IWorkspaceVcsService, connection.services.workspaceVcsService)
-            .register(ISystemService, connection.services.systemService)
-            .register(ITerminalService, connection.services.terminalService);
-
-          setupChannelServer(ws.raw as WebSocket, remoteServices, "web-remote-replayable");
-        },
-      };
-    }),
-  );
 
   if (options.staticRoot?.trim()) {
     const staticRoot = options.staticRoot.trim();

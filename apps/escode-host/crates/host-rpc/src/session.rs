@@ -44,10 +44,16 @@ pub struct Request {
 }
 
 /// 编码 `Initialize` 响应（连接建立后服务端的第一帧）。
-pub fn initialize_frame() -> Vec<u8> {
+///
+/// body 携带已注册 channel 名（`{"channels": [...]}`）：Renderer 据此决定是否绑定可选服务
+/// （如 `source-server-management`），避免对没有该 channel 的 Host 发请求拿到 `Unknown channel`。
+pub fn initialize_frame(channels: &[&str]) -> Vec<u8> {
+    let mut names = channels.to_vec();
+    names.sort_unstable();
+    names.dedup();
     let mut writer = Writer::new();
     writer.value(&Wire::Array(vec![Wire::Int(RESPONSE_INITIALIZE)]));
-    writer.value(&Wire::Undefined);
+    writer.value(&Wire::Object(serde_json::json!({ "channels": names })));
     writer.into_bytes()
 }
 
@@ -79,8 +85,8 @@ pub fn error_frame(id: i64, name: &str, message: &str) -> Vec<u8> {
 }
 
 /// 结构化 RPC 错误（TS `ChannelServer.onPromise` 的 `PromiseError` 载荷）：`name`/`message` 之外，
-/// TS 透传 `code`/`kind`/`status`/`retryAfterMs`/`data`/`detail`/`details`/`taskId`/`traceId`
-/// （`channelServer.ts:156`）。例：existing-only 无运行时回 `code: "ESCODE_AGENT_RUNTIME_UNAVAILABLE"`。
+/// TS 透传 `code`/`kind`/`status`/`retryAfterMs`/`data`/`detail`/`details`/`taskId`/`traceId`/`retryable`
+/// （`channelServer.ts` 的 `passthroughKeys`）。例：existing-only 无运行时回 `code: "ESCODE_AGENT_RUNTIME_UNAVAILABLE"`。
 #[derive(Clone, Debug, PartialEq)]
 pub struct RpcError {
     pub name: String,
@@ -99,7 +105,7 @@ impl RpcError {
 
     /// 附一个 TS 透传键（只接受白名单内的键，与 TS 同口径）。
     pub fn with(mut self, key: &'static str, value: serde_json::Value) -> Self {
-        const PASSTHROUGH: [&str; 9] = [
+        const PASSTHROUGH: [&str; 12] = [
             "code",
             "kind",
             "status",
@@ -107,8 +113,11 @@ impl RpcError {
             "data",
             "detail",
             "details",
+            "pendingSourceServerId",
+            "profileId",
             "taskId",
             "traceId",
+            "retryable",
         ];
         if PASSTHROUGH.contains(&key) {
             self.extra.insert(key.to_owned(), value);

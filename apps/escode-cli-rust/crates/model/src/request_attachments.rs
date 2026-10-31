@@ -21,8 +21,23 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
             expanded = true;
             let asset: StoredAttachment = serde_json::from_value(part["asset"].clone())
                 .map_err(|_| ModelFailure::new("attachment_unavailable", false))?;
+            if let Some(reason) = asset.reference_reason.as_deref() {
+                // TS `resolvedPathReferenceAttachment`：只交付原路径与原因，不读正文、不占内联预算。
+                let name = part["name"].as_str().unwrap_or_default();
+                let label = asset.source_path.as_deref().unwrap_or(name);
+                *part = json!({
+                    "type": "text",
+                    "text": super::attachment_read::path_reference(label, reason),
+                });
+                continue;
+            }
             total = total.saturating_add(asset.total_bytes);
-            if asset.total_bytes > 20 * 1024 * 1024 || total > 64 * 1024 * 1024 {
+            let max_bytes = if asset.media_type.starts_with("video/") {
+                30 * 1024 * 1024
+            } else {
+                20 * 1024 * 1024
+            };
+            if asset.total_bytes > max_bytes || total > 64 * 1024 * 1024 {
                 return Err(ModelFailure::new("context_exceeded", false));
             }
             let mime = asset.media_type.as_str();
@@ -143,12 +158,25 @@ pub(super) async fn materialize(messages: &mut Vec<Value>, properties: &Value) -
                 // 结果的 system-reminder 独立成条放在用户正文之前（见 attachment_reminder.rs）。
                 // TS 先按扩展名判定（isTextLikePath），非文本扩展名只交付路径引用、不读正文。
                 if !super::attachment_read::is_text_like_path(name) {
-                    json!({"type":"text","text":super::attachment_read::path_reference(name)})
+                    json!({"type":"text","text":super::attachment_read::path_reference(name, "binary_file")})
                 } else {
                     match text {
                         Some(text) => {
-                            let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-                            json!({"type":"_escode_reminder","message":super::attachment_reminder::reminder_message(name, text, bytes.len())})
+                            let message = if asset.original_bytes.is_some() {
+                                super::attachment_reminder::reminder_message_preview(
+                                    name,
+                                    text,
+                                    asset.preview_total_lines,
+                                    asset.preview_notice.as_deref(),
+                                )
+                            } else {
+                                super::attachment_reminder::reminder_message(
+                                    name,
+                                    text,
+                                    bytes.len(),
+                                )
+                            };
+                            json!({"type":"_escode_reminder","message":message})
                         }
                         None => json!({"type":"text","text":format!(
                             "Attached binary file: {name} ({mime}, {} bytes). The contents are not text and have not been included in this model request.",

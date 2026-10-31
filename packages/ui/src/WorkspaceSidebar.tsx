@@ -53,6 +53,7 @@ import {
   TID_CONVERSATION_SECTION,
   TID_AUTOMATIONS_OPEN,
   TID_PROJECT_ADD,
+  TID_PROJECT_ADD_REMOTE_CONNECTION,
   TID_PROJECT_SECTION,
   TID_SIDEBAR,
   TID_WORKSPACE_LIST,
@@ -1487,7 +1488,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebarComponent({
                                       })}
                                     </DropdownMenuItem>
                                     {onOpenRemoteWorkspace ? (
-                                      <DropdownMenuItem onSelect={onOpenRemoteWorkspace}>
+                                      <DropdownMenuItem
+                                        data-testid={TID_PROJECT_ADD_REMOTE_CONNECTION}
+                                        onSelect={onOpenRemoteWorkspace}
+                                      >
                                         <Cloud className="size-4" />
                                         {intl.formatMessage({
                                           id: "remote.trigger",

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync, backup } from "node:sqlite";
 import { fixture } from "./escode-cli-rust-fixture.js";
+import { projectRows } from "./escode-cli-rust-row-projection.js";
 
 // 数据迁移验收（docs/specs/rust-import-lifecycle.md「真实数据演练」）：对真实 TS 数据的只读演练。
 // 默认跳过；设置 ESCODE_REHEARSAL_DB=<~/.escode/cli/db/db.sqlite> 后运行：
@@ -30,6 +31,35 @@ const kinds = (rows: Rows) =>
   );
 const files = (rows: Rows) =>
   rows.filter((r) => r.kind === "userInput").reduce((n, r) => n + (r.attachments?.length ?? 0), 0);
+
+/** 行内容哈希：归一化 id/时间戳/路径后对整份行序列取 SHA-256，避免只比计数。 */
+const rowHash = (projected: Rows) =>
+  createHash("sha256").update(JSON.stringify(projected)).digest("hex");
+
+/** 首个差异 JSON 路径：只用于定位字段，不输出字段值（真实数据演练不得打印会话内容）。 */
+function firstDifferencePath(a: unknown, b: unknown, path = "$"): string | null {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return `${path}.length`;
+    for (let index = 0; index < a.length; index++) {
+      const found = firstDifferencePath(a[index], b[index], `${path}[${index}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+    for (const key of keys) {
+      const found = firstDifferencePath(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+        `${path}.${key}`,
+      );
+      if (found) return found;
+    }
+    return null;
+  }
+  return Object.is(a, b) ? null : path;
+}
 
 async function copyOf(label: string) {
   const root = await mkdtemp(join(tmpdir(), `escode-rehearsal-${label}-`));
@@ -104,9 +134,17 @@ test(
     const report = sessions.map((s, index) => {
       const n = node.get(s.id)!;
       const r = rust.get(s.id)!;
+      const roots = [s.ws, nodeRoot, rustRoot];
+      const rustRows = projectRows(r.rows, roots);
+      const nodeRows = projectRows(n.rows, roots);
+      const rowDiffPath = firstDifferencePath(rustRows, nodeRows);
       return {
         session: index + 1,
+        sessionId: s.id,
         rowsMatch: JSON.stringify(kinds(r.rows)) === JSON.stringify(kinds(n.rows)),
+        rowsHashMatch: rowDiffPath === null,
+        rowHashes: [rowHash(rustRows), rowHash(nodeRows)],
+        rowDiffPath,
         rust: kinds(r.rows),
         node: kinds(n.rows),
         files: [files(r.rows), files(n.rows)],
@@ -114,6 +152,51 @@ test(
       };
     });
     console.log("REHEARSAL", JSON.stringify(report));
+    if (process.env.DEBUG_REHEARSAL) {
+      // 只打印结构与枚举字段，绝不输出会话文本/路径（真实数据演练约束）。
+      for (const row of report) {
+        const index = Number(/\[(\d+)\]/.exec(row.rowDiffPath ?? "")?.[1]);
+        if (!row.rowDiffPath || Number.isNaN(index)) continue;
+        const session = sessions.find((candidate) => candidate.id === row.sessionId)!;
+        const rustRows = projectRows(rust.get(row.sessionId)!.rows, [
+          session.ws,
+          nodeRoot,
+          rustRoot,
+        ]);
+        const nodeRows = projectRows(node.get(row.sessionId)!.rows, [
+          session.ws,
+          nodeRoot,
+          rustRoot,
+        ]);
+        const pick = (value: Record<string, any> | undefined) =>
+          value
+            ? {
+                kind: value.kind,
+                actions: value.actions,
+                state: value.state,
+                origin: value.origin,
+                executionKind: value.executionKind,
+                historyRoundCount: value.historyRoundCount,
+                outputTokens: value.outputTokens,
+                activeMs: value.activeMs,
+                hasOutput: value.output !== undefined,
+                keys: Object.keys(value).sort(),
+              }
+            : null;
+        console.log(
+          "REHEARSAL-ROW",
+          JSON.stringify({
+            session: row.session,
+            index,
+            path: row.rowDiffPath,
+            rust: pick(rustRows[index]),
+            node: pick(nodeRows[index]),
+            rustActions: rustRows.map((row) => [row.kind, row.actions ?? null]),
+            nodeActions: nodeRows.map((row) => [row.kind, row.actions ?? null]),
+          }),
+        );
+      }
+    }
     assert.equal(
       await sha(join(rustRoot, "ts.sqlite")),
       copyBefore,
@@ -122,6 +205,10 @@ test(
     assert.equal(await sha(source!), before, "the original database must stay untouched");
     for (const row of report) {
       assert(row.rowsMatch, `session ${row.session}: row kinds differ`);
+      assert(
+        row.rowsHashMatch,
+        `session ${row.session}: row content differs at ${row.rowDiffPath ?? "unknown"}`,
+      );
       assert.equal(row.files[0], row.files[1], `session ${row.session}: attachments differ`);
       assert.equal(row.todos[0], row.todos[1], `session ${row.session}: todos differ`);
     }

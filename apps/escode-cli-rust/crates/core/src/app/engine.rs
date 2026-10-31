@@ -39,6 +39,8 @@ pub struct Engine {
     pub(super) plugin_catalogs: BTreeMap<String, Value>,
     pub(super) session_access: BTreeMap<String, u64>,
     pub(super) access_seq: u64,
+    /// runtime 反向请求的 `server-N` 序号（TS `server.ts` 的 `nextClientRequestId`，共享同一计数器）。
+    pub(super) server_request_seq: u64,
     pub(super) durable_acks: std::collections::BTreeSet<String>,
     pub(super) acks: BTreeMap<String, Value>,
     pub(super) active: BTreeMap<String, Active>,
@@ -161,6 +163,7 @@ impl Engine {
             plugin_catalogs: BTreeMap::new(),
             session_access: Default::default(),
             access_seq: 0,
+            server_request_seq: 0,
             durable_acks: Default::default(),
             acks: BTreeMap::new(),
             active: BTreeMap::new(),
@@ -323,7 +326,13 @@ impl Engine {
     }
     async fn flush(&mut self, output: &Output) -> Result<()> {
         if !self.outbox.is_empty() {
-            output.send(std::mem::take(&mut self.outbox)).await?;
+            // 与命令响应同序：反向请求先于帧/通知写出（docs/specs/rust-u2-agent-v4.md §2「出站顺序」）。
+            output
+                .send(super::engine_requests::outbound_batch(
+                    None,
+                    std::mem::take(&mut self.outbox),
+                ))
+                .await?;
         }
         Ok(())
     }

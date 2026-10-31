@@ -23,6 +23,8 @@ tokio.workspace = true
 tokio-tungstenite.workspace = true
 icu_collator.workspace = true
 icu_locale_core.workspace = true
+escode-host-core.workspace = true
+escode-host-proto.workspace = true
 escode-host-services.workspace = true
 escode-host-surface.workspace = true
 escode-host-runtime.workspace = true
@@ -36,7 +38,6 @@ libc.workspace = true
 
 [dev-dependencies]
 rusqlite.workspace = true
-escode-host-proto.workspace = true
 escode-cli-rust.workspace = true
 escode-cli-host.workspace = true
 tempfile.workspace = true

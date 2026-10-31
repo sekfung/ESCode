@@ -29,3 +29,18 @@ pub fn apply_generated_schema(
     }
     Ok(())
 }
+
+/// 只建 tasks 账本与 tasks 物理 schema（模拟 `prepareTasksIndexStorage` 的结果），
+/// 供 Rust Host 的 project-storage bootstrap 测试。
+pub fn apply_tasks_schema(connection: &Connection) -> rusqlite::Result<()> {
+    for statement in schema::TASKS_DDL {
+        connection.execute_batch(statement)?;
+    }
+    for (id, checksum) in schema::EXPECTED_MIGRATIONS {
+        connection.execute(
+            "INSERT INTO tasks_schema_migration (id, checksum, time_applied) VALUES (?1, ?2, 0)",
+            rusqlite::params![id, checksum],
+        )?;
+    }
+    Ok(())
+}

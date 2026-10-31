@@ -47,6 +47,8 @@ impl Engine {
         if s.running() && s.queue.len() >= MAX_QUEUE {
             return Ok(c.ack("rejected", s.revision, Some("guard.queueFull")));
         }
+        // Node 在会话物化期解析 shell：偏好请求须与本次响应用同一批次、且先于 ack 出站。
+        self.prefetch_shell_preference(&id);
         let selected = self.select(&c.payload, Some(self.session_selection(&id)?))?;
         let assets = self
             .prepare_attachments(&id, &mut c.payload, &selected)
@@ -90,7 +92,8 @@ impl Engine {
             self.publish(&id, self.new_input_rows(&id))?;
             Some(turn)
         };
-        ack["revisionAtDecision"] = self.sessions[&id].revision.into();
+        // Node 的 revisionAtDecision 是 decide 时（命令执行前）的 revision；受理本身会推进 revision，
+        // 这里不能再覆盖，否则 inputAccepted ack 比 Node 大 1（session-baseline 出站顺序对拍发现）。
         self.persist(&id, Some((c.key(), ack.clone()))).await?;
         self.acks.insert(c.key(), ack.clone());
         if start_now {

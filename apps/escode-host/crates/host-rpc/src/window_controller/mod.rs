@@ -14,6 +14,8 @@ mod list;
 mod mutate;
 mod overlays;
 mod projection;
+mod remote;
+mod remote_channel;
 mod rows;
 mod scope;
 
@@ -27,37 +29,13 @@ use crate::wire::Wire;
 
 pub(crate) use controller::WindowController;
 pub(crate) use controller::normalize_scope;
+pub(crate) use remote_channel::remote_channel;
 
-/// TS `isRemoteWorkspaceIdentity`（`packages/shared/src/remote-workspace-identity.ts`）：
-/// `remote:<kind>:<authority…>:<posixPath>`，kind ∈ ssh/wsl/docker/server；远端路径必须以 `/` 开头。
-/// 远程 source 本片不支持：这类 scope 不回落本地（与 TS 的 `resolveSource` 一致）。
+/// TS `isRemoteWorkspaceIdentity`（`packages/shared/src/remote-workspace-identity.ts`）。
+/// 本地 controller 的查询不把远程 identity 回落为本地 source（与 TS `resolveSource` 一致）；
+/// 远端 scope 由连接级 controller 服务（§10.13）。
 pub(crate) fn is_remote_workspace_identity(identity: &str) -> bool {
-    let Some(rest) = identity.strip_prefix("remote:") else {
-        return false;
-    };
-    let Some((kind, rest)) = rest.split_once(':') else {
-        return false;
-    };
-    let authority_segments = match kind {
-        "ssh" => 3,
-        "wsl" | "docker" | "server" => 1,
-        _ => return false,
-    };
-    let mut cursor = rest;
-    for _ in 0..authority_segments {
-        match cursor.split_once(':') {
-            Some((segment, remainder)) if !segment.is_empty() => cursor = remainder,
-            _ => return false,
-        }
-    }
-    // WSL 增加了可选 user 段：远端路径必须以 "/" 开头，因此可无歧义地区分。
-    if kind == "wsl" && !cursor.starts_with('/') {
-        match cursor.split_once(':') {
-            Some((segment, remainder)) if !segment.is_empty() => cursor = remainder,
-            _ => return false,
-        }
-    }
-    cursor.starts_with('/')
+    crate::remote_scope::remote_workspace_path(identity).is_some()
 }
 
 /// 组合根：窗口控制器 → 连接级 channel 工厂。

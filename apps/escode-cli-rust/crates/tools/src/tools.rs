@@ -403,5 +403,5 @@ impl ToolPort for WorkspaceTools {
         self.mcp.shutdown().await
     }
 }
-pub use super::tool_args::truncate_utf8;
 pub(super) use super::tool_args::{boolean, check_cancel, keys, resolve, string, uint};
+pub use super::tool_args::{truncate_utf8, truncate_utf8_tail};

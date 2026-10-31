@@ -94,12 +94,19 @@ export function connectViaWebSocket(
       settled = true;
       options?.onOpenSocket?.(ws);
       const socket = wrapBrowserWebSocket(ws);
-      resolve(connectViaProtocol(new SocketProtocol(socket)));
+      void connectViaProtocol(new SocketProtocol(socket)).then(resolve, reject);
     });
   });
 }
 
-export function connectViaProtocol(protocol: IMessagePassingProtocol): IServiceAccessor {
+/**
+ * 连接建立后先等 Initialize：channel 能力广播随 Initialize 到达，可选服务（如
+ * `source-server-management`）只能在能力明确后绑定。
+ */
+export async function connectViaProtocol(
+  protocol: IMessagePassingProtocol,
+): Promise<IServiceAccessor> {
   const client = new ChannelClient(protocol);
+  await client.waitUntilInitialized();
   return new RemoteServiceAccess(client);
 }

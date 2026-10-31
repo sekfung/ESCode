@@ -46,7 +46,7 @@ describe("rust host cua-permission channel", () => {
 
       const [rendererPort, mainPort] = createPortPair();
       const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
-      const services = connectViaMessagePort(asMessagePort(rendererPort));
+      const services = await connectViaMessagePort(asMessagePort(rendererPort));
 
       await expect(
         services.cuaPermissionService.getStatus("/w", "id", {

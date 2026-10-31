@@ -4,7 +4,7 @@
 
 以当前 TS `core/src/runtime/methods/turn-guide-drain.ts`、`turn-stop.ts`、`steering.ts` 与 bootstrap `commands/handlers/session-flow.ts` 为准。Session actor 是 accepted input、队列、模型选择、canonical history 和 run generation 的唯一所有者。沿用现有 stdio V4，不增加协议版本；权限仍只支持 yolo。
 
-- `setFollowupMode(queue|guide)` 改变会话默认 busy 路由，持久化并投影 `config.followupMode`、`inputRouting` 与 availability；显式单条 delivery 优先。空闲输入仍新建一轮。
+- `setFollowupMode(queue|guide)` 改变会话默认 busy 路由，持久化并投影 `config.followupMode`、`inputRouting` 与 availability（逐条规则见 [rust-availability-projection.md](rust-availability-projection.md)）；显式单条 delivery 优先。空闲输入仍新建一轮。
 - busy guide 不取消当前请求或工具。仅在完整 assistant 提交以及全部 tool results 提交后，每个模型 step 最多消费一条 guide，以真实 user 消息加入同一个 product turn。普通 queue 不阻塞 guide 子序列；guide 之间保持 admission FIFO。text-only 正常完成同样是可继续边界。
 - guide 的冻结 model selection 在消费边界应用，下一步使用新选择；未消费前不得改写当前请求。正文使用 TS user_steer 提示，App user row 保持原文并带 `guided: true`、原始 sourceCommandId/clientId。
 - guide 附件回退普通 queue，标记 `guide.attachmentsUnsupported`；中断、失败或无法继续时，未消费 guide 原地回退，保留顺序与来源，分别标记 `guide.turnInterrupted` / `guide.noToolBoundary`。正常 queue 不在 loop 内消费。guide admission ACK 保持 TS 的 queued admission (`delivery: queue`)。

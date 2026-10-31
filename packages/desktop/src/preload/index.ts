@@ -4,6 +4,7 @@ import {
   databaseStartupStateSchema,
   databaseStartupPortPayloadSchema,
 } from "@escode/shared/database-startup";
+import { scopedServicePortPayloadSchema } from "@escode/shared";
 /* eslint-disable max-lines -- preload bridge 集中暴露桌面平台 IPC，拆散会让 contextBridge 权限边界更难审计。 */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
@@ -768,31 +769,17 @@ ipcRenderer.on(InternalChannels.ServicePort, (event, payload: unknown) => {
   else port?.close();
 });
 
-ipcRenderer.on(
-  InternalChannels.ScopedServicePort,
-  (
-    event,
-    payload: {
-      attachmentId?: string;
-      sessionId?: string;
-      target?: RemoteTarget;
-    },
-  ) => {
-    const [port] = event.ports;
-    if (port) {
-      window.postMessage(
-        {
-          type: InternalChannels.ScopedServicePort,
-          attachmentId: payload.attachmentId,
-          sessionId: payload.sessionId,
-          target: payload.target,
-        },
-        "*",
-        [port],
-      );
-    }
-  },
-);
+ipcRenderer.on(InternalChannels.ScopedServicePort, (event, payload: unknown) => {
+  const [port] = event.ports;
+  // 只按 shared 的严格合同转发完整 remote scope；缺字段时关闭端口，避免 renderer 拿到
+  // 没有 sourceServerId/identity 的 attachment 后退化成「未识别设备」。
+  const parsed = scopedServicePortPayloadSchema.safeParse(payload);
+  if (port && parsed.success) {
+    window.postMessage({ type: InternalChannels.ScopedServicePort, ...parsed.data }, "*", [port]);
+  } else {
+    port?.close();
+  }
+});
 
 window.addEventListener("message", (event) => {
   if (event.source !== window || typeof event.data !== "object" || event.data === null) {

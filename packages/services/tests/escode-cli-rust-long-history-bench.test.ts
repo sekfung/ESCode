@@ -4,20 +4,27 @@ import { copyFile, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture } from "./escode-cli-rust-fixture.js";
+import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import type { SessionId, MessageId, ProjectId, WorkspaceId, PartId } from "@escode/contracts";
 
 // 性能验收「长历史会话」：同一份由真实 TS store 写出的长会话，分别由 Node 与 Rust 打开。
 // 默认跳过；ESCODE_BENCH_PROVIDER_ID 启用（在长历史上再发一轮真实请求），ESCODE_BENCH_HISTORY_TURNS 控制轮数。
+// ESCODE_BENCH_FIXTURE=1 用仓库内 mock provider 跑同一配额，供离线验证大活跃历史/分页长尾；
+// 真实供应商仍须设置 ESCODE_BENCH_PROVIDER_ID。
 const providerId = process.env.ESCODE_BENCH_PROVIDER_ID;
+const fixtureMode = process.env.ESCODE_BENCH_FIXTURE === "1";
 const turns = Number(process.env.ESCODE_BENCH_HISTORY_TURNS ?? 300);
 const rounds = Number(process.env.ESCODE_BENCH_ROUNDS ?? 5);
+// 数万轮的大库会超过 mock provider 的上下文窗口；该模式只测冷打开与分页，不发下一轮。
+const skipTurn = process.env.ESCODE_BENCH_SKIP_TURN === "1";
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 const rustBinary = process.env.ESCODE_BENCH_RUST_BINARY;
 const session = "long-history" as SessionId;
 let benchModelId = "";
+let benchProviderId = "";
 const workspace = "long-history-workspace";
 
-async function seed(path: string, modelId: string) {
+async function seed(path: string, providerId: string, modelId: string) {
   // benchmark/rehearsal 例外：只有显式启用 benchmark 时才加载 TS store 造历史。
   const { createSqliteSessionStore } =
     await import("../../../apps/escode-cli/packages/adapters/src/storage/session-store.js");
@@ -38,7 +45,7 @@ async function seed(path: string, modelId: string) {
     sessionID: session,
     type: "runtime/model_selection",
     time: { created: 1, updated: 1 },
-    data: { providerId: "personal:bench", modelId },
+    data: { providerId, modelId },
   });
   let clock = 1;
   for (let i = 0; i < turns; i++) {
@@ -50,7 +57,7 @@ async function seed(path: string, modelId: string) {
       role: "user",
       time: { created: (clock += 1) },
       agent: "main",
-      modelSelection: { providerId: "personal:bench", modelId },
+      modelSelection: { providerId, modelId },
     });
     await store.savePart({
       id: `${user}-t` as PartId,
@@ -164,7 +171,7 @@ async function providerFiles(root: string) {
 async function measure(kind: "node" | "rust", source: string) {
   const root = await mkdtemp(join(tmpdir(), `escode-long-${kind}-`));
   await copyFile(source, join(root, "ts.sqlite"));
-  const host = await providerFiles(root);
+  const host = fixtureMode ? "127.0.0.1" : await providerFiles(root);
   const noProxy = `127.0.0.1,localhost,${host}`;
   const env = { NO_PROXY: noProxy, no_proxy: noProxy, ESCODE_NO_PROXY: noProxy };
   const f =
@@ -174,15 +181,18 @@ async function measure(kind: "node" | "rust", source: string) {
           command: process.execPath,
           args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
+          mode: "yolo",
           env,
         })
       : await fixture({
           root,
           registry: true,
           legacy: true,
+          mode: "yolo",
           env,
           ...(rustBinary ? { binary: rustBinary } : {}),
         });
+  if (fixtureMode) await configureRegistry(f);
   const open = async () => {
     const t0 = performance.now();
     const h = f.start(workspace);
@@ -208,6 +218,18 @@ async function measure(kind: "node" | "rust", source: string) {
     if (process.env.ESCODE_BENCH_DEBUG)
       console.log("STEP", kind, "opened2", Math.round(performance.now()));
     const h = second.h;
+    if (skipTurn) {
+      await h.close();
+      return {
+        firstOpenMs: first.openMs,
+        openMs: second.openMs,
+        pageMs: second.pageMs,
+        pageRows: second.pageRows,
+        firstOutputMs: 0,
+        completeMs: 0,
+        turnMeasured: false,
+      };
+    }
     const before = Math.max(
       0,
       ...((await h.rows(session)).rows as any[]).map((r) => Number(r.rowId) || 0),
@@ -220,7 +242,7 @@ async function measure(kind: "node" | "rust", source: string) {
         text: "Reply with exactly one word: ok",
         mode: "yolo",
         modelSelection: {
-          providerId: "personal:bench",
+          providerId: benchProviderId,
           modelId: benchModelId,
           options: { reasoningLevel: "high" },
         },
@@ -260,6 +282,7 @@ async function measure(kind: "node" | "rust", source: string) {
       pageRows: second.pageRows,
       firstOutputMs,
       completeMs,
+      turnMeasured: true,
     };
   } finally {
     await f.close();
@@ -268,16 +291,28 @@ async function measure(kind: "node" | "rust", source: string) {
 
 test(
   "long history: Node vs Rust open, page and next-turn latency",
-  { skip: !providerId && "set ESCODE_BENCH_PROVIDER_ID to run", timeout: 60 * 60_000 },
+  {
+    skip:
+      !providerId &&
+      !fixtureMode &&
+      "set ESCODE_BENCH_PROVIDER_ID or ESCODE_BENCH_FIXTURE=1 to run",
+    timeout: 60 * 60_000,
+  },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), "escode-long-seed-"));
     const source = join(dir, "ts.sqlite");
-    const config = JSON.parse(
-      await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
-    );
-    const provider = config.provider[providerId!];
-    benchModelId = process.env.ESCODE_BENCH_MODEL ?? Object.keys(provider.models ?? {})[0]!;
-    await seed(source, benchModelId);
+    if (fixtureMode) {
+      benchProviderId = "personal:fixture";
+      benchModelId = "model-a";
+    } else {
+      const config = JSON.parse(
+        await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
+      );
+      const provider = config.provider[providerId!];
+      benchProviderId = "personal:bench";
+      benchModelId = process.env.ESCODE_BENCH_MODEL ?? Object.keys(provider.models ?? {})[0]!;
+    }
+    await seed(source, benchProviderId, benchModelId);
     const samples: Record<"node" | "rust", Awaited<ReturnType<typeof measure>>[]> = {
       node: [],
       rust: [],
@@ -303,6 +338,7 @@ test(
             n: s.length,
             turns,
             pageRows: s[0]!.pageRows,
+            turnMeasured: s[0]!.turnMeasured,
             firstOpenMs: stat("firstOpenMs"),
             openMs: stat("openMs"),
             pageMs: stat("pageMs"),

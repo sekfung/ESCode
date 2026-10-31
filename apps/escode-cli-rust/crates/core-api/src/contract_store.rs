@@ -85,6 +85,14 @@ pub trait SessionStore: Send + Sync {
     ) -> Result<escode_cli_domain::session::StoredAttachment> {
         anyhow::bail!("Attachment snapshot unavailable")
     }
+    /// 本地路径附件：文本预览、媒体快照或路径引用，规则见 docs/specs/rust-prompt-attachments.md。
+    async fn prepare_local_attachment(
+        &self,
+        _path: &str,
+        _mime: &str,
+    ) -> Result<escode_cli_domain::session::StoredAttachment> {
+        anyhow::bail!("Local attachment preparation unavailable")
+    }
     async fn read_attachment(
         &self,
         _asset: &escode_cli_domain::session::StoredAttachment,

@@ -1053,4 +1053,30 @@ describe("desktopRuntimeEnv runtime identity", () => {
     expect(runtimeSessionDataPath).toBeUndefined();
     expect(appMock.getPath).not.toHaveBeenCalledWith("appData");
   });
+
+  it("Rust Host 安装资源从 mock/内置 release 目录与 CDN 基址派生", async () => {
+    const { resolveRustHostRemoteAssets } = await import("../src/main/desktopRuntimeEnv.js");
+    expect(
+      resolveRustHostRemoteAssets(
+        {
+          mockCdnDir: "/repo/mock-cdn",
+          remoteCdnBaseUrls: [" https://cdn.example/remote ", ""],
+        },
+        "3.16.2",
+      ),
+    ).toEqual({
+      releaseDir: join("/repo/mock-cdn", "releases", "3.16.2"),
+      cdnBaseUrls: ["https://cdn.example/remote"],
+      appVersion: "3.16.2",
+    });
+    expect(
+      resolveRustHostRemoteAssets(
+        { remoteCdnBaseUrl: "https://cdn.example/remote" },
+        "3.16.2",
+      ),
+    ).toEqual({
+      cdnBaseUrls: ["https://cdn.example/remote"],
+      appVersion: "3.16.2",
+    });
+  });
 });

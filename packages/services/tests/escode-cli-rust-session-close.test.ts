@@ -60,6 +60,17 @@ test("closing drafts clears both delivery subscriptions and is idempotent withou
   }
 });
 
+// TS 冷恢复由 transcript 重建 turnHeader，不含轮末解码统计（conversation-generation-speed.md §5.2）；
+// Rust 落库投影加载时同样剥掉，所以“重启前后 row 一致”比较前先归一这两列。
+const withoutDecodeStats = (rows: any[]) =>
+  rows.map((row) => {
+    if (row.kind !== "turnHeader") return row;
+    const copy = { ...row };
+    delete copy.decodeMs;
+    delete copy.decodeTokens;
+    return copy;
+  });
+
 test("closing persisted history removes runtime only; cold subscribe restores a fresh epoch without model calls", async () => {
   const f = await fixture({ mode: "yolo" });
   try {
@@ -99,7 +110,7 @@ test("closing persisted history removes runtime only; cold subscribe restores a 
     );
     const reopened = await h.subscribe(`conversation/${sid}`);
     assert.notEqual(reopened.ack.logEpoch, old.ack.logEpoch);
-    assert.deepEqual((await h.rows(sid)).rows, before.rows);
+    assert.deepEqual((await h.rows(sid)).rows, withoutDecodeStats(before.rows));
     assert.equal(f.requests.length, calls);
     assert.equal((await h.command(close)).status, "duplicate");
     const next = h.messages.length;
@@ -109,7 +120,7 @@ test("closing persisted history removes runtime only; cold subscribe restores a 
     await h.close();
     const restarted = f.start();
     await restarted.subscribe(`conversation/${sid}`);
-    assert.deepEqual((await restarted.rows(sid)).rows, saved.rows);
+    assert.deepEqual((await restarted.rows(sid)).rows, withoutDecodeStats(saved.rows));
     assert.equal((await restarted.command(close)).status, "duplicate");
     assert.deepEqual(h.schemaErrors, []);
   } finally {

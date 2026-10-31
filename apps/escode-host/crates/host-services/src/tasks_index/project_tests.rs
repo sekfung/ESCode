@@ -26,15 +26,20 @@ fn save_read_and_soft_delete_project() {
     assert_eq!(saved["roots"].as_array().unwrap().len(), 2);
     assert_eq!(saved["roots"][0]["isPrimary"], true);
 
-    let projects = index.project_read_projects(false).unwrap();
+    let projects = index.project_read_projects(false, "local").unwrap();
     assert_eq!(projects.len(), 1);
     assert_eq!(projects[0]["id"], saved["id"]);
 
     index
         .project_delete(&json!({"id": saved["id"]}))
         .expect("delete");
-    assert!(index.project_read_projects(false).unwrap().is_empty());
-    assert_eq!(index.project_read_projects(true).unwrap().len(), 1);
+    assert!(
+        index
+            .project_read_projects(false, "local")
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(index.project_read_projects(true, "local").unwrap().len(), 1);
 }
 
 #[test]
@@ -49,7 +54,9 @@ fn move_task_and_resolve_directories() {
             "projectId": saved["id"]
         }))
         .expect("move");
-    let tree = index.project_read_tree(false, false, true).unwrap();
+    let tree = index
+        .project_read_tree(false, false, true, "local")
+        .unwrap();
     assert_eq!(tree["tasks"][0]["projectId"], saved["id"]);
     let directories = index
         .project_resolve_directories(&json!({"workspacePath":"/ws","taskId":"t1"}))
@@ -71,7 +78,7 @@ fn reorder_projects_rejects_duplicates_and_applies_order() {
     index
         .project_reorder(&json!({"ids":[b["id"], a["id"]]}))
         .unwrap();
-    let projects = index.project_read_projects(false).unwrap();
+    let projects = index.project_read_projects(false, "local").unwrap();
     assert_eq!(projects[0]["id"], b["id"]);
     assert_eq!(projects[1]["id"], a["id"]);
     assert!(
@@ -95,9 +102,61 @@ fn reserve_created_task_records_ownership_before_first_send() {
         }))
         .expect("reserve");
     assert_eq!(directories["projectId"], saved["id"]);
-    let tree = index.project_read_tree(false, false, true).unwrap();
+    let tree = index
+        .project_read_tree(false, false, true, "local")
+        .unwrap();
     assert!(
         tree["tasks"].as_array().unwrap().is_empty(),
         "无 CLI 事实的预留行不进列表"
+    );
+}
+
+#[test]
+fn remote_projects_are_partitioned_by_host_and_single_root() {
+    let (_dir, index) = index();
+    let remote = index
+        .project_save(&json!({
+            "name":"Remote",
+            "hostId":"remote:server:s1",
+            "roots":["/srv/ws"],
+            "primaryRoot":"/srv/ws"
+        }))
+        .expect("save remote");
+    assert_eq!(remote["hostId"], "remote:server:s1");
+
+    // 远端 owner 的项目不能出现在本地列表/树里。
+    assert!(
+        index
+            .project_read_projects(false, "local")
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        index
+            .project_read_projects(false, "remote:server:s1")
+            .unwrap()
+            .len(),
+        1
+    );
+    let remote_tree = index
+        .project_read_tree(true, true, true, "remote:server:s1")
+        .unwrap();
+    assert_eq!(remote_tree["projects"].as_array().unwrap().len(), 1);
+    assert!(remote_tree["tasks"].as_array().unwrap().is_empty());
+
+    // 远端单 root 约束与 host 不可变都在写事务内拒绝。
+    assert!(
+        index
+            .project_save(&json!({
+                "name":"Bad",
+                "hostId":"remote:server:s1",
+                "roots":["/a","/b"]
+            }))
+            .is_err()
+    );
+    assert!(
+        index
+            .project_save(&json!({"id": remote["id"], "hostId":"local"}))
+            .is_err()
     );
 }

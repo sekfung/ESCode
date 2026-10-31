@@ -8,8 +8,9 @@ impl TasksIndex {
     pub fn project_read_projects(
         &self,
         include_deleted: bool,
+        host_id: &str,
     ) -> Result<Vec<Value>, TasksIndexError> {
-        project_read::read_projects(&self.connection, include_deleted)
+        project_read::read_projects(&self.connection, include_deleted, host_id)
             .map_err(|error| TasksIndexError::Rejected(format!("{error:#}")))
     }
 
@@ -19,12 +20,14 @@ impl TasksIndex {
         include_deleted: bool,
         include_deleted_tasks: bool,
         include_tasks: bool,
+        host_id: &str,
     ) -> Result<Value, TasksIndexError> {
         project_read::read_tree(
             &self.connection,
             include_deleted,
             include_deleted_tasks,
             include_tasks,
+            host_id,
         )
         .map_err(|error| TasksIndexError::Rejected(format!("{error:#}")))
     }

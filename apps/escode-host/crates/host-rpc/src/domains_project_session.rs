@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
+use crate::domains_project_remote::DirectoryProbe;
 use crate::domains_task_support::ReadContext;
 use crate::session::ChannelResult;
 use crate::wire::Wire;
@@ -59,18 +60,9 @@ pub(crate) fn is_absolute(path: &str) -> bool {
     Path::new(path).is_absolute()
 }
 
-/// 上游 `readPrimaryRootStatus`：目录存在且是目录 = available；ENOENT/ENOTDIR = missing；其余 = unavailable。
-async fn primary_root_status(path: &str) -> &'static str {
-    match tokio::fs::metadata(path).await {
-        Ok(metadata) if metadata.is_dir() => "available",
-        Ok(_) => "missing",
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => "missing",
-        Err(_) => "unavailable",
-    }
-}
-
 /// 上游 `projectPrimaryRootStatuses`：每次读取重新派生，不把文件系统事实固化进 SQLite。
-pub(crate) async fn decorate_projects(projects: &mut [Value]) {
+/// 远端 owner 的 roots 必须在远端主机上检查，不能按控制端本地路径猜测。
+pub(crate) async fn decorate_projects(projects: &mut [Value], probe: &DirectoryProbe<'_>) {
     let mut checks: HashMap<String, &'static str> = HashMap::new();
     for project in projects {
         if project["deleted"] == true {
@@ -84,7 +76,7 @@ pub(crate) async fn decorate_projects(projects: &mut [Value]) {
         let status = match checks.get(&primary) {
             Some(status) => *status,
             None => {
-                let status = primary_root_status(&primary).await;
+                let status = probe.status(&primary).await;
                 checks.insert(primary, status);
                 status
             }
@@ -95,11 +87,6 @@ pub(crate) async fn decorate_projects(projects: &mut [Value]) {
 
 /// 上游 `readDirectory`：缺省 home；绝对路径 + normalize 后委托文件服务。
 pub(crate) async fn read_directory(home: &Path, params: &Value) -> ChannelResult {
-    if let Some(host_id) = params["hostId"].as_str().filter(|value| !value.is_empty())
-        && host_id != "local"
-    {
-        return Err(rejected("project.host-offline"));
-    }
     let requested = match params.get("path") {
         None | Some(Value::Null) => home.to_string_lossy().into_owned(),
         Some(Value::String(path)) if !path.is_empty() => path.clone(),
@@ -153,6 +140,7 @@ pub(crate) async fn prepare_session(
     workspace_dir: &Path,
     params: &Value,
     lock: &Mutex<()>,
+    probe: &DirectoryProbe<'_>,
 ) -> ChannelResult {
     let draft_id = match params.get("draftId") {
         None | Some(Value::Null) => None,
@@ -169,14 +157,15 @@ pub(crate) async fn prepare_session(
     if (draft_id.is_some() && project_id.is_some()) || (reuse_draft && draft_id.is_none()) {
         return Err(rejected("project.invalid-draft-target"));
     }
-    if let Some(host_id) = params["hostId"].as_str().filter(|value| !value.is_empty())
-        && host_id != "local"
-    {
-        return Err(rejected("project.host-offline"));
-    }
+    let host_id = probe.host_id().to_owned();
+    let remote = host_id != "local";
 
     let _guard = lock.lock().await;
     let Some(project_id) = project_id else {
+        // 远端 owner 不允许绕过项目直接在远端建目录（上游 `project.remote-project-required`）。
+        if remote {
+            return Err(rejected("project.remote-project-required"));
+        }
         // 草稿 ID 由客户端先落盘：重复点击、回包丢失与重启重试都落到同一目录。
         let name = match &draft_id {
             Some(draft) => format!("draft-{draft}"),
@@ -208,9 +197,10 @@ pub(crate) async fn prepare_session(
     let tree = read
         .run({
             let project_id = project_id.clone();
+            let host_id = host_id.clone();
             move |index| {
                 let tree = index
-                    .project_read_tree(false, false, false)
+                    .project_read_tree(false, false, false, &host_id)
                     .map_err(|error| error.to_string())?;
                 Ok(tree
                     .get("projects")
@@ -227,7 +217,15 @@ pub(crate) async fn prepare_session(
     let Some(mut project) = tree else {
         return Err(rejected("project.not-found"));
     };
-    if project["roots"].as_array().is_none_or(Vec::is_empty) {
+    // 远端 owner 只允许单一固定 root；空项目或多 root 都不能作为远端创建入口。
+    if remote
+        && project["roots"]
+            .as_array()
+            .is_none_or(|roots| roots.len() != 1)
+    {
+        return Err(rejected("project.remote-single-root-required"));
+    }
+    if !remote && project["roots"].as_array().is_none_or(Vec::is_empty) {
         let path = workspace_dir.join(&project_id);
         if let Err(error) = tokio::fs::create_dir_all(&path).await {
             return Err((
@@ -252,12 +250,19 @@ pub(crate) async fn prepare_session(
         .as_array()
         .and_then(|roots| roots.iter().find(|root| root["isPrimary"] == true))
         .and_then(|root| root["rootPath"].as_str())
-        .map(str::to_owned);
+        .map(str::to_owned)
+        .or_else(|| {
+            // 远端单 root 可能没有 isPrimary 标记的旧数据；唯一 root 即主 root。
+            project["roots"]
+                .as_array()
+                .filter(|roots| roots.len() == 1)
+                .and_then(|roots| roots[0]["rootPath"].as_str().map(str::to_owned))
+        });
     let Some(workspace_path) = workspace_path else {
         return Err(rejected("project.primary-root-missing"));
     };
     // 项目树与点击之间主目录仍可能被移走；创建入口必须复检，不能改选附加目录。
-    match primary_root_status(&workspace_path).await {
+    match probe.status(&workspace_path).await {
         "available" => {}
         "missing" => return Err(rejected("project.primaryRootMissing")),
         _ => return Err(rejected("project.primaryRootUnavailable")),
@@ -266,9 +271,10 @@ pub(crate) async fn prepare_session(
     let alive = read
         .run({
             let project_id = project_id.clone();
+            let host_id = host_id.clone();
             move |index| {
                 index
-                    .project_read_tree(false, false, false)
+                    .project_read_tree(false, false, false, &host_id)
                     .map(|tree| {
                         tree["projects"].as_array().is_some_and(|projects| {
                             projects
@@ -287,20 +293,23 @@ pub(crate) async fn prepare_session(
         .into_iter()
         .filter(|root| root != &workspace_path)
         .collect::<Vec<_>>();
-    Ok(Wire::Object(json!({
+    let workspace_identity = probe.workspace_identity(&workspace_path);
+    let mut result = json!({
         "workspacePath": workspace_path,
         "additionalDirectories": additional,
         "projectId": project_id,
-    })))
+    });
+    if let Some(identity) = workspace_identity {
+        result["workspaceIdentity"] = json!(identity);
+    }
+    Ok(Wire::Object(result))
 }
 
-/// `saveProject` 的目录校验与归一化；返回归一化后的 roots / primaryRoot。
-pub(crate) async fn validate_save_project(input: &Value) -> Result<Value, (String, String)> {
-    if let Some(host_id) = input["hostId"].as_str().filter(|value| !value.is_empty())
-        && host_id != "local"
-    {
-        return Err(rejected("project.host-offline"));
-    }
+/// `saveProject` 的目录校验与归一化；目录存在性由 owner 的 `DirectoryProbe` 提供。
+pub(crate) async fn validate_save_project(
+    input: &Value,
+    probe: &DirectoryProbe<'_>,
+) -> Result<Value, (String, String)> {
     if input["id"].as_str().is_some_and(|value| !value.is_empty())
         && input["restoreProjectId"]
             .as_str()
@@ -329,10 +338,7 @@ pub(crate) async fn validate_save_project(input: &Value) -> Result<Value, (Strin
                 return Err(rejected("project.absolute-path-required"));
             }
             let root = normalize_path(root);
-            if !tokio::fs::metadata(&root)
-                .await
-                .is_ok_and(|metadata| metadata.is_dir())
-            {
+            if !probe.is_directory(&root).await {
                 return Err(rejected("project.directory-required"));
             }
             if !unique.contains(&root) {
@@ -340,6 +346,10 @@ pub(crate) async fn validate_save_project(input: &Value) -> Result<Value, (Strin
             }
         }
         normalized["roots"] = json!(unique);
+        // 远端 owner 只允许单一固定 root；在写库前给出显式错误。
+        if probe.host_id() != "local" && unique.len() != 1 {
+            return Err(rejected("project.remote-single-root-required"));
+        }
     }
     if let Some(primary) = input["primaryRoot"]
         .as_str()
@@ -354,18 +364,13 @@ pub(crate) async fn validate_save_project(input: &Value) -> Result<Value, (Strin
 }
 
 /// `moveTask` 的目录校验：确认增加缺失 root 时也校验目录，不能绕过存在性约束。
-pub(crate) async fn validate_move_task(input: &Value) -> Result<(), (String, String)> {
-    if let Some(host_id) = input["hostId"].as_str().filter(|value| !value.is_empty())
-        && host_id != "local"
-    {
-        return Err(rejected("project.host-offline"));
-    }
+pub(crate) async fn validate_move_task(
+    input: &Value,
+    probe: &DirectoryProbe<'_>,
+) -> Result<(), (String, String)> {
     if input["addMissingRoot"].as_bool() == Some(true) {
         let path = input["task"]["workspacePath"].as_str().unwrap_or_default();
-        if !tokio::fs::metadata(path)
-            .await
-            .is_ok_and(|metadata| metadata.is_dir())
-        {
+        if !probe.is_directory(path).await {
             return Err(rejected("project.directory-required"));
         }
     }

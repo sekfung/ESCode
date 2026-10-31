@@ -134,7 +134,7 @@ impl Engine {
                 access,
                 reply,
             } if !self.auxiliary[&id].cancel.is_cancelled() && !reply.is_closed() => {
-                let request_id = format!("rust-auth-{}", self.clock.id());
+                let request_id = self.next_server_request_id();
                 let workspace = json!({"workspaceKey":self.workspace,"workspacePath":self.workspace_path,"workspaceIdentity":self.workspace});
                 let params = json!({"requestId":request_id,"sessionId":id,"workspace":workspace,"providerId":provider,"modelSelection":selection,"accountAccess":access,"reason":"model-request"});
                 self.auth

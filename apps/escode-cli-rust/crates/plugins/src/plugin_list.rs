@@ -125,6 +125,8 @@ pub async fn info(
             info["configuredOptions"] = Value::Object(visible);
         }
     }
+    // TS `toPluginInfo` 无条件带 hookDetails：停用插件也返回发现阶段算好的明细（emptyComponents 保留它）。
+    info["hookDetails"] = Value::Array(plugin.hook_details.clone());
     Ok(info)
 }
 

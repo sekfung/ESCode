@@ -3,7 +3,7 @@ use super::tool_input_checks::{checked_input, prepare, resolve_registered};
 use crate::contract::{Event, EventSink, ModelPort, ToolPort};
 use anyhow::{Context, Result, bail};
 use escode_cli_domain::tool_search_catalog::{
-    DEFERRED_TOOL_CALL_NAME, TOOL_SEARCH_NAME, resolve_deferred_call, search_tools,
+    DEFERRED_TOOL_CALL_NAME, TOOL_SEARCH_NAME, resolve_deferred_call, schema_block, search_tools,
     tool_reference_blocks,
 };
 use serde_json::Value;
@@ -115,11 +115,21 @@ pub(super) async fn execute(
                 data.to_string()
             };
             let mut output = crate::contract::ToolOutput::new(content, data);
-            if search.mode == escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Native
-                && !matches.is_empty()
-            {
-                // Native：工具结果以 tool_reference part 回给模型，由 provider 展开 schema。
-                output.media = tool_reference_blocks(&matches);
+            if !matches.is_empty() {
+                match search.mode {
+                    // Native：工具结果以 tool_reference part 回给模型，由 provider 展开 schema。
+                    escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Native => {
+                        output.media = tool_reference_blocks(&matches);
+                    }
+                    // Local：没有 provider 展开，直接把完整定义作为文本块放进结果（上游
+                    // 「在真实结果位置展开连续引用」的模型可见形状）。
+                    escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Local => {
+                        if let Some(block) = schema_block(&matches, context_registered) {
+                            output.media = vec![serde_json::json!({"type": "text", "text": block})];
+                        }
+                    }
+                    escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Off => {}
+                }
             }
             return Ok((
                 call["id"].as_str().context("Tool id missing")?.into(),

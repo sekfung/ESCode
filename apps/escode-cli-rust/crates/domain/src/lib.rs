@@ -25,6 +25,7 @@ mod bash_rule_prefix;
 pub mod bash_safe_flag;
 pub mod builtin_prompt_command;
 pub mod claude_import;
+pub mod claude_reimport;
 pub mod context;
 pub mod conversation_input;
 pub mod cron;
@@ -52,6 +53,10 @@ pub mod mcp_oauth;
 mod mcp_oauth_pair;
 pub mod mcp_official_auth;
 pub mod mcp_result;
+#[cfg(test)]
+mod context_tests;
+#[cfg(test)]
+mod mcp_result_tests;
 pub mod memory;
 mod memory_markdown;
 mod memory_policy;
@@ -62,6 +67,7 @@ mod memory_yaml;
 pub mod model;
 pub mod model_catalog;
 pub mod model_execution;
+pub mod model_usage;
 pub mod net_proxy;
 pub mod option_map;
 pub mod permission;
@@ -116,6 +122,9 @@ pub const MAX_TOOL_BYTES: usize = 64 * 1024;
 pub const MAX_QUEUE: usize = 32;
 pub mod wiki;
 
+pub mod tool_search_announcement;
+#[cfg(test)]
+mod tool_search_announcement_tests;
 pub mod tool_search_catalog;
 mod tool_search_definitions;
 mod tool_search_query;

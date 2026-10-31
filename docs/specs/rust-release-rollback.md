@@ -158,15 +158,16 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 
 本文件上文描述的是 **Agent runtime**（Rust CLI / Node CLI）的切换面。Host 进程本身另有独立开关：
 
-| 范围                             | 默认                            | 显式回退                           | 说明                                                                             |
-| -------------------------------- | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
-| 本地 workspace 窗口              | Rust Host（`apps/escode-host`） | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级                       |
-| 远程 workspace（SSH/WSL/Docker） | 窗口内独立 Node Host            | 不提供 Rust Host 远程 scope        | Rust Host 不承载远程 workspace；远程由连接注册表管理，不静默回退到本地 Rust Host |
-| Agent runtime（本地/远程）       | Rust CLI                        | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                                         |
+| 范围                           | 默认                                    | 显式回退                           | 说明                                                                |
+| ------------------------------ | --------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| 本地 workspace 窗口            | Rust Host（`apps/escode-host`）         | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级          |
+| 远程 SSH/WSL/Docker 与 Profile | App 级 Rust Host 的 Source Server scope | 不提供 Node 远程回退               | `ESCODE_RUST_HOST` 不参与远程路径选择；失败显式报错                 |
+| Web 服务端（`kind: "server"`） | 窗口内独立 Node Host                    | 不适用                             | 仅显式 Web 服务端保留 Node/HTTP；连接注册表与本地窗口 Host map 隔离 |
+| Agent runtime（本地/远程）     | Rust CLI                                | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                            |
 
 回退步骤（Host）：
 
-1. 设置 `ESCODE_RUST_HOST=0`（远程 workspace 不受影响，仍走窗口内 Node Host）；
+1. 设置 `ESCODE_RUST_HOST=0`（只切换本地 window Host；远程 SSH/WSL/Docker 仍由 Rust Host 服务）；
 2. 重启 App；
 3. 确认窗口主进程日志出现 `forked host process for (local-`，且没有 `[rust-host] started`。
 
@@ -190,4 +191,4 @@ CLI 确定性 oracle 已清零：`packages/services/tests/escode-cli-rust-*.test
 （`nodeOracle` record/load，`ESCODE_RECORD_CLI_GOLDEN=1` 重录；legacy DB 用 gzip seed）。
 例外为非确定性 benchmark/rehearsal（`long-history-bench`、`real-data-rehearsal`、
 `real-provider-bench`，默认跳过）与仅 Windows 的 `shell-resume-notice`（golden 待 Windows 重录）。
-在清零前不删除 Node Host / TS CLI（远程 workspace 仍需 Node Host）。
+在清零前不删除 Node Host / TS CLI；Web 服务端目标仍保留窗口内 Node Host。

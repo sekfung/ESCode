@@ -70,7 +70,13 @@ impl Engine {
             turn = Some(t);
             ack["result"]["input"] = json!({"delivery":"startNow","inputId":input_id});
         }
-        self.publish(&id, vec![])?;
+        // 修复：Node 的 draft 语义不允许 SessionCreated 产生可见 delta（`seq` 保持 0）。原先无条件
+        // publish 会多发一条 `state.updated`，把首帧快照推到 seq=1；无首个输入时只刷新会话索引。
+        if turn.is_some() {
+            self.publish(&id, vec![])?;
+        } else {
+            self.publish_index_state(&id)?;
+        }
         ack["revisionAtDecision"] = self.sessions[&id].revision.into();
         // draft 仅存内存，第一次输入才持久化；create 的幂等 ACK 与 durable session 一起提交。
         self.sessions.get_mut(&id).unwrap().creation_ack = Some((c.key(), ack.clone()));

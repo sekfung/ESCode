@@ -197,5 +197,14 @@
   "toolResult": "Tool not found: Glob",
   "hasGlob": false,
   "requestCount": 2,
+  "contextWindow": {
+    "usedTokens": 1340,
+    "maxTokens": 200000,
+    "autoCompactThresholdTokens": null
+  },
+  "turnDecode": {
+    "decodeMs": "<MS>",
+    "decodeTokens": 39
+  },
   "schemaErrors": []
 }

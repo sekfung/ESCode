@@ -86,12 +86,12 @@ describe(`${CASE_MARKER}: SSH cold restart auto reconnect`, () => {
     expect(reconnectedB.remoteSessionId).not.toBe(taskB.remoteSessionId);
     expect(reconnectedA.secretPersistedInTab).toBe(false);
     expect(reconnectedB.secretPersistedInTab).toBe(false);
-    // 冷启动后本地 window Host 重建，远端 scope 仍只允许一个 Node Host。
+    // 冷启动后本地 window Host 重建；远端 scope 仍由 App 级 Rust Host 服务，
+    // 不创建 per-window remote Node Host。
     expect(
-      (await readHostProcesses()).filter((host) =>
-        host.name.startsWith("escode-host-remote-"),
-      ).length,
-    ).toBe(1);
+      (await readHostProcesses()).filter((host) => host.name.startsWith("escode-host-remote-"))
+        .length,
+    ).toBe(0);
 
     // 模型选择作用于当前激活 workspace：先激活 A 的原任务。
     await selectV4TaskById(taskA.taskId, 30_000);

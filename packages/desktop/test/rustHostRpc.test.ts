@@ -12,7 +12,7 @@ import {
   startHost,
   wrapNodeWebSocket,
 } from "./rustHostTestSupport.js";
-import { appSettingsSchema } from "@escode/shared";
+import { appSettingsSchema, sourceServerManagementSnapshotSchema } from "@escode/shared";
 
 // Phase 3 golden freeze：readdir 与 tasks-index 的 TS 观察已冻结为仓内资产
 // （packages/desktop/test/fixtures/golden/）。测试不再实例化 createFileService/TaskIndexRepo，
@@ -390,6 +390,113 @@ describe("rust host rpc surface", () => {
         await expect(client.getChannel("workspace").call("query", {})).rejects.toThrow(
           /does not implement channel `workspace` yet .*setting/,
         );
+      } finally {
+        await host.stop();
+      }
+    },
+  );
+});
+
+// docs/specs/source-server-remote-rust-host.md §9：S2 只读面必须能被真实客户端拿到。
+// 这里不起 Electron：spawn 真实 escode-host → rpcListen → 真实 `@escode/client`
+// （`connectViaProtocol` → `RemoteServiceAccess`），验证能力广播、条件绑定、快照与事件订阅。
+describe("rust host source server registry", () => {
+  it.skipIf(!existsSync(hostBinary))(
+    "advertises the read-only source server surface to the real client",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "escode-rust-host-source-"));
+      const home = join(root, "home");
+      const sourceServerId = "11111111-1111-4111-8111-111111111111";
+      const profileId = "22222222-2222-4222-8222-222222222222";
+      await mkdir(join(home, ".escode", "v2"), { recursive: true });
+      await writeFile(
+        join(home, ".escode", "v2", "setting.json"),
+        JSON.stringify({
+          sourceServers: [
+            {
+              sourceServerId,
+              displayName: "Build box",
+              declaredWorkspaces: [],
+              // TS schema 是 `.strict()`：Host 输出侧必须丢掉这个字段。
+              unknownFutureField: true,
+            },
+          ],
+          connectionProfiles: [
+            {
+              profileId,
+              sourceServerId,
+              transport: "ssh",
+              target: { kind: "ssh", host: "build.example", username: "dev" },
+              createdAt: 1_700_000_000_000,
+            },
+          ],
+          sourceServerWorkspaceHistory: [
+            { workspacePath: "/srv/app", profileId, lastOpenedAt: 1_700_000_100_000 },
+          ],
+        }),
+        "utf8",
+      );
+
+      const host = startHost(home);
+      try {
+        const ready = await nextMeaningful(host);
+        expect(ready.kind).toBe("hostReady");
+        host.send({ kind: "rpcListen", bind: "127.0.0.1:0", home });
+        const listening = await nextMeaningful(host);
+        expect(listening.kind).toBe("rpcListening");
+        const services = await connectRpc(String(listening.addr), String(listening.secret));
+
+        // 能力广播 → 条件绑定：Host 广播了 channel，客户端才会构造代理。
+        const management = services.sourceServerManagementService;
+        expect(management).toBeDefined();
+
+        const snapshot = await management!.getSnapshot();
+        // 严格 schema 即契约：未知字段已丢弃、可选字段省略而不是 null。
+        expect(sourceServerManagementSnapshotSchema.parse(snapshot)).toEqual(snapshot);
+        expect(snapshot).toMatchObject({
+          generation: 1,
+          servers: [{ sourceServerId, displayName: "Build box", installState: "installed" }],
+          profiles: [{ profileId, transport: "ssh", lifecycleState: "active" }],
+          workspaceHistory: [{ workspacePath: "/srv/app", profileId }],
+          states: [{ profileId, sourceServerId, state: "absent", updatedAt: 0 }],
+          failedPathCount: 0,
+          abandonedPathCount: 0,
+          // S4-f：未连接的设备只上报 requires-connection，不伪造 0 失败。
+          migrationCounts: [{ sourceServerId, status: "requires-connection" }],
+        });
+        expect(snapshot.servers[0]).not.toHaveProperty("unknownFutureField");
+
+        // 事件订阅可用：S2 没有发布者，只验证订阅不报错且可释放。
+        const states = management!.onDidChangeState(() => {});
+        const directory = management!.onDidChangeDirectory(() => {});
+        states.dispose();
+        directory.dispose();
+        expect(await management!.getRecentOperationLogs(profileId)).toEqual([]);
+
+        // 写面（§9.8）：真实客户端的数组参数布局、快照与 settings 落盘必须一致。
+        const renamed = await management!.renameSource(sourceServerId, "Renamed box");
+        expect(sourceServerManagementSnapshotSchema.parse(renamed)).toEqual(renamed);
+        expect(renamed.servers[0]?.displayName).toBe("Renamed box");
+
+        const renamedProfile = await management!.renameProfile(profileId, "dev ssh");
+        expect(renamedProfile.profiles[0]?.displayName).toBe("dev ssh");
+
+        const preferred = await management!.setPreferredProfile(sourceServerId, profileId);
+        expect(preferred.servers[0]?.preferredProfileId).toBe(profileId);
+
+        const removedProfile = await management!.removeProfile(profileId);
+        expect(removedProfile.profiles).toEqual([]);
+        expect(removedProfile.states).toEqual([]);
+        const storedAfterRemove = JSON.parse(
+          await readFile(join(home, ".escode", "v2", "setting.json"), "utf8"),
+        ) as { connectionProfiles: unknown[]; sourceServers: { displayName: string }[] };
+        expect(storedAfterRemove.connectionProfiles).toEqual([]);
+        expect(storedAfterRemove.sourceServers[0]?.displayName).toBe("Renamed box");
+
+        const removedSource = await management!.removeSourceServer(sourceServerId);
+        expect(removedSource.servers).toEqual([]);
+        const idempotent = await management!.removeSourceServer(sourceServerId);
+        expect(idempotent.generation).toBe(removedSource.generation);
       } finally {
         await host.stop();
       }

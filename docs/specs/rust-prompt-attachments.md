@@ -38,3 +38,47 @@ sequenceDiagram
 ## 验收
 
 现有 App client/schema + 真实 Rust 子进程验证 begin/chunk/commit 幂等和故障、双连接隔离、关闭清理、仅附件/首发/排队/重启/跨会话拒绝、源文件变更后内容稳定、图片/PDF/视频三协议投影与不支持模型拒绝、提交失败无请求。使用真实 Composer 选择本地文本并提交，证明用户入口可用。TS/Rust 分片状态机同输入差分；性能检查包括多片载荷和媒体 base64 不进入会话元数据。
+
+## 本地路径附件的大小、媒体分类与文本预览（2026-10-31）
+
+TS 真源：`core/src/runtime/helpers/attachments.ts` + `attachment-media-resolver.ts` +
+`attachment-path-reference.ts`。旧 Rust 对所有本地路径附件一律快照并硬性拒绝 >20 MiB，
+与 Node 的分支不一致：Node 对文本读有界预览、对未超限视频接受、对超限媒体或非文本文件只交付路径引用。
+
+规则（App V4 的本地路径 ref；`escode-artifact://` 上传 ref 仍受 20 MiB 上传上限）：
+
+- 分类只看 MIME 的媒体段：`image/*`、`video/*`、`application/pdf`，其余按普通文件处理
+  （`audio/*` 不是媒体输入，按普通文件路径引用；不再报 `Audio attachment input is not implemented`）。
+- 普通文件若扩展名属于 TS `isTextLikePath`：任意文件大小都接受，读取规则与 TS
+  `resolveLocalFileAttachment` 一致：
+  - `size ≤ READ_MAX_FILE_SIZE_BYTES`（256 KiB）→ `host::text_file::read(path, offset=None,
+    limit=None, allowPartialFallback=true)`，整文件读取，不按 2000 行截断（仅受 25000 token 预算）。
+  - `size > 256 KiB` → `read(path, offset=1, limit=2000, allowPartialFallback=true)`。
+
+  快照的是预览正文；显示用 `bytes` 仍为原文件大小。预览保存 `previewTotalLines` 与
+  `partialViewNotice`，请求时按它们生成与 TS 相同的 Read reminder。
+- 普通文件若不是文本扩展名（含音频、未知扩展名、二进制）：不复制正文，记录路径引用
+  （`referenceReason = "binary_file"`），模型请求给
+  `Attached <按扩展名推断的 mime>: <原引用>` + `because the file is not a known text attachment.`。
+- 媒体：`image/*` >20 MiB → `image_too_large`；`application/pdf` >20 MiB → `pdf_too_large`；
+  `video/*` >30 MiB → `video_too_large`。超限项不复制正文，只记录路径引用；模型请求给对应的
+  `because ... larger than ...` 文案。
+- `video/*` ≤30 MiB 正常快照与内联（TS `VIDEO_INPUT_MAX_BYTES`）；图片/PDF ≤20 MiB 正常快照。
+  快照上限按 MIME 决定，上传事务仍使用共享 20 MiB 上限。
+- 引用资产字段：`referenceReason` + 原路径 + 原大小；`originalBytes` 用于展示原始大小（文本预览时
+  `totalBytes` 是预览正文大小）。模型请求只为实际快照字节做 20/30 MiB 与 64 MiB 总量检查。
+  回放（retry/edit）校验 attachment 元数据时，`bytes` 必须与
+  `originalBytes ?? totalBytes` 比较；预览资产的 committed 字节是预览正文，不能用它校验展示大小。
+- 文本预览不剥离 UTF-8 BOM（TS `readTextFileForModel` 保留）；编码探测（UTF-16LE/GBK/GB18030）
+  与 CRLF 归一复用 `host::text_file`，与 Read 工具同一实现。
+
+验收：新增差分 `packages/services/tests/escode-cli-rust-attachment-limits.test.ts`：
+小音频路径引用、>20 MiB 文本预览、>20 MiB 图片/PDF 路径引用、>30 MiB 视频路径引用、
+21 MiB 视频内联（只比较媒体 part 形态与摘要）、BOM/GBK 文本附件、源文件删除后历史重放稳定。
+
+交付记录（2026-10-31）：上述差分 10/10 通过（golden `attachment-limits.*.json`）。实现中修正两处
+与 TS 不一致的细节：文本附件此前一律按 2000 行截断（256 KiB 内的多行文件会被误截）；预览资产的
+`bytes` 回放校验误用 preview 大小导致 retry 被 `Attachment metadata does not match committed content`
+拒绝。既有附件/媒体/Read 差分（`escode-cli-rust-attachments.test.ts`、
+`escode-cli-rust-attachment-media.test.ts`、`escode-cli-rust-media-read-differential.test.ts`、
+`escode-cli-rust-history.test.ts`、`escode-cli-rust-read-text-parity.test.ts`）33/33 通过。

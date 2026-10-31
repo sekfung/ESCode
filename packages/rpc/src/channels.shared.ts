@@ -31,7 +31,11 @@ export const enum ResponseType {
 }
 
 export type IRawResponse =
-  | { type: ResponseType.Initialize }
+  | {
+      type: ResponseType.Initialize;
+      /** 已注册 channel 名；旧 Host 不发送（`undefined`）时按“无能力信息”处理。 */
+      data?: { channels?: string[] };
+    }
   | { type: ResponseType.PromiseSuccess; id: number; data: any }
   | {
       type: ResponseType.PromiseError;
@@ -64,4 +68,11 @@ export interface IChannelServer<TContext = string> {
 
 export interface IChannelClient {
   getChannel<T extends IChannel>(channelName: string): T;
+  /**
+   * Host 在 Initialize 里广播的 channel 能力（可选：旧实现不提供）。
+   * 返回 false 表示 Host 明确没有该 channel，调用方据此不绑定可选服务。
+   */
+  hasChannel?(channelName: string): boolean;
+  /** 等待 Initialize（能力广播随之到达）；可选，未提供时调用方自行处理时序。 */
+  waitUntilInitialized?(): Promise<void>;
 }

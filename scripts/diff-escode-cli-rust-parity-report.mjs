@@ -67,6 +67,12 @@ function renderReport(scenario, evidence) {
           "",
           `共 ${knownDebt.count} 条；指纹见 evidence.json 的 knownDebt 与 scripts/diff-escode-cli-rust-parity.baseline.json。`,
           "",
+          ...(knownDebt.records ?? []).flatMap((record) => [
+            `- ${record.surface} #${record.index}${record.jsonPath ? ` @ ${record.jsonPath}` : ""}（${record.fingerprint.slice(0, 12)}…）`,
+            `  - Node：\`${record.left}\``,
+            `  - Rust：\`${record.right}\``,
+          ]),
+          "",
         ]
       : []),
     ...(approvedHits.length > 0

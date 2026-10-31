@@ -44,13 +44,13 @@ describe(`${CASE_MARKER}: close one SSH workspace and continue another`, () => {
       workspacePath: workspaceB,
     });
     const hostBeforeClose = await readHostProcesses();
-    // 连接后本地 window Host 保留，远端 scope 由窗口内独立 Node Host 服务（同一窗口一个）。
+    // S5 后直接 SSH 首连由 App 级 Rust Host 服务，不再创建 per-window remote Node Host。
     for (const host of prepared.initialHosts) {
       expect(hostBeforeClose).toEqual(expect.arrayContaining([host]));
     }
     expect(
       hostBeforeClose.filter((host) => host.name.startsWith("escode-host-remote-")).length,
-    ).toBe(1);
+    ).toBe(0);
 
     await removeSSHWorkspace(workspaceA, CASE_MARKER);
     await sendSSHFollowTurn(taskB, CASE_MARKER, taskA.firstPrompt);

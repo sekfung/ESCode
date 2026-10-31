@@ -41,14 +41,14 @@ Ubuntu 24.04 + password SSH
 
 ### A. 连接与认证
 
-| Case ID        | Setup                                                                                        | Action                                                                                                            | Assertions                                                                                                                                                                                                                | 状态                                                                                           |
-| -------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| SSH-P0-CONN-01 | 本地 E2E workspace ready；目标服务器可达                                                     | 从 composer workspace 菜单打开 SSH 向导，使用 password 连接并选择远端目录                                         | 部署/握手/目录 RPC 成功；tab 的 path、`workspaceIdentity`、`remoteSessionId` 正确；只有一个 Window Host；tab/store/log 不保存 secret                                                                                      | formal                                                                                         |
-| SSH-P0-CONN-02 | 目标服务器可达                                                                               | 使用错误 password 连接，看到失败后改用正确 password 重试                                                          | 错误可见且不含 secret；失败不提交 workspace tab，不留下可用 logical session/Agent；重试后连接成功                                                                                                                         | formal                                                                                         |
-| SSH-P0-CONN-03 | 目标服务器可达；本地测试代理对首个 TCP connection 保持 pending、后续 connection 透传真实 SSH | 使用旧 password 发起连接，在 pending 阶段点击“取消连接”；随后对同一 host/port/username 使用正确 password 立即重试 | 首连接关闭且无 logical session/远端写入；重试使用新 request/credential 进入目录选择并打开 workspace；Host PID 不变；不影响 WSL/Docker/Server 取消语义                                                                     | pending (`manual-review/pending/conversation-session-ssh-remote-cancel-retry.test.ts`)         |
-| SSH-P0-CONN-04 | 目标服务器可达；设置页配置本地 HTTP 代理；远程资源测试 CDN 只允许经该代理返回                | 选择“本地下载后上传”并连接 SSH workspace                                                                          | proxy 捕获首装必发的 Source Server descriptor 请求；fake CDN 域名无法直连；部署/握手和 workspace 打开成功；Host PID 不变。Source Server archive 的同端口路由由 `sourceServerReleaseResolver.test.ts` 强制 cache miss 覆盖 | pending (`manual-review/pending/conversation-session-ssh-remote-local-download-proxy.test.ts`) |
-| SSH-P0-CONN-05 | Ubuntu/minimal/container SSH target 无可访问 user service manager                            | 使用 password 连接、确认安装并打开 workspace                                                                      | 自动 detached fallback；daemon ready、`serviceRegistered=false`；Desktop 断开不主动停止 daemon；远端环境重启后重连会重新拉起；错误/日志不把 Node warning 当根因                                                           | pending                                                                                        |
-| SSH-P0-CONN-08 | 本地含损坏的同步凭据，SSH target 可达                                                        | 连接失败后恢复凭据，保留失效默认模型并重试                                                                        | 首次错误和连接日志含安全 source-read-failed；不含凭据；无脏 tab；重试成功且默认偏好未改写                                                                                                                                 | pending（manual-review/pending/conversation-session-ssh-provisioning-failure.test.ts）         |
+| Case ID        | Setup                                                                                        | Action                                                                                                                                                | Assertions                                                                                                                                                                                                                                          | 状态                                                                                                                                                                            |
+| -------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SSH-P0-CONN-01 | 本地 E2E workspace ready；目标服务器可达                                                     | 从 composer workspace 菜单打开 SSH 向导，使用 password 连接并选择远端目录                                                                             | 部署/握手/目录 RPC 成功；tab 的 path、稳定 Source `workspaceIdentity`、`remoteSessionId` 正确；只有本地 Window Host，无 per-window remote Node Host；tab/store/log 不保存 secret                                                                    | formal                                                                                                                                                                          |
+| SSH-P0-CONN-02 | 目标服务器可达                                                                               | 使用错误 password 连接，看到失败后改用正确 password 重试                                                                                              | 错误可见且不含 secret；失败不提交 workspace tab，不留下可用 logical session/Agent；重试后连接成功                                                                                                                                                   | formal                                                                                                                                                                          |
+| SSH-P0-CONN-03 | 目标服务器可达；本地测试代理对首个 TCP connection 保持 pending、后续 connection 透传真实 SSH | 使用旧 password 发起连接，在 pending 阶段按 Escape/关闭并确认“停止连接”，向导关闭；随后重新进入向导，对同一 host/port/username 使用正确 password 重试 | 首连接关闭且无 logical session/远端写入；重试使用新 request/credential 进入目录选择并打开 workspace；本地 Window Host PID 不变且无 remote Node Host；不影响 WSL/Docker/Server 取消语义                                                              | pending (`manual-review/pending/conversation-session-ssh-remote-cancel-retry.test.ts`)；2026-10-31 Linux 实跑 1 passing，artifact `desktop-e2e-20261031-085743-605`，待人工审阅 |
+| SSH-P0-CONN-04 | 目标服务器可达；设置页配置本地 HTTP 代理；远程资源测试 CDN 只允许经该代理返回                | 选择“本地下载后上传”并连接 SSH workspace                                                                                                              | proxy 捕获首装必发的 Source Server descriptor 请求；fake CDN 域名无法直连；部署/握手和 workspace 打开成功；本地 Host PID 不变且无 remote Node Host。Source Server archive 的同端口路由由 `sourceServerReleaseResolver.test.ts` 强制 cache miss 覆盖 | pending (`manual-review/pending/conversation-session-ssh-remote-local-download-proxy.test.ts`)                                                                                  |
+| SSH-P0-CONN-05 | Ubuntu/minimal/container SSH target 无可访问 user service manager                            | 使用 password 连接、确认安装并打开 workspace                                                                                                          | 自动 detached fallback；daemon ready、`serviceRegistered=false`；Desktop 断开不主动停止 daemon；远端环境重启后重连会重新拉起；错误/日志不把 Node warning 当根因                                                                                     | pending                                                                                                                                                                         |
+| SSH-P0-CONN-08 | 本地含损坏的同步凭据，SSH target 可达                                                        | 连接失败后恢复凭据，保留失效默认模型并重试                                                                                                            | 首次错误和连接日志含安全 source-read-failed；不含凭据；无脏 tab；重试成功且默认偏好未改写                                                                                                                                                           | pending（manual-review/pending/conversation-session-ssh-provisioning-failure.test.ts）                                                                                          |
 
 ### B. 远端开发基础能力
 
@@ -62,18 +62,18 @@ Ubuntu 24.04 + password SSH
 
 ### C. Task、请求与多 Workspace
 
-| Case ID        | Setup                                                                                                | Action                                                | Assertions                                                                                                                                                  | 状态                                                                                                      |
-| -------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| SSH-P0-TASK-01 | case-local provider replay 通过测试专用 SSH reverse tunnel 对远端 Agent 可达；同 target 两个目录存在 | workspace A/B 各自新建 task 并首发；依次切回 A/B 续发 | task row 在正确 workspace；running→idle 无 error；四个请求和回复可见；A2 只带 A 历史、B2 只带 B 历史；identity/session 独立；Window Host PID 不变           | formal                                                                                                    |
-| SSH-P0-TASK-02 | A/B 已连接且各有已完成 task                                                                          | 关闭 workspace A，再切回 B 继续发送；随后重新打开 A   | A 关闭只释放自己的 attachment/session；B task、请求、回复继续工作；重新打开 A 复用共享 Host 且不覆盖 B                                                      | pending (`manual-review/pending/conversation-session-ssh-remote-task-lifecycle.test.ts`)                  |
-| SSH-P0-TASK-03 | A 已连接且有已完成 task；case-local replay 的续发响应延迟 15s                                        | 续发进入 streaming 后打开并关闭设置页；等待任务完成   | 续发期间侧栏 task 行转圈；设置页开关不新建第二条 sessions-index 订阅（同 attachment 同 topic 会被 CLI 静默替换）；任务完成后侧栏 running 消失、与聊天区一致 | pending (`manual-review/pending/conversation-session-ssh-remote-settings-overlay-sidebar-status.test.ts`) |
+| Case ID        | Setup                                                                                                | Action                                                | Assertions                                                                                                                                                  | 状态                                                                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SSH-P0-TASK-01 | case-local provider replay 通过测试专用 SSH reverse tunnel 对远端 Agent 可达；同 target 两个目录存在 | workspace A/B 各自新建 task 并首发；依次切回 A/B 续发 | task row 在正确 workspace；running→idle 无 error；四个请求和回复可见；A2 只带 A 历史、B2 只带 B 历史；identity/session 独立；Window Host PID 不变           | formal                                                                                                                                                                            |
+| SSH-P0-TASK-02 | A/B 已连接且各有已完成 task                                                                          | 关闭 workspace A，再切回 B 继续发送；随后重新打开 A   | A 关闭只释放自己的 attachment/session；B task、请求、回复继续工作；重新打开 A 复用共享 Host 且不覆盖 B                                                      | pending (`manual-review/pending/conversation-session-ssh-remote-task-lifecycle.test.ts`)；2026-10-31 Linux 实跑 1 passing，artifact `desktop-e2e-20261031-091400-570`，待人工审阅 |
+| SSH-P0-TASK-03 | A 已连接且有已完成 task；case-local replay 的续发响应延迟 15s                                        | 续发进入 streaming 后打开并关闭设置页；等待任务完成   | 续发期间侧栏 task 行转圈；设置页开关不新建第二条 sessions-index 订阅（同 attachment 同 topic 会被 CLI 静默替换）；任务完成后侧栏 running 消失、与聊天区一致 | pending (`manual-review/pending/conversation-session-ssh-remote-settings-overlay-sidebar-status.test.ts`)                                                                         |
 
 ### D. 持久化、断线与恢复
 
 | Case ID        | Setup                                                                                                     | Action                                                                                                 | Assertions                                                                                                                                                                           | 状态                                                                                     |
 | -------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | SSH-P0-LIFE-01 | A/B 有历史 task；默认 Profile 凭据可静默取得；Server 最近 7 天连接过；显式断开后保留工作区历史全部 failed | 完整重启 Electron/Main/Host；不点击手动重连，等待主窗口 Host 在 10 秒单节点预算内自动重连并继续原 task | 稳定 Source/identity/path 无 secret；failed 历史不阻断 A/B 自动获得新 `remoteSessionId`；恢复 task/history；续发命中原 task；不重复 workspace/daemon；启动阶段每个 Server 只尝试一次 | pending (`manual-review/pending/conversation-session-ssh-remote-cold-reconnect.test.ts`) |
-| SSH-P0-LIFE-02 | A/B 共享同一 SSH Host 且在线                                                                              | 只终止本 case 启动的远端 `escode-server`，不操作 `sshd`；随后对 A 点击重连                             | A/B 同时 disconnected，本地 workspace 不受影响；只建立一次新 SSH Host；A/B 分别获得新 `remoteSessionId` 并恢复；task/file 路由不串                                                   | pending (`manual-review/pending/conversation-session-ssh-remote-server-fault.test.ts`)   |
+| SSH-P0-LIFE-02 | A/B 共享同一 SSH Host 且在线                                                                              | 只终止本 case 启动的远端 `escode-server`，不操作 `sshd`；随后对 A 点击重连                             | A/B 同时 disconnected，本地 workspace 不受影响；Rust Host 只建立一次新 SSH transport；A/B 分别获得新 `remoteSessionId` 并恢复；task/file 路由不串                                    | pending (`manual-review/pending/conversation-session-ssh-remote-server-fault.test.ts`)   |
 
 ## 共享不变量
 
@@ -102,6 +102,8 @@ Ubuntu 24.04 + password SSH
 - provider case 使用 case-local OpenAI-compatible replay fixture；reverse tunnel 只传递测试 provider 流量，产品 SSH 连接仍通过真实 UI 建立。
 - 远端 fixture 必须带本次 run 唯一前缀并在 `finally` 清理。断线 case 只能终止由当前窗口连接启动的 `escode-server`，禁止修改 `sshd`、系统网络或其它用户进程。
 - 所有 spec 先放在 `manual-review/pending`，未经人工审阅不晋升 formal。
+- `openSSHRemoteDialog` 只负责打开到 SSH 设置表单：向导跨次保留草稿（`preserveDraftOnOpen`），
+  若在调用方填表前点主按钮，会沿用上一次的 host/凭据直接发起连接并跳到目录步骤（2026-10-31 实测）。
 - `SSH-P0-CONN-04` 的代理/CDN 必须完全由 case 本地进程提供，不访问真实发布 CDN；测试目标 URL
   在直连路径不可解析，只有代理 mock 能返回 manifest，以机械证明没有 silent direct fallback。
 
@@ -116,11 +118,23 @@ Ubuntu 24.04 + password SSH
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。
-- 剩余阻塞：上游 W4 的草稿 composer 用 `ProjectComposerMenu`（含「添加设备」→ 连接后由
-  `ChatRemoteFolderSelection` 选目录并进入新建项目表单）；本 fork 的 `WorkspaceShellLayout`
-  仍是同步前的 `ChatEmptyWorkspacePreviewMenu`，空态菜单没有该入口，只有普通远程连接入口。
-  用例已按新流程改写并新增 `composer-add-device` / `directory-browser-path` testid，但在
-  空态菜单接线对齐前无法出现项目表单，暂不晋升 formal。
+- 2026-10-30 接线：草稿 composer 改用 `ProjectComposerMenu`，并放入共享
+  `ProjectDirectoryProvider`；菜单提供 `composer-add-device`，目录选择由
+  `ChatRemoteFolderSelection` 承接。`ProjectComposerMenu` 只声明设备添加意图和有效性检查，
+  Root 是 `DeviceAdditionReturnTarget` 的唯一所有者：连接成功后必须用
+  `completion="device-management"` 关闭向导，把 `sourceServerId` 回传给发起入口；发起草稿
+  已失效、tab 已切换或设备成员已被移除时不得导航。验收场景为 SSH-P0-PROJECT-01：
+  连接空远端目录 → 保存项目 → 向导关闭 → 出现 `remote:server:` identity、`draftProjectId`
+  与侧栏项目行。该场景通过真实 SSH 运行前仍保持 pending。
+- 2026-10-30 真实 SSH 证据：向导关闭已修复（artifact `desktop-e2e-20261030-045334-544`），
+  Root 返回 `kind=connected`，但 `sourceServerId` 为 `undefined`；根因是当时 Q3 仍由
+  Node Host 直连 SSH，`RemoteConnection`/`WindowRemoteConnectionRegistry` 没有 Source Server
+  身份。S5-a 起 Main 先经 Rust Host 匹配/创建 Profile 并回填 `sourceServerId`，再由稳定
+  `remote:server:` identity 绑定目录；PROJECT-01 仍需真实 SSH 复跑后才能转正式覆盖。
+- 当前兼容行为：`completion="device-management"` 但无 Source identity 时，连接流程解除
+  composer 的添加门禁并回退普通目录步骤，用户仍可选择目录打开远端 workspace；该路径不
+  创建项目，也不会产生 `draftProjectId`。真实 Electron 验证通过（artifact
+  `desktop-e2e-20261030-060751-261`）。
 
 ## 运行证据
 
@@ -137,9 +151,18 @@ formal/covered；必须在真实 SSH 环境完成 capture/replay 与人工审阅
 
 - `conversation-session-ssh-remote-project-create.test.ts`（SSH-P0-PROJECT-01）：连接尚无项目的
   case-local 远端目录，在固定目录表单保存新项目，断言稳定 `remote:server:` identity、
-  `draftProjectId` 与侧栏项目行；case-local fixture contract 已通过，真实 SSH 因本机未配置
-  `ESCODE_E2E_SSH_*` 尚未执行。
-- `conversation-session-ssh-remote-task-lifecycle.test.ts`：关闭 A、验证 B 续发，再重新打开 A。
+  `draftProjectId` 与项目目录行。2026-10-31 Linux Desktop → 隔离 Ubuntu SSH 实跑 1 passing
+  （最终重建树 `desktop-e2e-20261031-120850-450`，前次 `desktop-e2e-20261031-115924-542`），spec 仍留在 `manual-review/pending` 待人工审阅。
+  沿路修掉的三个缺口：
+  1. 目录选择器：确认按钮读的是导航后的 `currentPath`，WebDriver `Enter` 若没落到 form，
+     input 显示目标路径而确认仍提交初始 home（项目 root 变成 `/root`）。helper 改为点击 form
+     提交按钮，并在 fixture 内建标记子目录，只有 readdir 到目标目录看到该条目才允许确认。
+  2. 草稿归属：Root 的 `onWorkspaceActivated` 丢弃了 Host 返回的 `projectId`，只开 tab 和空白
+     草稿；现由 `startDraftInWorkspace(..., { projectId })` 写入 `draftProjectId`。
+  3. 侧栏：本 fork 桌面 shell 挂 `WorkspaceSidebar`，`ProjectSidebar`（`ProjectNode`）未挂载，
+     断言改为打开 composer 项目目录（`composer-project-menu`）校验 `[data-project-id]` 行。
+- `conversation-session-ssh-remote-task-lifecycle.test.ts`：关闭 A、验证 B 续发，再重新打开 A；
+  2026-10-31 Linux 实跑 1 passing（`desktop-e2e-20261031-091400-570`）。
 - `conversation-session-ssh-remote-cold-reconnect.test.ts`：`browser.reloadSession()` 冷重启后不触发任何手动重连，等待主窗口 Host 单次自动重连并恢复 A/B；交互凭据负例归 R3-REMOTE-05。
 - `conversation-session-ssh-remote-server-fault.test.ts`：只终止本次连接新建且记录的 `escode-server` PID，验证 A/B 断连和按组重连；不会调用 `sshd`、`wsl --terminate` 或 `wsl --shutdown`。
 - `conversation-session-ssh-remote-cancel-retry.test.ts`：首连接保持 pending，确认停止后同 target 立即以正确 password 重试；不发送 provider 请求。

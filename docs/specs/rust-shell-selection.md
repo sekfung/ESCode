@@ -59,12 +59,35 @@ sequenceDiagram
       仍用旧 shell）与 `packages/services/tests/escode-cli-rust-shell-resume.test.ts`（跨进程续跑改用
       新 shell，并断言 Node 侧没有 `bash_shell_selection` entry）；两例都逐字比较两侧工具结果。
 
+### 请求时机（2026-10-31 对齐 Node）
+
+- Node 在会话物化期解析 `user-execution`，`session-baseline` 对拍里该 Host 反向请求排在 `inputAccepted`
+  ack 之前（`server-2` → `id:4`）。Rust 原先只在首个 Bash（技能初始化取提示词 shell 名）时才懒请求，
+  请求落到 ack 与首个 online 帧之后。
+- 现在 `send_input` 在受理首个输入时预取（`ShellPreferences::prefetch_shell_preference`，仍挂在根会话），
+  请求进入该命令的 outbox，由 `outbound_batch` 先于命令响应写出；后台回合的 `Event::ShellPreference`
+  复用同一 in-flight 请求。缓存与子会话继承语义不变，每会话仍只请求一次。
+- 验收：`session-baseline` golden 对拍中 `server-2` 位于初始快照之后、`inputAccepted` ack 之前；
+  `escode-cli-rust-shell-preferences.test.ts` / `escode-cli-rust-subagent-shell.test.ts` 的请求次数断言不变。
+
+### 失败命令的预取回滚（2026-11-01）
+
+- 预取请求（以及其它在命令分派期间暂存的 Host 反向请求）只存在于该命令的 outbox。命令失败时
+  `Engine::request` 不再写出该 outbox；此时必须同步撤销 `ShellPreferences` 的 in-flight 记账
+  （`requests`/`waiters`）：以 `Null` 完成本批 waiter（本轮退回自动探测，**不写缓存**），让下一次输入
+  重新发起 `user-execution` 请求。
+- 根因：修复前只清空 outbox、不撤销记账，后续输入看到 `waiters` 非空便以为请求在途，永远等不到回包；
+  首个提示词 shell 名/首个 Bash 要等满 15s 超时（`escode-cli-rust-attachments.test.ts` 先发一条
+  “invalid metadata” 被拒的输入即可复现）。
+- 验收：同一用例的“被拒输入 → 合法附件输入”序列在默认预算内收到 `completedSuccess`；`user-execution`
+  请求恰好发送一次（下一次输入补发），不缓存 `Null`。
+
 ### 子代理继承父会话的 shell 选择（2026-09-30）
 
 TS `subagent.ts` 把父会话已解析的 `bashShellSelection` 直接传给子 runtime，子会话**不**以自己的
 sessionId 发 `session/requestRuntimePreferences{scope:"user-execution"}`。Rust 对齐：子会话沿
-`parent_id` 上溯到根会话，请求与缓存都记在根会话上（Rust 是首个 Bash 前懒解析，若子会话先跑 Bash
-就替根会话取一次；否则会退化成自动探测，拿到与 App 里显式选择不同的 shell）。上溯深度与子代理
+`parent_id` 上溯到根会话，请求与缓存都记在根会话上（Rust 在首个输入受理时预取；若子会话在预取前先跑
+Bash，仍会替根会话取一次，否则会退化成自动探测，拿到与 App 里显式选择不同的 shell）。上溯深度与子代理
 嵌套上限一致，父链异常时不会死循环。
 
 验收：App 差分 `packages/services/tests/escode-cli-rust-subagent-shell.test.ts`——Host 指定 CMD 时，

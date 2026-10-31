@@ -66,17 +66,27 @@ impl Outbound {
         }
     }
 
+    #[cfg(test)]
     fn sent(&self, bytes: usize) {
-        let total = self.queued.fetch_sub(bytes, Ordering::SeqCst) - bytes;
-        if total < LOW_WATER {
-            self.flow.send_if_modified(|state| {
-                let edge = *state == FlowState::Saturated;
-                if edge {
-                    *state = FlowState::Drained;
-                }
-                edge
-            });
-        }
+        sent_bytes(&self.queued, &self.flow, bytes);
+    }
+}
+
+/// 出站字节水位回落（写任务只持有这两个字段，不持有 `tx`，否则读循环收口后写任务永远等不到 EOF）。
+fn sent_bytes(
+    queued: &std::sync::atomic::AtomicUsize,
+    flow: &watch::Sender<FlowState>,
+    bytes: usize,
+) {
+    let total = queued.fetch_sub(bytes, Ordering::SeqCst) - bytes;
+    if total < LOW_WATER {
+        flow.send_if_modified(|state| {
+            let edge = *state == FlowState::Saturated;
+            if edge {
+                *state = FlowState::Drained;
+            }
+            edge
+        });
     }
 }
 
@@ -118,10 +128,21 @@ pub(crate) async fn run(
     ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
     channels: Arc<Channels>,
     client_mode: ClientMode,
+    grant: crate::CapabilityGrant,
 ) -> Result<()> {
     let (mut sink, mut source) = ws.split();
     let (flow_tx, flow_rx) = watch::channel(FlowState::Drained);
-    let context = ConnectionContext::new(client_mode, flow_rx);
+    // 修复（S3-c-3a，spec §10.14）：远端 grant 的 `client` 是签发时的连接句柄快照；链路 EOF 后
+    // 它只会 fail-closed，不会自行关闭这条 `/ws`。窗口会一直显示“已连接”并继续调用失效句柄。
+    // 这里先取出关闭观察器，链路终结时结束连接，由 Main 转成 `RemoteSessionClosed`。
+    let remote_close = grant
+        .remote
+        .as_ref()
+        .map(|remote| Arc::clone(&remote.client));
+    let context = match grant.remote {
+        Some(remote) => ConnectionContext::with_remote(client_mode, flow_rx, remote),
+        None => ConnectionContext::new(client_mode, flow_rx),
+    };
     let channels = Arc::new(channels.connect(&context));
     for hook in channels.open_hooks() {
         hook();
@@ -134,15 +155,18 @@ pub(crate) async fn run(
         overflow: Arc::default(),
     };
     // 连接建立即 Initialize（TS ChannelServer 构造时发送）。
-    outbound.push(session::initialize_frame());
-    let writer_outbound = outbound.clone();
+    outbound.push(session::initialize_frame(&channels.names()));
+    // 修复（S3-c-3a）：写任务过去持有 `Outbound` 克隆（含 `tx`），读循环收口后队列永远不 EOF，
+    // `writer.await` 挂起、Host 主动关闭 `/ws` 时窗口收不到 Close。只保留水位字段。
+    let writer_queued = Arc::clone(&outbound.queued);
+    let writer_flow = Arc::clone(&outbound.flow);
     let writer = tokio::spawn(async move {
         while let Some(bytes) = rx.recv().await {
             let len = bytes.len();
             if sink.send(Message::Binary(bytes.into())).await.is_err() {
                 break;
             }
-            writer_outbound.sent(len);
+            sent_bytes(&writer_queued, &writer_flow, len);
         }
         let _ = sink.close().await;
     });
@@ -152,6 +176,12 @@ pub(crate) async fn run(
         loop {
             let message = tokio::select! {
                 message = source.next() => message,
+                () = async {
+                    match &remote_close {
+                        Some(client) => client.wait_closed().await,
+                        None => std::future::pending::<()>().await,
+                    }
+                } => return Ok(()),
                 () = outbound.overflow.notified() => {
                     anyhow::bail!("outbound backlog exceeded {HARD_LIMIT} bytes; closing connection")
                 }

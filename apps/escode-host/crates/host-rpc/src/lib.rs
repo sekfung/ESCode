@@ -8,6 +8,7 @@
 mod agent_v4;
 mod automation_dispatch;
 mod automation_scheduler;
+mod capability;
 mod channel;
 mod collation;
 mod connection;
@@ -43,10 +44,12 @@ mod domains_plugin_ui_app_tools;
 mod domains_plugin_ui_sampling;
 mod domains_plugins_legacy;
 mod domains_project;
+mod domains_project_remote;
 mod domains_project_session;
 mod domains_provider;
 mod domains_provider_connectivity;
 mod domains_provider_write;
+mod domains_remote_projects;
 mod domains_serial;
 mod domains_session;
 mod domains_session_drafts;
@@ -57,6 +60,7 @@ mod domains_settings_sync;
 mod domains_simple;
 mod domains_skill_sync;
 mod domains_skills;
+mod domains_source_server;
 mod domains_subagents;
 mod domains_svn;
 mod domains_svn_commit_message;
@@ -98,6 +102,8 @@ mod plugin_ui_prepare;
 mod project_archive;
 mod project_memory;
 mod provider_headers;
+mod remote_host_id;
+mod remote_scope;
 pub mod runtime_requests;
 pub mod session;
 mod task_commands;
@@ -117,73 +123,16 @@ use anyhow::{Context, Result};
 use serde_json::json;
 use tokio::net::{TcpListener, TcpStream};
 
+pub use capability::{Capabilities, CapabilityGrant};
+pub use domains_source_server::{
+    HostEnvironment, remote_profile_resolver, remote_scope_channel_set, remote_scope_ensurer,
+};
+pub use remote_scope::{
+    REMOTE_SCOPE_HOST_CHANNELS, RemoteGrant, RemoteProfileCanceller, RemoteProfileRequest,
+    RemoteProfileResolveError, RemoteProfileResolver, RemoteScope, RemoteScopeEnsurer,
+    ResolvedRemoteProfile,
+};
 pub use session::Channels;
-
-/// capability 表：一次性签发 + TTL（与 TS `createHostCapabilityStore` 语义一致的最小实现）。
-#[derive(Default)]
-pub struct Capabilities {
-    tokens: std::sync::Mutex<std::collections::BTreeMap<String, std::time::Instant>>,
-    ttl: std::time::Duration,
-}
-
-impl Capabilities {
-    pub fn new(ttl: std::time::Duration) -> Self {
-        Self {
-            tokens: Default::default(),
-            ttl,
-        }
-    }
-
-    /// 签发一次性 capability。
-    ///
-    /// 修复（评审 A4）：旧令牌是「纳秒 ‖ pid」，可预测；改为 CSPRNG（两段 uuid v4，244 位随机）。
-    pub fn issue(&self) -> String {
-        let token = random_token();
-        let mut tokens = self.lock();
-        tokens.retain(|_, expires| *expires > std::time::Instant::now());
-        tokens.insert(token.clone(), std::time::Instant::now() + self.ttl);
-        token
-    }
-
-    /// 消费一次（成功即失效）。
-    pub fn consume(&self, token: Option<&str>) -> bool {
-        let Some(token) = token else {
-            return false;
-        };
-        let mut tokens = self.lock();
-        let now = std::time::Instant::now();
-        tokens.retain(|_, expires| *expires > now);
-        tokens.remove(token).is_some()
-    }
-
-    fn lock(
-        &self,
-    ) -> std::sync::MutexGuard<'_, std::collections::BTreeMap<String, std::time::Instant>> {
-        self.tokens
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
-/// CSPRNG 令牌（capability 与进程密钥共用）。
-fn random_token() -> String {
-    format!(
-        "{}{}",
-        uuid::Uuid::new_v4().simple(),
-        uuid::Uuid::new_v4().simple()
-    )
-}
-
-/// 常量时间比较（密钥校验不泄漏前缀长度）。
-fn constant_time_eq(left: &str, right: &str) -> bool {
-    let (left, right) = (left.as_bytes(), right.as_bytes());
-    left.len() == right.len()
-        && left
-            .iter()
-            .zip(right)
-            .fold(0_u8, |acc, (a, b)| acc | (a ^ b))
-            == 0
-}
 
 /// 已启动的 RPC 服务面。
 ///
@@ -217,7 +166,7 @@ pub async fn serve(
     let channels = Arc::new(channels);
     let capabilities = Arc::new(Capabilities::new(std::time::Duration::from_secs(60)));
     let instances = instances.map(Arc::new);
-    let secret: Arc<str> = Arc::from(random_token());
+    let secret: Arc<str> = Arc::from(capability::random_token());
     let surface_secret = secret.to_string();
     let task = tokio::spawn(async move {
         loop {
@@ -244,6 +193,17 @@ pub async fn serve(
         secret: surface_secret,
         task,
     })
+}
+
+/// 常量时间比较（密钥校验不泄漏前缀长度）。
+fn constant_time_eq(left: &str, right: &str) -> bool {
+    let (left, right) = (left.as_bytes(), right.as_bytes());
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right)
+            .fold(0_u8, |acc, (a, b)| acc | (a ^ b))
+            == 0
 }
 
 /// 访问控制材料：一次性 capability 表 + 进程密钥。
@@ -308,10 +268,10 @@ async fn handle_connection(
         };
         // 修复（评审 A9）：两条路径都要一次性 capability（旧实现 `/ws` 免鉴权，而 Main 正是把
         // 桌面 Renderer 桥到 `/ws`）。capability 校验在握手之前完成：失败回 HTTP 401 JSON。
-        if !access
+        let Some(grant) = access
             .capabilities
             .consume(head.header(http::CAPABILITY_HEADER))
-        {
+        else {
             let _ = http::read_head(&mut stream).await;
             return http::respond_json(
                 &mut stream,
@@ -320,13 +280,14 @@ async fn handle_connection(
                 &json!({"error": "Invalid or expired host capability"}),
             )
             .await;
-        }
+        };
         let ws = tokio_tungstenite::accept_async(stream)
             .await
             .context("WebSocket handshake failed")?;
-        return connection::run(ws, channels, client_mode).await;
+        return connection::run(ws, channels, client_mode, grant).await;
     }
-    let Some(head) = http::read_head(&mut stream).await? else {
+    // 读取头与 body：`read_head` 会把同一 chunk 里跟进的 body 一起消费掉（capability 的 scope 要读 body）。
+    let Some((head, body)) = http::read_request(&mut stream).await? else {
         return Ok(());
     };
     if !access.has_secret(&head) {
@@ -358,14 +319,67 @@ async fn handle_connection(
             http::respond_json(&mut stream, 200, "OK", &info).await
         }
         ("POST", "/api/rpc-host-capability") => {
-            let capability = access.capabilities.issue();
-            http::respond_json(
-                &mut stream,
-                200,
-                "OK",
-                &json!({"capability": capability, "expiresInMs": 60_000}),
-            )
-            .await
+            // 远端 scope 先建连接再签发；失败是显式 4xx，不下发本地权限的令牌（spec §10.11）。
+            match capability::issue_for(&channels, &access.capabilities, &body).await {
+                Ok(capability) => {
+                    http::respond_json(
+                        &mut stream,
+                        200,
+                        "OK",
+                        &json!({"capability": capability, "expiresInMs": 60_000}),
+                    )
+                    .await
+                }
+                Err(error) => {
+                    http::respond_json(&mut stream, 400, "Bad Request", &json!({"error": error}))
+                        .await
+                }
+            }
+        }
+        ("POST", "/api/source-server-resolve-profile") => {
+            match channels.resolve_remote_profile(&body).await {
+                Ok(profile) => {
+                    escode_host_control::logging::info(
+                        "source-server",
+                        format!(
+                            "resolved first-connect profile {} for source {}",
+                            profile.profile_id, profile.source_server_id
+                        ),
+                    );
+                    http::respond_json(
+                        &mut stream,
+                        200,
+                        "OK",
+                        &json!({
+                            "profileId": profile.profile_id,
+                            "sourceServerId": profile.source_server_id,
+                            "target": profile.target,
+                        }),
+                    )
+                    .await
+                }
+                Err(error) => {
+                    let status = error.status_code();
+                    let reason = if status == 409 {
+                        "Conflict"
+                    } else {
+                        "Bad Request"
+                    };
+                    http::respond_json(&mut stream, status, reason, &error.to_json()).await
+                }
+            }
+        }
+        ("POST", "/api/source-server-cancel-profile") => {
+            // 取消只向对应 caller 的 watch 置位；未知/已完成 key 返回 false（幂等）。
+            match channels.cancel_remote_profile(&body) {
+                Ok(cancelled) => {
+                    http::respond_json(&mut stream, 200, "OK", &json!({"cancelled": cancelled}))
+                        .await
+                }
+                Err(error) => {
+                    http::respond_json(&mut stream, 400, "Bad Request", &error.to_json()).await
+                }
+            }
         }
         _ => {
             http::respond_json(

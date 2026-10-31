@@ -45,6 +45,64 @@ pub fn byte_size(bytes: usize) -> String {
     };
     format!("{formatted} {}", units[unit])
 }
+/// TS `formatDecimalBytes`：十进制（1000 进制）字节，`Math.round` 取整。
+pub fn decimal_byte_size(bytes: usize) -> String {
+    let round = |value: f64| format!("{}", (value + 0.5).floor());
+    if bytes < 1_000 {
+        format!("{bytes} B")
+    } else if bytes < 1_000_000 {
+        format!("{} KB", round(bytes as f64 / 1_000.0))
+    } else if bytes < 1_000_000_000 {
+        format!("{} MB", round(bytes as f64 / 1_000_000.0))
+    } else {
+        format!("{} GB", round(bytes as f64 / 1_000_000_000.0))
+    }
+}
+
+/// TS `formatGenericPersistedOutputContent`（`result-persistence-format.ts`）：artifact 策略下
+/// 发给模型的 `<persisted-output>` 信封。预览固定取前 2 000 个 UTF-16 单元，后半段有换行时在换行处截断。
+pub fn persisted_output_envelope(content: &str, original_bytes: usize, path: &str) -> String {
+    const PREVIEW_CHARS: usize = 2_000;
+    let (preview, more) = preview_first_chars(content, PREVIEW_CHARS);
+    let mut lines = vec![
+        "<persisted-output>".to_owned(),
+        format!(
+            "Output too large ({}). Full output saved to: {path}",
+            decimal_byte_size(original_bytes)
+        ),
+        String::new(),
+        format!("Preview (first {}):", decimal_byte_size(PREVIEW_CHARS)),
+        preview.to_owned(),
+    ];
+    if more {
+        lines.push("...".into());
+    }
+    lines.push("</persisted-output>".into());
+    lines.join("\n")
+}
+
+/// TS `previewFirstChars`：按 UTF-16 长度计数；换行位于前半段之后才在换行处截断。
+fn preview_first_chars(content: &str, max: usize) -> (&str, bool) {
+    if content.encode_utf16().count() <= max {
+        return (content, false);
+    }
+    let mut units = 0;
+    let mut end = content.len();
+    for (index, c) in content.char_indices() {
+        if units + c.len_utf16() > max {
+            end = index;
+            break;
+        }
+        units += c.len_utf16();
+    }
+    let head = &content[..end];
+    let cut = head
+        .rfind('\n')
+        .filter(|&i| head[..i].encode_utf16().count() * 2 > max)
+        .unwrap_or(end);
+    (&content[..cut], true)
+}
+
 fn payload(data: &str) -> &str {
     match data.strip_prefix("data:") {
         Some(_) => data.find(',').map_or(data, |i| &data[i + 1..]),

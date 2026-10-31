@@ -100,6 +100,28 @@ impl CredentialService {
             .await
             .map_err(|error| map_error(&error))
     }
+
+    /// Provisioning Source：只读取调用方给出的 allowlist，按文件顺序返回非空明文。
+    ///
+    /// 非 allowlist 条目不会解密，也不会因其值损坏而阻断合法账号凭据的同步。
+    pub async fn provisioning_credentials(
+        &self,
+        keys: &[&str],
+    ) -> Result<Vec<(String, String)>, CredentialError> {
+        let entries = self
+            .store
+            .load_allowlisted(keys)
+            .await
+            .map_err(|error| map_error(&error))?;
+        Ok(entries
+            .into_iter()
+            .filter_map(|(key, value)| {
+                value
+                    .filter(|value| !value.trim().is_empty())
+                    .map(|value| (key, value))
+            })
+            .collect())
+    }
 }
 
 #[cfg(test)]

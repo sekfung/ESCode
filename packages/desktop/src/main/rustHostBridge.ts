@@ -1,6 +1,40 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn } from "node:child_process";
 import { WebSocket, type RawData } from "ws";
 import { ProtocolMessageType } from "@escode/rpc";
+import type {
+  HostPortLike,
+  RustHostBridgeCloseEvent,
+  RustHostBridgeOptions,
+  RustHostClientMode,
+  RustHostExit,
+  RustHostHandle,
+  RustHostLogBatch,
+  RustHostRemoteAssets,
+  RustHostRemoteScope,
+  RustHostStartErrorCode,
+  RustHostStartStage,
+  StartRustHostOptions,
+} from "./rustHostBridgeTypes.js";
+
+export { RUST_HOST_CAPABILITY_HEADER, RUST_HOST_SECRET_HEADER } from "./rustHostBridgeHttp.js";
+export { cancelRustHostRemoteProfile, resolveRustHostRemoteProfile } from "./rustHostRemoteProfile.js";
+
+export type {
+  HostPortLike,
+  RustHostBridgeCloseEvent,
+  RustHostBridgeOptions,
+  RustHostClientMode,
+  RustHostExit,
+  RustHostHandle,
+  RustHostLogBatch,
+  RustHostRemoteAssets,
+  RustHostRemoteProfileRequest,
+  RustHostRemoteScope,
+  RustHostResolvedRemoteProfile,
+  RustHostStartErrorCode,
+  RustHostStartStage,
+  StartRustHostOptions,
+} from "./rustHostBridgeTypes.js";
 
 // Host 默认走 Rust（显式 `ESCODE_RUST_HOST=0/false` 才回退 Node）：窗口的本地 Host 通路由
 // Electron utility process 切到 Rust Host（docs/specs/rust-u2-host-skeleton.md §6）。切换点是 Main 的
@@ -11,32 +45,12 @@ import { ProtocolMessageType } from "@escode/rpc";
 // 端口形状对 Electron `MessagePortMain` 与 Node `worker_threads` MessagePort 都成立
 // （同形的最小接口，便于在 vitest 里用真实 Rust Host + 真实 MessagePort 验证这条路径）。
 
-/** 与 Electron `MessagePortMain` / Node `MessagePort` 共形的最小接口。 */
-export interface HostPortLike {
-  on(event: "message", listener: (event: { data?: unknown } | unknown) => void): void;
-  postMessage(value: unknown): void;
-  start?(): void;
-  close?(): void;
-}
-
-/**
- * Rust Host 启动失败的分类（docs/specs/rust-u2-host-resilience.md §4）。`RUST_HOST_CRASH_LOOP`
- * 由 `rustHostManager` 在受限重启用完次数后给出（§3.2）。
- */
-export type RustHostStartErrorCode =
-  | "RUST_HOST_BINARY_MISSING"
-  | "RUST_HOST_EXITED_EARLY"
-  | "RUST_HOST_HANDSHAKE_TIMEOUT"
-  | "RUST_HOST_LISTEN_FAILED"
-  | "RUST_HOST_CRASH_LOOP";
-
 /** 握手阶段：超时与提前退出时指明卡在哪一步。 */
 import { answerAuthorize, answerMainRequest } from "./rustHostControlReplies.js";
 
 import { createControlChannel } from "./rustHostControlChannel.js";
+import { RUST_HOST_CAPABILITY_HEADER, RUST_HOST_SECRET_HEADER } from "./rustHostBridgeHttp.js";
 import { logger } from "./logger.js";
-export type RustHostStartStage = "hostReady" | "rpcListening";
-
 /** 带分类的 Rust Host 启动错误（调用方按 `code` 决定呈现，不解析文案）。 */
 export class RustHostStartError extends Error {
   override readonly name = "RustHostStartError";
@@ -55,36 +69,6 @@ export class RustHostStartError extends Error {
   }
 }
 
-/** Host 进程的退出信息（`onExit`）。 */
-export interface RustHostExit {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-}
-
-/** Rust Host 进程句柄（控制通道 + RPC 端点 + 收口）。 */
-export interface RustHostHandle {
-  /** 子进程（控制通道 stdin 与退出观察；诊断与测试用）。 */
-  readonly child: ChildProcessWithoutNullStreams;
-  /** 子进程 pid（重启前后不同；诊断与测试用）。 */
-  readonly pid: number | undefined;
-  /**
-   * 进程退出时回调一次（已退出则立即回调）。是否“意外”由调用方判定：
-   * `rustHostManager` 以自己是否调用过 `stop()` 为唯一判据（spec §3.1）。
-   */
-  onExit(listener: (exit: RustHostExit) => void): void;
-  /** RPC 端点地址（`ws://127.0.0.1:<port>` 与 `http://127.0.0.1:<port>` 同端口）。 */
-  readonly addr: string;
-  /**
-   * 本次监听的进程密钥（只经 Host 控制通道获得）：签发一次性 capability 时作为
-   * `x-escode-host-secret` 头（docs/specs/rust-u2-agent-v4.md §3.2）。
-   */
-  readonly secret: string;
-  /** 收口：先关控制通道（Host 收口实例与传输面），再必要时杀进程。 */
-  stop(): Promise<void>;
-  /** 发一条控制消息（workspace prepare / 采样 / 网络捕获等）；顺序即写入顺序。 */
-  send(message: Record<string, unknown>): void;
-}
-
 /**
  * `ESCODE_RUST_HOST` 默认开启（M5 已翻转，四平台安装包验收见 rust-u2-window-host.md §6）；
  * 显式 `0`/`false` 才回退 Node Host。其它未识别值保持默认开启，避免拼写错误静默降级。
@@ -92,65 +76,6 @@ export interface RustHostHandle {
 export function isRustHostEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const raw = (env.ESCODE_RUST_HOST ?? "").trim().toLowerCase();
   return raw !== "0" && raw !== "false";
-}
-
-export interface StartRustHostOptions {
-  /** Host 可执行文件路径（安装包内为主进程同级；dev 为 target/debug）。 */
-  binary: string;
-  /** 设置域根目录（Host 不读进程 env 推断业务事实，由 Main 指定）。 */
-  home: string;
-  /**
-   * 应用数据根（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir）。
-   * 会话工作区 `<dataBaseDir>/.escode/workspace/default` 等路径由它派生；缺省时相关方法回显式缺口。
-   */
-  dataBaseDir?: string;
-  /**
-   * Main 为嵌入运行时合成的环境（审计 A16）：实例的 ambient env 只有这一份（外加 workspace 身份），
-   * Host 不从自己的进程 env 推断业务事实。缺省时运行时只剩 `--config` 指定的模型。
-   */
-  runtimeEnv?: Record<string, string>;
-  /** 追加/覆盖的环境变量（Host 进程自身的 env，不进实例）。 */
-  env?: NodeJS.ProcessEnv;
-  /** 可执行文件参数（缺省无参数；测试用它以 Node 脚本模拟各类启动失败）。 */
-  args?: string[];
-  /** RPC 监听地址（缺省 `127.0.0.1:0`；测试用占用端口验证监听失败）。 */
-  bind?: string;
-  /** 整个启动握手（`hostReady` → `rpcListening`）的截止时间（默认 10s，spec §4）。 */
-  timeoutMs?: number;
-  /**
-   * 结构化日志钩子：Host 的 `logBatch` 控制帧（`host-control/src/logging.rs` 的进程级 sink）。
-   * 缺省时这些帧只被跳过——Host 的 stderr 兜底仍会到达 Main（stdio inherit）。
-   * Main 把它接到 `hostLogRelay.onStructuredLog`，与 Node Host 的 postMessage 日志同一条出口。
-   */
-  onLogBatch?: (batch: RustHostLogBatch) => void;
-  /**
-   * 本地媒体路径授权（rust-u2-attachments.md §5）：授权注册表的所有者是 Main。提供后 `rpcListen`
-   * 声明 `localMediaPreview`，Host 的 `media-preview.prepare` 经控制通道请求授权并回 `local-url`；
-   * 缺省 = 旧行为（Host 只走内联分支）。抛错即回 `ok:false`，错误文案原样交给 Host。
-   */
-  authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
-  /**
-   * Main 专属服务（cua-permission / sandbox 注册）。提供后 `rpcListen` 声明 `mainServices`，
-   * Host 经控制通道发 `mainRequest`；缺省 = 旧 Main，相关 channel 回显式缺口。
-   */
-  onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
-  /** Host 本地的 Host 事实（资源采样、网络捕获、agent 生命周期、CUA 状态）。 */
-  onHostEvent?: (event: unknown) => void;
-  /** 实例真实 `startup/storageState`（WorkspacePrepare 后逐条上报）。 */
-  onWorkspaceStartupState?: (state: {
-    startupId: string;
-    windowId: string;
-    workspaceKey: string;
-    generation: number;
-    state: unknown;
-  }) => void;
-}
-
-/** Host 侧一条日志批次（`ControlMessage::LogBatch`）。 */
-export interface RustHostLogBatch {
-  scope: string;
-  level: "debug" | "info" | "warn" | "error";
-  lines: string[];
 }
 
 /**
@@ -248,6 +173,7 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
         home: options.home,
         ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
         ...(options.runtimeEnv ? { runtimeEnv: options.runtimeEnv } : {}),
+        ...(options.remoteAssets ? { remoteAssets: options.remoteAssets } : {}),
         ...(options.authorizeLocalMediaPreviewPath ? { localMediaPreview: true } : {}),
         ...(options.onMainRequest ? { mainServices: true } : {}),
       })}\n`,
@@ -307,14 +233,27 @@ export async function startRustHost(options: StartRustHostOptions): Promise<Rust
   }
 }
 
-/** 向 Rust Host 申请一次性 capability（需进程密钥；Host 拒绝任何带 Origin 的请求）。 */
-export async function issueRustHostCapability(handle: RustHostHandle): Promise<string> {
+/**
+ * 向 Rust Host 申请一次性 capability（需进程密钥；Host 拒绝任何带 Origin 的请求）。
+ *
+ * 带 `scope` 时 Host 先建连再签发；4xx 的错误文本原样上抛（spec §10.12：不重试、不回退 Node Host）。
+ */
+export async function issueRustHostCapability(
+  handle: RustHostHandle,
+  scope?: RustHostRemoteScope,
+): Promise<string> {
   const response = await fetch(`http://${handle.addr}/api/rpc-host-capability`, {
     method: "POST",
-    headers: { [RUST_HOST_SECRET_HEADER]: handle.secret },
+    headers: {
+      [RUST_HOST_SECRET_HEADER]: handle.secret,
+      ...(scope ? { "content-type": "application/json" } : {}),
+    },
+    ...(scope ? { body: JSON.stringify({ scope }) } : {}),
   });
   if (!response.ok) {
-    throw new Error(`Rust Host refused to issue a capability (HTTP ${response.status})`);
+    throw new Error(
+      `Rust Host refused to issue ${scope ? "a remote workspace capability" : "a capability"} (HTTP ${response.status})${await capabilityFailureDetail(response)}`,
+    );
   }
   const body = (await response.json()) as { capability?: unknown };
   if (typeof body.capability !== "string" || body.capability.length === 0) {
@@ -323,13 +262,17 @@ export async function issueRustHostCapability(handle: RustHostHandle): Promise<s
   return body.capability;
 }
 
-/** 进程密钥头（与 Rust `http::HOST_SECRET_HEADER` 同名）。 */
-export const RUST_HOST_SECRET_HEADER = "x-escode-host-secret";
-/** capability 头（TS `ESCODE_RPC_HOST_CAPABILITY_HEADER` 同名）。 */
-export const RUST_HOST_CAPABILITY_HEADER = "x-escode-rpc-host-capability";
-
-/** attachment 的交付模式（决定连接路径；Rust Host 按路径赋予可信 clientMode）。 */
-export type RustHostClientMode = "desktop-continuous" | "web-remote-replayable";
+/** Host 的 `{error}` 体（连接失败原因）→ 追加到错误文案；非 JSON 错误体只保留状态码。 */
+async function capabilityFailureDetail(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" && body.error.trim().length > 0
+      ? `: ${body.error.trim()}`
+      : "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * 把一个 attachment 的 MessagePort 桥到 Rust Host 的 RPC WebSocket。返回解绑函数。
@@ -346,6 +289,8 @@ export function bridgeRustHostPort(
   handle: RustHostHandle,
   port: HostPortLike,
   clientMode: RustHostClientMode,
+  scope?: RustHostRemoteScope,
+  options?: RustHostBridgeOptions,
 ): () => void {
   // Rust Host 的 RPC WebSocket 使用 `@escode/rpc` 的 SocketProtocol 帧
   // （13 字节头：type/id/ack/length），而窗口 MessagePort 使用无帧的
@@ -400,7 +345,7 @@ export function bridgeRustHostPort(
     else queue.push(frame);
   });
   port.start?.();
-  void issueRustHostCapability(handle)
+  void issueRustHostCapability(handle, scope)
     .then((capability) => {
       if (closed) return;
       const path = clientMode === "desktop-continuous" ? "/ws/host" : "/ws";
@@ -411,40 +356,55 @@ export function bridgeRustHostPort(
       opened.binaryType = "nodebuffer";
       opened.on("open", () => {
         logger.info(`[rust-host] attachment websocket open (${path})`);
+        options?.onReady?.();
         while (queue.length > 0) {
           const next = queue.shift();
           if (next) opened.send(next);
         }
       });
       opened.on("unexpected-response", (_request, response) => {
+        const unexpected = !closed;
         logger.warn(
           `[rust-host] attachment websocket rejected (HTTP ${String(response.statusCode)})`,
         );
         teardown();
+        if (unexpected) {
+          options?.onUnexpectedClose?.({
+            reason: `attachment websocket rejected (HTTP ${String(response.statusCode)})`,
+          });
+        }
       });
       opened.on("message", (data: RawData) => {
         if (closed) return;
         deliverSocketChunk(toBuffer(data));
       });
       opened.on("close", (code: number, reason: Buffer) => {
-        if (!closed) {
+        const unexpected = !closed;
+        if (unexpected) {
           logger.warn(
             `[rust-host] attachment websocket closed (${String(code)}) ${reason.toString()}`,
           );
         }
         teardown();
+        if (unexpected) {
+          options?.onUnexpectedClose?.({ code, reason: reason.toString() });
+        }
       });
       opened.on("error", (error: Error) => {
+        const unexpected = !closed;
         logger.warn("[rust-host] attachment websocket failed", error.message);
         teardown();
+        if (unexpected) options?.onUnexpectedClose?.({ reason: error.message });
       });
     })
     .catch((error: unknown) => {
-      logger.warn(
-        "[rust-host] attachment capability failed",
-        error instanceof Error ? error.message : error,
-      );
+      const unexpected = !closed;
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn("[rust-host] attachment capability failed", message);
       teardown();
+      // capability 申请失败就是 scope 建连失败（含首次安装失败）：调用方必须收到显式原因，
+      // 不能只留下一条日志后让 attachment 永久停在「未 ready」。
+      if (unexpected) options?.onUnexpectedClose?.({ reason: message });
     });
   return teardown;
 }

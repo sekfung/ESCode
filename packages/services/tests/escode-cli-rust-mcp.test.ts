@@ -81,6 +81,131 @@ test("MCP stdio discovery and execution use session isolation, explicit workspac
   }
 });
 
+// docs/specs/rust-mcp-parity.md「配置内凭据变更」：settings 连接与 session 都按完整配置区分身份。
+// 同一 server 名换 env 后必须用新连接，旧连接关闭时机不同不作为差分项。
+function credentialRespond(request: any, response: any) {
+  response.writeHead(200, { "Content-Type": "text/event-stream" });
+  if (request.messages.at(-1).role !== "tool") {
+    const name = request.tools.find((tool: any) => tool.function.name === "mcp__local_echo__echo")
+      ?.function.name;
+    event(response, {
+      tool_calls: [
+        {
+          index: 0,
+          id: "mcp-call",
+          type: "function",
+          function: {
+            name: name ?? "missing_mcp",
+            arguments: JSON.stringify({ text: "echo input" }),
+          },
+        },
+      ],
+    });
+    end(response, "tool_calls");
+  } else {
+    event(response, { content: "done" });
+    end(response, "stop");
+  }
+}
+
+async function credentialChange(kind: "node" | "rust") {
+  const f = await fixture(
+    kind === "node"
+      ? {
+          mode: "yolo",
+          registry: true,
+          respond: credentialRespond,
+          command: process.execPath,
+          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+        }
+      : { mode: "yolo", registry: true, respond: credentialRespond },
+  );
+  const server = await stdioServer(f.root);
+  try {
+    await configureRegistry(f, false);
+    const h = f.start();
+    const first = await listMcp(h, f.cwd, [server.config]);
+    const rotated = {
+      ...server.config,
+      env: [{ name: "MCP_PROBE", value: "rotated" }],
+    };
+    const second = await listMcp(h, f.cwd, [rotated]);
+    const ack = await h.command(
+      h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [rotated] }),
+    );
+    const sid = (ack.result as { sessionId: string }).sessionId;
+    await h.subscribe(`conversation/${sid}`);
+    await h.command(h.envelope("sendText", sid, { text: "credential rotation" }));
+    await h.completed(sid);
+    const tool = JSON.parse(f.requests.at(-1)!.messages.at(-1).content);
+    const initialized = (await readFile(server.initialized, "utf8")).trim().split("\n");
+    return {
+      first: first.statuses[server.config.name]?.status,
+      second: second.statuses[server.config.name]?.status,
+      initialized,
+      toolProbe: tool.probe,
+    };
+  } finally {
+    await f.close();
+  }
+}
+
+test("MCP credential change reconnects with the rotated env in both runtimes", async () => {
+  const node = canonical(await nodeOracle("mcp-credential-change", () => credentialChange("node")));
+  const rust = canonical(await credentialChange("rust"));
+  assert.deepEqual(rust, node);
+  assert.equal(node.first, "connected");
+  assert.equal(node.second, "connected");
+  assert.equal(node.initialized[0], "scoped");
+  assert.deepEqual(node.initialized.slice(1), ["rotated", "rotated"]);
+  assert.equal(node.toolProbe, "rotated");
+});
+
+// 同一规则覆盖 HTTP header：settings 连接按完整 config 区分身份，换 header 后新连接必须带上新值。
+async function headerCredentialChange(kind: "node" | "rust") {
+  const server = await httpServer("http");
+  const f = await fixture(
+    kind === "node"
+      ? {
+          mode: "yolo",
+          command: process.execPath,
+          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+        }
+      : { mode: "yolo" },
+  );
+  try {
+    const h = f.start();
+    const first = await listMcp(h, f.cwd, [server.config]);
+    const rotated = {
+      ...server.config,
+      headers: [{ name: "X-Fixture", value: "rotated" }],
+    };
+    const second = await listMcp(h, f.cwd, [rotated]);
+    return {
+      first: first.statuses[server.config.name]?.status,
+      second: second.statuses[server.config.name]?.status,
+      headers: [
+        ...new Set(server.calls.map((call) => String(call.headers["x-fixture"]))),
+      ].toSorted(),
+    };
+  } finally {
+    try {
+      await f.close();
+    } finally {
+      await server.close();
+    }
+  }
+}
+
+test("MCP HTTP credential change reconnects with the rotated header in both runtimes", async () => {
+  const node = canonical(
+    await nodeOracle("mcp-header-credential-change", () => headerCredentialChange("node")),
+  );
+  const rust = canonical(await headerCredentialChange("rust"));
+  assert.deepEqual(rust, node);
+  assert.deepEqual(node.headers, ["configured", "rotated"]);
+});
+
 for (const transport of ["http", "sse"] as const)
   test(`MCP ${transport} uses configured headers and carries tool results into the next model request`, async () => {
     const f = await fixture({ mode: "yolo", respond });
@@ -108,6 +233,61 @@ for (const transport of ["http", "sse"] as const)
       }
     }
   });
+// docs/specs/rust-mcp-parity.md「legacy SSE 自动重连」：initialize 后断开 SSE 流，
+// 两侧都按 eventsource 语义重连并完成 tools/list；Last-Event-ID 的既有差异见下方断言。
+async function sseReconnectObservation(kind: "node" | "rust") {
+  const server = await httpServer("sse", { dropSseAfterInitialize: true });
+  const f = await fixture(
+    kind === "node"
+      ? {
+          mode: "yolo",
+          respond,
+          command: process.execPath,
+          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+        }
+      : { mode: "yolo", respond },
+  );
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const h = f.start();
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("SSE reconnect timeout")), 15_000);
+    });
+    const result = (await Promise.race([listMcp(h, f.cwd, [server.config]), timeout])) as Awaited<
+      ReturnType<typeof listMcp>
+    >;
+    await h.close();
+    return {
+      status: result.statuses[server.config.name]?.status,
+      toolCount: result.statuses[server.config.name]?.toolCount,
+      lastEventIds: server.sseGets.map((entry) => entry.lastEventId),
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
+    try {
+      await f.close();
+    } finally {
+      await server.close();
+    }
+  }
+}
+
+test("legacy SSE reconnects after a dropped stream in both runtimes", async () => {
+  const node = canonical(await nodeOracle("sse-reconnect", () => sseReconnectObservation("node")));
+  const rust = canonical(await sseReconnectObservation("rust"));
+  assert.equal(node.status, "connected");
+  // 用户可见结果（重连次数、连接状态、工具数）必须一致。
+  const { lastEventIds: nodeIds, ...nodeOutcome } = node;
+  const { lastEventIds: rustIds, ...rustOutcome } = rust;
+  assert.deepEqual(rustOutcome, nodeOutcome);
+  assert.equal(rustIds.length, nodeIds.length);
+  // 当前 SDK（@modelcontextprotocol/sdk 1.29）的 SSEClientTransport 自己包了一层 fetch：每次连接都用 _commonHeaders()
+  // 重建 Headers，覆盖 eventsource 算出的 Last-Event-ID（apps/escode-cli/packages/cli/dist/escode.cjs 可证），
+  // 所以 Node 侧永远是 null。Rust 按 EventSource 语义在重连时携带已见的 id。
+  assert.deepEqual(nodeIds, [null, null]);
+  assert.deepEqual(rustIds, [null, "1"]);
+});
+
 // MCP HTTP 传输必须走与模型/WebFetch 同一套代理解析（docs/specs/rust-net-proxy.md）。
 // 本地 forward 代理转发所有请求并统计 MCP 路径：两侧的 MCP 握手都必须经它过去。
 // 模型 fixture 仍在 127.0.0.1，由 ESCODE_NO_PROXY 显式绕过，所以这里只观察 MCP 流量。

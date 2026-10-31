@@ -16,6 +16,7 @@ export const tools = [
 export async function stdioServer(root: string, mode = "normal") {
   const script = join(root, `mcp-${mode}.mjs`);
   const started = join(root, `mcp-${mode}-started`);
+  const initialized = join(root, `mcp-${mode}-initialized`);
   const calls = join(root, `mcp-${mode}-calls`);
   await writeFile(
     script,
@@ -26,7 +27,7 @@ appendFileSync(${JSON.stringify(started)}, process.pid + "\\n");
 const reply = (m,result) => process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result})+"\\n");
 createInterface({input:process.stdin}).on("line",line=>{
  const m=JSON.parse(line);
- if(m.method==="initialize") { if(${JSON.stringify(mode)}==="slow-connect")return;reply(m,{protocolVersion:"2025-11-25",serverInfo:{name:"fixture",version:"1"},capabilities:{tools:{}}}); }
+ if(m.method==="initialize") { appendFileSync(${JSON.stringify(initialized)}, (process.env.MCP_PROBE ?? "") + "\\n"); if(${JSON.stringify(mode)}==="slow-connect")return;reply(m,{protocolVersion:"2025-11-25",serverInfo:{name:"fixture",version:"1"},capabilities:{tools:{}}}); }
  else if(m.method==="server/discover")process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code:-32601,message:"legacy"}})+"\\n");
  else if(m.method==="tools/list") reply(m,{tools:${JSON.stringify(tools)}});
  else if(m.method==="tools/call") {
@@ -40,6 +41,7 @@ createInterface({input:process.stdin}).on("line",line=>{
   return {
     script,
     started,
+    initialized,
     calls,
     config: {
       name: "local.echo",
@@ -59,14 +61,29 @@ export function listMcp(
 ) {
   return h.client.request(
     "mcp/list",
-    { workspace: { workspacePath }, ...(mcpServers ? { mcpServers } : {}), mode },
+    {
+      workspace: { workspacePath, workspaceKey: workspacePath },
+      ...(mcpServers ? { mcpServers } : {}),
+      mode,
+    },
     escodeMcpListResultSchema,
   );
 }
-export async function httpServer(transport: "http" | "sse") {
+export async function httpServer(
+  transport: "http" | "sse",
+  options: { dropSseAfterInitialize?: boolean } = {},
+) {
   let stream: ServerResponse | undefined;
   const calls: any[] = [];
   const deletes: string[] = [];
+  const sseGets: { lastEventId: string | null }[] = [];
+  const pendingMessages: string[] = [];
+  let messageId = 0;
+  const sendSse = (response: unknown) => {
+    const line = `id: ${++messageId}\nevent: message\ndata: ${JSON.stringify(response)}\n\n`;
+    if (stream && !stream.destroyed) stream.write(line);
+    else pendingMessages.push(line);
+  };
   const server = createServer(async (req, res) => {
     if (req.method === "DELETE") {
       deletes.push(String(req.headers["mcp-session-id"] ?? ""));
@@ -78,9 +95,13 @@ export async function httpServer(transport: "http" | "sse") {
         res.writeHead(405).end();
         return;
       }
+      sseGets.push({
+        lastEventId: String(req.headers["last-event-id"] ?? "") || null,
+      });
       stream = res;
       res.writeHead(200, { "Content-Type": "text/event-stream" });
       res.write("event: endpoint\ndata: /messages\n\n");
+      for (const line of pendingMessages.splice(0)) res.write(line);
       return;
     }
     req.setEncoding("utf8");
@@ -114,7 +135,11 @@ export async function httpServer(transport: "http" | "sse") {
     const response = { jsonrpc: "2.0", id: m.id, result };
     if (transport === "sse") {
       res.writeHead(202).end();
-      stream!.write(`event: message\ndata: ${JSON.stringify(response)}\n\n`);
+      sendSse(response);
+      if (options.dropSseAfterInitialize && m.method === "initialize" && sseGets.length === 1) {
+        stream?.end();
+        stream = undefined;
+      }
     } else {
       res
         .writeHead(200, { "Content-Type": "application/json", "Mcp-Session-Id": "fixture" })
@@ -134,6 +159,7 @@ export async function httpServer(transport: "http" | "sse") {
     },
     calls,
     deletes,
+    sseGets,
     async close() {
       stream?.end();
       server.closeAllConnections();

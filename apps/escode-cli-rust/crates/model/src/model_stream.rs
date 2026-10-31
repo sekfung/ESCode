@@ -24,8 +24,16 @@ pub struct Assembly {
     finish: Option<String>,
     bytes: usize,
     pub done: bool,
+    /// 首个/末个非空生成 delta 的本地毫秒时间；差值即 TS `decodeMs`（空 delta 与非生成事件不计）。
+    decode_first_at: Option<u64>,
+    decode_last_at: Option<u64>,
 }
 impl Assembly {
+    fn mark_generation(&mut self) {
+        let at = super::now();
+        self.decode_first_at.get_or_insert(at);
+        self.decode_last_at = Some(at);
+    }
     pub async fn consume(
         &mut self,
         data: &str,
@@ -71,6 +79,7 @@ impl Assembly {
             if let Some(part) = string(&delta[field])?
                 && !part.is_empty()
             {
+                self.mark_generation();
                 self.count(part.len())?;
                 if reasoning {
                     self.reasoning.push_str(part);
@@ -96,6 +105,9 @@ impl Assembly {
                 let id = string(&part["id"])?.unwrap_or("");
                 let name = string(&part["function"]["name"])?.unwrap_or("");
                 let args = string(&part["function"]["arguments"])?.unwrap_or("");
+                if !args.is_empty() {
+                    self.mark_generation();
+                }
                 self.count(id.len() + name.len() + args.len())?;
                 let call = self.calls.entry(index).or_default();
                 call.id.push_str(id);
@@ -155,12 +167,18 @@ impl Assembly {
         if !calls.is_empty() {
             message["tool_calls"] = calls.clone().into();
         }
+        // 跨度为零（只有一个生成 delta 或时间戳退化）时没有可计量的解码区间，不下发。
+        let decode_ms = match (self.decode_first_at, self.decode_last_at) {
+            (Some(first), Some(last)) if last > first => Some(last - first),
+            _ => None,
+        };
         Ok(ModelOutput {
             response_id: String::new(),
             message,
             calls,
             usage: self.usage,
             output_limit,
+            decode_ms,
         })
     }
 }

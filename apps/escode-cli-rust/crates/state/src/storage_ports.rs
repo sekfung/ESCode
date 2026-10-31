@@ -111,6 +111,13 @@ impl crate::contract::SessionStore for Store {
     ) -> Result<crate::domain::session::StoredAttachment> {
         self.snapshot_file(path, mime).await
     }
+    async fn prepare_local_attachment(
+        &self,
+        path: &str,
+        mime: &str,
+    ) -> Result<crate::domain::session::StoredAttachment> {
+        self.prepare_local(path, mime).await
+    }
     async fn read_attachment(
         &self,
         asset: &crate::domain::session::StoredAttachment,

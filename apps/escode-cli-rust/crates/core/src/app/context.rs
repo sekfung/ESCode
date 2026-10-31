@@ -51,6 +51,8 @@ pub(super) struct RunContext {
     pub messages: Vec<Value>,
     pub manual: Option<String>,
     pub usage_anchor: Option<(usize, usize, usize)>,
+    /// 本轮 ToolSearch 是否启用：关闭时只在请求投影隐藏公告，存储事实保留（rust-tool-search.md §5.1）。
+    pub tool_search_active: bool,
     estimated: usize,
     continuations: Vec<usize>,
     /// 恢复后的 shell 提醒（docs/specs/rust-shell-resume-notice.md）：插在 `messages[位置]` 之前，只进请求、
@@ -82,6 +84,7 @@ impl RunContext {
             messages,
             manual,
             usage_anchor: None,
+            tool_search_active: false,
             estimated,
             continuations: vec![],
             shell_notice: None,
@@ -151,7 +154,14 @@ impl RunContext {
             messages
         };
         messages.splice(0..0, prefix.iter().cloned());
+        if !self.tool_search_active {
+            messages.retain(|message| {
+                message["_escode_source"]
+                    != crate::domain::tool_search_announcement::ANNOUNCEMENT_SOURCE
+            });
+        }
         crate::domain::agent_description::order_listing_before_input(&mut messages);
+        crate::domain::tool_search_announcement::order_before_input(&mut messages);
         // 长历史的 token 估算在边界加载时计算一次，追加时增量维护；不要每次请求重复扫描历史。
         if tokens >= micro_threshold {
             messages = microcompact(messages, 0);
@@ -175,12 +185,15 @@ impl RunContext {
         }
         (messages, tokens)
     }
+    /// `discovered` 是 `ToolPort` 本进程已发现集合；压缩边界还要并上历史 `tool_reference`
+    /// 与上一检查点的名单（上游 `collectDiscoveredTools(activeEntries)`）。
     pub async fn compact(
         &mut self,
         model: &dyn ModelPort,
         sink: &EventSink,
         cancel: &CancellationToken,
         instructions: Option<&str>,
+        discovered: &[String],
     ) -> Result<()> {
         let manual = instructions.is_some();
         let before = self.estimated;
@@ -240,6 +253,11 @@ impl RunContext {
         let next = ContextState {
             offset: self.state.offset + split,
             summary: Some(summary.into()),
+            pre_compact_discovered_tools: compact_discovered(
+                &self.messages,
+                &self.state.pre_compact_discovered_tools,
+                discovered,
+            ),
         };
         let after = estimate(&with_summary(
             next.summary.as_deref(),
@@ -276,6 +294,19 @@ impl RunContext {
         self.estimated = after;
         Ok(())
     }
+}
+/// 压缩边界写入的已发现工具名：历史 `tool_reference`/旧边界 ∪ 本进程已发现，排序去重。
+fn compact_discovered(
+    messages: &[Value],
+    previous: &[String],
+    in_process: &[String],
+) -> Vec<String> {
+    let mut names = crate::domain::tool_search_announcement::discovered(messages);
+    names.extend(previous.iter().cloned());
+    names.extend(in_process.iter().cloned());
+    names.sort();
+    names.dedup();
+    names
 }
 pub(super) async fn hidden_summary(
     model: &dyn ModelPort,

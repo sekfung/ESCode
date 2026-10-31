@@ -222,7 +222,7 @@ async function attachAndRead(manager: RustHostManager) {
     const [port1, port2] = createPortPair();
     return { port1, port2 };
   }, "web-remote-replayable");
-  const services = connectViaMessagePort(asMessagePort(attachment.port as HostPortLike));
+  const services = await connectViaMessagePort(asMessagePort(attachment.port as HostPortLike));
   const settings = (await services.settingService.get()) as Record<string, unknown>;
   expect(settings).toBeTypeOf("object");
   return attachment;

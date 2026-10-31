@@ -61,3 +61,13 @@ pub fn truncate_utf8(text: &mut String, limit: usize) {
         text.truncate(end);
     }
 }
+/// TS `fitStringToBytes(..., "tail")`：保留尾部，且起点必须落在 UTF-8 字符边界。
+pub fn truncate_utf8_tail(text: &mut String, limit: usize) {
+    if text.len() > limit {
+        let mut start = text.len() - limit;
+        while !text.is_char_boundary(start) {
+            start += 1;
+        }
+        text.drain(..start);
+    }
+}

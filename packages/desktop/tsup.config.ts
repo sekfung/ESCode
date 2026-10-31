@@ -203,6 +203,9 @@ export default defineConfig([
     entry: {
       "main/index": "src/main/index.ts",
       "main/browserWebmRecorder": "src/main/browserView/electronBrowserWebmRecorder.ts",
+      // Rust Host 模式下 Main 负责准备 tasks-index：worker 必须与 main bundle 同目录，
+      // 才能被 rustHostStorageStartup 的 `new URL(...)` 解析。
+      "main/rustHostTasksStorageWorker": "src/main/rustHostTasksStorageWorker.ts",
       // 修复原因：2b936071 删除遥测时移除了 escodeDataSizeWorker.ts，入口残留会让 tsup 构建直接失败。
       // 资源管理器「存储」tab 的扫描 Worker：main 持有 StorageService，遍历放独立线程，供 new Worker(new URL()) 解析。
       "main/storageScanWorker": "src/main/storageScanWorker.ts",

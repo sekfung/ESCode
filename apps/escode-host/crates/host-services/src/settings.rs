@@ -11,7 +11,9 @@
 //! 本域不实现 TS 的 zod 校验与迁移（那是 TS Host 的职责）：Rust 侧只写调用方给出的补丁键，
 //! 不重写整棵配置树，因此不会丢弃对方的字段——这是两端互操作的关键性质。
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -20,6 +22,24 @@ use serde_json::{Map, Value, json};
 /// 读取前的解析重试（与 TS 同参：读者可能读到半截 JSON）。
 const PARSE_RETRY_COUNT: usize = 3;
 const PARSE_RETRY_DELAY: Duration = Duration::from_millis(300);
+
+/// Host 内同一 settings 文件的串行写队列（spec §11.5）。
+///
+/// 所有写入口（`apply_patch` / `set_key` / Source Server `lastOnlineAt`）必须先取得该锁，
+/// 避免 read-modify-write 交错后互相覆盖顶层键。锁按文件路径区分，不跨 HOME。
+fn settings_lock(home: &Path) -> Arc<tokio::sync::Mutex<()>> {
+    type Locks = Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>;
+    static LOCKS: OnceLock<Locks> = OnceLock::new();
+    let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut locks = locks
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    Arc::clone(
+        locks
+            .entry(home.to_path_buf())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))),
+    )
+}
 
 /// 设置文件路径：`<home>/.escode/v2/setting.json`（SETTINGS_DIR + FILE，与 TS 同名同层）。
 pub fn settings_path(home: &Path) -> PathBuf {
@@ -129,6 +149,11 @@ pub async fn read(home: &Path) -> Result<Value> {
 /// 应用补丁：顶层键合并（补丁里的键覆盖，文件里其余键原样保留），随后原子写回。
 /// 返回写入后的完整设置对象。
 pub async fn apply_patch(home: &Path, patch: &Value) -> Result<Value> {
+    let _guard = settings_lock(home).lock_owned().await;
+    apply_patch_serialized(home, patch).await
+}
+
+async fn apply_patch_serialized(home: &Path, patch: &Value) -> Result<Value> {
     let patch = patch
         .as_object()
         .context("Settings patch must be a JSON object")?;
@@ -140,18 +165,17 @@ pub async fn apply_patch(home: &Path, patch: &Value) -> Result<Value> {
         merged.insert(key.clone(), value.clone());
     }
     let merged = Value::Object(merged);
-    let path = settings_path(home);
-    let serialized = format!(
-        "{}\n",
-        serde_json::to_string_pretty(&merged).context("Settings serialization failed")?
-    );
-    escode_host_core::atomic_write::write(&path, serialized.as_bytes())
-        .with_context(|| format!("Settings write failed: {}", path.display()))?;
+    write_settings(home, &merged).await?;
     Ok(merged)
 }
 
 /// 设置单个顶层键（`None` = 移除，对应 TS `update({key: undefined})` 经 JSON 序列化丢键）。
 pub async fn set_key(home: &Path, key: &str, value: Option<Value>) -> Result<Value> {
+    let _guard = settings_lock(home).lock_owned().await;
+    set_key_serialized(home, key, value).await
+}
+
+async fn set_key_serialized(home: &Path, key: &str, value: Option<Value>) -> Result<Value> {
     let mut merged = match read(home).await? {
         Value::Object(object) => object,
         _ => Map::new(),
@@ -161,14 +185,57 @@ pub async fn set_key(home: &Path, key: &str, value: Option<Value>) -> Result<Val
         None => merged.remove(key),
     };
     let merged = Value::Object(merged);
+    write_settings(home, &merged).await?;
+    Ok(merged)
+}
+
+async fn write_settings(home: &Path, settings: &Value) -> Result<()> {
     let path = settings_path(home);
     let serialized = format!(
         "{}\n",
-        serde_json::to_string_pretty(&merged).context("Settings serialization failed")?
+        serde_json::to_string_pretty(settings).context("Settings serialization failed")?
     );
     escode_host_core::atomic_write::write(&path, serialized.as_bytes())
-        .with_context(|| format!("Settings write failed: {}", path.display()))?;
-    Ok(merged)
+        .with_context(|| format!("Settings write failed: {}", path.display()))
+}
+
+/// 只推进仍存在的 Source 的 `lastOnlineAt`；时间不倒退，也不复活已删除的 Source。
+///
+/// 返回是否实际写盘。迟到写入与并发写都经 [`settings_lock`] 串行化（spec §11.5）。
+pub(crate) async fn record_source_last_online(
+    home: &Path,
+    source_server_id: &str,
+    timestamp: u64,
+) -> Result<bool> {
+    let _guard = settings_lock(home).lock_owned().await;
+    let mut merged = match read(home).await? {
+        Value::Object(object) => object,
+        _ => Map::new(),
+    };
+    let Some(servers) = merged
+        .get_mut("sourceServers")
+        .and_then(Value::as_array_mut)
+    else {
+        return Ok(false);
+    };
+    let Some(server) = servers.iter_mut().find(|server| {
+        server.get("sourceServerId").and_then(Value::as_str) == Some(source_server_id)
+    }) else {
+        return Ok(false);
+    };
+    let current = server
+        .get("lastOnlineAt")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    if timestamp <= current {
+        return Ok(false);
+    }
+    let Some(object) = server.as_object_mut() else {
+        return Ok(false);
+    };
+    object.insert("lastOnlineAt".to_owned(), Value::from(timestamp));
+    write_settings(home, &Value::Object(merged)).await?;
+    Ok(true)
 }
 
 /// 隔离坏文件（TS `quarantineCorruptSettingsFile`：`setting.json.corrupt-<ISO 时间戳>`）。
@@ -259,6 +326,61 @@ mod tests {
         std::fs::write(&path, "[1,2,3]").unwrap();
         assert_eq!(read(dir.path()).await.unwrap(), default_settings());
         assert!(path.exists(), "合法 JSON 不隔离（TS 同为 schema 失败回退）");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_patches_do_not_lose_top_level_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().to_path_buf();
+        let mut tasks = Vec::new();
+        for index in 0..16 {
+            let home = home.clone();
+            tasks.push(tokio::spawn(async move {
+                let mut patch = Map::new();
+                patch.insert(format!("key{index}"), Value::from(index));
+                apply_patch(&home, &Value::Object(patch)).await.unwrap();
+            }));
+        }
+        for task in tasks {
+            task.await.unwrap();
+        }
+        let settings = read(&home).await.unwrap();
+        for index in 0..16 {
+            assert_eq!(settings[format!("key{index}")], Value::from(index));
+        }
+    }
+
+    #[tokio::test]
+    async fn record_source_last_online_is_monotonic_and_skips_deleted_sources() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path();
+        let path = settings_path(home);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"sourceServers":[{"sourceServerId":"s1","displayName":"clock","lastOnlineAt":100}]}"#,
+        )
+        .unwrap();
+
+        assert!(record_source_last_online(home, "s1", 200).await.unwrap());
+        assert!(
+            !record_source_last_online(home, "s1", 150).await.unwrap(),
+            "较小时间戳不得回退"
+        );
+        assert!(
+            !record_source_last_online(home, "deleted", 300)
+                .await
+                .unwrap(),
+            "已删除的 Source 不得被复活"
+        );
+
+        let settings = read(home).await.unwrap();
+        assert_eq!(settings["sourceServers"][0]["lastOnlineAt"], json!(200));
+        assert_eq!(
+            settings["sourceServers"].as_array().unwrap().len(),
+            1,
+            "未知 Source 不新增记录"
+        );
     }
 
     #[tokio::test]

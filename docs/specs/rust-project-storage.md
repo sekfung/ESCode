@@ -1,6 +1,6 @@
 # Rust Host 项目与任务组织态（W3）
 
-> 状态：W3 已落地（2026-10-28）；缺口见 §5
+> 状态：W3 已落地（2026-10-28）；W3-e 远端项目归属（S5-e，2026-10-31）已落地；缺口见 §5
 > 关联：[upstream-v3.16.2-sync.md](upstream-v3.16.2-sync.md)、[source-server-remote-rust-host.md](source-server-remote-rust-host.md)、[rust-unified-host.md](rust-unified-host.md)
 > Oracle：上游 ZCode v3.16.2 `packages/services/src/{project-storage,project,project-catalog,task-facts,task-groups,window-project-directory}`（只读，不导入 Node 实现）
 
@@ -8,19 +8,33 @@
 
 W3 把上游 Node Host 的项目/存储数据模型与组织态行为落到 Rust Host：
 
-| 域                | 上游位置                         | Rust 落点                                             |
-| ----------------- | -------------------------------- | ----------------------------------------------------- |
-| 项目容器与 roots  | `project-storage/project-repository.ts` | `host-services/src/tasks_index/project_{read,write,misc}.rs` |
-| 项目服务方法面    | `project/index.ts`               | `host-rpc/src/domains_project.rs`                     |
-| 任务分组          | `task-groups/repository.ts`      | `host-services/src/task_groups/` + `host-rpc` channel |
-| 自动归档          | `project/autoArchiveScheduler.ts`| `host-rpc/src/project_archive.rs`                     |
-| 任务事实          | `task-facts/index.ts`            | 既有 `task_index_syncer` / `tasks_index::write`       |
-| 项目/目录选择     | `project-catalog/*`              | `project.readDirectory` 组合 `file.readdir`           |
+| 域               | 上游位置                                | Rust 落点                                                    |
+| ---------------- | --------------------------------------- | ------------------------------------------------------------ |
+| 项目容器与 roots | `project-storage/project-repository.ts` | `host-services/src/tasks_index/project_{read,write,misc}.rs` |
+| 项目服务方法面   | `project/index.ts`                      | `host-rpc/src/domains_project.rs`                            |
+| 任务分组         | `task-groups/repository.ts`             | `host-services/src/task_groups/` + `host-rpc` channel        |
+| 自动归档         | `project/autoArchiveScheduler.ts`       | `host-rpc/src/project_archive.rs`                            |
+| 任务事实         | `task-facts/index.ts`                   | 既有 `task_index_syncer` / `tasks_index::write`              |
+| 项目/目录选择    | `project-catalog/*`                     | `project.readDirectory` 组合 `file.readdir`                  |
+| 远端项目条目     | `remote-projects/index.ts`              | `remote-projects` channel + `tasks_index/remote_project*.rs` |
 
 归属：
 
 - **唯一写者**：Rust Host 的 `TasksIndex`（`tasks-index.sqlite`，含 `projects` / `project_roots` / `task_group_*` 表）。Renderer 不直接写库。
-- **远程**：按 Q3，本轮远程 workspace 仍由窗口内 Node Host 承载；Rust Host 只服务本地 scope。`hostId != local` 的请求返回 `project.host-offline` / `project.cross-host-move`，不做静默降级。
+- **启动准备**：Rust Host 模式没有 Node Host，Main 在拉起 Rust Host 前用同一份
+  `prepareTasksIndexStorage` 迁移 worker 建库/补齐账本；Rust Host 只校验不迁移（见
+  `rust-u2-tasks-index.md` §3.1）。准备失败显式 `RUST_HOST_STORAGE_FAILED`，不回退 Node Host。
+  该 worker 只做 tasks 基础迁移；Rust Host 启动时再为空 tasks 库补齐 project-storage 的表、
+  tasks/automations 的归属列与索引，并写入 `schema_migration` 账本。
+- **远程**（W3-e 起）：Controller Rust Host 同时承载本地与远端项目存储，`projects.host_id` /
+  `project_roots.host_id` 取 `local` 或 `remote:server:<sourceServerId>`。远端项目本身不在远端
+  持久化；远端 Source Server（Node bundle）只提供 `file.stat` / `file.readdir` 文件系统事实，
+  Rust Host 通过窗口内 Source 连接把探测请求路由过去。
+- **远端离线**：Source 未连接时，任何需要文件系统事实的远端项目操作返回
+  `project.host-offline`，不回退本地目录、不切换 Host。远端项目的 `deleteProject` /
+  `reorderProjects` / `moveTask` 也要求 Source 在线，避免离线写入与远端真实状态分叉。
+- **host 不变性**：`saveProject` 按 `hostId` 分区；已存在项目的 `host_id` 不可由客户端改写
+  （`project.host-immutable`），跨 host 移动任务返回 `project.cross-host-move`。
 - **Node 代码**：仅作 oracle，差分通过后按既有 M5 计划删除。
 
 ## 2. 数据模型
@@ -39,17 +53,17 @@ W3 把上游 Node Host 的项目/存储数据模型与组织态行为落到 Rust
 
 `project` channel（`ServiceChannels.Project`）：
 
-| 方法 | 行为 | 失败 |
-| ---- | ---- | ---- |
-| `readDirectory({hostId?,path?,includeHidden?})` | 缺省 `home`；必须绝对路径；`path.normalize` 后委托 `file.readdir` | `project.absolute-path-required`、`project.directory-service-unavailable` |
-| `readProjects({includeDeleted?})` | 项目列表 + 所属 Host 派生的 `primaryRootStatus`（只读，不触发归档） | 索引错误原样上抛 |
-| `readTree({includeDeleted?,includeDeletedTasks?})` | `{projects,tasks,deletedTasks?}` + `primaryRootStatus` | 同上 |
-| `saveProject(input)` | roots 绝对路径 + 存在且为目录 + 归一化/去重；主 root 必须属于 roots；名字去重追加 `(n)` | `project.absolute-path-required`、`project.directory-required`、`project.invalid-primary-root` |
-| `deleteProject(id)` | 幂等软删，保留 roots 与任务归属 | — |
-| `moveTask({task,projectId,addMissingRoot?})` | 跨 host 拒绝；缺 root 需显式 `addMissingRoot` 且目录存在；同事务写 `project_id` + `handoff_pending` | `project.root-confirmation-required`、`project.cross-host-move` |
-| `reorderProjects(ids)` | 写事务内校验存在性与 host，写 position | `project.duplicate-order` |
-| `prepareSession({projectId?,draftId?,reuseDraft?})` | 见 §3.1 | 见下 |
-| `resolveSessionDirectories(task)` | 已有任务：root + 项目 roots 派生附加目录；未知 task 返回空附加目录 | `project.invalid-execution-directories` |
+| 方法                                                        | 行为                                                                                                                                          | 失败                                                                                                                                                                                    |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `readDirectory({hostId?,path?,includeHidden?})`             | 缺省 `hostId` = `local`、路径 = `home`；必须绝对路径；`path.normalize` 后委托 `file.readdir`；远端走 Source 的 `file.readdir`（POSIX 归一化） | `project.absolute-path-required`、`project.directory-service-unavailable`、`project.host-offline`、`project.invalid-request`                                                            |
+| `readProjects({hostId?,includeDeleted?})`                   | 按 `host_id` 过滤的项目列表 + 所属 Host 派生的 `primaryRootStatus`（只读，不触发归档）                                                        | 索引错误原样上抛                                                                                                                                                                        |
+| `readTree({hostId?,includeDeleted?,includeDeletedTasks?})`  | 按 `host_id` 过滤的 `{projects,tasks,deletedTasks?}` + `primaryRootStatus`                                                                    | 同上                                                                                                                                                                                    |
+| `saveProject(input)`                                        | roots 绝对路径 + 存在且为目录 + 归一化/去重；主 root 必须属于 roots；名字去重追加 `(n)`；已有项目 host 不可变                                 | `project.absolute-path-required`、`project.directory-required`、`project.invalid-primary-root`、`project.host-immutable`、`project.remote-single-root-required`、`project.host-offline` |
+| `deleteProject({hostId?,id})`                               | 幂等软删，保留 roots 与任务归属；远端要求 Source 在线                                                                                         | `project.host-offline`                                                                                                                                                                  |
+| `moveTask({hostId?,task,projectId,addMissingRoot?})`        | 跨 host 拒绝；缺 root 需显式 `addMissingRoot` 且目录存在（远端经 Source 探测）；同事务写 `project_id` + `handoff_pending`                     | `project.root-confirmation-required`、`project.cross-host-move`、`project.host-offline`                                                                                                 |
+| `reorderProjects({hostId?,ids})`                            | 写事务内校验存在性与 host，写 position；远端要求 Source 在线                                                                                  | `project.duplicate-order`、`project.host-offline`                                                                                                                                       |
+| `prepareSession({hostId?,projectId?,draftId?,reuseDraft?})` | 见 §3.1                                                                                                                                       | 见下                                                                                                                                                                                    |
+| `resolveSessionDirectories(task)`                           | 已有任务：root + 项目 roots 派生附加目录；未知 task 返回空附加目录；远端补充 `workspaceIdentity`                                              | `project.invalid-execution-directories`                                                                                                                                                 |
 
 ### 3.1 `prepareSession`
 
@@ -68,6 +82,15 @@ caller ──▶ Host project.prepareSession
 - 同一进程内 `prepareSession` 串行化（`tokio::sync::Mutex`），并发同 `projectId` 只建一次 root。
 - `workspaceDirectory` = `<dataBaseDir>/.escode/workspace/default`（与 `file.ensureConversationWorkspace` 同源）。
 - 返回 `{workspacePath, additionalDirectories, projectId}`；本地 scope 不填 `workspaceIdentity`（Host 不推断 attachment 身份）。
+
+远端 owner（`hostId = remote:server:<sourceServerId>`）的差异：
+
+- 必须绑定已有项目（`projectId`）；无项目时返回 `project.remote-project-required`，不在远端
+  凭空 `mkdir` 草稿目录。
+- 项目必须恰好一个 root（`project.remote-single-root-required`）；主 root 经 Source
+  `file.stat` 校验存在且可用。
+- 返回 `workspaceIdentity = <hostId>:<POSIX 归一化 root>`，与共享
+  `workspaceIdentityForHost` 构造器逐字节一致；Renderer 用它绑定 attachment 与项目。
 
 ### 3.2 自动归档
 
@@ -101,21 +124,35 @@ spawn ──▶ 首轮 scan ──▶ readPolicy(settings) ──▶ archiveInac
 - `task-facts.repairSubagentTaskIndex` 的冷恢复修复复用 `tasks_index` 的删除/孤儿标记写面；不创建运行时。
 - 项目归属（`project_id`、`root_path`、`handoff_pending`）只在 `moveTask` / `reserveCreatedTask` 事务内写；读取路径不补齐。
 
+### 3.5 远端项目入口
+
+`remote-projects` channel（`ServiceChannels.RemoteProjects`）：`readDirectory` / `saveHost` /
+`bindHost` / `removeHost` / `addEntry` / `refreshEntry` / `removeEntry`。
+
+- 权威数据是本机 `tasks-index.sqlite` 的 `hosts` 与 `remote_project_entries` 表；连接运行态
+  从 Source registry 快照派生（`online` / `connecting` / `offline`），不落库、不另建状态机。
+- `hostId` 统一为 `remote:server:<sourceServerId>`；解析/构造走 `remote_host_id`，
+  业务代码不手写前缀。
+- 写方法成功即已提交；读方法只做投影，不触发连接或目录扫描。
+
 ## 4. 验收
 
-| 场景 | 断言 |
-| ---- | ---- |
-| 两个并发 `prepareSession({projectId})` | 同一 workspacePath；`project_roots` 只有一行 |
-| `prepareSession({draftId})` 重复调用 | 同一 `draft-<id>` 目录；无 draftId 的调用分配独立目录 |
-| `draftId="../../escape"` | 拒绝，且不创建目录 |
-| `reuseDraft` 目录被移走 | `project.directory-required`，不重建 |
-| 项目在目录校验期间被删 | `project.not-found`，不返回旧归属 |
-| `saveProject` 相对路径 / 不存在目录 | 各自错误码，且不写库 |
-| `moveTask` 缺 root 且未确认 | `project.root-confirmation-required`；确认后原子加 root + 移动 |
-| `readProjects` / `readTree` | 返回 `primaryRootStatus`；多次读取不改变 `archived` |
-| 自动归档 | 5 分钟 tick + 首轮扫描；读取/点击不归档；设置关闭时空操作 |
-| task-groups | `admit` 幂等；`move` 来源/锚点过期拒绝；`ungroup` 保留组织墓碑 |
-| 契约 | `pnpm check:escode-host`（含 inventory 对账）、`cargo test -p escode-host-services -p escode-host-rpc -p escode-host-proto` |
+| 场景                                   | 断言                                                                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 两个并发 `prepareSession({projectId})` | 同一 workspacePath；`project_roots` 只有一行                                                                                                          |
+| `prepareSession({draftId})` 重复调用   | 同一 `draft-<id>` 目录；无 draftId 的调用分配独立目录                                                                                                 |
+| `draftId="../../escape"`               | 拒绝，且不创建目录                                                                                                                                    |
+| `reuseDraft` 目录被移走                | `project.directory-required`，不重建                                                                                                                  |
+| 项目在目录校验期间被删                 | `project.not-found`，不返回旧归属                                                                                                                     |
+| `saveProject` 相对路径 / 不存在目录    | 各自错误码，且不写库                                                                                                                                  |
+| `moveTask` 缺 root 且未确认            | `project.root-confirmation-required`；确认后原子加 root + 移动                                                                                        |
+| `readProjects` / `readTree`            | 返回 `primaryRootStatus`；多次读取不改变 `archived`                                                                                                   |
+| 自动归档                               | 5 分钟 tick + 首轮扫描；读取/点击不归档；设置关闭时空操作                                                                                             |
+| task-groups                            | `admit` 幂等；`move` 来源/锚点过期拒绝；`ungroup` 保留组织墓碑                                                                                        |
+| 远端项目                               | `hostId=remote:server:<id>` 与本地项目互不串树；`saveProject` 改 host → `project.host-immutable`；远端多 root → `project.remote-single-root-required` |
+| 远端离线                               | `readDirectory` / `saveProject` / `moveTask` → `project.host-offline`，不读本地目录                                                                   |
+| `prepareSession` 远端                  | 无 `projectId` → `project.remote-project-required`，返回 `workspaceIdentity=<hostId>:<posix root>`                                                    |
+| 契约                                   | `pnpm check:escode-host`（含 inventory 对账）、`cargo test -p escode-host-services -p escode-host-rpc -p escode-host-proto`                           |
 
 未执行或环境受限的检查在同步 spec 的波次记录中如实标注。
 
@@ -124,8 +161,14 @@ spawn ──▶ 首轮 scan ──▶ readPolicy(settings) ──▶ archiveInac
 1. `task-facts.repairSubagentTaskIndex` 的启动期全量清扫未单独落地。syncer 已阻止
    `subagent_child` 重新写入主列表，但旧索引中残留的 child 行没有启动清扫；需要 Agent
    `listSessions(existing-only)` 的批查通道，计划随 W4 的会话 E2E 一起补。
-2. Source Server / 远程 scope 不在 Rust Host：按 Q3 由窗口内 Node Host 承载；后续统一方案见
-   [source-server-remote-rust-host.md](source-server-remote-rust-host.md)。
-3. 旧 `escode-task` 分组方法（`createTaskGroup` / `applyGroupedTaskViewOrder`）仍是 UI 的过渡面，
+2. ~~Source Server / 远程 scope 不在 Rust Host：按 Q3 由窗口内 Node Host 承载~~ → 2026-10-31
+   S5-a/S5-b/S5-e 后，ssh/wsl/docker 远程连接与远端项目存储均由 App 级 Rust Host 承载
+   （`projects.host_id` 分区 + Source `file.stat`/`file.readdir` 探测）；Node Host 只保留
+   Web `kind: "server"` 自连路径。剩余缺口见
+   [source-server-remote-rust-host.md](source-server-remote-rust-host.md) §12.2。
+3. 远端任务行的 `host_id` 归属：当前 `task_index_syncer` 写面尚未显式写入远端 `host_id`；
+   `readTree` 只把 `NULL` 容错为 `local`，因此远端任务是否会出现在远端项目树仍需真实 SSH
+   E2E 验证。`SSH-P0-PROJECT-01` 已在 Linux 通过（`desktop-e2e-20261031-120850-450`），但只覆盖
+   项目行与草稿归属，未创建任务行；任务行归属仍未验证。验证前不新增猜测性写入路径。
+4. 旧 `escode-task` 分组方法（`createTaskGroup` / `applyGroupedTaskViewOrder`）仍是 UI 的过渡面，
    `task-groups` channel 已可用；W4 迁移 UI 后删除旧面。
-

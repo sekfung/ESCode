@@ -7,15 +7,30 @@ use escode_host_runtime::Instances;
 
 use crate::channel::Channel;
 
+/// 薄服务装配所需的可选服务句柄：集中传参，避免签名继续膨胀。
+pub(crate) struct SimpleChannelServices {
+    pub plugin_management: crate::domains_plugin::PluginManagement,
+    pub media_authorizer:
+        Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
+    pub main_broker: Option<std::sync::Arc<escode_host_control::main_broker::MainBroker>>,
+    pub client_services:
+        Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
+    pub provisioning_trigger: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+}
+
 pub(crate) fn simple_channels(
     home: &Path,
     data_base_dir: Option<&Path>,
     instances: Instances,
-    plugin_management: crate::domains_plugin::PluginManagement,
-    media_authorizer: Option<std::sync::Arc<escode_host_control::path_authorizer::PathAuthorizer>>,
-    main_broker: Option<std::sync::Arc<escode_host_control::main_broker::MainBroker>>,
-    client_services: Option<std::sync::Arc<escode_host_services::client_services::ClientServices>>,
+    services: SimpleChannelServices,
 ) -> Vec<Channel> {
+    let SimpleChannelServices {
+        plugin_management,
+        media_authorizer,
+        main_broker,
+        client_services,
+        provisioning_trigger,
+    } = services;
     let usage_stats_instances = instances;
     let mut channels = vec![
         crate::domains_broadcast::broadcast_channel(std::sync::Arc::new(
@@ -30,7 +45,10 @@ pub(crate) fn simple_channels(
         crate::domains_attachments::media_preview_channel(media_authorizer),
         crate::domains_client::client_scenes_channel(client_services.clone()),
         crate::domains_client::client_config_channel(client_services),
-        crate::domains_credential::credential_channel(data_base_dir.map(Path::to_path_buf)),
+        crate::domains_credential::credential_channel(
+            data_base_dir.map(Path::to_path_buf),
+            provisioning_trigger,
+        ),
         plugin_management.channel(),
         // 旧 `plugins` 通道：整套退役，纯常量应答（无依赖）。
         crate::domains_plugins_legacy::plugins_channel(),

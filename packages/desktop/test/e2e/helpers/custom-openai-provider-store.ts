@@ -32,19 +32,20 @@ const E2E_MODEL_CONTEXT_WINDOW = 200_000;
 const E2E_MODEL_MAX_OUTPUT_TOKENS = 32_000;
 
 interface SeedCustomOpenAIProviderOptions {
+  /** 显式 Base URL（远程 E2E 用 SSH 反向转发地址）；缺省读取本轮 replay 地址。 */
+  baseURL?: string;
   inputModalities?: readonly E2EProviderModality[];
   modelId: string;
   providerId: string;
   providerName: string;
 }
 
-export async function seedCustomOpenAIChatCompletionsProvider({
-  inputModalities,
-  modelId,
-  providerId,
-  providerName,
-}: SeedCustomOpenAIProviderOptions): Promise<E2EModelProviderSnapshot> {
-  const baseURL = await resolveSeededReplayBaseUrl();
+export async function seedCustomOpenAIChatCompletionsProvider(
+  options: SeedCustomOpenAIProviderOptions,
+): Promise<E2EModelProviderSnapshot> {
+  const { inputModalities, modelId, providerId, providerName } = options;
+  const baseURL =
+    options.baseURL?.trim() || (await resolveSeededReplayBaseUrl());
   if (!baseURL) {
     throw new Error(
       "没有找到已 seed 的 replay provider Base URL，无法写入 OpenAI-compatible provider",
@@ -55,7 +56,10 @@ export async function seedCustomOpenAIChatCompletionsProvider({
     // 新格式要求个人 Provider 明确分组，否则只有配置记录而无可执行模型。
     group: "standard-personal",
     access: new ApiKeyAccessConfig({ apiKey: getUpstreamApiKey() }),
-    api: new ProviderApiConfig({ type: "openai-chat-completions", baseUrl: baseURL }),
+    api: new ProviderApiConfig({
+      type: "openai-chat-completions",
+      baseUrl: baseURL,
+    }),
     personalModelIds: [modelId],
   });
   const repository = new NodePersonalProviderConfigRepository({
@@ -65,8 +69,16 @@ export async function seedCustomOpenAIChatCompletionsProvider({
   try {
     await repository.update((current) => ({
       ...current,
-      providers: current.providers.setRule({ providerId, providerName, config: providerConfig }),
-      models: current.models.setExact(providerId, modelId, createE2EModelConfig(inputModalities)),
+      providers: current.providers.setRule({
+        providerId,
+        providerName,
+        config: providerConfig,
+      }),
+      models: current.models.setExact(
+        providerId,
+        modelId,
+        createE2EModelConfig(inputModalities),
+      ),
     }));
   } finally {
     repository.dispose();
@@ -136,7 +148,9 @@ function createSeededOpenAIProvider({
   modelId,
   providerId,
   providerName,
-}: SeedCustomOpenAIProviderOptions & { baseURL: string }): E2EModelProviderSnapshot {
+}: SeedCustomOpenAIProviderOptions & {
+  baseURL: string;
+}): E2EModelProviderSnapshot {
   const now = Date.now();
   const model = createE2EProviderModelSnapshot({
     id: modelId,
@@ -146,7 +160,9 @@ function createSeededOpenAIProvider({
     maxOutputTokens: E2E_MODEL_MAX_OUTPUT_TOKENS,
     supportsTools: true,
     supportsJsonSchemaOutput: false,
-    ...(inputModalities ? { modalities: { input: inputModalities, output: ["text"] } } : {}),
+    ...(inputModalities
+      ? { modalities: { input: inputModalities, output: ["text"] } }
+      : {}),
   });
   return {
     id: providerId,
@@ -177,7 +193,9 @@ async function readPersonalProviderConfig(): Promise<ProviderConfigLayerSnapshot
 
 async function readReplayRootBaseUrlFromRuntimeFile() {
   try {
-    const json = JSON.parse(await readFile(E2E_PROVIDER_RUNTIME_FILE, "utf-8")) as {
+    const json = JSON.parse(
+      await readFile(E2E_PROVIDER_RUNTIME_FILE, "utf-8"),
+    ) as {
       baseUrl?: string;
     };
     return normalizeReplayRootBaseUrl(json.baseUrl ?? "");
@@ -189,5 +207,7 @@ async function readReplayRootBaseUrlFromRuntimeFile() {
 function normalizeReplayRootBaseUrl(baseURL: string) {
   const trimmed = baseURL.trim().replace(/\/+$/, "");
   if (!trimmed) return "";
-  return trimmed.endsWith("/anthropic") ? trimmed.slice(0, -"/anthropic".length) : trimmed;
+  return trimmed.endsWith("/anthropic")
+    ? trimmed.slice(0, -"/anthropic".length)
+    : trimmed;
 }

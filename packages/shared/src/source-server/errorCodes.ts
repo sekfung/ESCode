@@ -26,6 +26,9 @@ export const SOURCE_SERVER_REMOVE_CALLBACK_FAILED_ERROR_CODE =
   "source-server-remove-callback-failed" as const;
 export const SOURCE_SERVER_REMOVE_PERSIST_FAILED_ERROR_CODE =
   "source-server-remove-persist-failed" as const;
+export const PROVIDER_PROVISIONING_FAILED_ERROR_CODE = "provider-provisioning-failed" as const;
+export const PROVIDER_PROVISIONING_UNSUPPORTED_ERROR_CODE =
+  "provider-provisioning-unsupported" as const;
 
 export const PUBLIC_ESCODE_ERROR_CODES = [
   "remote-authentication-failed",
@@ -56,6 +59,8 @@ export const PUBLIC_ESCODE_ERROR_CODES = [
   SOURCE_SERVER_REMOVE_CALLBACK_MISSING_ERROR_CODE,
   SOURCE_SERVER_REMOVE_CALLBACK_FAILED_ERROR_CODE,
   SOURCE_SERVER_REMOVE_PERSIST_FAILED_ERROR_CODE,
+  PROVIDER_PROVISIONING_FAILED_ERROR_CODE,
+  PROVIDER_PROVISIONING_UNSUPPORTED_ERROR_CODE,
 ] as const;
 
 export type PublicESCodeErrorCode = (typeof PUBLIC_ESCODE_ERROR_CODES)[number];

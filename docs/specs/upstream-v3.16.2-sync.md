@@ -3,6 +3,7 @@
 > 状态：决策已确认，W0 清单已生成 · 2026-10-28
 > 关联：[source-server-remote-rust-host.md](source-server-remote-rust-host.md)、[rust-tool-search.md](rust-tool-search.md)、[w2-port-rust-review.md](../upstream-sync/w2-port-rust-review.md)、[rust-workflow-blocked-reminder.md](rust-workflow-blocked-reminder.md)、[escode-rebrand.md](escode-rebrand.md)、[rust-v3.15.1-drift.md](rust-v3.15.1-drift.md)、[rust-parity-remaining.md](rust-parity-remaining.md)、[rust-unified-host.md](rust-unified-host.md)
 > 清单：`docs/upstream-sync/v3.16.2-manifest.tsv`（生成脚本 `scripts/upstream-sync/build-manifest.mjs`）
+> 远程路径状态（2026-10-31）：S5-a/S5-b 起 ssh/wsl/docker 由 App 级 Rust Host 承载；本文 W3/W4 历史记录中的「远程仍走 Node Host」只描述同步当轮状态，仅 Web `kind: "server"` 自连保留 Node Host。
 
 ## 1. 基线与规模
 
@@ -20,15 +21,15 @@
 
 ## 2. 已确认决策
 
-| 编号 | 决策                                                                                                                                                                                                        |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q1   | 按全量清单分波推进；对外版本 `3.16.2-escode.1`                                                                                                                                                              |
-| Q2   | Node CLI / runtime / Host 代码只作只读 oracle；行为移植到 Rust，差分验收后再按既有 M5 计划删除                                                                                                              |
-| Q3   | 本轮只跟进 Source Server 的协议/兼容字段与只读展示；远程 workspace 仍走现有 Node Host。后续统一到 Source Server 并落到 Rust Host，见 [source-server-remote-rust-host.md](source-server-remote-rust-host.md) |
-| Q4   | 已删除功能域硬排除；共享文件按“剔除片段、保留其余”处理                                                                                                                                                      |
-| Q5   | manifest 驱动的逐文件三方移植，不做 `git merge`                                                                                                                                                             |
-| Q6   | 顺序：W0 清单 → W1 共享协议/数据模型 → W2 Rust runtime → W3 Rust Host/远程 → W4 UI/桌面 → W5 测试/文档                                                                                                      |
-| Q7   | 共享/UI 的 TS 测试按品牌映射导入；Node runtime 行为改成 Rust 差分语料，不直接导入 Node 单测                                                                                                                 |
+| 编号 | 决策                                                                                                                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Q1   | 按全量清单分波推进；对外版本 `3.16.2-escode.1`                                                                                                                                                                                                         |
+| Q2   | Node CLI / runtime / Host 代码只作只读 oracle；行为移植到 Rust，差分验收后再按既有 M5 计划删除                                                                                                                                                         |
+| Q3   | 本轮只跟进 Source Server 的协议/兼容字段与只读展示；远程 workspace 仍走现有 Node Host（历史决策；2026-10-31 已迁移，见文首状态）。后续统一到 Source Server 并落到 Rust Host，见 [source-server-remote-rust-host.md](source-server-remote-rust-host.md) |
+| Q4   | 已删除功能域硬排除；共享文件按“剔除片段、保留其余”处理                                                                                                                                                                                                 |
+| Q5   | manifest 驱动的逐文件三方移植，不做 `git merge`                                                                                                                                                                                                        |
+| Q6   | 顺序：W0 清单 → W1 共享协议/数据模型 → W2 Rust runtime → W3 Rust Host/远程 → W4 UI/桌面 → W5 测试/文档                                                                                                                                                 |
+| Q7   | 共享/UI 的 TS 测试按品牌映射导入；Node runtime 行为改成 Rust 差分语料，不直接导入 Node 单测                                                                                                                                                            |
 
 ## 3. 清单分布
 
@@ -129,7 +130,10 @@ Rust 差分语料必须能复现，且不依赖真实供应商、网络或时间
 
 - **排除误伤**：504 个排除文件里可能夹带仍在使用的事实类型；`manual-review` 已兜住同名文件，波次内仍需逐项确认。
 - **W4 体量**：2,334 个文件，其中大量是 UI 测试与契约样板；按功能域拆成多个 PR，不一次性提交。
-- **Source Server 边界**：本轮只跟协议，远程仍由 Node Host 承载；任何“顺手把远程迁到 Rust Host”的改动都属于下一阶段，需另立 spec 和验收。
+- ~~**Source Server 边界**：本轮只跟协议，远程仍由 Node Host 承载~~ → 2026-10-31 W3-e 起，远端
+  项目存储已收口到 Controller Rust Host（`project` / `remote-projects` channel + Source 文件
+  系统探测）；连接 registry / 实例投递仍按
+  [source-server-remote-rust-host.md](source-server-remote-rust-host.md) 的 S2–S5 推进。
 - **Node oracle 消失**：Rust 差分验收前不得删除 Node 代码；删除后差分语料必须已固化。
 - **快照式上游**：没有逐 PR 历史，无法按工单回滚单个上游改动；回滚以波次为单位。
 
@@ -164,7 +168,7 @@ Rust 差分语料必须能复现，且不依赖真实供应商、网络或时间
 
 ## 9. W3 完成记录（2026-10-28）
 
-范围：Rust Host 的项目/存储数据模型与组织态。远程 workspace 按 Q3 仍由窗口内 Node Host 承载，
+范围：Rust Host 的项目/存储数据模型与组织态。远程 workspace 按 Q3 仍由窗口内 Node Host 承载（同步当轮状态；2026-10-31 已迁移），
 本轮不把 Source Server 落到 Rust Host（见 [source-server-remote-rust-host.md](source-server-remote-rust-host.md)）。
 详见 [rust-project-storage.md](rust-project-storage.md)。
 
@@ -201,7 +205,9 @@ Rust 差分语料必须能复现，且不依赖真实供应商、网络或时间
   §9.1）：Rust syncer 在 sessions-index 首帧播种后，按 TS `repairSubagentTaskIndex` 语义软删除
   经 CLI 权威确认的 `subagent_child` 旧行。
 - Source Server：shared 协议字段（`sourceServerId` 身份前缀、controller schema）已在 W1 就位；
-  Rust Host 不注册 source-server scope（Q3/Q4），远程仍由 Node Host 提供。
+  ~~Rust Host 不注册 source-server scope（Q3/Q4），远程仍由 Node Host 提供~~ → 2026-10-31
+  W3-e 已注册 `remote-projects` channel，`project` channel 按 `host_id` 承载远端项目；远端
+  Source Server 仅提供 `file.stat` / `file.readdir`。见 [rust-project-storage.md](rust-project-storage.md) §3.5。
 - 旧 `escode-task` 分组方法（`createTaskGroup` 等）保留为过渡面，W4 迁移 UI 后由
   `task-groups` channel 取代。
 
@@ -235,14 +241,36 @@ child / interactive 行，验证只软删除 CLI 确认的 child 行、保留可
 
 验证（2026-10-30）：
 
-| 检查                                                      | 结果                                        |
-| --------------------------------------------------------- | ------------------------------------------- |
-| `cargo test -p escode-host-rpc --lib task_index_syncer`   | 9 passed                                    |
-| `cargo test -p escode-host-rpc`                           | 通过（lib + 全部集成测试）                  |
-| `pnpm check:escode-host`                                  | 通过（boundaries / 生成资产 / fmt / clippy） |
-| `pnpm typecheck`                                          | 0 error                                     |
-| `pnpm lint`                                               | 0 error（208 条既有 warning）               |
-| `pnpm architecture:check --changed`                        | 0 violation                                 |
+| 检查                                                    | 结果                                         |
+| ------------------------------------------------------- | -------------------------------------------- |
+| `cargo test -p escode-host-rpc --lib task_index_syncer` | 9 passed                                     |
+| `cargo test -p escode-host-rpc`                         | 通过（lib + 全部集成测试）                   |
+| `pnpm check:escode-host`                                | 通过（boundaries / 生成资产 / fmt / clippy） |
+| `pnpm typecheck`                                        | 0 error                                      |
+| `pnpm lint`                                             | 0 error（208 条既有 warning）                |
+| `pnpm architecture:check --changed`                     | 0 violation                                  |
+
+## 9.2 W3-e：远端项目归属与 `project` channel（2026-10-31）
+
+背景：SSH 首连后的项目创建走 `project.saveProject` / `project.prepareSession`。此时 Controller
+已按 S5-b 把远程 scope 路由到 Rust Host，而 Rust `project` channel 只会本地存储，远端请求被
+拒绝或落到本地树；远端 Node Source Server 也从未注册 `project` / `task-groups` /
+`remote-projects`，因此转发回远程同样不可行。
+
+决策与契约（详见 [rust-project-storage.md](rust-project-storage.md) §1/§3.5 与
+[source-server-remote-rust-host.md](source-server-remote-rust-host.md) §12.2）：
+
+- Controller Rust Host 是本地与远端项目存储的唯一 owner；`projects.host_id` 取 `local` 或
+  `remote:server:<sourceServerId>`，Cross-host 移动/改归属显式拒绝。
+- 远端 Source Server 只提供 `file.stat` / `file.readdir` 文件系统事实；离线返回
+  `project.host-offline`，不回退本地目录、不另起 Host。
+- `prepareSession` 远端要求绑定已有项目且恰好一个 root，返回
+  `workspaceIdentity = <hostId>:<posix root>`。
+- `remote-projects` channel 落地，连接状态从 Source registry 快照派生。
+
+验证：`cargo test -p escode-host-services tasks_index::project_tests`（5 例）、
+`cargo test -p escode-host-rpc domains_project`（4 例）、`cargo check --workspace` 通过；
+真实 SSH `SSH-P0-PROJECT-01` 待复跑（见 §10 与 SSH E2E 计划）。
 
 ## 10. W4 进度
 
@@ -544,6 +572,22 @@ web-remote-control、telemetry、coding-plan、marketing-touch、oauth 等已删
 - settings/root/app-shell 的 14 个冲突文件继续使用 fork 实现，未恢复已删除的
   web-remote/off-peak/telemetry 域。
 
+### 草稿 composer 项目菜单与设备添加回传（2026-10-30）
+
+- `WorkspaceShellLayout` 的草稿 `contextHeader` 改用 `ProjectComposerMenu`，由共享
+  `ProjectDirectoryProvider` 提供项目目录；Git/SVN 分支切换器仍作为菜单 children。
+- `ProjectComposerMenu` 拥有「添加设备」意图，但只做发起草稿的 `isCurrent` / 设备成员校验；
+  Root 持有对话框期间的 `DeviceAdditionReturnTarget`。`completion="device-management"` 时，
+  连接成功只回传 `sourceServerId` 并关闭向导，不创建 workspace/session；原草稿失效、tab
+  切换或成员移除时不可导航。
+- 验收：`SSH-P0-PROJECT-01` 真实 SSH 用例通过后晋升 formal；见
+  [SSH Remote P0 E2E 规格](../testing/ssh-remote-p0-e2e-plan.md)。
+- 阻塞证据：接线后 SSH 向导可按 `device-management` 关闭，但 Node Host 直连 SSH 不产出
+  `sourceServerId`，上游项目创建流程依赖 Source Server 身份。该缺口属于 Q3 架构边界：
+  要么为 raw SSH 设计 fork 的项目登记路径，要么先推进 Source Server 迁移；在此之前
+  PROJECT-01 保持 pending。无 Source 身份时连接流程回退普通目录步骤，避免添加设备入口
+  变成无反馈死路。
+
 ### W4-5c project-sidebar 本体（2026-10-29）
 
 按“局部移植”路线落地 `packages/ui/src/project-sidebar` 本体（86 文件），并剥离 fork 已删除域：
@@ -553,7 +597,7 @@ web-remote-control、telemetry、coding-plan、marketing-touch、oauth 等已删
   时间线行、项目编辑/归档入口、远端项目选择与连接状态展示。
 - **剥离**：Web Remote Control（`webRemoteControlWorkspaceSwitcher`、手机任务打开、
   `useRemoteWorkspaceController` 仍以可选 context 兼容）、off-peak 分组与任务标记、
-  feedback 菜单与草稿模板。会话仍走现有 Node Host 远程链路（Q3）。
+  feedback 菜单与草稿模板。会话仍走现有 Node Host 远程链路（Q3；同步当轮记录——2026-10-31 S5-a/S5-b 起 ssh/wsl/docker 改由 App 级 Rust Host 承载，仅 Web `kind: "server"` 保留 Node Host）。
 - **window-controller 契约**：task-list registry 补 `getDirectoryRevision`/`getSourceRevision`/
   `readActivities`，source 快照会通知观察者但不失效普通列表缓存；新增活动读取测试。
 - **项目选择入口**：`useProjectIdByWorkspace` 按 workspace 根反查项目并接入 `App.startDraft`

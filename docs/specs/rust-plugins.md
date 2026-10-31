@@ -187,7 +187,8 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
 
 - **发现层诊断**（`plugin_root_not_found` 等，来自 TS `discoverNodePluginsSync`）Rust 不产出——`plugins/list` 的
   `diagnostics` 同样缺。这是发现层的独立缺口，下一步单独补，届时 list/overview 一并对齐。
-- `installedPlugins[].hookDetails` 与 componentTypes 里的 `hook` 依赖 hook 源发现（第 4 期）。
+- `installedPlugins[].hookDetails` 与 componentTypes 里的 `hook`：已由第 4b 期补齐（见下方「第 4 期 · hook 源发现与
+  hookDetails」）。
 - 读路径不做 TS `recoverAtomicTargetSync` 的崩溃恢复：Rust 不写 marketplaces/cache 目录，Node writer 崩溃留下的
   事务残留由 Node 下次操作恢复；在此之前 Rust 可能读到旧一代或缺失的 manifest。
 
@@ -270,7 +271,61 @@ JSON 语法错误的 message 来自各自的解析器（V8 vs serde），文案�
 scope configure（清键 + 新键顺序 + 非原始值丢弃）、dryRun、user scope 清密钥、未知插件、非法 clearOptionKeys、三种 reset，
 以及每步之后两份配置文件的完整字节；Node 与 Rust 逐值一致。
 
-仍属第 4 期后半（4b）：hook 源发现、`hookDetails` 与 components 的 hook 分组、`packageStatus`。
+仍属第 4 期后半（4b）：hook 源发现、`hookDetails` 与 components 的 hook 分组（`packageStatus` 的 missing 行已随第 1 期实现）。
+
+## 第 4 期 · hook 源发现与 hookDetails（4b，2026-10-31）
+
+TS 基准：`adapters/src/plugins/hook-sources.ts::listPluginHookSources`、`index.ts::inspectPluginHooks` /
+`parsePluginHookEvents` / `toPluginHookDetail`、`plugin-components.ts::collectHookComponents`。
+
+**状态所有者与口径**
+
+- 发现阶段（`extension_plugins::discover_with`）对**每个已发现插件**（含停用）执行一次 hook inspection，结果随 `Plugin`
+  携带：`hook_events`（components 的 hook 分组，事件名去重保序）与 `hook_details`（`plugins/list` 的 `hookDetails`）。
+  `plugins/list`、`plugins/overview`、`plugins/setEnabled` 都经 `plugin_list::info` 复用同一份结果，不再二次读盘，避免两条
+  读路径漂移。
+- 诊断在发现循环内按 TS 顺序产出：`loadPlugin` → 重复 id → `plugin_unsupported_component` → hook 诊断 → 启用插件的 MCP 诊断。
+
+**来源发现（TS `listPluginHookSources`）**
+
+1. `<root>/hooks/hooks.json`（存在即读；文件内容必须是 `{ "hooks": { ... } }` 包装）。
+2. manifest `hooks`：字符串按插件根解析（越界 → `plugin_component_path_invalid`；不存在 → `plugin_hook_read_failed`；与 1 同一
+   realpath → `plugin_hook_invalid` 警告并忽略）；对象/数组元素按内联 hooks 处理（`sourcePath` = manifest 路径）。
+3. 解析保持文件原样顺序；manifest 内联 hooks 也保留声明顺序。`serde_json::Map` 默认按键排序，因此 `load_manifest`
+   用同一份字节再做一次保序解析（`json_order::Json`），只把 `hooks` 子树交给 inspection；该副本不进入 `Plugin`。
+
+**解析与校验（TS `HookMatcherConfigSchema`）**
+
+- 事件名必须是 7 个受支持事件之一（`SessionStart` / `UserPromptSubmit` / `PreToolUse` / `PermissionRequest` /
+  `PostToolUse` / `PostToolUseFailure` / `Stop`），否则 `plugin_hook_unsupported_event`（warning），不产出事件名与明细。
+- 事件值必须是数组，否则 `plugin_hook_invalid` 错误；事件名仍进入 components 分组（与 TS `listPluginHookEventNames` 一致，
+  该函数不校验数组）。
+- 每个 matcher 配置：`hooks` 必须是非空数组；每个 hook 是 `command` 或 `process` 判别联合。`command` 非空；
+  `process` 独有 `args: string[]`；`command` 独有 `async: boolean`、`shell: true | 非空字符串`、`timeout: > 0`；两者共享
+  `timeoutMs: 正整数`、`statusMessage: string`。`matcher` 缺省或为字符串（允许空串）。未知键忽略（zod 默认 strip）。
+- 明细按「来源顺序 → 事件插入顺序 → matcher 数组顺序 → hooks 数组顺序」展开，一个 hook 一条；`runnable` 恒为 `true`
+  （TS `canRunPluginHooks` 当前放行三方插件）。字段：`event`、`type`、`command`、`runnable`、`sourcePath`，以及存在的
+  `matcher` / `statusMessage` / `timeoutMs`；`process` 再带 `args`，`command` 再带 `async` / `shell` / `timeout`。
+- 非法 matcher 的 message 含各自校验库措辞（zod vs Rust），只对齐 code / severity / 位置；其余 hook 诊断文案逐字一致。
+
+**投影**
+
+- `plugins/list`：每个插件都带 `hookDetails`（停用插件也返回明细，对应 TS `emptyComponents(hookDetails)`）。
+- `components`：在 skill 与 mcp 之间插入 `{ "kind": "hook", "items": [{ "name": <event> }] }`。
+- `plugins/overview`：发现到的已安装插件带 `hookDetails`；`componentTypes` 在 mcp 之后追加 `hook`（明细非空时）。
+
+**验收**
+
+- `packages/services/tests/escode-cli-rust-plugins-hooks.test.ts`（新增，独立 plain golden）：同一 fixture 同时比对
+  `plugins/list` 与 `plugins/overview`：
+  - list：`hooks/hooks.json` 的 command + process 明细（matcher 缺省/空串、async/shell/timeout/timeoutMs/statusMessage、
+    多事件顺序）、manifest 内联 hooks、停用/无效来源的 components hook 分组与整份 `hookDetails`（`sourcePath` 归一化到
+    `<root>`）；
+  - overview：已安装且发现到的插件带 `hookDetails`，`componentTypes` 含 `hook`；
+  - 诊断：缺文件、越界路径、标准文件与 manifest 重复、非数组事件、不支持事件、非法 matcher、坏 JSON；非法 matcher 与
+    解析错误的 message 归一后逐项一致。
+- 既有 `escode-cli-rust-plugins-list.test.ts` / `escode-cli-rust-plugins-overview.test.ts` 的 fixture 未改：它们已有
+  darwin/win32 平台 golden，改 fixture 会让无法在本地重录的平台快照失效；hook 面统一由上面的新用例覆盖。
 
 ## 插件控制面的 workspace 语义与请求级错误隔离（2026-10-12）
 

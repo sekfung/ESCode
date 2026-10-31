@@ -216,3 +216,20 @@ tokensᵢ = provider 上报的 usage.outputTokens
 ### 7.3 检查
 
 - `pnpm --filter @escode/desktop typecheck:e2e`、`pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`。
+
+## 8. Rust 实现（2026-10-31）
+
+Rust runtime 此前完全没有 `decodeMs` / `decodeTokens`，轮末读数在 App 上恒为 `—`。本节固定实现口径，
+oracle 仍是 TS `model.ts` → `turn-model-step.ts` → `product-projection.ts` 的链路。
+
+- **采集（`crates/model`）**：`Assembly` 在流式解析中记录首个与末个**非空生成 delta** 的本地毫秒时间
+  （正文、推理、工具参数增量；空 delta、`*_start` / `*_end`、最终 `tool_call` 与 `finish` 不计）。
+  `ModelOutput.decode_ms = last - first`，仅当 `last > first`；每个 attempt 独立计数，重试不进入区间。
+- **事件**：`Event::ModelDone.decode_ms` 携带该值；Telemetry/Workflow actor 忽略它。
+- **投影（`event_projection`）**：仅主会话回合（`projects_session_context`，即 TS `isMainTurn`）累计；
+  `domain::model_usage::decode_contribution` 按 Node `decodeContribution` 返回 `(decodeMs, outputTokens - 1)`，
+  只在 `decodeMs > 0` 时贡献；`turnHeader.decodeMs` / `decodeTokens` 按轮次累加。
+- **冷恢复**：Rust 的 row 是落库的派生投影，而 Node 冷恢复由 transcript 重建 turnHeader。为保持重启后读数一致
+  （本规格 §5.2：`—`），`state::storage_read::load_session` 加载时剥掉 `turnHeader` 的 `decodeMs` / `decodeTokens`。
+- **验收**：`decode_contribution` 单测（缺 `decodeMs` / 零跨度 / token 数换算）；差分用例中两侧累加的
+  `turnHeader.decodeMs`（归一为 `<MS>`）与 `decodeTokens` 一致。

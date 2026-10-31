@@ -11,7 +11,7 @@
 | 所有行     | `visibility: "visible"` | 行投影透传                                                                               | 行基础字段统一带上                                                                                         |
 | turnHeader | `executionKind`         | `conversationTurnWorkSegments`：`controlOnly` 不显示「已工作」；`agent` 按 duration 判定 | 普通轮为 `agent`；`/goal` 的可见 query 轮为 `controlOnly`（TS 注释：真实执行属于随后的 goalContinuation）  |
 | turnHeader | `activeMs`              | 「已工作 N 秒」优先读取                                                                  | 普通轮收口时写入 `endedAt - startedAt`（TS 取 runtime 的 turn duration，两者量级一致）；controlOnly 轮不写 |
-| turnHeader | `historyRoundCount`     | 无（TS 内部用于 fork 边界）                                                              | 收口时写入本轮写入历史的模型轮次数（每次提交的模型响应算 1 次，compact 摘要算 1 次）                       |
+| turnHeader | `historyRoundCount`     | 无（TS 内部用于 fork 边界）                                                              | 收口时写入本轮写入历史的模型响应数；providerContextOnly 的 compact 摘要整条跳过，不计入                    |
 | userInput  | `rootSourceCommandId`   | 行投影                                                                                   | 等于 `sourceCommandId`：Rust 没有派生输入的 provenance                                                     |
 | toolCall   | `assistantResponseId`   | `conversationCuaGroups`：按响应把 Computer Use 工具行分组                                | 取发出该工具调用的模型响应 id，与同一响应的 assistantText 行一致                                           |
 | toolCall   | `input`                 | 结构化展示                                                                               | `inputText` 的 JSON 解析结果；解析失败时不写                                                               |
@@ -31,8 +31,9 @@
 
 ## 验收
 
-- `escode-cli-rust-differential.test.ts` 逐行比较字段集合与上述字段的值（id 与时间戳归一化）；
-  出现新的差异字段即失败。
+- `escode-cli-rust-differential.test.ts` 逐行比较字段集合与整行语义投影：id 按首次出现映射、时间戳/时长只保留存在性、`createdAtSeq` 按值排名保留顺序；仅 `userInput`/`assistantText` 的 `entityId` 按存在性比较。投影实现共享于 `packages/services/tests/escode-cli-rust-row-projection.ts`；出现新的差异字段或语义值变化即失败。
+- 失败工具行（2026-10-31 审计补齐）：Rust 与 TS `onToolCallError` 一致，`error.message` 取工具错误原文，失败行不写 `output`/`display`。
+- 冷导入（`state/legacy_row_post.rs`、`state/legacy_message.rs`，2026-10-31）：`createdAtSeq` 按 Node 合成事件分组重编号（TurnStarted 的模型标记/turnHeader/userInput 同号，其余行独立），行 `actions` 在收口时按 `materializeCommandRowActions` 的同一规则写入；assistant 行按 part 顺序落地，toolCall 行带 `entityId`=callID、结构化 `input`、保留持久化键序的 `inputText` 与 `state.time` 起止时间，pending/running 工具由轮次结束统一收口为 `cancelled` 并补 `endedAt`。`escode-cli-rust-cold-rows.test.ts` 对冻结种子的整份投影行与 Node golden 比较。
 - goal 差分覆盖 `/goal` query 轮的 `executionKind`。
 
 ## `/goal` 的轮次结构（差分中发现，已对齐）

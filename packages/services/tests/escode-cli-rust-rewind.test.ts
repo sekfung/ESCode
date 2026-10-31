@@ -50,7 +50,11 @@ test("Rust file rewind restores tracked files, refuses external changes, survive
       v4ConversationFileChangesResultSchema,
     );
     assert.equal(details.items[0]?.writeCount, 1);
-    assert.deepEqual(details.items[0]?.patches[0]?.lines, ["+written by Rust"]);
+    // jsdiff structuredPatch 对无结尾换行的文件追加 marker（Node `createFinalPatch` 同源）。
+    assert.deepEqual(details.items[0]?.patches[0]?.lines, [
+      "+written by Rust",
+      "\\ No newline at end of file",
+    ]);
     const file = join(f.cwd, "result.txt"),
       safe = await preview(h, id);
     assert.equal(safe.canApply, true);
@@ -123,6 +127,17 @@ test("Rust edit with workspace rewind restores files and cuts conversation befor
     await h.completed(id, at);
     await assert.rejects(access(join(f.cwd, "result.txt")));
     assert(!JSON.stringify(f.requests.at(-1)).includes("written by Rust"));
+    // 冷恢复边界：成功 edit/rewind 后截断的 canonical history 必须已持久化，
+    // 重启不能复活旧 user/assistant 消息，也不能重新触发被撤销的文件写入。
+    await h.close();
+    const restarted = f.start();
+    await restarted.subscribe(`conversation/${id}`);
+    const restored = await restarted.rows(id);
+    assert(!JSON.stringify(restored.rows).includes("written by Rust"));
+    assert(restored.rows.some((r: Message) => r.kind === "userInput" && r.text === "after rewind"));
+    assert(!restored.rows.some((r: Message) => r.kind === "userInput" && r.text === "write"));
+    await assert.rejects(access(join(f.cwd, "result.txt")));
+    await restarted.close();
     assert.deepEqual(h.schemaErrors, []);
   } finally {
     await f.close();

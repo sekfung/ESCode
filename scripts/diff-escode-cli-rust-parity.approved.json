@@ -68,23 +68,103 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "leftContaining": "\"result\":{\"commandId\":\"",
-        "rightContaining": "\"method\":\"session/requestRuntimePreferences\""
+        "jsonPath": "$.result.memoryEnabled",
+        "leftContaining": "\"memoryEnabled\":false,\"result\":{\"sessionId\":\"sess_",
+        "rightContaining": "\"commandId\":\"<UUID>\",\"result\":{\"sessionId\":\"sess_"
       },
-      "reason": "createSession ack 缺 memoryEnabled（信息位，无 Host 消费方）：TS 的该值来自宿主本地回调（v4-bridge getSessionMemoryEnabled → 会话记录），物化期即可读；Rust 需一次协议往返，且引擎 outbox 在响应帧之后才冲刷，创建响应本身拿不到该值。Rust 已在创建期发起偏好请求，回合开始前回包入缓存，因此 inputAccepted 等后续 ack 与全部遥测事实都带上该字段（与 Node 一致，实验证：telemetry-facts 差分用例含 memoryEnabled 投影后通过）。",
+      "reason": "createSession ack 缺 memoryEnabled（信息位，无 Host 消费方）：TS 的该值来自宿主本地回调（v4-bridge getSessionMemoryEnabled → 会话记录），物化期即可读；Rust 需一次协议往返，创建响应在回包到达前已确定（请求本身经 outbound_batch 先于响应出站，但值仍来不及写入该 ack）。Rust 在创建期发起偏好请求，回合开始前回包入缓存，因此 inputAccepted 等后续 ack 与全部遥测事实都带上该字段（与 Node 一致，实验证：telemetry-facts 差分用例含 memoryEnabled 投影后通过）。",
       "removal": "若出现 ack 字段消费方、或投递层重构（阶段 2 P2）后允许物化期等待回包时，改为在创建响应里带上并移除本条"
     },
     {
-      "id": "runtime-prefs-request-position",
+      "id": "t4-title-patch-before-turn-rows",
+      "reason": "Node 在事件序号 1 的 flush 帧先发 key 级 `meta{title,titleSource}` 补丁（revision:1），该事件同时占掉行的 `createdAtSeq:1`；Rust 把首轮行与全量状态放进同一帧（fromSeq 0..4），标题随全量 patch 一起投影。客户端按 op 顺序应用后 meta/rows 终态一致，属于 T-4 投递层帧批次与事件序号 vs delta 计数的差异。",
       "scenario": "session-baseline",
       "surface": "frames",
       "status": "approved",
       "match": {
-        "leftContaining": "\"id\":\"server-",
-        "rightContaining": "\"memoryEnabled\":false,\"result\":{\"delivery\":\"startNow\""
+        "index": 7,
+        "leftSha256": "3e960893c3278aea79c5ed667ba3f622db122c59e2854bbbeae730fa6ad7051c",
+        "rightSha256": "aa208a8bfdae878831bdd62f17d6ff1adb59d270023b10f89b1fea570c06042e"
       },
-      "reason": "运行期偏好请求在帧流中的位置差异（时序语义等价）：Node 的 runtime-materialization 请求在 createSession 响应前、user-execution 请求在首条消息 ack 前发出；Rust 因 outbox 冲刷时机在响应帧之后出站。两边都在首轮模型请求之前拿到偏好（evidence.timing 记录）。",
-      "removal": "投递层/物化流程重构后（阶段 2 P2）复核并对齐请求发出时机"
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-turn-start-frame-batch",
+      "reason": "Node 在 30ms flush 窗口内把 turnHeader/userInput 行、availability/control 状态与 revision 合并成 1→3 的一个帧（5 条 delta）；Rust 同一批事实在 0→4 的一帧内以 row.appended/row.upserted/全量 state.updated 表达。行内容与终态一致，差异只在帧边界与载体形状。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 8,
+        "leftSha256": "416fd9219532469ac5396d456ead39e261ed1c2094ac50e611ee1e2ac4f215e0",
+        "rightSha256": "70ac42c561d7c38a09e876fc74c5d6ff19ab56ed8bd713a7618934e748ed21e0"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-empty-flush-frame",
+      "reason": "Node 对不产生投影 delta 的事件（model.request.status 等）仍推进事件序号，并在 flush 时发空 `deltas:[]` 帧（fromSeq 3→5）；Rust 不产生空帧，序号随下一条 delta 帧继续。空帧不携带投影内容，客户端对其无副作用。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 9,
+        "leftSha256": "f643fe06e921b553888e6073a1d698dbfacede2999a6607094a71351639acb82",
+        "rightSha256": "e47e2639a99df0af1dba711ff66f25fca01b4d767135429344f4d043341b1a36"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-streaming-delta-coalesce",
+      "reason": "Node 在 5→18 的 flush 窗口内合并流式文本追加、终态 row.upserted 与状态补丁（coalesce 后 `row.delta` 合并为整段 append）；Rust 逐事件发送 `row.delta` 与全量 state.updated（8→10）。两侧应用后的 assistantText 文本、actions 与 usage 一致，见 `escode-cli-rust-conversation-usage` 等差分用例。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 10,
+        "leftSha256": "88101ad5473bb114df663c03dce88be7c17399abecd27e5bce5250cefadac8ff",
+        "rightSha256": "9e8cdfa07a48ded8c8a5ef680d849329cc7c74bfc9a1146570fec5257aa6b151"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-legacy-state-updated-notification",
+      "reason": "Node 在旧订阅面额外发一条 `state.updated` 通知（reason=prompt_completed、scope=session，装载 mode/model/permission/thoughtLevel）；V4 路径不消费它（`escodeTaskServiceAdapter` 明确 v4 handler 不发旧 state.updated），Rust 只通过 conversation frame 的状态补丁投影同一事实，避免第二条状态写入路径。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 11,
+        "leftSha256": "54ca83ef06ef7ceb682f60b6c24176d0655bd88fbdfd37daad1b5ac8e8320818",
+        "rightSha256": "4d241bed520777232fc0b4513013ce06929056bb032625a31d0c9ac28ccd5ce3"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-final-title-patch-batch",
+      "reason": "Node 的收尾标题更新是 18→21 的 key 级 `meta` 补丁（revision:7）；Rust 在 14→18 帧里以 turnHeader/assistantText 的 row.upserted 加全量补丁表达同一终态（revision:3，Rust 按命令/状态变更计数）。标题、行状态与 actions 终态一致。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 12,
+        "leftSha256": "9e615b16eb3af22a5e1e690a5c6cd13fcfd3295871ff9d940604519aa065588a",
+        "rightSha256": "fdd782234a3f8b3577be39b059377475b41456427bb0b7dffd9e0d137f1ffc62"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
+    },
+    {
+      "id": "t4-extra-final-full-state-frame",
+      "reason": "Rust 在 18→19 多发送一帧全量 state.updated 作为终态收口；Node 的同一收口事实已在前一帧（18→21 的 key 级补丁）中，不再单独发帧。该帧只重复已投影状态，客户端应用幂等；Node 侧此位置无帧（leftSha256=null 即钉住这一点）。",
+      "scenario": "session-baseline",
+      "surface": "frames",
+      "status": "approved",
+      "match": {
+        "index": 13,
+        "leftSha256": null,
+        "rightSha256": "814a7b4b8ba9982a825a4960d052bf493df843b2b0b664adc24c21bcf204f255"
+      },
+      "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
     }
   ]
 }

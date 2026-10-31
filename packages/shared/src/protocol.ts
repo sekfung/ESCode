@@ -132,6 +132,12 @@ export interface SSHRemoteTargetSnapshot {
   host: string;
   port?: number;
   username: string;
+  /**
+   * Connection Profile 归属（S3 重启恢复）：持久化后重启仍能按 profile 向 Rust Host
+   * 申请远端 scope；只有脱敏标识，不含凭据。
+   */
+  profileId?: string;
+  sourceServerId?: string;
   /** 用户建立连接时选择的 SSH config Host alias，仅用于 UI 展示。 */
   sshConfigAlias?: string;
   privateKeyPath?: string;
@@ -153,11 +159,15 @@ export interface WSLRemoteTargetSnapshot {
   kind: "wsl";
   distro?: string;
   user?: string;
+  profileId?: string;
+  sourceServerId?: string;
 }
 
 export interface DockerRemoteTargetSnapshot {
   kind: "docker";
   container: string;
+  profileId?: string;
+  sourceServerId?: string;
 }
 
 export interface ServerRemoteTargetSnapshot {

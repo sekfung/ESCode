@@ -1,7 +1,6 @@
 //! `plugin-sync` 服务域（docs/specs/rust-u2-plugin-sync.md；TS `packages/services/src/plugin-sync/`）。
 
 mod archive;
-mod archive_tar;
 mod candidates;
 mod config;
 mod import;

@@ -92,23 +92,55 @@ fn largest_prefix(len: usize, fits: impl Fn(usize) -> bool) -> usize {
     low
 }
 
-/// TS `isTextLikePath`：只有这些扩展名按文本读入 prompt，其余交付路径引用。
+/// TS `isTextLikePath`（唯一实现在 host）。
 pub(super) fn is_text_like_path(path: &str) -> bool {
-    const EXTENSIONS: &[&str] = &[
-        "cjs", "conf", "cpp", "cs", "css", "csv", "go", "h", "hpp", "html", "ini", "java", "js",
-        "json", "jsx", "log", "md", "mjs", "py", "rs", "sh", "sql", "toml", "ts", "tsx", "txt",
-        "xml", "yaml", "yml",
-    ];
-    extension(path).is_some_and(|e| EXTENSIONS.contains(&e.as_str()))
+    escode_cli_host::text_file::is_text_like_path(path)
 }
 
-fn extension(path: &str) -> Option<String> {
-    let name = path.rsplit(['/', '\\']).next()?;
-    name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase())
+/// TS `resolvedPathReferenceAttachment` 的正文。`reason` 取 TS `PathReferenceReason`。
+pub(super) fn path_reference(placeholder: &str, reason: &str) -> String {
+    let mime = reference_mime(placeholder, reason);
+    let why = match reason {
+        "deferred_topic_history" => "topic history is provided for on-demand reading",
+        "deferred_clipboard_text" => {
+            "it is a pasted-text temporary attachment that is deferred to keep the model context small"
+        }
+        "image_too_large" => "the image is larger than the inline media budget",
+        "pdf_too_large" => "the PDF is larger than the inline PDF input limit",
+        "text_too_large" => "the text file is larger than the inline text budget",
+        "video_too_large" => "the video is larger than the ESCode video input limit",
+        _ => "the file is not a known text attachment",
+    };
+    format!(
+        "Attached {mime}: {placeholder}\nThe file was sent by local path because {why}.\nUse the available file reading tools if you need to inspect the file contents."
+    )
 }
 
-/// TS `resolvedPathReferenceAttachment` 的正文（reason = binary_file），mime 按 `inferAttachmentMimeFromPath`。
-pub(super) fn path_reference(placeholder: &str) -> String {
+/// TS `resolvedPathReferenceAttachment` 的 `mime`：媒体引用按媒体扩展名推断，
+/// 其余走 `inferAttachmentMimeFromPath`；延后文本材料固定 `text/plain`。
+fn reference_mime(placeholder: &str, reason: &str) -> &'static str {
+    match reason {
+        "image_too_large" => infer_image_mime(placeholder),
+        "deferred_clipboard_text" | "deferred_topic_history" => "text/plain",
+        _ => infer_mime(placeholder),
+    }
+}
+
+/// TS `inferImageMimeFromPath`。
+fn infer_image_mime(placeholder: &str) -> &'static str {
+    let lower = placeholder.to_ascii_lowercase();
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if lower.ends_with(".gif") {
+        "image/gif"
+    } else if lower.ends_with(".webp") {
+        "image/webp"
+    } else {
+        "image/png"
+    }
+}
+
+fn infer_mime(placeholder: &str) -> &'static str {
     let lower = placeholder.to_ascii_lowercase();
     let video = [
         (".mp4", "video/mp4"),
@@ -121,7 +153,7 @@ pub(super) fn path_reference(placeholder: &str) -> String {
     .into_iter()
     .find(|(ext, _)| lower.ends_with(ext))
     .map(|(_, mime)| mime);
-    let mime = match extension(placeholder).as_deref() {
+    match extension(placeholder).as_deref() {
         Some("pdf") => "application/pdf",
         Some("json") => "application/json",
         Some("csv") => "text/csv",
@@ -131,10 +163,12 @@ pub(super) fn path_reference(placeholder: &str) -> String {
         } else {
             "application/octet-stream"
         }),
-    };
-    format!(
-        "Attached {mime}: {placeholder}\nThe file was sent by local path because the file is not a known text attachment.\nUse the available file reading tools if you need to inspect the file contents."
-    )
+    }
+}
+
+fn extension(path: &str) -> Option<String> {
+    let name = path.rsplit(['/', '\\']).next()?;
+    name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase())
 }
 
 #[cfg(test)]
@@ -175,7 +209,26 @@ mod tests {
         assert!(!is_text_like_path("/w/data.dat"));
         assert!(!is_text_like_path("/w.d/noext"));
         assert!(
-            path_reference("/w/x.bin").starts_with("Attached application/octet-stream: /w/x.bin\n")
+            path_reference("/w/x.bin", "binary_file")
+                .starts_with("Attached application/octet-stream: /w/x.bin\n")
+        );
+    }
+
+    #[test]
+    fn path_reference_uses_the_reason_specific_mime_like_ts() {
+        assert!(
+            path_reference("/w/photo.PNG", "image_too_large").starts_with("Attached image/png: ")
+        );
+        assert!(
+            path_reference("/w/photo.jpeg", "image_too_large").starts_with("Attached image/jpeg: ")
+        );
+        assert!(
+            path_reference("/w/clip.txt", "deferred_clipboard_text")
+                .starts_with("Attached text/plain: ")
+        );
+        assert!(
+            path_reference("/w/movie.mkv", "video_too_large")
+                .starts_with("Attached video/x-matroska: ")
         );
     }
 }

@@ -7,6 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct ContextState {
     pub offset: usize,
     pub summary: Option<String>,
+    /// 压缩边界前的已发现工具名（上游 `compactBoundary.preCompactDiscoveredTools`）。
+    /// 随会话 context 持久化；旧行缺字段按空集合读入，空集合不写出，保持旧库字节形态。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pre_compact_discovered_tools: Vec<String>,
 }
 #[derive(Clone, Copy)]
 pub struct ContextPolicy {

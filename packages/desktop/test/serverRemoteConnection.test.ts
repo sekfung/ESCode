@@ -56,10 +56,10 @@ function connectNodeRpc(
     const socket = new WebSocket(url, { headers });
     socket.once("error", reject);
     socket.once("open", () => {
-      resolve({
-        socket,
-        services: connectViaProtocol(new SocketProtocol(wrapNodeWebSocket(socket))),
-      });
+      void connectViaProtocol(new SocketProtocol(wrapNodeWebSocket(socket))).then(
+        (services) => resolve({ socket, services }),
+        reject,
+      );
     });
   });
 }

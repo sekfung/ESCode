@@ -260,6 +260,12 @@ Agent / SendMessage、无定时任务端口的 Cron\*）。验收：`escode-cli-
 - 已落地：键级增量——宿主随整键附带 `diffWorkflowRunsState(prior, next)`，Rust 把原生 op 记入增量日志；有
   `workflowRunDeltas` 能力的订阅者收 `workflowRun.*` 且 state patch 不带整键，旧消费者丢 op、收裁剪整键
   （`create-workflow` 差分以第二条增量订阅比对应用后的终态与 op 判别式）。
+- 已修复（2026-10-31）：旧界裁剪与键级增量编码只能读写**已存在**的键。`serde_json::Value` 的可变索引对
+  缺失键会插入 `null`，此前 `encode_workflow_runs` 读取 `payload["deltas"]`、`payload["snapshot"]` 与
+  `delta["patch"]` 时，给快照/增量帧额外写入了 Node 不发送的 `"deltas":null`、`"snapshot":null`、
+  `"patch":null`，破坏 L4 帧对拍（App 侧 zod 非 strict 会剥离，因此没有功能性失败，但 wire 已偏离）。
+  现改为 `get_mut`/`get`，缺失键保持缺席。回归：`workflow_notices` 单测 +
+  `diff-escode-cli-rust-parity.mjs --golden`。
 - 已落地：宿主进程内首次见到某会话的 run 事件时先经 `workflowRuns.prior` 向 Rust 取已持久化的归约态，同会话后续事件
   串在其后（宿主重启不再丢此前的 run）。
 - 已落地：模型失败分类映射——actor 回合失败带 TS adapter 错误的 code / context（reason、retryable、providerCode、

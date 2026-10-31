@@ -1,0 +1,8 @@
+{
+  "attachmentDigest": "14daff5c9d555ef1cc3c8a5cad897010a8b1f1ce42d648c70d7121536134dd56",
+  "attachmentMessages": [
+    "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>/many-lines.txt\"}\nResult of calling the Read tool:\n1\tline 0\n2\tline 1\n3\tline 2\n4\tline 3\n5\tline 4\n6\tline 5\n7\tline 6\n8\t…7\n2989\tline 2988\n2990\tline 2989\n2991\tline 2990\n2992\tline 2991\n2993\tline 2992\n2994\tline 2993\n2995\tline 2994\n2996\tline 2995\n2997\tline 2996\n2998\tline 2997\n2999\tline 2998\n3000\tline 2999\n</system-reminder>",
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "describe it"
+  ]
+}

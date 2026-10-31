@@ -34,12 +34,14 @@ function scrub<T>(value: T, root: string): T {
   }
   return value;
 }
+/**
+ * Edit/Write 的模型可见输出：`structuredPatch`（结构化 diff）保留并逐条对拍；
+ * `filePath` 由调用方按各自输入路径单独断言（两侧用例使用的临时文件名不同）。
+ * `perf` 是不可枚举的执行遥测，对象展开不会带入；当前 TS/Rust 都不产出 `gitDiff`。
+ */
 function normalizeEditOutput(value: any) {
   const result = { ...value };
   delete result.filePath;
-  delete result.perf;
-  delete result.gitDiff;
-  delete result.structuredPatch;
   return result;
 }
 
@@ -145,6 +147,7 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
           content: tsWrite.content,
           additions: tsWrite.additions,
           deletions: tsWrite.deletions,
+          structuredPatch: tsWrite.structuredPatch,
         },
       };
     });
@@ -180,6 +183,11 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
     assert.equal(rustWrite.data.filePath, relativeWrite);
     for (const key of ["type", "content", "additions", "deletions"] as const)
       assert.equal(rustWrite.data[key], oracle.write[key], `Write ${key}`);
+    assert.deepEqual(
+      canonical(rustWrite.data.structuredPatch),
+      canonical(oracle.write.structuredPatch),
+      "Write structuredPatch",
+    );
     assert.equal(oracle.write.filePath, "sub/ts-written.txt");
   } finally {
     await d.close();
@@ -471,6 +479,7 @@ test("Rust tool definitions use frozen TS schemas and real TS file/search handle
       };
       const native = await d.call("Edit", { file_path: rustPath, ...args });
       const expected = edits.replaceAll[index]!;
+      assert.equal(native.data.filePath, rustPath, `Edit filePath ${JSON.stringify(args)}`);
       assert.equal(await readFile(rustPath, "utf8"), expected.finalContent);
       assert.deepEqual(canonical(normalizeEditOutput(native.data)), expected.output);
     }
@@ -492,6 +501,7 @@ test("Rust tool definitions use frozen TS schemas and real TS file/search handle
         continue;
       }
       assert.equal(native.error, undefined, `${label}: ${native.error}`);
+      assert.equal(native.data.filePath, rustFile, `${label}: filePath`);
       assert.deepEqual(canonical(normalizeEditOutput(native.data)), expected.output, label);
     }
     if (process.platform !== "win32") {

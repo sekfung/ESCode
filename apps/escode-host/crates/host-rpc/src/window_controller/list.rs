@@ -58,7 +58,7 @@ async fn list_task_list(
 
     let mut items = match &search {
         Some(search) => search_items(controller, &query, &scopes, search).await,
-        None => projection_items(controller, &scopes, &kind),
+        None => projection_items(controller.projector(), &scopes, &kind),
     };
     items.sort_by(|left, right| compare_items(left, right, &sort_by));
     let total = items.len();
@@ -164,21 +164,23 @@ async fn search_source(
     };
     Ok(items
         .iter()
-        .map(|item| decorate_search_item(controller, scope, item))
+        .map(|item| decorate_search_item(controller.projector(), scope, item))
         .collect())
 }
 
 /// TS 搜索分支的逐条叠加：`{...(projected?.meta ?? normalized), sourceAvailability, liveStatus, activity?, searchSnippets?}`。
-fn decorate_search_item(controller: &WindowController, scope: &LocalScope, item: &Value) -> Value {
+pub(super) fn decorate_search_item(
+    projector: &super::projection::Projection,
+    scope: &LocalScope,
+    item: &Value,
+) -> Value {
     let task_id = item["taskId"].as_str().unwrap_or_default().to_owned();
     let normalized = {
         let mut meta = item.clone();
         super::normalize_scope(&mut meta, scope);
         meta
     };
-    let projected = controller
-        .projector()
-        .row(&scope.address(&task_id), &task_id);
+    let projected = projector.row(&scope.address(&task_id), &task_id);
     let mut decorated = projected
         .as_ref()
         .map(|row| row["meta"].clone())
@@ -202,20 +204,26 @@ fn decorate_search_item(controller: &WindowController, scope: &LocalScope, item:
 }
 
 /// TS 非搜索分支：投影 rows → membership 过滤 → 叠加 `sourceAvailability/liveStatus/activity?`。
-fn projection_items(
-    controller: &WindowController,
+pub(super) fn projection_items(
+    projector: &super::projection::Projection,
     scopes: &[LocalScope],
     kind: &str,
 ) -> Vec<Value> {
     let keys: Vec<String> = scopes.iter().map(LocalScope::source_key).collect();
-    controller
-        .projector()
+    projector
         .rows(&keys)
         .into_iter()
         .filter(|row| matches_membership_kind(&row["membership"], kind))
         .map(|row| {
             let mut item = row["meta"].clone();
             if let Some(record) = item.as_object_mut() {
+                // TS 非搜索分支从 `row.address` 把远端 source 身份带进列表项。
+                if let Some(source_server_id) = row["address"]["sourceServerId"].as_str() {
+                    record.insert(
+                        "sourceServerId".to_owned(),
+                        Value::from(source_server_id.to_owned()),
+                    );
+                }
                 record.insert(
                     "sourceAvailability".to_owned(),
                     row["sourceAvailability"].clone(),
@@ -234,7 +242,7 @@ fn projection_items(
 }
 
 /// TS `compareItems`：`sortBy === "created"` 取 createdAt，其余取 updatedAt，降序 → taskId `localeCompare`。
-fn compare_items(left: &Value, right: &Value, sort_by: &str) -> std::cmp::Ordering {
+pub(super) fn compare_items(left: &Value, right: &Value, sort_by: &str) -> std::cmp::Ordering {
     let key = if sort_by == "created" {
         "createdAt"
     } else {

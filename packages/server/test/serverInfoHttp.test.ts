@@ -104,6 +104,24 @@ describe("server info HTTP endpoint", () => {
     });
   });
 
+  it("retires the Web self-connect remote routes", async () => {
+    const server = createHttpServer(new ServiceCollection(), 0, {});
+    servers.push(server);
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    // packages/web 已随手机远控下线删除；两条配对入口必须不可达（R3 §11）。
+    const connect = await fetch(`${baseUrl}/api/connect-remote`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(connect.status).toBe(404);
+
+    const remoteSocket = await fetch(`${baseUrl}/ws/remote/retired`);
+    expect(remoteSocket.status).toBe(404);
+  });
+
   it("serves static web files with SPA fallback", async () => {
     const staticRoot = await mkdtemp(join(tmpdir(), "escode-lite-static-"));
     tempDirs.push(staticRoot);

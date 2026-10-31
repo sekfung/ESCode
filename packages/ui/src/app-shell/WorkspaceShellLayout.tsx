@@ -31,7 +31,7 @@ import {
 } from "@/v4/workbenchSessionPlacement.js";
 import { usePaneSessionPersistence } from "@/v4/usePaneSessionPersistence.js";
 import { requestV4ComposerDraftWorkspaceTransfer } from "@/v4/composer/composerDraftWorkspaceTransfer.js";
-import { ChatEmptyWorkspacePreviewMenu } from "@/ChatEmptyState.js";
+import { ProjectComposerMenu, ProjectDirectoryProvider } from "@/project-sidebar/index.js";
 import { DesktopTopOverlay } from "@/DesktopTopOverlay.js";
 import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { WorkspacePluginPreview } from "@/WorkspacePluginPreview.js";
@@ -141,9 +141,6 @@ const CONVERSATION_AUTO_COLLAPSE_SIDE_PANE_WIDTH_PX = 480;
 const EMPTY_RECONNECTING_REMOTE_WORKSPACE_LOGS_BY_WORKSPACE_KEY: NonNullable<
   WorkspaceShellLayoutProps["reconnectingRemoteWorkspaceLogsByWorkspaceKey"]
 > = {};
-const EMPTY_REMOTE_WORKSPACE_SESSIONS: NonNullable<
-  WorkspaceShellLayoutProps["remoteWorkspaceSessions"]
-> = [];
 const CONVERSATION_AUTO_COLLAPSE_SIDEBAR_WIDTH_PX = 360;
 const CONVERSATION_AUTO_COLLAPSE_RESIZE_IDLE_MS = 300;
 // 性能修复：ResizablePanelGroup 收到深相等的新 panelIds 数组，
@@ -251,7 +248,6 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
   onOpenRemoteWorkspace,
   allowOpenWorkspace = true,
   allowRemoteWorkspace = true,
-  remoteWorkspaceSessions = EMPTY_REMOTE_WORKSPACE_SESSIONS,
   workspaceAbsPath,
   workspaceRemoteSessionId,
   workspaceIdentity,
@@ -1200,64 +1196,53 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
     },
     [handleSelectTask, workspaceAbsPath, workspaceIdentity],
   );
-  // 草稿态 composer contextHeader（m5-composer-parity §5.2）：workspace 切换菜单 +
-  // Git 分支切换器，与旧 ChatView 空态 contextHeaderContent 同构。壳级能力
-  // （workspaceTabs / 远程连接回调）在此闭合，pane 只收 ReactNode。
-  // onSelectWorkspace 语义与旧版一致：切到目标 workspace 的新草稿。
+  // 草稿态 composer contextHeader：与上游一致使用 ProjectComposerMenu（项目/设备菜单），
+  // Git/SVN 分支切换器仍作为 children 保留。项目目录由共享 Provider 提供。
   const draftComposerHeader = useMemo(
     () => (
-      <>
-        <ChatEmptyWorkspacePreviewMenu
+      <ProjectDirectoryProvider isDesktop={Boolean(isDesktop)}>
+        <ProjectComposerMenu
+          showEditProject
           workspacePath={workspaceAbsPath}
           workspaceIdentity={workspaceIdentity}
-          isWindowsDesktop={isWindowsDesktop}
-          workspaceTabs={workspaceTabs}
-          onSelectWorkspace={(workspaceTab) =>
-            handleStartDraftInWorkspaceInChat(
-              workspaceTab.workspacePath,
-              workspaceTab.workspaceIdentity,
-              workspaceTab.workspacePurpose,
-            )
-          }
+          onCreateTask={handleCreateTaskInChat}
           onSelectConversationWorkspace={handleSelectConversationWorkspace}
-          onOpenFolder={onOpenFolderFromWorkspaceMenu}
-          allowOpenWorkspace={allowOpenWorkspace}
           allowRemoteWorkspace={allowRemoteWorkspace}
-          remoteWorkspaceSessions={remoteWorkspaceSessions}
+          onOpenRemoteWorkspace={onOpenRemoteWorkspace}
           onConnectRemote={onConnectRemote}
-          onSelectRemoteProject={onSelectRemoteProject}
-          onCancelRemoteProject={onCancelRemoteProject}
-        />
-        {isOfficeMode ? (
-          <WorkspacePluginPreview
-            onOpen={handleOpenPluginStore}
-            onSelectPlugin={handleSelectComposerPlugin}
-            workspacePath={workspaceAbsPath}
-            workspaceIdentity={workspaceIdentity}
-            remoteSessionId={workspaceRemoteSessionId ?? undefined}
-          />
-        ) : !isOfficeMode && activeWorkspacePurpose === "project" && svnController ? (
-          <SvnBranchSwitcher
-            controller={svnController}
-            className="px-0 pt-0"
-            // 与 Git 分支菜单一致：输入区在底部，菜单固定向上弹出。
-            popoverSide="top"
-          />
-        ) : !isOfficeMode && activeWorkspacePurpose === "project" ? (
-          <GitBranchSwitcher
-            workspacePath={workspaceAbsPath}
-            gitSummary={gitState.summary}
-            dirtyFileCount={gitDirtyFileCount}
-            onRefreshGit={handleRefreshGit}
-            className="px-0 pt-0"
-            popoverClassName="w-72"
-            branchListClassName="max-h-48"
-            // Bugfix（旧注释保真）：输入框区域在底部，Radix 碰撞避让会把分支菜单翻到下方。
-            // 这里锁定上方弹出，避免菜单遮挡输入区并保持操作方向稳定。
-            avoidPopoverCollisions={false}
-          />
-        ) : null}
-      </>
+          onCancelRemote={onCancelRemoteProject}
+        >
+          {isOfficeMode ? (
+            <WorkspacePluginPreview
+              onOpen={handleOpenPluginStore}
+              onSelectPlugin={handleSelectComposerPlugin}
+              workspacePath={workspaceAbsPath}
+              workspaceIdentity={workspaceIdentity}
+              remoteSessionId={workspaceRemoteSessionId ?? undefined}
+            />
+          ) : !isOfficeMode && activeWorkspacePurpose === "project" && svnController ? (
+            <SvnBranchSwitcher
+              controller={svnController}
+              className="px-0 pt-0"
+              // 与 Git 分支菜单一致：输入区在底部，菜单固定向上弹出。
+              popoverSide="top"
+            />
+          ) : !isOfficeMode && activeWorkspacePurpose === "project" ? (
+            <GitBranchSwitcher
+              workspacePath={workspaceAbsPath}
+              gitSummary={gitState.summary}
+              dirtyFileCount={gitDirtyFileCount}
+              onRefreshGit={handleRefreshGit}
+              className="px-0 pt-0"
+              popoverClassName="w-72"
+              branchListClassName="max-h-48"
+              // Bugfix（旧注释保真）：输入框区域在底部，Radix 碰撞避让会把分支菜单翻到下方。
+              // 这里锁定上方弹出，避免菜单遮挡输入区并保持操作方向稳定。
+              avoidPopoverCollisions={false}
+            />
+          ) : null}
+        </ProjectComposerMenu>
+      </ProjectDirectoryProvider>
     ),
     [
       isOfficeMode,
@@ -1265,23 +1250,19 @@ export const WorkspaceShellLayout = memo(function WorkspaceShellLayoutComponent(
       workspaceRemoteSessionId,
       handleOpenPluginStore,
       handleSelectComposerPlugin,
-      allowOpenWorkspace,
       allowRemoteWorkspace,
       activeWorkspacePurpose,
       gitDirtyFileCount,
       gitState.summary,
       handleRefreshGit,
       handleSelectConversationWorkspace,
-      handleStartDraftInWorkspaceInChat,
-      isWindowsDesktop,
+      handleCreateTaskInChat,
+      isDesktop,
       onCancelRemoteProject,
       onConnectRemote,
-      onOpenFolderFromWorkspaceMenu,
-      onSelectRemoteProject,
-      remoteWorkspaceSessions,
+      onOpenRemoteWorkspace,
       workspaceAbsPath,
       workspaceIdentity,
-      workspaceTabs,
     ],
   );
   const handleV4SessionDeleted = useCallback(() => {

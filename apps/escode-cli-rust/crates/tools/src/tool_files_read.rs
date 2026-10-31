@@ -5,12 +5,8 @@ use super::tools::uint;
 use crate::contract::ToolOutput;
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::path::Path;
-use tokio::io::AsyncReadExt;
 use tokio_util::sync::CancellationToken;
-
-const READ_BYTES: usize = 64 * 1024;
 
 impl FileTools<'_> {
     pub(super) async fn read(
@@ -50,8 +46,22 @@ impl FileTools<'_> {
         if !tokio::fs::metadata(&path).await?.is_file() {
             bail!("Read requires a regular file");
         }
-        // TS：同一路径与范围（offset ?? 1, limit）的上次读取后文件未变，返回提示而不是重复正文。
-        let range = (args["offset"].as_u64().unwrap_or(1), args["limit"].as_u64());
+        // TS 去重键：(offset ?? 1, limit)；同一范围在上次读取后文件未变时返回提示而不是重复正文。
+        let offset = match args.get("offset") {
+            Some(_) => Some(uint(args, "offset", 0)?),
+            None => None,
+        };
+        let limit = match args.get("limit") {
+            Some(_) => {
+                let value = uint(args, "limit", 0)?;
+                if value == 0 {
+                    bail!("limit must be positive");
+                }
+                Some(value)
+            }
+            None => None,
+        };
+        let range = (offset.unwrap_or(1), limit);
         let stamp = super::file_state::Stamp::of(&state_key).await;
         if let Some(stamp) = stamp
             && self
@@ -66,104 +76,39 @@ impl FileTools<'_> {
                 data,
             ));
         }
-        let mut file = tokio::fs::File::open(&path).await?;
-        let metadata = file.metadata().await?;
-        if !metadata.is_file() {
-            bail!("Read requires a regular file");
-        }
-        let start = uint(args, "offset", 1)?.max(1);
-        let limit = uint(args, "limit", 2000)?;
-        if limit == 0 {
-            bail!("limit must be positive");
-        }
-        let end = start.saturating_add(limit);
-        let mut buf = [0u8; 8192];
-        let mut selected = Vec::new();
-        let mut hash = Sha256::new();
-        let mut line = 1u64;
-        let mut size = 0u64;
-
-        let mut truncated = false;
-        loop {
-            let n = tokio::select! { _=cancel.cancelled()=>bail!("Cancelled"), n=file.read(&mut buf)=>n? };
-            if n == 0 {
-                break;
-            }
-            if buf[..n].contains(&0) {
-                bail!("Read does not support binary files");
-            }
-            hash.update(&buf[..n]);
-            size += n as u64;
-            for &byte in &buf[..n] {
-                if line >= start && line < end {
-                    if selected.len() < READ_BYTES {
-                        selected.push(byte);
-                    } else {
-                        truncated = true;
-                    }
-                }
-                if byte == b'\n' {
-                    line += 1;
-                }
+        // TS `allowPartialFallback` 缺省为初始整文件读取（offset 缺省/≤1 且未给 limit）。
+        let allow_partial = limit.is_none() && offset.unwrap_or(1) <= 1;
+        let read =
+            escode_cli_host::text_file::read(path, offset, limit, allow_partial, cancel).await?;
+        if let Some(stamp) = stamp {
+            let mut state = self.state.lock().await;
+            if read.truncated_by_token_cap {
+                // TS：partial view 覆盖同键旧记录且永不命中缓存，第三次相同读取不得退回去重。
+                state.invalidate_range(state_key.clone(), range.0, range.1);
+            } else {
+                state.record_range(state_key.clone(), range.0, range.1, stamp);
             }
         }
-        // TS adapter 把空文件计为 1 行（提醒为 offset 超出而非空文件），Rust 之前计 0 行。
-        let total = line;
-        let content = match String::from_utf8(selected) {
-            Ok(text) => text,
-            Err(e) if truncated && e.utf8_error().error_len().is_none() => {
-                String::from_utf8(e.as_bytes()[..e.utf8_error().valid_up_to()].to_vec())?
-            }
-            Err(_) => bail!("Read requires valid UTF-8 text"),
-        };
-        let mut content = content.replace("\r\n", "\n");
-        if start == 1 {
-            content = content.trim_start_matches('\u{feff}').to_owned();
-        }
-        if content.ends_with('\n') && end <= total {
-            content.pop();
-        }
-        let count = if content.is_empty() {
-            0
-        } else {
-            content.split('\n').count()
-        };
-        let full = start == 1 && !truncated && count as u64 >= total;
-        if let Some(stamp) = stamp.filter(|_| !truncated) {
-            self.state
-                .lock()
-                .await
-                .record_range(state_key.clone(), range.0, range.1, stamp);
-        }
-        self.remember(state_key, hash.finalize().to_vec(), full)
+        self.remember(state_key, read.digest.clone(), read.covers_whole_file)
             .await;
-        let numbered = content
-            .split('\n')
-            .enumerate()
-            .map(|(i, s)| format!("{}\t{s}", start + i as u64))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let model = if content.is_empty() {
-            format!(
-                "<system-reminder>{}</system-reminder>",
-                if total == 0 {
-                    "Warning: the file exists but the contents are empty.".to_owned()
-                } else {
-                    format!(
-                        "Warning: the file exists but is shorter than the provided offset ({start}). The file has {total} lines."
-                    )
-                }
-            )
-        } else if truncated {
-            format!(
-                "<system-reminder>Partial view; use offset and limit to continue reading.</system-reminder>\n\n{numbered}"
-            )
-        } else {
-            numbered
-        };
-        Ok(ToolOutput::new(
-            model,
-            json!({"type":"text","filePath":path,"content":content,"startLine":start,"numLines":count,"totalLines":total,"sizeBytes":size,"bytesRead":size,"truncated":truncated}),
-        ))
+        let model = super::read_text_format::format_model(&read);
+        let mut data = json!({
+            "type": "text",
+            "filePath": path,
+            "content": read.content,
+            "startLine": read.start_line,
+            "numLines": read.num_lines,
+            "totalLines": read.total_lines,
+            "sizeBytes": read.size_bytes,
+            "bytesRead": read.bytes_read,
+            "truncated": read.truncated,
+        });
+        if read.truncated_by_token_cap {
+            data["truncatedByTokenCap"] = true.into();
+        }
+        if let Some(notice) = &read.partial_view_notice {
+            data["partialViewNotice"] = notice.clone().into();
+        }
+        Ok(ToolOutput::new(model, data))
     }
 }

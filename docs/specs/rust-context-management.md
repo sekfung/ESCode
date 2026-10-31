@@ -53,3 +53,36 @@ Desktop continuous 与 Web replayable 使用相同 seq / snapshot / marker；摘
 - held queue 支持 `keepQueueAndSend` / `clearQueueAndSend`；如提供 expectedHeldQueueItemIds，则校验无重复且集合完全相同，过期确认返回 guard.heldQueueConfirmationStale。未选择返回 heldQueueDispositionRequired。
 - clear 的原输入 ACK 改为 failed/guard.queueDeleted，与新输入及其 ACK 在同一 SessionStore transaction 提交。失败立即结束 runtime，不执行新输入。
 - compact 与普通输入共用 queue，compact 不允许通过 editQueueItem 改写成普通文本。所有变更继续投影给 desktop/mobile，迟到 stop 仍按 foregroundExecutionId 校验。
+
+## V4 `usage.contextWindow` 投影（2026-10-31）
+
+上下文预算的本地位估算（`history.projection` 的 chars→tokens）只用于本轮的自动/反应式压缩判定，**不进 wire**。
+协议里的 `usage.contextWindow.usedTokens` 必须以供应商回报的用量为准，否则 App 的上下文用量条会与 Node 差出数量级
+（session-baseline 差分实测 Node `14`、Rust `22224`）。
+
+Node 的权威规则（`packages/bootstrap/src/escode-protocol-v4/product-projection.ts` `onModelComplete`）：
+
+- 仅主会话回合（`isMainTurn`）更新；子代理回合不写会话级 `usage.contextWindow`。
+- `usedTokens = inputTokens + outputTokens`；`inputTokens` 取回报的 `inputTokens`，缺失时退
+  `totalTokens - outputTokens`，再退 cache read/write 之和；两者都为 0 时用 `totalTokens`。
+- `maxTokens` 取模型选择事件记录的窗口容量；容量未知（null）时协议字段保持 `null`。
+- `autoCompactThresholdTokens` 沿用快照已有值，初始为 `null`；Node 从不按本地策略回填。
+- 压缩成功后（`CompactDone`，status=success）`usedTokens` 立即回落为压缩后 token 数，`maxTokens`/阈值沿用；
+  cache/breakdown 等诊断块随之丢弃。
+
+Rust 现状与修正：
+
+- `agent_loop` 在请求前发的 `Event::ContextUsage` 只记录窗口容量 `Session.context_window_max_tokens`
+  （`serde(skip)`，进程内事实），不再写 `usage.contextWindow`；因此首轮完成前协议字段保持 `null`，与 Node 初始快照一致。
+- `Event::ModelDone` 在主会话回合按上述公式写 `usage.contextWindow`（`maxTokens` 未知时写 `null`）。
+- `Event::CompactDone` 重建 `{usedTokens: tokensAfter, maxTokens, autoCompactThresholdTokens}`，不再沿用压缩前的诊断块。
+- `usage.contextWindow.cache` / `breakdown`（Node 在 `ModelComplete` 里按供应商回报附带）Rust 尚未采集，记为剩余边界。
+
+验收：
+
+- `ModelDone` 与 `CompactDone` 共用 `domain::model_usage::write_context_window`；Rust 单测覆盖：
+  新会话初始 `contextWindow=null`（请求前不写 wire）、主会话写入（容量取模型选择事件）、容量未知保持 `null`、
+  压缩后回落且丢弃 cache/breakdown、阈值沿用、子代理会话不投影。
+- `node --test packages/services/tests/escode-cli-rust-conversation-usage.test.ts` 用共享 `applyConversationDeltas`
+  归约两侧订阅帧，断言 `usage.contextWindow.usedTokens = 1340` 且
+  `usedTokens/maxTokens/autoCompactThresholdTokens` 与 Node 一致（cache/breakdown 诊断块仍为剩余边界）。

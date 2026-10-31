@@ -74,4 +74,8 @@ sequenceDiagram
 
 验收覆盖同会话 retry/edit、附件继承和清空、Goal 意图、重复 ACK、跨 epoch 迟到目标、运行中无效目标不取消、稳定 fork 不停止父轮、cold restore 不复活已截断消息、压缩边界、原始字节恢复、外部修改冲突、取消与文件/存储故障、恢复 journal，以及通过现有 App client/schema 的真实子进程场景。
 
+冷恢复回归（2026-10-31）：`escode-cli-rust-rewind.test.ts` 在成功的 `editUserQuery` + `workspaceMode=rewind` 之后重启 runtime，
+断言截断的旧输入/助手回复不会复活、被撤销的文件不会被重新写出，并继续读取 replacement 输入；同一用例的 `fileChanges` diff
+期望对齐 jsdiff `structuredPatch` 对无结尾换行文件的 marker（Node `createFinalPatch` 同源）。
+
 冷加载校验历史边界的 row/entity/turn、canonical message offset、上下文 offset 与模型选择字段；损坏的边界拒绝激活，不等到用户点击重跑后 panic。对话切断后的旧 command receipt 保留；fork 的新 session 与命令 ACK 事务失败时不得残留子会话。

@@ -120,12 +120,13 @@ describe("desktop e2e process cleanup", () => {
     );
   });
 
-  it("Host waits for the remote stdio close handshake", () => {
+  it("Host rejects non-server remote targets instead of using the retired Node backend", () => {
     const hostSource = readFileSync(new URL("../src/host/index.ts", import.meta.url), "utf8");
 
     expect(hostSource).toMatch(
-      /async function disposeHostRemoteConnection[\s\S]*?connection\.disposeAndWait\(\{ timeoutMs: 5_000 \}\)[\s\S]*?name: "remote-registry-dispose"[\s\S]*?timeoutMs: 6_000/u,
+      /params\.target\.kind !== "server"[\s\S]*?REMOTE_RUST_HOST_REQUIRED/u,
     );
+    expect(hostSource).not.toMatch(/setupRemoteConnection|import\("@escode\/server\/remote"\)/u);
   });
 
   it("collects only the current run root and its child process tree", () => {

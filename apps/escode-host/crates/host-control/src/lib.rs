@@ -26,6 +26,19 @@ pub struct WorkspaceDescriptor {
     pub config: Option<String>,
 }
 
+/// Main 交给 Host 的远程资源事实（Source Server 首次安装，spec §11.3）。
+/// 路径由 Main 解析；Host 只按它读取 manifest 并选择 local-upload / remote-download。
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteAssetsDescriptor {
+    /// 含 `manifest-<platformArch>.json` 的 release 目录。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_dir: Option<String>,
+    #[serde(default)]
+    pub cdn_base_urls: Vec<String>,
+    pub app_version: String,
+}
+
 /// 控制消息（Main↔Host）。方向按变体语义：`WindowRequest` 为 Main→Host，
 /// `WindowAttached` / `WindowFrame` 为 Host→Main（u2a 的 Host 内协议；Renderer 直连的
 /// WebSocket surface 在其上叠加，见 u2 子 spec §3.4）。
@@ -102,6 +115,9 @@ pub enum ControlMessage {
         /// Main 声明会应答 `mainRequest`（cua-permission / sandbox 注册）；缺省 false = 旧 Main。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         main_services: bool,
+        /// Source Server 首次安装资源（spec §11.3）；缺省 = 旧 Main，只启动已部署 server。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remote_assets: Option<RemoteAssetsDescriptor>,
     },
     /// Host→Main：RPC 面已监听。`secret` 是本次监听的进程密钥（只走控制通道）：Main 带它向
     /// `POST /api/rpc-host-capability` 申请一次性 capability，再连 `ws://addr/ws/host`。

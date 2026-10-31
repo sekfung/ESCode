@@ -2,6 +2,12 @@ use super::event_projection_dispatch::DispatchedRunEvent;
 use super::{Engine, Event, RunEvent};
 use anyhow::{Result, bail};
 use serde_json::json;
+
+/// 只有主会话回合写会话级 `usage.contextWindow`（TS `isMainTurn`）；子代理回合不写。
+fn projects_session_context(session: &crate::domain::session::Session) -> bool {
+    session.agent_profile.is_none()
+}
+
 impl Engine {
     pub(super) async fn apply_event(&mut self, event: RunEvent) -> Result<()> {
         let Some(dispatched) = self.dispatch_run_event(event).await? else {
@@ -122,6 +128,7 @@ impl Engine {
                 stable,
                 message,
                 usage,
+                decode_ms,
                 committed,
             } => {
                 receipt = Some(committed);
@@ -142,16 +149,31 @@ impl Engine {
                 }
                 super::goal_events::account_usage(s, &usage, now);
                 // v3.15.1 TS onModelComplete：主会话的单 Turn 输出 token 在权威事件投影中累计到 turnHeader。
-                if s.agent_profile.is_none()
-                    && let Some(row) = s
+                if projects_session_context(s) {
+                    // TS onModelComplete：主会话上下文用量取供应商回报的 token，不用本地位估算
+                    // （否则 App 用量条与 Node 差数量级，见 docs/specs/rust-context-management.md）。
+                    super::goal_events::project_context_window(s, &usage);
+                    // 轮末解码速度与 outputTokens 一起在权威投影里累计（conversation-generation-speed.md §8）。
+                    let decode = crate::domain::model_usage::decode_contribution(
+                        decode_ms,
+                        usage["completion_tokens"].as_u64().unwrap_or(0),
+                    );
+                    if let Some(row) = s
                         .rows
                         .iter_mut()
                         .find(|r| r["kind"] == "turnHeader" && r["turnId"] == turn)
-                {
-                    let output = usage["completion_tokens"].as_u64().unwrap_or(0);
-                    row["outputTokens"] =
-                        (row["outputTokens"].as_u64().unwrap_or(0) + output).into();
-                    deltas.push(json!({"op":"row.upserted","row":row}));
+                    {
+                        let output = usage["completion_tokens"].as_u64().unwrap_or(0);
+                        row["outputTokens"] =
+                            (row["outputTokens"].as_u64().unwrap_or(0) + output).into();
+                        if let Some((decode_ms, decode_tokens)) = decode {
+                            row["decodeMs"] =
+                                (row["decodeMs"].as_i64().unwrap_or(0) + decode_ms as i64).into();
+                            row["decodeTokens"] =
+                                (row["decodeTokens"].as_i64().unwrap_or(0) + decode_tokens).into();
+                        }
+                        deltas.push(json!({"op":"row.upserted","row":row}));
+                    }
                 }
                 if s.goal.as_ref().is_some_and(|g| g.active() && g.exhausted()) {
                     s.goal.as_mut().unwrap().pause(now);
@@ -254,6 +276,9 @@ impl Engine {
                 finished = true;
                 s.api_retry = None;
                 s.run_id = None;
+                // 修复：压缩指令原先从不清空，压缩结束后 `activeTurnKind` 仍报 compact，
+                // 下一次普通轮次也会被误判为压缩；收口时统一释放。
+                s.compact_instructions = None;
                 s.pending.clear();
                 s.revision += 1;
                 let outcome = if cancelled {
@@ -332,5 +357,37 @@ impl Engine {
             self.finish_session_title(&id);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::projects_session_context;
+    use crate::domain::session::Session;
+
+    fn session() -> Session {
+        Session::new(
+            "sess_test".into(),
+            "workspace".into(),
+            "provider".into(),
+            "model".into(),
+            "medium".into(),
+            "epoch".into(),
+            0,
+        )
+    }
+
+    #[test]
+    fn only_main_sessions_project_session_context() {
+        let mut main = session();
+        assert!(projects_session_context(&main));
+        main.agent_profile = Some(
+            crate::domain::agent_profile::parse(
+                "---\nname: helper\ndescription: runs a subtask\n---\nbody",
+                "test",
+            )
+            .expect("profile"),
+        );
+        assert!(!projects_session_context(&main));
     }
 }

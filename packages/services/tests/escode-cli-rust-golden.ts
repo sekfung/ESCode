@@ -29,6 +29,11 @@ export function canonical<T>(value: T, parentKey?: string): T {
     return (
       value
         .replace(/Today's date is \d{4}-\d{2}-\d{2}\./g, "Today's date is <DATE>.")
+        // WebSearch 工具描述带当前月份；golden 录制跨月后必须归一，否则每月 1 日整套差分误报。
+        .replace(
+          /- The current month is [A-Za-z]+ \d{4} — use this when searching for recent information\./g,
+          "- The current month is <MONTH> — use this when searching for recent information.",
+        )
         .replace(/^(- Platform: ).*$/gm, "$1<platform>")
         .replace(/^(- OS Version: ).*$/gm, "$1<os>")
         // macOS 的临时目录是 /var/folders/.../T/；与 Linux /tmp/ 归一，避免同一条观察跨平台漂移。

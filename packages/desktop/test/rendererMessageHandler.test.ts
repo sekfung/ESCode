@@ -27,7 +27,7 @@ vi.mock("@escode/ui", () => ({
 }));
 
 vi.mock("@escode/client", () => ({
-  connectViaMessagePort: vi.fn(() => ({
+  connectViaMessagePort: vi.fn(async () => ({
     settingService: {},
   })),
 }));

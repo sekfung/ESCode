@@ -23,8 +23,15 @@ impl Session {
             .find(|r| r["turnId"] == turn && r["toolCallId"] == call_id)?;
         if done.denied {
             row["status"] = "cancelled".into();
+        } else if done.failed {
+            // 对齐 TS ToolCallError 投影：只有 error（message 取工具错误原文），不写 output/display。
+            // 旧实现把原文放进 output.text、error.message 用固定文案，导致 App 卡片与模型历史不一致。
+            row["status"] = "error".into();
+            row["endedAt"] = now.into();
+            row.as_object_mut()?.remove("output");
+            row["error"] = json!({"code":"tool_execution_failed","message": done.result});
         } else {
-            row["status"] = if done.failed { "error" } else { "success" }.into();
+            row["status"] = "success".into();
             row["endedAt"] = now.into();
             row["output"] = json!({"text": done.result});
             if let Some(display) = done.display {
@@ -34,10 +41,6 @@ impl Session {
                 if super::tool_display::row_display_kind(&display) {
                     row["display"] = display;
                 }
-            }
-            if done.failed {
-                row["error"] =
-                    json!({"code":"tool_execution_failed","message":"Tool execution failed"});
             }
         }
         row.as_object_mut()?.remove("approvalInteractionId");
@@ -242,4 +245,72 @@ fn history_rounds(rows: &[Value]) -> std::collections::BTreeMap<String, u64> {
         }
     }
     counts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session() -> Session {
+        Session::new(
+            "sess".into(),
+            "workspace".into(),
+            "provider".into(),
+            "model".into(),
+            "none".into(),
+            "epoch".into(),
+            1,
+        )
+    }
+
+    fn tool_row() -> serde_json::Value {
+        json!({"turnId":"turn","toolCallId":"call","status":"running"})
+    }
+
+    #[test]
+    fn failed_tool_row_matches_ts_tool_call_error() {
+        let mut s = session();
+        s.rows.push(tool_row());
+        let row = s
+            .finish_tool_row(
+                "turn",
+                "call",
+                ToolResult {
+                    result: "File does not exist.".into(),
+                    display: None,
+                    failed: true,
+                    denied: false,
+                },
+                2,
+            )
+            .unwrap();
+        // TS onToolCallError：只写 error，不写 output/display（docs/specs/rust-row-projection.md）。
+        assert_eq!(row["status"], "error");
+        assert!(row.get("output").is_none());
+        assert_eq!(row["error"]["code"], "tool_execution_failed");
+        assert_eq!(row["error"]["message"], "File does not exist.");
+        assert_eq!(row["endedAt"], 2);
+    }
+
+    #[test]
+    fn successful_tool_row_keeps_output() {
+        let mut s = session();
+        s.rows.push(tool_row());
+        let row = s
+            .finish_tool_row(
+                "turn",
+                "call",
+                ToolResult {
+                    result: "hello".into(),
+                    display: None,
+                    failed: false,
+                    denied: false,
+                },
+                2,
+            )
+            .unwrap();
+        assert_eq!(row["status"], "success");
+        assert_eq!(row["output"]["text"], "hello");
+        assert!(row.get("error").is_none());
+    }
 }

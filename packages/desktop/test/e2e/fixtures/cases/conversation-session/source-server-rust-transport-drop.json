@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "caseName": "source-server-rust-transport-drop",
+  "spec": "./test/e2e/conversation-session/source-server-rust-transport-drop.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/source-server-rust-transport-drop.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "rust-transport-drop-title",
+      "description": "标题辅助响应，只需稳定 task row。",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "标题内容不属于链路恢复断言。"
+    },
+    {
+      "id": "rust-transport-drop-first",
+      "description": "链路中断前首发响应。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "slow-stream",
+      "syntheticReason": "稳定验证断线前已完成一轮对话。"
+    },
+    {
+      "id": "rust-transport-drop-follow",
+      "description": "原位重连后的续发响应。",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "slow-stream",
+      "syntheticReason": "稳定验证重连后仍命中同一 task 并携带断线前历史。"
+    }
+  ]
+}

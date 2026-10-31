@@ -206,7 +206,7 @@ impl Projection {
         allow_missing_task: bool,
     ) -> Result<LocalScope, RpcError> {
         let state = self.lock();
-        // 远程 source 本片不支持（子 spec §5-1）：remoteSessionId 地址不会命中任何 source。
+        // `remoteSessionId` 需要 Host 会话注册表（尚未迁移）；远端 source 用 `sourceServerId` 定位。
         if address["remoteSessionId"].is_string() {
             return Err(RpcError::new("Error", "没有与任务地址匹配的 source"));
         }
@@ -219,7 +219,12 @@ impl Projection {
             return Err(RpcError::new("Error", "没有与任务地址匹配的 source"));
         }
         if !source.online {
-            return Err(RpcError::new("Error", "本地 source 当前不可用"));
+            let message = if scope.source_server_id.is_some() {
+                "远程 source 当前离线，禁止列表写操作"
+            } else {
+                "本地 source 当前不可用"
+            };
+            return Err(RpcError::new("Error", message));
         }
         Ok(scope)
     }
@@ -275,10 +280,16 @@ impl Projection {
 }
 
 fn scope_of_address(address: &Value) -> LocalScope {
-    LocalScope::new(
-        address["workspacePath"].as_str().unwrap_or_default(),
-        address["workspaceIdentity"].as_str(),
-    )
+    let workspace_path = address["workspacePath"].as_str().unwrap_or_default();
+    let identity = address["workspaceIdentity"].as_str();
+    match address["sourceServerId"].as_str() {
+        Some(source_server_id) => LocalScope::remote(
+            workspace_path,
+            identity.unwrap_or(workspace_path),
+            source_server_id,
+        ),
+        None => LocalScope::new(workspace_path, identity),
+    }
 }
 
 #[cfg(test)]

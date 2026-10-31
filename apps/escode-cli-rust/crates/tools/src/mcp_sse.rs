@@ -6,14 +6,19 @@ use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
 };
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot};
+use std::time::Duration;
+use tokio::sync::{RwLock, mpsc, oneshot};
 use tokio_util::sync::{CancellationToken, DropGuard};
 
 type Auth = Option<super::mcp_oauth_client::AuthClient>;
+/// eventsource 的缺省重连间隔（docs/specs/rust-mcp-parity.md「legacy SSE 自动重连」）。
+const DEFAULT_RETRY: Duration = Duration::from_secs(3);
+const MAX_RETRY_MILLIS: u64 = 300_000;
+
 pub(super) struct Transport {
     client: reqwest_mcp::Client,
     auth: Auth,
-    endpoint: Arc<str>,
+    endpoint: Arc<RwLock<Arc<str>>>,
     headers: reqwest_mcp::header::HeaderMap,
     rx: mpsc::Receiver<ServerJsonRpcMessage>,
     worker: Option<tokio::task::JoinHandle<()>>,
@@ -38,46 +43,133 @@ impl Transport {
                 );
             }
         }
-        let response = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"),response=send(&auth,||client.get(url.clone()).headers(headers.clone()).header("Accept","text/event-stream"))=>response.context("network_unreachable")?.error_for_status().context("network_unreachable")?};
+        let response = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"),response=send(&auth,||client.get(url.clone()).headers(headers.clone()).header("Accept","text/event-stream"))=>response.context("network_unreachable")?};
+        let response = response.error_for_status().context("network_unreachable")?;
+        ensure!(
+            response.status() != reqwest_mcp::StatusCode::NO_CONTENT,
+            "SSE server sent 204"
+        );
+        ensure!(
+            is_event_stream(&response),
+            "SSE response is not text/event-stream"
+        );
+
+        let endpoint_shared = Arc::new(RwLock::new(Arc::<str>::from("")));
+        let worker_endpoint = endpoint_shared.clone();
         let (tx, rx) = mpsc::channel(32);
-        let (endpoint, ready) = oneshot::channel();
+        let (endpoint_tx, ready) = oneshot::channel();
         let cancel = CancellationToken::new();
         let worker_cancel = cancel.clone();
         let guard = cancel.clone().drop_guard();
+        let worker_client = client.clone();
+        let worker_auth = auth.clone();
+        let worker_headers = headers.clone();
         let worker =
             escode_cli_core_api::scope::Spawner::current().spawn("mcp-sse-worker", async move {
-                let stream = async {
+                let mut endpoint_tx = Some(endpoint_tx);
+                let mut last_event_id: Option<String> = None;
+                let mut retry = DEFAULT_RETRY;
+                let mut pending = Some(response);
+                loop {
+                    let response = match pending.take() {
+                        Some(response) => response,
+                        None => {
+                            let last_event_id_header = last_event_id
+                                .as_ref()
+                                .and_then(|id| reqwest_mcp::header::HeaderValue::from_str(id).ok());
+                            let build = || {
+                                let mut request = worker_client
+                                    .get(url.clone())
+                                    .headers(worker_headers.clone())
+                                    .header("Accept", "text/event-stream");
+                                if let Some(value) = last_event_id_header.clone() {
+                                    request = request.header(
+                                        reqwest_mcp::header::HeaderName::from_static(
+                                            "last-event-id",
+                                        ),
+                                        value,
+                                    );
+                                }
+                                request
+                            };
+                            match tokio::select! {biased;_=worker_cancel.cancelled()=>return,result=send(&worker_auth,build)=>result} {
+                                Ok(response) => {
+                                    let Ok(response) = response.error_for_status() else {
+                                        return;
+                                    };
+                                    if response.status() == reqwest_mcp::StatusCode::NO_CONTENT
+                                        || !is_event_stream(&response)
+                                    {
+                                        return;
+                                    }
+                                    response
+                                }
+                                Err(_) => {
+                                    if !retry_after(retry, &worker_cancel).await {
+                                        return;
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    };
+
                     let mut stream = response.bytes_stream();
                     let mut decoder = Decoder::default();
-                    let mut endpoint = Some(endpoint);
-                    while let Some(bytes) = stream.next().await {
-                        for (kind, data) in decoder.push(&bytes?)? {
-                            if kind == "endpoint" {
-                                if let Some(endpoint) = endpoint.take() {
-                                    let parsed = url.join(&data)?;
-                                    ensure!(
-                                        parsed.origin() == url.origin(),
-                                        "SSE endpoint changed origin"
-                                    );
-                                    let _ = endpoint.send(parsed.to_string());
+                    loop {
+                        let chunk = tokio::select! {biased;_=worker_cancel.cancelled()=>return,chunk=stream.next()=>chunk};
+                        let Some(chunk) = chunk else { break };
+                        let Ok(chunk) = chunk else { break };
+                        let Ok(events) = decoder.push(&chunk) else {
+                            break;
+                        };
+                        if let Some(millis) = decoder.take_retry() {
+                            retry = Duration::from_millis(millis.clamp(1, MAX_RETRY_MILLIS));
+                        }
+                        for event in events {
+                            // eventsource 对每个事件都更新 lastEventId，不区分 event 类型。
+                            if let Some(id) = event.id {
+                                last_event_id = if id.is_empty() { None } else { Some(id) };
+                            }
+                            if event.kind == "endpoint" {
+                                let parsed = url.join(&event.data);
+                                let parsed = match parsed {
+                                    Ok(parsed) if parsed.origin() == url.origin() => parsed,
+                                    _ => {
+                                        if let Some(endpoint_tx) = endpoint_tx.take() {
+                                            let _ = endpoint_tx
+                                                .send(Err(anyhow::anyhow!("SSE endpoint changed origin")));
+                                        }
+                                        return;
+                                    }
+                                };
+                                *worker_endpoint.write().await = Arc::from(parsed.as_str());
+                                if let Some(endpoint_tx) = endpoint_tx.take() {
+                                    let _ = endpoint_tx.send(Ok(parsed.to_string()));
                                 }
-                            } else if kind == "message" || kind.is_empty() {
+                            } else if event.kind == "message" || event.kind.is_empty() {
                                 // tools/list 原文保留 inputSchema 声明顺序（docs/specs/rust-tool-schema-order.md）。
-                                raw.offer(data.as_bytes());
-                                tx.send(serde_json::from_str::<ServerJsonRpcMessage>(&data)?)
-                                    .await?;
+                                raw.offer(event.data.as_bytes());
+                                if let Ok(message) =
+                                    serde_json::from_str::<ServerJsonRpcMessage>(&event.data)
+                                    && tx.send(message).await.is_err()
+                                {
+                                    return;
+                                }
                             }
                         }
                     }
-                    Ok::<(), anyhow::Error>(())
-                };
-                tokio::select! {biased;_=worker_cancel.cancelled()=>(),_=stream=>()}
+                    // GET 流结束/网络错误：与 eventsource 一样按 retry 间隔重连，不重试已发出的 POST。
+                    if !retry_after(retry, &worker_cancel).await {
+                        return;
+                    }
+                }
             });
-        let endpoint = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"), result=ready=>result.context("protocol_negotiation_failed")?};
+        tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"), result=ready=>{result.context("protocol_negotiation_failed")??;}};
         Ok(Self {
             client,
             auth,
-            endpoint: endpoint.into(),
+            endpoint: endpoint_shared,
             headers,
             rx,
             worker: Some(worker),
@@ -98,6 +190,7 @@ impl rmcp::transport::Transport<RoleClient> for Transport {
         let cancel = self.cancel.clone();
         let auth = self.auth.clone();
         async move {
+            let endpoint = endpoint.read().await.clone();
             let post = || {
                 escode_cli_net::capture::record("POST", endpoint.as_ref());
                 client
@@ -131,14 +224,35 @@ async fn send(
         None => Ok(build().send().await?),
     }
 }
+
+fn is_event_stream(response: &reqwest_mcp::Response) -> bool {
+    response
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.starts_with("text/event-stream"))
+}
+
+/// 可取消的退避等待；返回 false 表示已取消。
+async fn retry_after(delay: Duration, cancel: &CancellationToken) -> bool {
+    tokio::select! {biased;_=cancel.cancelled()=>false,_=tokio::time::sleep(delay)=>true}
+}
+
 #[derive(Default)]
 struct Decoder {
     line: Vec<u8>,
     kind: String,
     data: String,
+    id: Option<String>,
+    retry: Option<u64>,
+}
+struct Event {
+    kind: String,
+    data: String,
+    id: Option<String>,
 }
 impl Decoder {
-    fn push(&mut self, bytes: &[u8]) -> Result<Vec<(String, String)>> {
+    fn push(&mut self, bytes: &[u8]) -> Result<Vec<Event>> {
         let mut events = vec![];
         for part in bytes.split_inclusive(|b| *b == b'\n') {
             ensure!(
@@ -152,10 +266,11 @@ impl Decoder {
             let line = std::str::from_utf8(&self.line)?.trim_end_matches(['\r', '\n']);
             if line.is_empty() {
                 if !self.data.is_empty() {
-                    events.push((
-                        std::mem::take(&mut self.kind),
-                        std::mem::take(&mut self.data),
-                    ));
+                    events.push(Event {
+                        kind: std::mem::take(&mut self.kind),
+                        data: std::mem::take(&mut self.data),
+                        id: self.id.take(),
+                    });
                 }
             } else if let Some(data) = line.strip_prefix("data:") {
                 if !self.data.is_empty() {
@@ -164,6 +279,12 @@ impl Decoder {
                 self.data.push_str(data.strip_prefix(' ').unwrap_or(data));
             } else if let Some(kind) = line.strip_prefix("event:") {
                 self.kind = kind.trim().into();
+            } else if let Some(id) = line.strip_prefix("id:") {
+                self.id = Some(id.strip_prefix(' ').unwrap_or(id).into());
+            } else if let Some(retry) = line.strip_prefix("retry:")
+                && let Ok(millis) = retry.trim().parse::<u64>()
+            {
+                self.retry = Some(millis);
             }
             ensure!(
                 self.data.len() <= 8 * 1024 * 1024,
@@ -173,4 +294,11 @@ impl Decoder {
         }
         Ok(events)
     }
+    fn take_retry(&mut self) -> Option<u64> {
+        self.retry.take()
+    }
 }
+
+#[cfg(test)]
+#[path = "mcp_sse_tests.rs"]
+mod tests;

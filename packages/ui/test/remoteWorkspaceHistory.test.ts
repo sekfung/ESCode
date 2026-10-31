@@ -251,6 +251,30 @@ describe("remoteWorkspaceHistory helpers", () => {
     });
   });
 
+  it("persists Connection Profile scope so restarted reconnect stays on the Rust route", () => {
+    const scope = {
+      profileId: "17ef20b3-622d-4a53-98c1-0cdff29f3e6d",
+      sourceServerId: "ea0c1d1c-9c43-4a88-8f3e-3b2f0e2b7f4a",
+    };
+    const snapshot = createRemoteTargetSnapshot(
+      "remote:ssh:demo.internal:22:root:/workspace/demo",
+      {
+        kind: "ssh",
+        host: "demo.internal",
+        username: "root",
+        ...scope,
+      },
+    );
+
+    expect(snapshot).toMatchObject(scope);
+    expect(
+      createRemoteTargetFromSnapshot(snapshot, {
+        password: null,
+        privateKeyPassphrase: null,
+      }),
+    ).toMatchObject(scope);
+  });
+
   it("persists SSH asset install mode and drops historical resource packages", () => {
     const snapshot = createRemoteTargetSnapshot(
       "remote:ssh:demo.internal:22:root:/workspace/demo",

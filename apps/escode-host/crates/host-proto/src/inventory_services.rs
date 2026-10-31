@@ -5,6 +5,7 @@
 
 use crate::inventory_implemented::IMPLEMENTED;
 use crate::inventory_implemented_project::IMPLEMENTED_PROJECT;
+use crate::inventory_implemented_source_server::IMPLEMENTED_SOURCE_SERVER;
 use crate::inventory_non_rpc::NON_RPC_METHODS;
 use crate::inventory_ts::TS_SERVICE_CHANNELS;
 use crate::{Method, State};
@@ -24,6 +25,7 @@ pub fn service_methods() -> Vec<Method> {
         method,
         state: if IMPLEMENTED.contains(&(channel, method))
             || IMPLEMENTED_PROJECT.contains(&(channel, method))
+            || IMPLEMENTED_SOURCE_SERVER.contains(&(channel, method))
         {
             State::Implemented
         } else {
@@ -42,6 +44,7 @@ mod tests {
         let fabricated: Vec<_> = IMPLEMENTED
             .iter()
             .chain(IMPLEMENTED_PROJECT.iter())
+            .chain(IMPLEMENTED_SOURCE_SERVER.iter())
             .filter(|&&entry| !ts_service_members().any(|member| member == entry))
             .collect();
         assert!(

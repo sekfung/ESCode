@@ -104,10 +104,47 @@ test("Node and Rust emit the same live conversation telemetry facts", async () =
   assert.deepEqual(node.invalid, []);
   assert.deepEqual(rust.invalid, []);
   assert.ok(node.shape.length > 0);
-  // 首尾固定（turn.started / turn.terminal）；步内顺序有一处已知差异：Node 在该步的 model_request_completed
-  // 与 usage.delta 之前就发出工具生命周期，Rust 在模型请求结算之后。消费侧按种类聚合，比对多重集合。
+  // 首尾固定（turn.started / turn.terminal）。
   assert.deepEqual(rust.shape[0], node.shape[0]);
   assert.deepEqual(rust.shape.at(-1), node.shape.at(-1));
+  // 内容相等：按种类/字段的多重集合比对，避免顺序差异掩盖字段增减。
   const sorted = (shape: unknown[]) => shape.map((s) => JSON.stringify(s)).sort();
   assert.deepEqual(sorted(rust.shape), sorted(node.shape));
+  // 顺序相等：不能只比多重集合（docs/specs/rust-unified-host.md §4.6 要求拆成两条断言）。
+  // 已批准差异：Node 在同一步里先发工具生命周期、再发 model_request_completed/usage.delta；
+  // Rust 在 provider 流结束时结算、随后执行工具。这里显式登记该差异（理由：结算属于模型请求，
+  // 工具执行发生在其后；移除条件：TS runtime 删除后或 Rust turn loop 对齐 Node 结算时机时），
+  // 把 Node 的每步工具事实移到该步结算之后，再逐条比较顺序；任何额外的顺序变化都会失败。
+  assert.deepEqual(rust.shape, rustExpectedOrder(node.shape));
 });
+
+/** 把每个模型请求步里的工具生命周期块移到该步结算事实（completed/usage.delta）之后。 */
+function rustExpectedOrder(shape: any[]): any[] {
+  const isSettlement = (fact: any) =>
+    fact.kind === "usage.delta" ||
+    (fact.kind === "model.request.status" && fact.status === "model_request_completed");
+  const isStepStart = (fact: any) =>
+    fact.kind === "model.request.status" && fact.status === "model_request_started";
+  const out: any[] = [];
+  for (let index = 0; index < shape.length; ) {
+    if (!isStepStart(shape[index])) {
+      out.push(shape[index++]);
+      continue;
+    }
+    let end = index + 1;
+    while (end < shape.length && !isStepStart(shape[end]) && shape[end].kind !== "turn.terminal")
+      end++;
+    const tools = shape.slice(index, end).filter((fact) => fact.kind === "tool.lifecycle");
+    if (!tools.length) {
+      out.push(...shape.slice(index, end));
+    } else {
+      const rest = shape.slice(index, end).filter((fact) => fact.kind !== "tool.lifecycle");
+      const settlementAt = rest.findLastIndex(isSettlement);
+      // 结算缺失说明该步形态已变化，交给逐条比较报错，不在这里掩盖。
+      if (settlementAt < 0) out.push(...rest, ...tools);
+      else out.push(...rest.slice(0, settlementAt + 1), ...tools, ...rest.slice(settlementAt + 1));
+    }
+    index = end;
+  }
+  return out;
+}

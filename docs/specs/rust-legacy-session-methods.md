@@ -33,8 +33,40 @@ rust-parity-remaining.md 中「无活跃 UI 调用点」同口径）。`imported
   assistant 产 `assistantText(state=complete)` 行（首条即 assistant 时先补一个轮头），canonical `{role:assistant, content}`。
   与 legacy 导入器同形，续聊直接使用这些 canonical 消息作为模型上下文。
 - 持久化：一次 `commit_receipt` 落盘后才投影与返回快照（同其它导入）。
-- 幂等：同 `sessionId` 已存在时直接返回现有快照，不重写历史。**差异**：TS 重导入会删除旧导入消息再按源文件重写（保留后续续聊消息）；
-  Rust 不做历史替换（canonical history 只追加，替换需 history cut 事务），源文件后续增长的内容需新建导入。
+- 同 `sessionId` 已存在时按「重导入与历史替换」重写导入段，不再直接返回旧快照。
+
+## 重导入与历史替换（2026-10-31）
+
+TS `importedClaudeHistoryRepair` 依赖 `persistImportedSessionHistory`：先删旧导入消息，再按原 Claude jsonl 回填，
+保留用户后续续聊。Rust 对齐如下（所有者仍是 Engine actor；与首次导入共用 `session/create` 入口）：
+
+- 识别导入段：`turnId` 属于 `{sessionId}_import_*`（Rust 导入器）、`msg_import_*` 或 `msg_claude-import-*`
+  （旧 TS 快照导入）的行；它可能在开头，也可能已在末尾（Node 重导入把新段追加在续聊之后）。Rust 导入器同时给
+  canonical 消息写 `_escode_import_source = "claudeCode"`（对齐 TS `metadata.migrationSource`；`_escode_` 键在
+  模型请求前剥离），重导入据此按消息删除。旧版本消息没有标记时退回「开头导入段」计数：段内 `userInput` 行数 +
+  段内不同的 `assistantResponseId` 数（assistant 的 text/reasoning/tool 行共享一条 canonical 消息）。
+- 替换：删除旧导入段的行与 canonical 消息，按新 `importedHistory` 重建导入段并追加到末尾；保留的续聊行、
+  消息、tool 调用与附件原样前移，顺序为「保留的续聊 → 新导入段」——与 Node `sessionStore.messages()`
+  的 `sequence` 读取顺序一致。
+- 索引平移：保留行的 `rowId` 不变（检查点与目标锚点无需重映射）；`history.inputs/responses` 的
+  `row/userRow/message`、`context.offset`、`legacyTopicRecords[].rowAnchor` 与 `shell_notice` 锚点按被删除的
+  行/消息前移；`history.action_rows` 重新计算。
+- 元数据：沿用 Node `sessionStore.createSession` 的 upsert 语义——`createdAt` 不变；`title/titleSource` 取新导入
+  （`title.trim() || "Imported session"`、`custom`）；`updatedAt = max(createdAt, updatedAt ?? 末条时间)`；
+  `parentSessionId` 取参数（修复调用不传即清空）；`taskType` 回到 `interactive`；`mode` 取参数（缺省 `build`，
+  `plan` 只置 Plan 开关）；有 `model/thoughtLevel` 时按参数重选；`traceId` 保留；清空 `lastError/apiRetry`。
+- 提交与订阅：`historyRewrite` 使 `commit_receipt` 全量 DELETE 后重写 rows/messages/history；提交后
+  `epoch = 新 id、seq = 0、revision += 1`，对 `conversation/{id}` 订阅者发 recovery 快照并刷新 sessions-index，
+  客户端整体替换行；不追加行增量。
+- 幂等/并发：只有空闲会话可重导入（无运行轮次、无 queued/pending 输入、无运行中的后台任务），否则报错且不改动
+  会话；同一份 `importedHistory` 重复导入得到相同快照。
+- 已知差异：Node 重导入会重建 runtime record，丢弃运行中的轮次/队列；Rust 直接拒绝活动会话，避免孤儿 run。
+  快照 `session.updatedAt`：Node 在进程内取 runtime `record.updatedAt`（创建/重导入时为 now，重启后回填库内
+  时间），Rust 只有库内时间；两侧的消息序列、标题与 `createdAt` 一致。
+
+验收见 `packages/services/tests/escode-cli-rust-session-import-repair.test.ts`（Node/Rust 同场景、冻结 golden）：
+首次导入 → 真实续聊 → 用增长的历史重导入后，两侧消息序列为「续聊 user/assistant + 新导入 q1/a1/q2/a2」，
+标题与 `createdAt` 一致；重复导入同一历史快照不变；重导入后继续续聊正常；重启后再次重导入仍只保留一份导入段。
 
 ## 设计：翻译到 V4 命令，单一写路径
 

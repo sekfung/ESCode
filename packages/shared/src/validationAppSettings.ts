@@ -97,6 +97,8 @@ const remoteWorkspaceTargetSchema = z.discriminatedUnion("kind", [
     host: nonEmptyStringSchema,
     port: z.number().int().positive().max(65535).optional(),
     username: nonEmptyStringSchema,
+    profileId: nonEmptyStringSchema.optional(),
+    sourceServerId: nonEmptyStringSchema.optional(),
     sshConfigAlias: nonEmptyStringSchema.optional(),
     privateKeyPath: z.string().optional(),
     assetInstallMode: z.enum(REMOTE_ASSET_INSTALL_MODES).optional(),
@@ -113,10 +115,14 @@ const remoteWorkspaceTargetSchema = z.discriminatedUnion("kind", [
     distro: z.string().optional(),
     // 远程历史重连会直接使用 settings 中的 WSL user，必须和连接入口共用校验，避免绕过 UI 后污染 identity/日志。
     user: wslUserSchema.optional(),
+    profileId: nonEmptyStringSchema.optional(),
+    sourceServerId: nonEmptyStringSchema.optional(),
   }),
   z.object({
     kind: z.literal("docker"),
     container: nonEmptyStringSchema,
+    profileId: nonEmptyStringSchema.optional(),
+    sourceServerId: nonEmptyStringSchema.optional(),
   }),
   z.object({
     kind: z.literal("server"),

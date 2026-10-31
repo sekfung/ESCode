@@ -151,7 +151,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - host-runtime runtime-link 选择器（embedded/child）与实例表（single-flight、懒重启 generation、收口残余清单）；
   - 进程入口 attach/detach/转发/扇出/收口端到端。
 - [x] **u2b 第一个服务域 settings**：与 TS Host 同文件同格式（顶层合并写、坏文件隔离、2 空格缩进）；双 Host 交替写读演练通过（真实 TS 设置服务 ↔ 真实 Host 进程，3 轮交替 + 未知键保留）。
-- [x] **Renderer 直连的 RPC 面**：`@escode/rpc` 协议 + 真实客户端集成；`ESCODE_RUST_HOST` 开关（2026-10-23 默认开启，显式 `0`/`false` 回退 Node）与 Main 侧 attachment 切换（`rustHostManager.ts` / `rustHostBridge.ts`），见子 spec 实施进度表。
+- [x] **Renderer 直连的 RPC 面**：`@escode/rpc` 协议 + 真实客户端集成；`ESCODE_RUST_HOST` 开关（2026-10-23 默认开启，显式 `0`/`false` 回退本地 Node 窗口 Host；2026-10-31 S5-b 起远程不读取该开关）与 Main 侧 attachment 切换（`rustHostManager.ts` / `rustHostBridge.ts`），见子 spec 实施进度表。
 - [x] **CI 接入**：`pnpm check:escode-host`（checks 作业）与 `pnpm test:escode-host`（三平台 test 作业）。
 - [x] **验收项「Host 服务契约清单（channel/method）`--check` 与源码一致」已机器化**：channel 方法表即分派来源（`Channel{name, methods}`），`host-rpc/tests/contract.rs` 双向对账清单与源码（Implemented 必须在表里、Pending 不得在表里、注册 channel ⊆ 清单），负向验证见子 spec。
 - [x] **优先序 4–5 已落地部分**：
@@ -159,7 +159,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - `system.info` 与 `file` 精确子集（stat/readdir/checkFilesExist/resolvePath/readFileRange/readTextFile/预览两法/工作区三法）；
   - tasks-index 只读切片（生成器提取 TS 迁移账本与物理 DDL + 账本三分类对账 + `escode-task.getTaskMeta` + 真实 TS Repo 逐字段差分，含 `listTaskList` 全文搜索与分组结构读），见 `rust-u2-tasks-index.md`；
   - **`window-controller` 本地子集 8/8**（订阅面 + `listTaskList` + `mutateTask` + 归档删除；复用 tasks-index / syncer 会话摘要 / `WorkspaceEvents` 总线；TS oracle 帧差分 + 三处负向验证），见 `rust-u2-window-controller.md`——桌面的时间线/置顶/归档/全局搜索不再空列表。
-- [x] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 落地窗口 attachment；2026-10-23 `rust-u2-window-host.md` §5 的 1–10 闭合，Linux 窗口生命周期 E2E（单 Rust Host、reload pid 不变）与 SSH 远程 E2E 已通过；四平台安装包 CI（run `39920171658`）通过后已默认开启 `ESCODE_RUST_HOST`（显式 `0`/`false` 回退 Node）。
+- [x] **桌面窗口自身 host 的进程无关化**（`desktopHostProcess.ts:762`）：2026-10-22 落地窗口 attachment；2026-10-23 `rust-u2-window-host.md` §5 的 1–10 闭合，Linux 窗口生命周期 E2E（单 Rust Host、reload pid 不变）与 SSH 远程 E2E 已通过；四平台安装包 CI（run `39920171658`）通过后已默认开启 `ESCODE_RUST_HOST`（显式 `0`/`false` 回退本地 Node 窗口 Host；远程 ssh/wsl/docker 始终由 Rust Host 服务）。
 - [x] **优先序 4–9 服务域**（2026-10-23）：契约清单 43 channel / 495 成员中 436 Implemented；其余 59 个全部登记为
       非缺口（`escode-agent` 54 个别名、`cua-pip-session` 3、`provider-provisioning-target.apply` 1、
       `escode-session.readSessionEvents` 1，见 `rust-u2-host-scope-boundary.md`）。各域子 spec 状态：git 18/18、
@@ -207,9 +207,9 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 
 ### 阶段 3：切默认与清理（估算 2–3 周）
 
-- [x] 默认启用 Rust Host（2026-10-23，显式 `0`/`false` 回退）；安装包保留 Node Host 与 TS CLI bundle
-      仅用于远程 workspace（H2.3 边界：Rust Host 不承载远程 scope，远程由窗口内 Node Host 服务），
-      本地窗口不再创建 Node utility Host
+- [x] 默认启用 Rust Host（2026-10-23，显式 `0`/`false` 回退本地）；安装包保留 Node Host 与 TS CLI bundle
+      用于显式 Web 服务端（`kind: "server"`）目标；2026-10-31 S5-a/S5-b 起 ssh/wsl/docker 与
+      Connection Profile 由 App 级 Rust Host 承载，本地窗口不再创建 Node utility Host
 - [x] 六目标打包与签名（`rust-runtime` 作业 6 目标；`rust-packaging.md` 的 macOS 签名开关沿用）
 - [x] installed 作业扩展：四平台 Node→Rust 切换真机演练 + 回退演练——代码与 CI 步骤已接入
       （`ci-install-desktop.mjs --host-switch-drill`；Node→Rust→Node 同一 home，断言 Host 类型与
@@ -221,8 +221,10 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       单实例隔离与 RUSTSEC-2026-0386（tokio 1.53.3）。
 - [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
       `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
-      （已录制 `linux-x64`；`rust-runtime-ci.yml` 按平台 golden 存在与否自动切换 `--golden` 阻塞门禁，
-      缺失时保留实时双跑观察期；2026-10-26 修复 `currentDate` 未归一导致的 golden 次日失效）；
+      （三平台已录制；`rust-runtime-ci.yml` 只跑 `--golden` 阻塞门禁，缺失 golden 直接失败，
+      欠账基线为空的平台自动追加 `--strict`——2026-10-31 Linux 已启用；2026-10-26 修复
+      `currentDate` 未归一导致的 golden 次日失效；2026-11-01 跨月复跑补上 WebSearch 工具描述
+      `The current month is <Month> <Year>` 的归一，避免每月 1 日差分误报）；
       settings interop 已有冻结夹具单向读入。
       desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
       `import @escode/services` / `services/src/*`；TS 观察冻结为
@@ -235,7 +237,7 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       例外（均非确定性 parity 门禁）：3 个默认跳过的 benchmark/rehearsal
       （`long-history-bench`、`real-data-rehearsal`、`real-provider-bench`）；
       `shell-resume-notice` 仅在 Windows 启用，其 golden 需在 Windows runner 上重录一次。
-      清零前不删除 Node Host / TS CLI（远程 workspace 仍需 Node Host）
+      清零前不删除 Node Host / TS CLI（Web 服务端目标仍需 Node Host）
 - [x] 回退矩阵更新（`rust-release-rollback.md` 的「Host 实现切换矩阵」）；AGENTS.md 同步（CONTEXT.md 无
       Host 实现相关词条）
 
@@ -257,12 +259,13 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU 中位数 109.0% vs 134.8%。
   本地八点回归的 Host+Agent 斜率 Node 10.44 / Rust 11.49 MiB/ws、退出 2179 / 2174 ms——两项均未达到
   §5 的 ≤2.5 MiB 与 ≤0.2 s 初始目标，原因与口径差异记在验收报告 §5.2，作为后续独立工作包。
-- parity golden：`record-cli-goldens.yml` 增加 CLI parity 录制（先落盘 golden → 冻结本平台欠账
-  基线 → 只跑 Rust 的 `--golden` 验证；不把实时双跑作为前置条件，frames 批次顺序是已登记欠账）。
-  `--record` 必写 `<platform>-<arch>` 文件，欠账基线也按平台分文件（Windows 帧批次与 Linux 不同）。
-  `rust-runtime-ci.yml` 在平台 golden 存在时自动走 `--golden` 阻塞门禁。macOS/Windows golden 由
-  对应 runner 录制并已入库（run `40281946953`）；三平台门禁在 PR run `40287649913` 全部
-  `--golden` success，实时双跑 skipped。
+- parity golden：`record-cli-goldens.yml` 负责 CLI parity 录制（先落盘 golden → 冻结本平台欠账
+  基线 → 只跑 Rust 的 `--golden` 验证）。`--record` 必写 `<platform>-<arch>` 文件，欠账基线也按
+  平台分文件（Windows 帧批次与 Linux 不同）。`rust-runtime-ci.yml` 已切为 golden-only：平台 golden
+  缺失直接失败（不再实时启动 Node oracle）；平台欠账基线为空时自动追加 `--strict`。
+  2026-10-31：`session-baseline` 的 7 条 T-4 帧批次/顺序差异已按 `index + 双侧 sha256` 登记为
+  approved，Linux x64 基线清空并在 `--golden --strict` 下通过；macOS/Windows 需按各自 runner 的
+  帧顺序重录/登记后再转 strict。macOS/Windows golden 由对应 runner 录制并已入库（run `40281946953`）。
 - 全平台 E2E 矩阵：新增 `.github/workflows/desktop-e2e-matrix.yml`，用例清单见
   `docs/testing/desktop-e2e-ci-matrix.md`（smoke、WebDriver target、Rust Host 拓扑），三平台
   在 PR run `40287649972` 全部 success。多 workspace（N=1..8）与 8 workspace 优雅退出已接入 app-perf 作业。
@@ -411,9 +414,13 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
   - 捕获层（`-capture`）：同一 mock SSE、临时 HOME/workspace/storage、固定 clientId/commandId/文本、400ms 尾帧静默期。
   - 差分层（`-diff`）：归一化规则随 evidence 输出、首差异 UTF-16 位置/JSON 路径/双侧 sha256、指纹棘轮。
   - 落盘层（`-report`）：evidence.json + 双侧原始/归一帧 + 模型请求 + report.md。
-  - 登记表 `…approved.json`（reason+removal，双侧钉住匹配）与欠账基线 `…baseline.json`；示例场景 `session-baseline`；`--strict` 在欠账清零后启用。
+  - 登记表 `…approved.json`（reason+removal，双侧钉住匹配）与欠账基线 `…baseline.json`；示例场景 `session-baseline`；平台欠账基线为空时 CI 自动启用 `--strict`（Linux 已启用；见 §4.6）。
 - 生成器 + `--check` 防漂移（复用现有 36 个 `generate-escode-cli-rust-*.mjs` 与 26 份语料的机制）。
 - **golden freeze（阶段 3 前置）**：删除 Node 前，把全部 goldens 冻结为自包含资产；此后 oracle 从"双跑 Node"切换为"goldens + spec"，必须能独立重验。
+- **帧键集合不增删（2026-10-31 修复）**：编码层不得为由 TS 定义的可选键补 `null`。`serde_json::Value` 的
+  可变索引（`value["key"]`）会对缺失键插入 `null`，此前 `encode_workflow_runs` 因此在快照/增量帧中多发了
+  `"deltas":null`、`"snapshot":null`、`"patch":null`。读取可选键一律用 `get`/`get_mut`；缺席即省略。
+  回归以 `workflow_notices` 单测与 `scripts/diff-escode-cli-rust-parity.mjs --golden` 的 L4 帧对拍为准。
 
 ### 4.3 三层门禁（每次提交 + 三平台 CI）
 
@@ -445,18 +452,37 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 
 当前欠账（2026-10-14 盘点，按序收紧）：
 
-- [ ] `packages/services/tests/escode-cli-rust-telemetry-facts.test.ts:90-95`：事件顺序被排序多重集合抹平，与 `rust-cli-parity-plan.md:189`"事件因果不能抹平"冲突；拆成"内容相等 + 顺序相等"两条断言。
-- [ ] `packages/services/tests/escode-cli-rust-tool-parity.test.ts:296-302,322-323`：删除 `gitDiff/perf/filePath/structuredPatch` 后再比；Write/Edit 结构化 diff 纳入对拍或登记为已批准差异。
-- [ ] `packages/services/tests/escode-cli-rust-session-messages.test.ts:10-17`：该协议面零对拍覆盖，补形状对拍或显式记账。
-- [ ] `packages/services/tests/escode-cli-rust-differential.test.ts:82-94`：行投影降级为键集合 + 8 字段 + typeof，逐项核对可恢复的字段。
-- [ ] workflow 系列把数值时间/`revision` 归零的归一化（`-create-workflow.test.ts:150`、`-workflow-queries.test.ts:117`）：语义字段不得抹平。
-- [ ] `-real-data-rehearsal.test.ts:24-30`：真实库演练只比计数，至少补内容哈希级对照。
+- [x] `packages/services/tests/escode-cli-rust-telemetry-facts.test.ts`：已拆成"内容多重集合相等 + 顺序相等"两条断言；顺序按已批准差异（Rust 先结算 provider stream，Node 先发工具生命周期）换算后比较，移除条件写在测试内。
+- [x] `packages/services/tests/escode-cli-rust-tool-parity.test.ts`：`structuredPatch` 已按 jsdiff 9 `diffLines` + `structuredPatch(context: 3)` 移植并纳入 L4 对拍；Write create 分支固定空补丁，Edit/Write 的 `filePath` 回显输入。
+- [x] `packages/services/tests/escode-cli-rust-session-messages.test.ts`：改为 Node/Rust 语义历史对拍（过滤 synthetic/hidden/step 帧），golden `session-messages.semantic.json`；wire 形状与分页仍由 App schema 断言覆盖，Node 旧 AI SDK wire 形状的差异已写入测试头注释。
+- [x] `packages/services/tests/escode-cli-rust-differential.test.ts`：改为整行语义投影（id 按首次出现映射、时间戳/时长只保留存在性、`createdAtSeq` 按值排名保留顺序）；仅 `userInput`/`assistantText` 的 `entityId` 按 `rust-row-projection.md` 登记为存在性比较。审计中发现并修复失败工具行：`error.message` 取工具错误原文，失败行不再写 `output`/`display`。
+- [x] workflow 系列归一化：create-workflow 不再抹平 `revision`/`lastEventSequence`；workflow-queries 的 scrub 只覆盖时间/时长键，语义字段原样比较。
+- [x] `-real-data-rehearsal.test.ts`：整行内容 SHA-256（归一化 id/时间戳/路径）、首个差异 JSON 路径与计数、附件、todo 一起断言；默认跳过，需 `ESCODE_REHEARSAL_DB`。2026-10-31 演练据此收敛冷导入的行 `actions`（`materializeCommandRowActions` 等价物）、`createdAtSeq` 事件分组、工具/正文行顺序、cancelled 工具行收口与 compact 摘要跳过；真实库单会话整行哈希两侧一致。
+- [x] `-cold-rows.test.ts`：8 个冻结 legacy 种子逐会话比较整份投影行（Node 观察冻结为 `cold-rows.frozen-seeds.json`，正常跑只启动 Rust），覆盖工具/正文交错、actions、createdAtSeq、工具行字段、摘要、内联附件 ref，以及 fork/subagent child/workflow 会话的可读性。
 - [x] 垂直切片的级别声明（2026-10-14）：消息帧 L4（键序归一已登记；位置严格）/ 存储进度 L2（阶段集合+键集合，条数为进度事实）/ 事件流 L3（方法×kind 集合，条数随冲刷时机，时序事实见 evidence.timing）/ 模型请求 L4（字符串值字节级）/ workspace 文件 L5。
 - [x] 切片真偏移收敛进度（2026-10-14，详见 `docs/reports/rust-difference-ledger-2026-10-14.md`）：
       M 系列已修复（模型请求字段名 `max_completion_tokens` / `tool_choice:"auto"`）；C 系列部分收敛
-      （`memoryEnabled` 进全部遥测事实与后续命令 ack；偏好请求提前到创建期发起）；剩余：`process/mcpTelemetry`
-      缺发（消费方=ARMS 埋点，随阶段 2 P2 MCP 进程账本实现）、命令 createSession ack 字段与请求帧位置
-      （已批准登记，含移除条件）、会话 seq 编号/状态载体（随阶段 2 投递层对齐）。清账后 `--strict` 接入 CI。
+      （`memoryEnabled` 进全部遥测事实与后续命令 ack；偏好请求提前到创建期发起）。2026-10-31 进一步对齐出站顺序：
+      Host 反向请求经 `outbound_batch` 先于命令响应出站，`user-execution` 请求改为首个输入受理时预取
+      （`server-2` 落在初始快照之后、`inputAccepted` ack 之前），`inputAccepted` 的 `revisionAtDecision`
+      回到 decide 时 revision；请求帧位置差异已清零并删除对应 approved 条目。剩余：命令 createSession ack
+      字段（已批准登记，含移除条件）、会话 seq 编号/状态载体（随阶段 2 投递层对齐）。
+      2026-10-31：7 条 T-4 帧批次/顺序差异全部按 `index + 双侧 sha256` 登记为 approved，Linux 基线下清零，
+      `--strict` 已接入 CI（其余平台随各自基线清空自动启用）。
+      `process/mcpTelemetry` 不再是剩余项：Node 仍会发送，但桌面消费方 `desktopMcpTelemetry` 已随遥测功能删除，
+      Rust 不实现；若恢复 MCP 进程遥测（ARMS 埋点）再补。
+
+- [x] **欠账基线 / `--strict`（2026-10-31 收口 Linux）**：`session-baseline` 的 7 条 T-4 帧批次/顺序差异已逐条分类，
+      不再作为未分类欠账。它们全部是 Node 投递层（`desktop-continuous`，`flushWindowMs=30`）的时序与载体形状，
+      不是 V4 语义缺口：Node 按事件序号计数并在 flush 窗口内合并 delta（含空 `deltas:[]` 冲刷帧），状态只发
+      key 级 `state.updated` 补丁；Rust 按 delta 计数逐帧发送全量状态补丁，`row.delta`/`row.upserted` 分组随之不同；
+      Node 还在旧订阅面额外发一条 legacy `state.updated` 通知（V4 路径不消费，见 `escodeTaskServiceAdapter`）。
+      approved 登记表按 `index + 双侧 sha256` 精确钉住这 7 行（比原欠账指纹的数字归一更严），
+      Linux x64 基线已清空，`--golden --strict` 在本平台通过。
+      draft 快照 availability 已对齐（`docs/specs/rust-availability-projection.md`），draft 创建不再多发
+      `state.updated`/推高 `seq`，快照补齐 `modelTransition:null`/`subagents`/`workspaceHookAdmission:null`。
+      CI 规则：某平台欠账基线为空即对该平台启用 `--strict`（Linux 已满足）；darwin/win32 的帧顺序在各自平台
+      另有差异（Windows 的 flush 会在 ACK 前出标题帧），须用 `record-cli-goldens` 重录并逐条登记后才转 strict。
 
 ### 4.7 用对标仓库的审计分类做我方自查
 

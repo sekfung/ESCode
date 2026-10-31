@@ -402,6 +402,14 @@ const evidence = {
       ]),
     ),
     fingerprints: knownDebt.map((record) => fingerprint(record)),
+    records: knownDebt.map((record) => ({
+      surface: record.surface,
+      index: record.index,
+      jsonPath: record.jsonPath,
+      left: clip(record.left, record.offset),
+      right: clip(record.right, record.offset),
+      fingerprint: fingerprint(record),
+    })),
   },
   newDivergences: newDivergences.map((record) => ({
     ...record,

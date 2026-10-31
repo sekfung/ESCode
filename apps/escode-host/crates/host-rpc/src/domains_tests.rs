@@ -122,12 +122,18 @@ async fn cancel_requests_have_no_response() {
 }
 
 #[test]
-fn initialize_frame_uses_response_type_200() {
-    let frame = initialize_frame();
+fn initialize_frame_uses_response_type_200_and_advertises_channels() {
+    let frame = initialize_frame(&["setting", "source-server-management", "setting"]);
     let mut reader = Reader::new(&frame);
     let Wire::Array(header) = reader.value().unwrap() else {
         panic!("header")
     };
     assert_eq!(header, vec![Wire::Int(RESPONSE_INITIALIZE)]);
-    assert_eq!(reader.value().unwrap(), Wire::Undefined);
+    // 能力广播：排序去重后的 channel 名（Renderer 据此决定可选的 source server 绑定）。
+    assert_eq!(
+        reader.value().unwrap(),
+        Wire::Object(serde_json::json!({
+            "channels": ["setting", "source-server-management"],
+        }))
+    );
 }

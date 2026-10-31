@@ -81,6 +81,86 @@
       ]
     ]
   ],
+  "rowValues": [
+    {
+      "rowId": 1,
+      "turnId": "<id:1>",
+      "entityId": "<id:1>",
+      "productTurnId": "<id:1>",
+      "visibility": "visible",
+      "createdAt": "<timestamp>",
+      "createdAtSeq": "<seq:1>",
+      "kind": "turnHeader",
+      "origin": "userInput",
+      "executionKind": "agent",
+      "sourceCommandId": "<id:2>",
+      "historyRoundCount": 2,
+      "state": "completedSuccess",
+      "startedAt": "<timestamp>",
+      "endedAt": "<timestamp>",
+      "activeMs": "<duration>",
+      "outputTokens": 8
+    },
+    {
+      "rowId": 2,
+      "turnId": "<id:1>",
+      "entityId": "<entityId>",
+      "productTurnId": "<id:1>",
+      "visibility": "visible",
+      "createdAt": "<timestamp>",
+      "createdAtSeq": "<seq:1>",
+      "actions": {
+        "canEdit": true,
+        "editDisposition": "rewind"
+      },
+      "kind": "userInput",
+      "text": "read it",
+      "origin": "realUser",
+      "sourceCommandId": "<id:2>",
+      "rootSourceCommandId": "<id:2>",
+      "clientId": "<id:3>"
+    },
+    {
+      "rowId": 3,
+      "turnId": "<id:1>",
+      "entityId": "<id:4>",
+      "productTurnId": "<id:1>",
+      "visibility": "visible",
+      "createdAt": "<timestamp>",
+      "createdAtSeq": "<seq:2>",
+      "kind": "toolCall",
+      "assistantResponseId": "<id:5>",
+      "toolCallId": "<id:4>",
+      "toolName": "Read",
+      "status": "success",
+      "inputText": "{\"file_path\":\"sample.txt\"}",
+      "input": {
+        "file_path": "sample.txt"
+      },
+      "output": {
+        "text": "1\thello\n2\t"
+      },
+      "startedAt": "<timestamp>",
+      "endedAt": "<timestamp>"
+    },
+    {
+      "rowId": 4,
+      "turnId": "<id:1>",
+      "entityId": "<entityId>",
+      "productTurnId": "<id:1>",
+      "visibility": "visible",
+      "createdAt": "<timestamp>",
+      "createdAtSeq": "<seq:3>",
+      "actions": {
+        "canFork": true,
+        "canRetry": true
+      },
+      "kind": "assistantText",
+      "assistantResponseId": "<id:6>",
+      "text": "done",
+      "state": "complete"
+    }
+  ],
   "rowFacts": [
     {
       "kind": "turnHeader",
@@ -110,26 +190,11 @@
       "activeMs": "undefined"
     }
   ],
-  "rowKinds": [
-    "assistantText",
-    "toolCall",
-    "turnHeader",
-    "userInput"
-  ],
-  "toolNames": [
-    "Read"
-  ],
-  "toolStatuses": [
-    "success"
-  ],
-  "toolErrorCodes": [
-    null
-  ],
-  "rowTexts": [
-    "done"
-  ],
-  "capabilityKeys": [
-    "independentPlanState"
-  ],
+  "rowKinds": ["assistantText", "toolCall", "turnHeader", "userInput"],
+  "toolNames": ["Read"],
+  "toolStatuses": ["success"],
+  "toolErrorCodes": [null],
+  "rowTexts": ["done"],
+  "capabilityKeys": ["independentPlanState"],
   "schemaErrors": []
 }

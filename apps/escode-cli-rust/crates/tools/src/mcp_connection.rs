@@ -1,6 +1,7 @@
 use super::mcp_client_events::HubClient;
 use super::mcp_config::Server;
 use super::mcp_image_artifacts::ImageArtifacts;
+use super::mcp_result_budget::ResultBudget;
 use crate::contract::{McpClientEventSink, ProcessCleanupFailure, ToolOutput};
 use anyhow::{Context, Result, bail, ensure};
 use futures_util::StreamExt;
@@ -40,6 +41,7 @@ pub(super) struct Connection {
     pub modern: bool,
     /// 进程内单调代际：MCP App 实例凭证绑定它，重连即换代（docs/specs/rust-mcp-ui.md §2）。
     pub generation: u64,
+    budget: ResultBudget,
     timeout: Duration,
     service: Mutex<Option<Service>>,
     child: Mutex<Option<(Child, u32)>>,
@@ -253,6 +255,7 @@ impl Connection {
             tools: vec![],
             modern,
             generation: NEXT_GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            budget: ResultBudget::for_server(config),
             timeout: config.timeout,
             service: Mutex::new(Some(service)),
             child: Mutex::new(owned),
@@ -362,9 +365,8 @@ impl Connection {
         // 按 TS formatMcpToolResult 生成模型内容（docs/specs/rust-mcp-parity.md）。
         let formatted = crate::domain::mcp_result::format(&result, ordered.as_ref(), &saved);
         let mut content = formatted.text;
-        if content.len() > crate::domain::MAX_TOOL_BYTES {
-            super::tools::truncate_utf8(&mut content, crate::domain::MAX_TOOL_BYTES);
-            content.push_str("\n[MCP result truncated]");
+        if let Some(truncated) = self.budget.apply(&content, artifacts).await {
+            content = truncated;
         }
         let mut output = ToolOutput::text(content);
         output.media = formatted.media;
@@ -400,3 +402,7 @@ async fn cleanup_child(child: &mut Option<(Child, u32)>) -> Result<()> {
 
 #[path = "mcp_connection_resources.rs"]
 mod resources;
+
+#[cfg(test)]
+#[path = "mcp_connection_tests.rs"]
+mod tests;

@@ -1,6 +1,7 @@
 use super::extension_config::{json_file, resolve, storage, strings};
 use crate::ports::{DefaultPorts, Ports};
 use anyhow::Result;
+use escode_cli_domain::json_order::Json;
 use serde_json::Value;
 use std::{
     collections::BTreeSet,
@@ -13,6 +14,10 @@ pub struct Plugin {
     pub root: PathBuf,
     pub name: String,
     pub manifest: Value,
+    /// 发现阶段算好的 components hook 分组事件名（去重保序）。
+    pub hook_events: Vec<String>,
+    /// `plugins/list` 的 `hookDetails`（一个 hook 一条）。
+    pub hook_details: Vec<Value>,
     pub official: bool,
     /// `plugins.list` 需要的市场/来源/启用态（`enabled()` 之外的新读面，见 docs/specs/rust-plugins.md）。
     pub marketplace: String,
@@ -160,7 +165,9 @@ pub async fn discover_with(
     for (root, market, source, default, official_source) in candidates {
         ports.check_cancel(cancel)?;
         // TS loadPlugin：坏插件只出诊断并跳过，不能让整次发现失败。
-        let Some(manifest) = load_manifest(&root, &mut diagnostics).await else {
+        let Some((manifest, manifest_path, manifest_hooks)) =
+            load_manifest(&root, &mut diagnostics).await
+        else {
             continue;
         };
         let name = manifest["name"].as_str().unwrap_or_default().to_owned();
@@ -193,11 +200,22 @@ pub async fn discover_with(
         let enabled = config["plugins"]["enabledPlugins"][&id]
             .as_bool()
             .unwrap_or(default || defaults.contains(&id));
+        // TS createPluginMetadata 对每个已发现插件都跑 inspectPluginHooks（与启用态无关）。
+        let hook_inspection = super::plugin_hooks::inspect(
+            &id,
+            &root,
+            &manifest_path,
+            manifest_hooks.as_ref(),
+            &mut diagnostics,
+        )
+        .await;
         let plugin = Plugin {
             id,
             root,
             name,
             manifest,
+            hook_events: hook_inspection.events,
+            hook_details: hook_inspection.details,
             official: official_source,
             marketplace: market,
             source,
@@ -216,7 +234,12 @@ pub async fn discover_with(
 }
 
 /// 协议诊断（TS `toPluginDiagnostic`：`path` 不出协议）。
-fn diagnostic(code: &str, message: String, plugin_id: Option<&str>, severity: &str) -> Value {
+pub(crate) fn diagnostic(
+    code: &str,
+    message: String,
+    plugin_id: Option<&str>,
+    severity: &str,
+) -> Value {
     let mut value = serde_json::json!({ "code": code, "message": message, "severity": severity });
     if let Some(id) = plugin_id {
         value["pluginId"] = id.into();
@@ -227,7 +250,10 @@ fn diagnostic(code: &str, message: String, plugin_id: Option<&str>, severity: &s
 /// TS `loadPlugin` + `findManifest` + `readManifest`：根不存在 / 没有 manifest / manifest 非法分别出诊断。
 /// manifest 按 `.escode-plugin` → `.claude-plugin` → `.codex-plugin` 取**第一个存在的文件**（存在但非法时
 /// 不再回退）；`name` trim 后必须匹配 `^[a-z0-9][a-z0-9._-]{0,127}$`，`version` 缺省为 `"0.0.0"`。
-async fn load_manifest(root: &Path, diagnostics: &mut Vec<Value>) -> Option<Value> {
+async fn load_manifest(
+    root: &Path,
+    diagnostics: &mut Vec<Value>,
+) -> Option<(Value, PathBuf, Option<Json>)> {
     if !tokio::fs::metadata(root).await.is_ok_and(|m| m.is_dir()) {
         diagnostics.push(diagnostic(
             "plugin_root_not_found",
@@ -260,10 +286,20 @@ async fn load_manifest(root: &Path, diagnostics: &mut Vec<Value>) -> Option<Valu
         ));
         return None;
     };
-    let parsed = tokio::fs::read(&manifest_path)
-        .await
+    let bytes = match tokio::fs::read(&manifest_path).await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            diagnostics.push(diagnostic(
+                "plugin_manifest_invalid",
+                error.to_string(),
+                None,
+                "error",
+            ));
+            return None;
+        }
+    };
+    let parsed = serde_json::from_slice::<Value>(&bytes)
         .map_err(|e| e.to_string())
-        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).map_err(|e| e.to_string()))
         .and_then(|value| {
             if !value.is_object() {
                 return Err("Manifest must be a JSON object".to_owned());
@@ -288,7 +324,14 @@ async fn load_manifest(root: &Path, diagnostics: &mut Vec<Value>) -> Option<Valu
             Ok(value)
         });
     match parsed {
-        Ok(manifest) => Some(manifest),
+        Ok(manifest) => {
+            // 保序解析同一份字节，只取 manifest `hooks`（内联 hook 的事件顺序要与 TS 一致）。
+            let manifest_hooks = std::str::from_utf8(&bytes)
+                .ok()
+                .and_then(Json::parse)
+                .and_then(|raw| raw.get("hooks").cloned());
+            Some((manifest, manifest_path, manifest_hooks))
+        }
         Err(message) => {
             diagnostics.push(diagnostic(
                 "plugin_manifest_invalid",

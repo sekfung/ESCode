@@ -15,8 +15,9 @@ pub(super) async fn run(
     cancel: &CancellationToken,
 ) -> Result<()> {
     if let Some(instructions) = history.manual.take() {
+        let discovered = tools.tool_search_discovered(&sink.session_id);
         return history
-            .compact(model, sink, cancel, Some(&instructions))
+            .compact(model, sink, cancel, Some(&instructions), &discovered)
             .await;
     }
     // 工具执行（WebFetch 的辅助模型）需要未绑定的模型，才能按注册表取最低推理档位。
@@ -135,10 +136,14 @@ pub(super) async fn run(
             sink,
             cancel,
             history,
-            &definitions,
-            continuations,
-            agent_listed,
-            &profiles,
+            super::agent_loop_step::StepReminderFacts {
+                definitions: &definitions,
+                registered: &registered,
+                continuations,
+                agent_listed,
+                profiles: &profiles,
+                tool_search: tool_search.as_ref(),
+            },
         )
         .await?;
         let instructions = if profile
@@ -197,7 +202,10 @@ pub(super) async fn run(
         }
         let (mut messages, mut tokens) = history.projection(&prefix, tool_tokens, micro_threshold);
         if policy.automatic && tokens >= policy.threshold() {
-            history.compact(model, sink, cancel, None).await?;
+            let discovered = tools.tool_search_discovered(&sink.session_id);
+            history
+                .compact(model, sink, cancel, None, &discovered)
+                .await?;
             (messages, tokens) = history.projection(&prefix, tool_tokens, micro_threshold);
             if tokens >= policy.threshold() {
                 bail!("Context remains above budget after compaction; narrow the input");
@@ -228,7 +236,10 @@ pub(super) async fn run(
                         .is_some() =>
             {
                 reactive_compacted = true;
-                history.compact(model, sink, cancel, None).await?;
+                let discovered = tools.tool_search_discovered(&sink.session_id);
+                history
+                    .compact(model, sink, cancel, None, &discovered)
+                    .await?;
                 continue;
             }
             result => result?,
@@ -261,6 +272,7 @@ pub(super) async fn run(
             stable: !output.output_limit && output.calls.is_empty(),
             message: persist.then_some(output.message),
             usage: output.usage,
+            decode_ms: output.decode_ms,
             committed,
         })
         .await?;

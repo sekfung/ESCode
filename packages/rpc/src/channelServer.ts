@@ -43,7 +43,8 @@ export class ChannelServer<TContext = string> implements IChannelServer<TContext
   private sendResponse(response: IRawResponse): void {
     switch (response.type) {
       case ResponseType.Initialize:
-        this.send([response.type]);
+        // 能力广播：已注册 channel 名。Renderer 用它在绑定可选服务前确认 Host 是否提供。
+        this.send([response.type], { channels: [...this.channels.keys()] });
         return;
       case ResponseType.PromiseSuccess:
       case ResponseType.PromiseError:

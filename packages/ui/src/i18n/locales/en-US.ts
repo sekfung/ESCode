@@ -236,6 +236,10 @@ const enUS: Record<string, string> = {
     "Enter the password or key passphrase for this connection.",
   "remote.error.authentication.reason":
     "Check your SSH username, password or private key and retry.",
+  "remote.error.providerProvisioningFailed.reason":
+    "The device could not apply the local provider configuration. View details and retry.",
+  "remote.error.providerProvisioningUnsupported.reason":
+    "The device version does not support provider configuration sync. Update the remote server.",
   "remote.error.unknown.reason": "Unable to connect. Retry or view details.",
   "remote.error.hostUnreachable.wsl": "Cannot access WSL distribution",
   "remote.error.hostUnreachable.wsl.reason":
@@ -2183,6 +2187,9 @@ const enUS: Record<string, string> = {
   "remote.error.spaceInsufficient": "Not enough space on remote device",
   "remote.error.permissionDenied": "Remote write permission denied",
   "remote.error.connectionCanceled": "Connection canceled",
+  "remote.error.providerProvisioningFailed": "Provider configuration sync failed",
+  "remote.error.providerProvisioningUnsupported":
+    "Remote server does not support provider configuration sync",
   "remote.error.unknown": "Connection failed",
   "settings.source.recentLog": "View recent logs",
   "remote.error.retryableHint": "You can try again later.",

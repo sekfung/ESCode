@@ -7,9 +7,32 @@ use crate::{
 use anyhow::Result;
 use serde_json::json;
 
+/// 出站批次：Host 反向请求（`id` + `method`）在命令响应之前写出，通知/应答与 V4 帧在响应之后
+/// （docs/specs/rust-u2-agent-v4.md §2「出站顺序」）。
+pub(super) fn outbound_batch(
+    response: Option<serde_json::Value>,
+    outbox: Vec<serde_json::Value>,
+) -> Vec<serde_json::Value> {
+    let (requests, rest): (Vec<_>, Vec<_>) = outbox
+        .into_iter()
+        .partition(|frame| frame.get("id").is_some() && frame.get("method").is_some());
+    let mut batch = requests;
+    batch.extend(response);
+    batch.extend(rest);
+    batch
+}
+
 impl Engine {
+    /// Node `server-N`：runtime 的反向请求共享一个从 1 开始的序号（TS `server.ts::nextClientRequestId`）。
+    pub(super) fn next_server_request_id(&mut self) -> String {
+        self.server_request_seq += 1;
+        format!("server-{}", self.server_request_seq)
+    }
+
     pub(super) async fn request(&mut self, request: Request, output: &Output) -> Result<()> {
-        self.outbox.clear();
+        // 上一入口早返回时可能留下未写出的反向请求：丢弃前先回滚偏好记账，避免伪 in-flight。
+        let abandoned = std::mem::take(&mut self.outbox);
+        self.discard_staged_preference_requests(&abandoned);
         // 故障注入（仅 `fault-injection` feature，测试构建）：Host 崩溃隔离用例需要一个确定的 engine
         // panic 点；engine 循环的 catch_panic 把它转成 serve 错误，实例按正常收尾路径退出
         // （docs/specs/rust-u2-host-resilience.md §2.1）。
@@ -305,7 +328,10 @@ impl Engine {
         let response = match result {
             Ok(value) => json!({"id":request.id,"result":value}),
             Err(error) => {
-                self.outbox.clear();
+                // 命令失败：outbox 不再写出；偏好请求的 in-flight 记账必须同步回滚
+                // （docs/specs/rust-shell-selection.md「失败命令的预取回滚」）。
+                let dropped = std::mem::take(&mut self.outbox);
+                self.discard_staged_preference_requests(&dropped);
                 if let Some(failure) = error.downcast_ref::<RpcFailure>() {
                     rpc_error(&request.id, failure.code, &failure.message)
                 } else {
@@ -322,11 +348,8 @@ impl Engine {
                 }
             }
         };
-        let mut batch = vec![];
-        if request.id.is_some() {
-            batch.push(response);
-        }
-        batch.append(&mut self.outbox);
+        let response = request.id.is_some().then_some(response);
+        let batch = outbound_batch(response, std::mem::take(&mut self.outbox));
         if !batch.is_empty() {
             output.send(batch).await?;
         }
@@ -335,5 +358,32 @@ impl Engine {
         }
         self.trim_resident().await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::outbound_batch;
+    use serde_json::json;
+
+    #[test]
+    fn host_requests_precede_the_command_response_notifications_follow() {
+        let batch = outbound_batch(
+            Some(json!({"id":2,"result":{"accepted":true}})),
+            vec![
+                json!({"method":"v4/conversation/frame","params":{}}),
+                json!({"id":"prefs","method":"session/requestRuntimePreferences","params":{}}),
+                json!({"id":"host-1","result":{"ok":true}}),
+            ],
+        );
+        assert_eq!(
+            batch,
+            vec![
+                json!({"id":"prefs","method":"session/requestRuntimePreferences","params":{}}),
+                json!({"id":2,"result":{"accepted":true}}),
+                json!({"method":"v4/conversation/frame","params":{}}),
+                json!({"id":"host-1","result":{"ok":true}}),
+            ]
+        );
     }
 }

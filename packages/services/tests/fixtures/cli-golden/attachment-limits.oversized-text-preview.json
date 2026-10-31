@@ -1,0 +1,8 @@
+{
+  "attachmentDigest": "f7a502d845454f690dd59751935160e6d046f0872e4b0f8569bbed83007b0582",
+  "attachmentMessages": [
+    "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>/huge.txt\"}\nResult of calling the Read tool:\n&lt;system-reminder>The file is too large to display in full (2732297 e…xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n</system-reminder>",
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "describe it"
+  ]
+}

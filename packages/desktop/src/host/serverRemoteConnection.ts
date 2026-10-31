@@ -229,10 +229,8 @@ function connectNodeWebSocket(
       settled = true;
       const rpcSocket = wrapNodeWebSocket(socket, options.onClose);
       const protocol = new SocketProtocol(rpcSocket);
-      resolve({
-        socket,
-        services: connectViaProtocol(protocol),
-      });
+      // services 在 Initialize（含 channel 能力广播）之后才可用。
+      void connectViaProtocol(protocol).then((services) => resolve({ socket, services }), reject);
     });
   });
 }

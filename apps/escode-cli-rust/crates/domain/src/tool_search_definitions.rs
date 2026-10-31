@@ -8,7 +8,7 @@ use super::tool_search_catalog::{
 
 pub fn local_tool_search_description() -> &'static str {
     "Fetches full schema definitions for deferred tools so they can be called using DeferredToolCall.\n\n\
-Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' names. Call deferred tools through DeferredToolCall with {name, input}; call resident tools directly.\n\n\
+Deferred tools appear by name in system-reminder messages. Until fetched, only the name is known — there is no parameter schema, so the tool cannot be invoked. This tool takes a query, matches it against the deferred tool list, and returns the matched tools' complete JSONSchema definitions inside a <functions> block. Call deferred tools through DeferredToolCall with {name, input}, using the schema from that result; call resident tools directly.\n\n\
 Query forms:\n\
 - \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
 - \"notebook jupyter\" — keyword search, up to max_results best matches\n\
@@ -23,6 +23,29 @@ Query forms:\n\
 - \"select:Read,Edit,Grep\" — fetch these exact tools by name\n\
 - \"notebook jupyter\" — keyword search, up to max_results best matches\n\
 - \"+slack send\" — require \"slack\" in the name, rank by remaining terms"
+}
+
+/// Local 搜索结果：把命中的完整 `function` 定义渲染成上游的 `<functions>` 块。
+/// 定义缺失的名字跳过；全部缺失时返回 None（不伪造 schema）。
+pub fn schema_block(names: &[String], definitions: &[Value]) -> Option<String> {
+    let functions = names
+        .iter()
+        .filter_map(|name| {
+            let function = definitions
+                .iter()
+                .find(|definition| definition["function"]["name"].as_str() == Some(name))?
+                .get("function")?;
+            Some(format!(
+                "<function>{}</function>",
+                json!({
+                    "description": function["description"],
+                    "name": name,
+                    "parameters": function["parameters"],
+                })
+            ))
+        })
+        .collect::<Vec<_>>();
+    (!functions.is_empty()).then(|| format!("<functions>\n{}\n</functions>", functions.join("\n")))
 }
 
 pub fn deferred_tool_call_description() -> &'static str {
@@ -78,4 +101,27 @@ pub fn control_definitions(mode: ResolvedToolSearchMode) -> Vec<Value> {
         }));
     }
     definitions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_block_renders_matched_definitions_only() {
+        let definitions = vec![
+            json!({"type":"function","function":{"name":"mcp__a__echo","description":"Echo","parameters":{"type":"object"}}}),
+            json!({"type":"function","function":{"name":"Read","description":"Read","parameters":{"type":"object"}}}),
+        ];
+        let block = schema_block(&["mcp__a__echo".to_owned()], &definitions).unwrap();
+        assert!(block.starts_with("<functions>\n<function>"));
+        assert!(block.contains("\"name\":\"mcp__a__echo\""));
+        assert!(block.ends_with("\n</functions>"));
+        assert!(!block.contains("Read"));
+    }
+
+    #[test]
+    fn schema_block_skips_unknown_names() {
+        assert!(schema_block(&["missing".to_owned()], &[]).is_none());
+    }
 }

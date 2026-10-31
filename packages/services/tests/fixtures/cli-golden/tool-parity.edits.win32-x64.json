@@ -9,6 +9,15 @@
         "oldString": "beta",
         "newString": "alpha",
         "originalFile": "alpha\nbeta\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 2,
+            "newStart": 1,
+            "newLines": 2,
+            "lines": [" alpha", "-beta", "+alpha"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "exact",
@@ -21,6 +30,15 @@
         "oldString": "alpha",
         "newString": "new",
         "originalFile": "alpha\nalpha\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 2,
+            "newStart": 1,
+            "newLines": 2,
+            "lines": ["-alpha", "-alpha", "+new", "+new"]
+          }
+        ],
         "userModified": false,
         "replaceAll": true,
         "matchStrategy": "exact",
@@ -38,6 +56,15 @@
         "oldString": "say “hi”",
         "newString": "say “yo” it's",
         "originalFile": "say “hi” it’s\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 1,
+            "newStart": 1,
+            "newLines": 1,
+            "lines": ["-say “hi” it’s", "+say “yo” it's it’s"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "quote_normalized",
@@ -53,6 +80,15 @@
         "oldString": "b\nc",
         "newString": "B\nC",
         "originalFile": "a\nb\nc\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 3,
+            "newStart": 1,
+            "newLines": 3,
+            "lines": [" a", "-b", "-c", "+B", "+C"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "line_number_prefix_stripped",
@@ -68,6 +104,15 @@
         "oldString": "x\ty",
         "newString": "x\ny",
         "originalFile": "x\ty\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 1,
+            "newStart": 1,
+            "newLines": 2,
+            "lines": ["-x\ty", "+x", "+y"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "escape_normalized",
@@ -83,6 +128,15 @@
         "oldString": "café",
         "newString": "cafe",
         "originalFile": "café\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 1,
+            "newStart": 1,
+            "newLines": 1,
+            "lines": ["-café", "+cafe"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "unicode_escape_normalized",
@@ -98,6 +152,15 @@
         "oldString": "  keep  \n  me",
         "newString": "kept",
         "originalFile": "  keep  \n  me\nrest\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 3,
+            "newStart": 1,
+            "newLines": 2,
+            "lines": ["-  keep  ", "-  me", "+kept", " rest"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "line_trimmed",
@@ -113,6 +176,15 @@
         "oldString": "start\n  middle line one\nend",
         "newString": "s",
         "originalFile": "start\n  middle line one\nend\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 3,
+            "newStart": 1,
+            "newLines": 1,
+            "lines": ["-start", "-  middle line one", "-end", "+s"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "block_anchor",
@@ -128,6 +200,15 @@
         "oldString": "drop",
         "newString": "",
         "originalFile": "drop\nstay\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 2,
+            "newStart": 1,
+            "newLines": 1,
+            "lines": ["-drop", " stay"]
+          }
+        ],
         "userModified": false,
         "replaceAll": false,
         "matchStrategy": "exact",
@@ -157,6 +238,15 @@
         "oldString": "dup",
         "newString": "d",
         "originalFile": "dup dup\n",
+        "structuredPatch": [
+          {
+            "oldStart": 1,
+            "oldLines": 1,
+            "newStart": 1,
+            "newLines": 1,
+            "lines": ["-dup dup", "+d d"]
+          }
+        ],
         "userModified": false,
         "replaceAll": true,
         "matchStrategy": "unicode_escape_normalized",

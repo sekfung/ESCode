@@ -5,7 +5,7 @@
 //! TS 迁移定义变化 → 本文件变化 → `--check` 在 CI 失败。
 
 /// 生成器版本（提取方式变化时递增）。
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// 期望的迁移账本 `(id, checksum)`（按 id 升序）。
 /// 生成文本长度固定，`#[rustfmt::skip]` 保证生成结果与 rustfmt 无关（否则 `--check` 会被格式化差异干扰）。
@@ -70,3 +70,62 @@ pub const MIGRATED_DDL: &[&str] = &[
 /// `MIGRATED_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。
 #[rustfmt::skip]
 pub const DDL_HASH: &str = "6f1d4bf85a3d067fda031f5f857ad9fbf5d56250f8271ed7fce1709a222f4051";
+
+/// tasks 基础迁移后的物理 DDL（tasks-only 库；不含 project-storage 对象与 `schema_migration`）。
+/// Rust Host 的 project-storage bootstrap 测试用它模拟 `prepareTasksIndexStorage` 的结果。
+#[rustfmt::skip]
+pub const TASKS_DDL: &[&str] = &[
+    "CREATE TABLE automation_runs ( run_id TEXT PRIMARY KEY, automation_id TEXT NOT NULL, workspace_key TEXT NOT NULL, scheduled_at INTEGER, trigger TEXT NOT NULL DEFAULT 'schedule', model_selection TEXT, dispatch_status TEXT NOT NULL DEFAULT 'claimed', outcome TEXT, session_id TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+    "CREATE TABLE automations ( automation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', cron_expr TEXT NOT NULL, prompt TEXT NOT NULL, model TEXT, provider TEXT, mode TEXT, thought_level TEXT, model_selection TEXT, workspace_key TEXT NOT NULL, workspace_path TEXT NOT NULL, workspace_identity TEXT, target_task_id TEXT, bot_delivery_target TEXT, location_kind TEXT NOT NULL DEFAULT 'local', recurring INTEGER NOT NULL DEFAULT 1, max_runs INTEGER, end_at INTEGER, schedule_rule TEXT, schedule_edited_by_user INTEGER NOT NULL DEFAULT 0, run_count INTEGER NOT NULL DEFAULT 0, scheduled_run_count INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, lifecycle_status TEXT NOT NULL DEFAULT 'active', next_run_at INTEGER, last_run_at INTEGER, running INTEGER NOT NULL DEFAULT 0, claimed_at INTEGER, dispatch_status TEXT NOT NULL DEFAULT 'idle', dispatch_attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER, last_error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL , project_id TEXT, host_id TEXT, additional_directories TEXT)",
+    "CREATE TABLE task_group_admissions ( workspace_key TEXT NOT NULL, task_id TEXT NOT NULL, system_kind TEXT, user_organized INTEGER NOT NULL DEFAULT 0, creation_id TEXT, PRIMARY KEY (workspace_key, task_id) )",
+    "CREATE TABLE task_group_members ( group_id TEXT NOT NULL, workspace_key TEXT NOT NULL, workspace_path TEXT NOT NULL, workspace_identity TEXT, task_id TEXT NOT NULL, sort_order INTEGER, added_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (workspace_key, task_id), FOREIGN KEY (group_id) REFERENCES task_groups(group_id) ON DELETE CASCADE )",
+    "CREATE TABLE task_group_view_node_orders ( node_type TEXT NOT NULL, node_key TEXT NOT NULL, sort_order INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (node_type, node_key) )",
+    "CREATE TABLE task_group_workspace_bootstraps ( workspace_key TEXT PRIMARY KEY, group_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+    "CREATE TABLE task_groups ( group_id TEXT PRIMARY KEY, title TEXT NOT NULL, color TEXT NOT NULL DEFAULT 'gray', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+    "CREATE TABLE tasks ( workspace_key TEXT NOT NULL, workspace_path TEXT NOT NULL, workspace_identity TEXT, task_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', task_status TEXT, provider TEXT, mode TEXT NOT NULL DEFAULT 'build', model TEXT, migration_source TEXT, forked_from_task_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, unread_at INTEGER, last_unread_at INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0, title_overridden INTEGER NOT NULL DEFAULT 0, meta_json TEXT NOT NULL DEFAULT '{}', searchable_text TEXT NOT NULL DEFAULT '', cron_automation_id TEXT, PRIMARY KEY (workspace_key, task_id) )",
+    "CREATE TABLE tasks_schema_migration ( id TEXT PRIMARY KEY, checksum TEXT NOT NULL, time_applied INTEGER NOT NULL )",
+    "CREATE INDEX idx_automation_runs_by_automation ON automation_runs (automation_id, created_at DESC)",
+    "CREATE INDEX idx_automations_due ON automations (enabled, next_run_at)",
+    "CREATE INDEX idx_automations_retry ON automations (enabled, retry_at)",
+    "CREATE INDEX idx_automations_target_task ON automations(target_task_id) WHERE target_task_id IS NOT NULL",
+    "CREATE INDEX idx_automations_workspace ON automations (workspace_key)",
+    "CREATE INDEX idx_task_group_members_group_order ON task_group_members (group_id, sort_order, added_at)",
+    "CREATE INDEX idx_task_group_view_node_orders_order ON task_group_view_node_orders (sort_order, created_at)",
+    "CREATE INDEX idx_tasks_cron_automation ON tasks(cron_automation_id, updated_at DESC) WHERE cron_automation_id IS NOT NULL AND deleted=0",
+    "CREATE INDEX idx_tasks_workspace_archived_updated ON tasks (workspace_key, archived, updated_at DESC) WHERE deleted = 0",
+    "CREATE INDEX idx_tasks_workspace_pinned_updated ON tasks (workspace_key, pinned, updated_at DESC) WHERE deleted = 0",
+];
+
+/// `TASKS_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。
+#[rustfmt::skip]
+pub const TASKS_DDL_HASH: &str = "10fec8fa5bc0892dc8a05f8a5441aa23bbaa260ff2a2bc12ee42b337c67e8ab4";
+
+/// project-storage 迁移给 tasks-only 库补齐的物理对象与列（不含 `schema_migration`）。
+/// 包含新建表/索引，以及 tasks 表等既有表的 `ALTER TABLE ... ADD COLUMN`；
+/// Rust Host 在 tasks 库为空且项目账本缺失时用它补齐项目 schema。
+#[rustfmt::skip]
+pub const PROJECT_DDL: &[&str] = &[
+    "CREATE TABLE hosts ( host_id TEXT PRIMARY KEY, kind TEXT NOT NULL, target_json TEXT, membership_id TEXT, position INTEGER NOT NULL DEFAULT 0, last_connection_status TEXT, last_connection_error TEXT, last_opened_at INTEGER)",
+    "CREATE TABLE project_roots ( project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE, root_path TEXT NOT NULL, position INTEGER NOT NULL, is_primary INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(project_id,root_path))",
+    "CREATE TABLE projects ( project_id TEXT PRIMARY KEY, host_id TEXT NOT NULL REFERENCES hosts(host_id), name TEXT NOT NULL, name_overridden INTEGER NOT NULL DEFAULT 0, position INTEGER NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, pinned_at INTEGER, deleted INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
+    "CREATE TABLE remote_project_entries ( entry_id TEXT PRIMARY KEY, host_id TEXT NOT NULL REFERENCES hosts(host_id) ON DELETE CASCADE, remote_project_id TEXT, cached_name TEXT NOT NULL, cached_roots_json TEXT NOT NULL DEFAULT '[]', legacy_workspace_json TEXT, last_synced_at INTEGER, initial_position INTEGER, UNIQUE(host_id,remote_project_id))",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"host_id\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"root_path\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"project_id\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"execution_directories\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"sort_order\" INTEGER",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_title\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"handoff_pending\" INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_title_source\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_created_at\" INTEGER",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_updated_at\" INTEGER",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_last_outcome\" TEXT",
+    "ALTER TABLE \"tasks\" ADD COLUMN \"cli_deleted\" INTEGER",
+    "CREATE UNIQUE INDEX idx_projects_host_name ON projects(host_id,name) WHERE deleted=0",
+    "CREATE UNIQUE INDEX idx_tasks_host_task ON tasks(host_id,task_id)",
+    "CREATE INDEX idx_tasks_project ON tasks(project_id,archived,cli_updated_at DESC) WHERE deleted=0",
+];
+
+/// `PROJECT_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。
+#[rustfmt::skip]
+pub const PROJECT_DDL_HASH: &str = "6031668db0831fee9d935c87f56126bcf6866df1a816202f0c239fd172651ab5";

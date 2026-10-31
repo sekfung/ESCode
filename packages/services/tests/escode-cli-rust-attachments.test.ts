@@ -202,6 +202,12 @@ test("Rust accepts uploaded attachment-only input, authorizes row previews and r
     );
     assert.equal(ack.status, "accepted");
     await h.completed(id);
+    // 被拒输入的预取请求必须回滚并在下一次输入补发（docs/specs/rust-shell-selection.md
+    // 「失败命令的预取回滚」）：每会话恰好一次 runtime-materialization / user-execution。
+    assert.deepEqual(
+      h.runtimePreferenceRequests.map((p: any) => p.scope),
+      ["runtime-materialization", "user-execution"],
+    );
     assert.match(JSON.stringify(f.requests[0]), /ATTACHED_你好/);
     assert(!JSON.stringify(f.requests[0]).includes("_escode_attachment"));
     const row = (await h.rows(id)).rows.find((r: any) => r.kind === "userInput")! as any;

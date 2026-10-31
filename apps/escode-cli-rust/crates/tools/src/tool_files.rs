@@ -225,7 +225,8 @@ impl FileTools<'_> {
         }
         let (patch, additions, deletions) = super::file_patch::patch(&old, &new);
         let mut data = if name == "Write" {
-            json!({"type":if old.is_empty(){"create"}else{"update"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":patch,"userModified":false})
+            // TS `write.ts`：`create` 分支固定 `structuredPatch: []`，只有覆盖已有内容才生成 diff。
+            json!({"type":if old.is_empty(){"create"}else{"update"},"filePath":requested,"content":new,"originalFile":original.as_ref().map(|_|&old),"structuredPatch":if old.is_empty(){json!([])}else{patch},"userModified":false})
         } else {
             let mut data = json!({"filePath":requested,"oldString":search,"newString":replacement,"originalFile":old,"structuredPatch":patch,"userModified":false,"replaceAll":replace_all});
             // 与 TS 一致：新建/空文件（old_string 为空）不带匹配策略字段。

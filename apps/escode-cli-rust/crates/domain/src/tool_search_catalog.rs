@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 pub use super::tool_search_definitions::{
     control_definitions, deferred_tool_call_description, local_tool_search_description,
-    native_tool_search_description,
+    native_tool_search_description, schema_block,
 };
 pub use super::tool_search_query::search_tools;
 

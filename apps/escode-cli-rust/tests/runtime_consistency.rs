@@ -50,7 +50,20 @@ impl SessionStore for Store {
             source_path: Some("local.txt".into()),
             media_type: mime.into(),
             total_bytes: 4,
+            original_bytes: None,
+            reference_reason: None,
+            preview_total_lines: None,
+            preview_notice: None,
         })
+    }
+    // 本地路径附件走 prepare_local_attachment（docs/specs/rust-prompt-attachments.md）；
+    // 测试 store 用同一份快照桩即可验证「附件输入必须先提交会话再执行」。
+    async fn prepare_local_attachment(
+        &self,
+        path: &str,
+        mime: &str,
+    ) -> Result<escode_cli_domain::session::StoredAttachment> {
+        self.snapshot_attachment(path, mime).await
     }
     async fn load(&self, _: &str) -> Result<(Vec<Session>, BTreeMap<String, Value>)> {
         Ok((vec![], BTreeMap::new()))
@@ -184,6 +197,7 @@ impl ModelPort for Model {
         Ok(ModelOutput {
             response_id: String::new(),
             output_limit: false,
+            decode_ms: None,
             message,
             calls,
             usage: json!({}),

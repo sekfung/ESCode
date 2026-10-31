@@ -1,6 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { NodePersonalProviderConfigRepository } from "@escode/provider-node";
-import { buildRemoteWorkspaceIdentity, type RemoteTarget } from "@escode/shared";
 import {
   clearAppData,
   getE2EAppDataPaths,
@@ -12,14 +11,15 @@ import {
   fillSSHPasswordSettings,
   openSSHRemoteDialog,
   readHostProcesses,
-  readRemoteTabSnapshot,
   readSSHRuntimeConfig,
   selectSSHRemoteDirectory,
-  waitForRemoteTab,
+  clickSSHDialogRetry,
+  waitForRemoteProjectTabByPath,
   waitForSSHDirectoryStep,
   waitForSSHError,
   SSH_WORKSPACE_READY_TIMEOUT_MS,
 } from "../../../helpers/ssh-remote-p0.js";
+import { readRemoteTabs } from "../../../helpers/source-server-rust-remote-state.js";
 
 const CASE_MARKER = "SSH_PROVISIONING_FAILURE";
 
@@ -33,13 +33,6 @@ describe(CASE_MARKER, () => {
     this.timeout(20 * 60_000);
     const config = readSSHRuntimeConfig(CASE_MARKER);
     const workspacePath = config.workspacePaths[0];
-    const target: RemoteTarget = {
-      kind: "ssh",
-      host: config.host,
-      port: config.port,
-      username: config.username,
-    };
-    const identity = buildRemoteWorkspaceIdentity(workspacePath, target);
     await prepareV4ConversationE2E({ skipProvider: true });
     const hosts = await readHostProcesses();
     const paths = getE2EAppDataPaths();
@@ -56,13 +49,22 @@ describe(CASE_MARKER, () => {
       await openSSHRemoteDialog(CASE_MARKER);
       await fillSSHPasswordSettings(config);
       await clickLastEnabledSSHDialogButton(CASE_MARKER);
-      expect(await waitForSSHError(CASE_MARKER)).toContain("source-read-failed");
+      // Rust Host 首连屏障现在返回结构化 provider-provisioning-failed；原始远端原因
+      // 保留在折叠的 Details 中，可见错误只显示本地化标题。可见文案不得泄露坏凭据值。
+      const visibleError = await waitForSSHError(CASE_MARKER);
+      expect(visibleError).not.toContain(invalidCredential);
       const text = await browser.execute(
         () => document.querySelector('[data-testid="ssh-dialog"]')?.textContent ?? "",
       );
-      expect(text.split("source-read-failed").length - 1).toBeGreaterThanOrEqual(2);
+      expect(text).toContain("source-read-failed");
       expect(text).not.toContain(invalidCredential);
-      expect((await readRemoteTabSnapshot(identity)).remoteSessionId).toBeNull();
+      // S5 起 SSH 远端 workspace identity 由 Rust Host 绑定为 remote:server:*；
+      // 失败场景只能按真实路径断言没有生成远端 tab，不能再用 transport target 推导 identity。
+      expect(
+        (await readRemoteTabs()).filter(
+          (tab) => tab.workspacePath === workspacePath && tab.remoteSessionId,
+        ),
+      ).toEqual([]);
     } finally {
       await writeFile(paths.credentialsFile, credentials);
     }
@@ -77,13 +79,12 @@ describe(CASE_MARKER, () => {
     });
     try {
       await personal.update((current) => ({ ...current, defaultModelSelection }));
-      await clickLastEnabledSSHDialogButton(CASE_MARKER);
+      await clickSSHDialogRetry(CASE_MARKER);
       await waitForSSHDirectoryStep(CASE_MARKER);
       await selectSSHRemoteDirectory(workspacePath, CASE_MARKER);
       await waitForWorkspaceApp(workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
-      await waitForRemoteTab({
+      await waitForRemoteProjectTabByPath({
         caseMarker: CASE_MARKER,
-        expectedIdentity: identity,
         expectedPath: workspacePath,
       });
       expect((await personal.read()).defaultModelSelection).toEqual(defaultModelSelection);

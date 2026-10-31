@@ -219,7 +219,7 @@ function dispositionFor(kind, area, path) {
       return {
         disposition: "port-rust-host",
         wave: "W3",
-        note: "Source Server 本轮只跟协议/只读展示，远程仍走 Node Host",
+        note: "Source Server 本轮只跟协议/只读展示（远程 Host 归属见 source-server-remote-rust-host.md）",
       };
     case "project-data":
       if (path.startsWith("packages/shared/")) {

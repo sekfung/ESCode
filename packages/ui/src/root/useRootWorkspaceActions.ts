@@ -147,12 +147,18 @@ export function useRootWorkspaceActions({
   }, [workbenchGroupClientMode]);
 
   const startDraftInWorkspace = useCallback(
-    (workspacePath: string, workspaceIdentity?: string) => {
+    (
+      workspacePath: string,
+      workspaceIdentity?: string,
+      options?: { projectId?: string | null },
+    ) => {
       if (workbenchGroupClientMode === "desktop-continuous") {
         useWorkbenchGroupStore.getState().deactivateActiveGroup();
         usePaneLayoutStore.getState().resetToPrimaryPane();
       }
-      useESCodeSessionStore.getState().startDraft(workspacePath, undefined, workspaceIdentity);
+      useESCodeSessionStore
+        .getState()
+        .startDraft(workspacePath, undefined, workspaceIdentity, options);
     },
     [workbenchGroupClientMode],
   );
@@ -248,6 +254,12 @@ export function useRootWorkspaceActions({
           const prepared = await services.projectService.prepareSession({
             projectId,
             hostId: requestedHostId,
+          });
+          logger.lifecycle.info("[Root] 远端项目已准备", {
+            hostId: requestedHostId,
+            projectId,
+            workspacePath: prepared.workspacePath,
+            workspaceIdentity: prepared.workspaceIdentity,
           });
           if (!isCurrent()) return;
           if (!prepared.workspaceIdentity || !openRemoteProjectWorkspace)

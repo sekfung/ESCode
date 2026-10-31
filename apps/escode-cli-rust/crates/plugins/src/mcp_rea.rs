@@ -250,6 +250,8 @@ mod tests {
     fn plugin_with(manifest: Value) -> Plugin {
         Plugin {
             enabled: true,
+            hook_details: vec![],
+            hook_events: vec![],
             id: PLUGIN.to_owned(),
             manifest,
             marketplace: "zcode-plugins-official".to_owned(),

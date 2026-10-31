@@ -84,6 +84,7 @@ impl Session {
             checkpoint_at: 0,
             api_retry: None,
             usage: json!({"contextWindow":null,"cumulative":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0}}),
+            context_window_max_tokens: None,
             last_error: None,
             last_model_failure: None,
             creation_ack: None,

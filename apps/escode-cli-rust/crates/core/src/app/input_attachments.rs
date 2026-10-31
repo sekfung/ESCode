@@ -27,36 +27,17 @@ impl Engine {
                 .as_str()
                 .context("Attachment MIME required")?
                 .to_ascii_lowercase();
-            let capability = if mime.starts_with("image/") {
-                Some("supportsImage")
-            } else if mime == "application/pdf" {
-                Some("supportsPdf")
-            } else if mime.starts_with("video/") {
-                Some("supportsVideo")
-            } else if mime.starts_with("audio/") {
-                Some("supportsAudio")
-            } else {
-                None
-            };
-            if let Some(capability) = capability {
-                ensure!(
-                    properties["inputFormat"][capability] == true,
-                    "Attachment format is unsupported by selected model"
-                );
-            }
-            ensure!(
-                !mime.starts_with("audio/"),
-                "Audio attachment input is not implemented"
-            );
             let (reference, asset) = if original.starts_with("escode-artifact://") {
                 let asset = self
                     .sessions
                     .get(id)
                     .and_then(|s| s.attachments.get(original))
                     .context("Attachment does not belong to this session")?;
+                // 文本预览资产的 committed 字节是预览，`item["bytes"]` 记录的是源文件大小
+                // （TS `preview.originalBytes`）；回放时必须按同一展示大小校验，否则重试会被误拒。
+                let display_bytes = asset.original_bytes.unwrap_or(asset.total_bytes);
                 ensure!(
-                    asset.media_type.eq_ignore_ascii_case(&mime)
-                        && item["bytes"] == asset.total_bytes,
+                    asset.media_type.eq_ignore_ascii_case(&mime) && item["bytes"] == display_bytes,
                     "Attachment metadata does not match committed content"
                 );
                 (original.to_owned(), asset.clone())
@@ -73,18 +54,43 @@ impl Engine {
                         .to_string_lossy()
                         .into_owned()
                 };
-                let asset = self.store.snapshot_attachment(&path, &mime).await?;
-                (format!("escode-artifact://{id}/{}", self.clock.id()), asset)
+                let asset = self.store.prepare_local_attachment(&path, &mime).await?;
+                // 路径引用保留用户给的引用（TS 不生成 artifact ref，也不复制正文）。
+                let reference = if asset.reference_reason.is_some() {
+                    original.to_owned()
+                } else {
+                    format!("escode-artifact://{id}/{}", self.clock.id())
+                };
+                (reference, asset)
             };
-            if mime == "application/pdf" {
-                ensure!(
-                    self.store.read_attachment(&asset, 0, 5).await? == b"%PDF-",
-                    "Attachment PDF is invalid"
-                );
+            // 路径引用不参与模型能力检查（TS `resolvedPathReferenceAttachment` 也不检查）；
+            // 只有真正内联的媒体才要求模型支持对应输入格式。
+            if asset.reference_reason.is_none() {
+                let capability = if mime.starts_with("image/") {
+                    Some("supportsImage")
+                } else if mime == "application/pdf" {
+                    Some("supportsPdf")
+                } else if mime.starts_with("video/") {
+                    Some("supportsVideo")
+                } else {
+                    None
+                };
+                if let Some(capability) = capability {
+                    ensure!(
+                        properties["inputFormat"][capability] == true,
+                        "Attachment format is unsupported by selected model"
+                    );
+                }
+                if mime == "application/pdf" {
+                    ensure!(
+                        self.store.read_attachment(&asset, 0, 5).await? == b"%PDF-",
+                        "Attachment PDF is invalid"
+                    );
+                }
             }
             item["ref"] = reference.clone().into();
             item["mime"] = mime.into();
-            item["bytes"] = asset.total_bytes.into();
+            item["bytes"] = asset.original_bytes.unwrap_or(asset.total_bytes).into();
             item.as_object_mut().unwrap().remove("previewRef");
             assets.insert(reference, asset);
         }

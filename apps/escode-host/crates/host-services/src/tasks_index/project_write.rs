@@ -11,13 +11,32 @@ use std::collections::HashSet;
 use std::path::Path;
 use uuid::Uuid;
 
+/// 写面 host：缺省本地；远端 owner 必须显式给出 `hostId`。
+fn host_id_of(input: &Value) -> &str {
+    input["hostId"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .unwrap_or(LOCAL_HOST)
+}
+
+/// `projects.host_id` 有外键；首次写入远端项目时登记 `server` host 行。
+fn ensure_host(conn: &Connection, host_id: &str) -> Result<()> {
+    let kind = if host_id == LOCAL_HOST {
+        "local"
+    } else {
+        "server"
+    };
+    conn.execute(
+        "INSERT OR IGNORE INTO hosts(host_id,kind,position) VALUES(?,?,(SELECT count(*) FROM hosts))",
+        params![host_id, kind],
+    )?;
+    Ok(())
+}
+
 pub(super) fn save_project(conn: &Connection, input: &Value) -> Result<Value> {
     transaction(conn, true, || {
-        // projects.host_id 有外键；新库第一次保存项目时先登记本地 Host（与迁移侧 ensureHost 同义）。
-        conn.execute(
-            "INSERT OR IGNORE INTO hosts(host_id,kind,position) VALUES(?,'local',(SELECT count(*) FROM hosts))",
-            [LOCAL_HOST],
-        )?;
+        let requested_host = host_id_of(input);
+        ensure_host(conn, requested_host)?;
         let id_input = input["id"].as_str().filter(|value| !value.is_empty());
         let restore = input["restoreProjectId"]
             .as_str()
@@ -29,12 +48,17 @@ pub(super) fn save_project(conn: &Connection, input: &Value) -> Result<Value> {
         if id_input.is_some() && old.as_ref().is_some_and(|old| old["deleted"] == true) {
             bail!("project.deleted");
         }
-        if input["hostId"]
-            .as_str()
-            .is_some_and(|host| !host.is_empty() && host != LOCAL_HOST)
+        // 客户端 hostId 不能改变已有项目的持库身份（远端与本地项目不能互相搬库）。
+        if let Some(old) = old.as_ref()
+            && old["hostId"].as_str() != Some(requested_host)
         {
             bail!("project.host-immutable");
         }
+        let host_id = old
+            .as_ref()
+            .and_then(|old| old["hostId"].as_str())
+            .unwrap_or(requested_host)
+            .to_owned();
         let mut roots = roots_of(input);
         if roots.is_empty() {
             roots = old
@@ -50,6 +74,10 @@ pub(super) fn save_project(conn: &Connection, input: &Value) -> Result<Value> {
         }
         let mut seen = HashSet::new();
         roots.retain(|root| seen.insert(root.clone()));
+        // 远端 owner 只允许单一固定 root（上游 project-storage/CONTRACT.md）。
+        if host_id != LOCAL_HOST && roots.len() != 1 {
+            bail!("project.remote-single-root-required");
+        }
         if let Some(restore) = restore {
             let old = old
                 .as_ref()
@@ -142,7 +170,7 @@ pub(super) fn save_project(conn: &Connection, input: &Value) -> Result<Value> {
         loop {
             let taken: bool = conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM projects WHERE host_id=? AND name=? AND deleted=0 AND project_id<>?)",
-                params![LOCAL_HOST, name, id],
+                params![host_id, name, id],
                 |row| row.get(0),
             )?;
             if !taken {
@@ -163,10 +191,10 @@ pub(super) fn save_project(conn: &Connection, input: &Value) -> Result<Value> {
              pinned=excluded.pinned,pinned_at=excluded.pinned_at,deleted=0,deleted_at=NULL,updated_at=excluded.updated_at",
             params![
                 id,
-                LOCAL_HOST,
+                host_id,
                 name,
                 i64::from(overridden),
-                LOCAL_HOST,
+                host_id,
                 i64::from(pinned),
                 if pinned { Some(now) } else { None },
                 now,
@@ -218,10 +246,11 @@ pub(super) fn initialize_project_root(conn: &Connection, input: &Value) -> Resul
 
 pub(super) fn delete_project(conn: &Connection, input: &Value) -> Result<()> {
     let id = input["id"].as_str().unwrap_or_default();
+    let host_id = host_id_of(input);
     let now = now_ms();
     conn.execute(
         "UPDATE projects SET deleted=1,deleted_at=?,updated_at=? WHERE project_id=? AND deleted=0 AND host_id=?",
-        params![now, now, id, LOCAL_HOST],
+        params![now, now, id, host_id],
     )?;
     Ok(())
 }
@@ -238,9 +267,10 @@ pub(super) fn reorder_projects(conn: &Connection, input: &Value) -> Result<()> {
     if ids.iter().collect::<HashSet<_>>().len() != ids.len() {
         bail!("project.duplicate-order");
     }
+    let host_id = host_id_of(input).to_owned();
     transaction(conn, true, || {
         for (position, id) in ids.iter().enumerate() {
-            if require_project(conn, id)?["hostId"] != LOCAL_HOST {
+            if require_project(conn, id)?["hostId"] != json!(host_id) {
                 bail!("project.cross-host-move");
             }
             conn.execute(
@@ -260,10 +290,21 @@ pub(super) fn move_task(conn: &Connection, input: &Value) -> Result<()> {
         if project["deleted"] == true {
             bail!("project.deleted");
         }
+        let project_host = project["hostId"].as_str().unwrap_or(LOCAL_HOST);
+        if input["hostId"]
+            .as_str()
+            .is_some_and(|host| !host.is_empty() && host != project_host)
+        {
+            bail!("project.cross-host-move");
+        }
         let Some(row) = read_task(conn, task)? else {
             bail!("project.task-not-found");
         };
-        if row.get("hostId").and_then(Value::as_str) != Some(LOCAL_HOST) {
+        let task_host = row
+            .get("hostId")
+            .and_then(Value::as_str)
+            .unwrap_or(LOCAL_HOST);
+        if task_host != project_host {
             bail!("project.cross-host-move");
         }
         let root_path = row
@@ -308,12 +349,14 @@ pub(super) fn resolve_session_directories(conn: &Connection, task: &Value) -> Re
 
 pub(super) fn reserve_created_task(conn: &Connection, input: &Value) -> Result<Value> {
     let task = &input["task"];
+    let host_id = task["hostId"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .unwrap_or(LOCAL_HOST)
+        .to_owned();
     transaction(conn, true, || {
         let key = workspace_key(task);
-        conn.execute(
-            "INSERT OR IGNORE INTO hosts(host_id,kind,position) VALUES(?,'local',(SELECT count(*) FROM hosts))",
-            [LOCAL_HOST],
-        )?;
+        ensure_host(conn, &host_id)?;
         if read_task(conn, task)?.is_none() {
             let project_id = input["projectId"]
                 .as_str()
@@ -335,7 +378,7 @@ pub(super) fn reserve_created_task(conn: &Connection, input: &Value) -> Result<V
                     text(task, "workspacePath"),
                     task["workspaceIdentity"].as_str(),
                     text(task, "taskId"),
-                    LOCAL_HOST,
+                    host_id,
                     text(task, "workspacePath"),
                     project_id,
                     OWNERSHIP_DECIDED,

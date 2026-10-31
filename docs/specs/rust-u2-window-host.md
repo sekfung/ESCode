@@ -11,7 +11,7 @@
 - 2026-10-22 已补 `desktopRustHostWindow.ts` 与 `desktopWindowLifecycle.ts` 的 Rust 分支：
   开关打开时窗口只建 attachment，不 spawn utility process；reload/close 只解绑。
 - 因此 `ESCODE_RUST_HOST` **现在决定窗口 Host**；2026-10-23 已完成四平台安装包验收并默认开启，
-  显式 `0`/`false` 回退 Node Host（见 §6）。
+  显式 `0`/`false` 回退 Node Host；该开关只决定本地窗口 Host，远程 ssh/wsl/docker 始终由 App 级 Rust Host 服务（见 §6、S5-b）。
 - `ESCODE_RUST_HOST_BINARY` 覆盖已落地（E2E/自定义安装布局）。
 
 ## 2. 目标形态
@@ -71,7 +71,7 @@ Host 意外退出时 `onLost` 触发：窗口收到 `failed/transport_closed` �
 
 | #   | 原缺口                           | 处理                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | 远程 workspace（SSH/WSL/Docker） | **显式所有权**：本地窗口用 Rust Host；远程 workspace 仍用 per-window Node Host（TS 后端），首次 Connect/Bind 懒创建，写独立 `remoteWindowHostProcessMap`，不混入本地 map；日志与资源管理器可见。Rust `/ws` 永远不承载 remote scope。`desktopRemoteSessionsRustHostMode.test.ts` 验证懒创建；`ESCODE_RUST_HOST=1` 下的真实 SSH E2E 已验证完整连接链路（见 §5.1）。                                                                                                                                        |
+| 1   | 远程 workspace（SSH/WSL/Docker） | **S5-a/S5-b 已迁移**：本地窗口用 Rust Host；远程 ssh/wsl/docker 与 Connection Profile 由 App 级 Rust Host 的 Source Server scope 服务。只有显式 `kind: "server"` Web 服务端目标保留 per-window Node Host，写独立 `remoteWindowHostProcessMap`，不混入本地 map。`ESCODE_RUST_HOST` 只决定本地 Host。`desktopRemoteSessionsRustHostMode.test.ts` 验证 server-only Node 路径与拒绝非 server 描述符。真实 SSH E2E 见 §5.1。                                                                                  |
 | 2   | 资源管理器采样与 host 行         | Rust `process_sampler`（Host 自身 + 子进程树）+ `HostEvent.resource-usage-snapshot-result`；Main `registerExternalHostProcess` 把 Rust Host 作为外部 host 纳入采样与进程行。                                                                                                                                                                                                                                                                                                                             |
 | 3   | 网络捕获                         | `escode-cli-net::capture` 250ms/100 条批量；model、webfetch、MCP SSE/OAuth HTTP、provider/API client 出口记录（`mcp_http` 只建 client，实际发送在 `mcp_sse`/`mcp_oauth_http`）；`HostEvent.network-capture-batch` → Main `ingestHostNetworkCapture`。                                                                                                                                                                                                                                                    |
 | 4   | Agent 进程事件与运行任务计数     | `Instances::lifecycle` → `agent-process-spawned/exited`（child-link 有 pid；embedded 无 per-workspace 进程，Host 行即进程事实）；`TaskEventHub` 在 run start/terminal 发 `agent-running-task-count-changed`，Main 计入退出确认。                                                                                                                                                                                                                                                                         |
@@ -98,7 +98,7 @@ CHROMEDRIVER_PATH=/tmp/chromedriver/linux-146.0.7680.165/chromedriver-linux64/ch
 wdio run wdio.conf.ts --spec ./test/e2e/conversation-session/conversation-session-ssh-remote-connection-p0.test.ts
 ```
 
-结果：`1 passed`，artifact `desktop-e2e-20261023-060839-165`。用例覆盖错误密码失败（不提交 tab/逻辑 session、不泄露密码）→ 正确密码重试 → 远程目录选择（`ws-a`）→ remote workspace 打开；进程断言按 Rust 模式执行：本地窗口是 Rust Host，首次远程尝试懒创建一个 `escode-host-remote-1` 并在失败认证后保留复用。
+结果：`1 passed`，artifact `desktop-e2e-20261023-060839-165`。用例覆盖错误密码失败（不提交 tab/逻辑 session、不泄露密码）→ 正确密码重试 → 远程目录选择（`ws-a`）→ remote workspace 打开；进程断言按 Rust 模式执行：本地窗口是 Rust Host，首次远程尝试懒创建一个 `escode-host-remote-1` 并在失败认证后保留复用。（历史记录：2026-10-31 S5-a/S5-b 后 SSH/WSL/Docker 不再创建 per-window remote Host；当前首连/双 workspace 真实 SSH E2E 断言零 `escode-host-remote-*`，见 source-server-remote-rust-host.md §12.4。）
 
 ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 ChromeDriver，使用主版本兼容的 `146.0.7680.165`，通过 `CHROMEDRIVER_PATH` 固定，避免每轮下载受网络影响。
 
@@ -110,9 +110,9 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
 4. **`file` channel 回归**：提交 `78d487f0` 删除营销链路时误删 `IFileService`/`IMediaPreviewService` 注册，远程 stdio server 不暴露 `file`（目录选择报 “Unknown channel: file”）。已恢复注册并重建 linux-x64 remote assets。
 5. **prepared quit 不退出**：Rust Host 清理比 Node 模式多约 2s 后，ChromeDriver 已发起的 quit 重入被 Electron 忽略，窗口不再触发 `closed`，`deleteSession` 超时。现在在 host/agent 回收完成后显式销毁剩余窗口，并保留 3s 兜底退出。
 
-该项仍是**产品边界**（远程 workspace 保留 per-window Node Host），不是 Rust 原生 remote parity；但边界行为已由上述可执行 E2E 验证。
+该项的当前产品边界是**显式 Web 服务端仍保留 per-window Node Host**；ssh/wsl/docker 已由 Rust Host 承载。边界行为由上述可执行 E2E 验证。
 
-**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退 Node Host。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
+**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退本地 Node 窗口 Host（远程不读取该开关，始终走 Rust Host）。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
 
 ## 6. 验收（默认翻转前必须满足）
 
@@ -139,5 +139,5 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
   `ESCODE_RUST_HOST=1 ESCODE_INSTALLED_EXPECT_RUST_HOST=1 node scripts/ci-install-desktop.mjs --launch-only`
   启动同一个包，断言包内 `escode-host` 启动、renderer attach，且没有 utility Node 窗口 Host。
   CI run `39920171658` 四个平台的该步骤全部 success；随后已把 `ESCODE_RUST_HOST` 默认翻转为开启
-  （显式 `0`/`false` 回退 Node Host）。翻转后的 run `39932318894` 四平台 `installed` 全绿，
+  （显式 `0`/`false` 回退本地 Node 窗口 Host；远程始终走 Rust Host）。翻转后的 run `39932318894` 四平台 `installed` 全绿，
   其中 `install and launch` 未设置 env，直接验证了默认 Rust Host 路径。

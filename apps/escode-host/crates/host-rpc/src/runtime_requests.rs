@@ -11,13 +11,10 @@ use std::sync::Arc;
 
 use escode_host_control::main_broker::MainBroker;
 use escode_host_runtime::{HostError, HostRequest, HostResponder};
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 /// Main broker 在 `rpcListen` 之后才创建；responder 先装配，槽位后填。
 pub type MainBrokerSlot = Arc<std::sync::OnceLock<Arc<MainBroker>>>;
-
-/// TS `DEFAULT_ESCODE_MODEL_CONTEXT_BUDGET_STRATEGY`。
-const MODEL_CONTEXT_BUDGET_STRATEGY: &str = "preflight-v1";
 
 /// 组合根装配的应答器：`home` 是设置域根（与 `setting` channel 同一份 settings.json）。
 pub fn responder(
@@ -121,65 +118,7 @@ fn parse_params(params: &Value) -> Option<&str> {
 
 /// TS `resolveSessionRuntimePreferences` + 结果 schema 的缺省值。
 pub(crate) fn preferences(settings: &Value, scope: &str, _identity: &str) -> Value {
-    let mut result = Map::new();
-    result.insert(
-        "askUserQuestionAutoResolutionEnabled".to_owned(),
-        Value::Bool(settings["askUserQuestionAutoResolutionEnabled"] != false),
-    );
-    result.insert(
-        "nativeSearchEnhancementsEnabled".to_owned(),
-        Value::Bool(settings["nativeSearchEnhancementsEnabled"] != false),
-    );
-    result.insert(
-        "memoryEnabled".to_owned(),
-        Value::Bool(settings["memoryEnabled"] == true),
-    );
-    result.insert(
-        "modelContextBudgetStrategy".to_owned(),
-        json!(MODEL_CONTEXT_BUDGET_STRATEGY),
-    );
-    if scope == "user-execution"
-        && let Some(shell) = valid_shell(&settings["integratedTerminalShell"])
-    {
-        result.insert("integratedTerminalShell".to_owned(), shell);
-    }
-    // TS 在本地 workspace 为 true（Host 能应答 `subagents/readRuntimeConfig`）。subagents 域未迁移前
-    // 回 false，runtime 退回内置子代理（登记差异：rust-u2-agent-v4.md §6-2）。
-    result.insert(
-        "subagentRuntimeConfigEnabled".to_owned(),
-        Value::Bool(false),
-    );
-    Value::Object(result)
-}
-
-/// TS `integratedTerminalShellSelectionSchema`：`{mode:"auto"}` 或
-/// `{mode:"shell", dialect:"cmd"|"git-bash", id, label, path}`（非空串）。形状不符按缺省处理。
-fn valid_shell(value: &Value) -> Option<Value> {
-    let record = value.as_object()?;
-    match record.get("mode").and_then(Value::as_str)? {
-        "auto" => Some(json!({"mode": "auto"})),
-        "shell" => {
-            let dialect = record.get("dialect").and_then(Value::as_str)?;
-            if !matches!(dialect, "cmd" | "git-bash") {
-                return None;
-            }
-            let text = |key: &str| {
-                record
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .filter(|value| !value.is_empty())
-                    .map(str::to_owned)
-            };
-            Some(json!({
-                "mode": "shell",
-                "dialect": dialect,
-                "id": text("id")?,
-                "label": text("label")?,
-                "path": text("path")?,
-            }))
-        }
-        _ => None,
-    }
+    escode_host_services::source_server_runtime_preferences::preferences(settings, scope)
 }
 
 #[cfg(test)]
@@ -275,10 +214,16 @@ mod tests {
             json!({"mode": "shell", "dialect": "cmd", "id": "", "label": "C", "path": "cmd"}),
             json!("auto"),
         ] {
-            assert!(valid_shell(&shell).is_none(), "{shell}");
+            assert!(
+                escode_host_services::source_server_runtime_preferences::valid_shell(&shell)
+                    .is_none(),
+                "{shell}"
+            );
         }
         assert_eq!(
-            valid_shell(&json!({"mode": "auto", "x": 1})),
+            escode_host_services::source_server_runtime_preferences::valid_shell(
+                &json!({"mode": "auto", "x": 1})
+            ),
             Some(json!({"mode": "auto"}))
         );
         assert_eq!(

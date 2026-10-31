@@ -27,11 +27,15 @@ pub(crate) fn source_key_of(identity: &str) -> String {
     format!("local\0{identity}")
 }
 
-/// 本地 source scope（TS `{kind:"local", workspacePath, workspaceIdentity?}`）。
+/// source scope（TS `{kind:"local" | "remote", workspacePath, workspaceIdentity?}`）。
+///
+/// `source_server_id` 只对远端 scope 设置：它让行地址/workspace fact 携带
+/// `sourceServerId`，同时把投影键与本地 source 隔离（spec §10.13）。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LocalScope {
     pub(crate) workspace_path: String,
     pub(crate) workspace_identity: Option<String>,
+    pub(crate) source_server_id: Option<String>,
 }
 
 impl LocalScope {
@@ -42,6 +46,19 @@ impl LocalScope {
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .map(str::to_owned),
+            source_server_id: None,
+        }
+    }
+
+    /// 远端 Source Server scope：`sourceServerId` 是行地址的一部分。
+    pub(crate) fn remote(
+        workspace_path: &str,
+        workspace_identity: &str,
+        source_server_id: &str,
+    ) -> Self {
+        Self {
+            source_server_id: Some(source_server_id.to_owned()),
+            ..Self::new(workspace_path, Some(workspace_identity))
         }
     }
 
@@ -54,19 +71,20 @@ impl LocalScope {
 
     /// TS `sourceKey({kind:"local", …})`。
     pub(crate) fn source_key(&self) -> String {
-        source_key_of(self.workspace_key())
+        match &self.source_server_id {
+            Some(source_server_id) => {
+                format!("source\0{source_server_id}\0{}", self.workspace_key())
+            }
+            None => source_key_of(self.workspace_key()),
+        }
     }
 
-    /// TS 投影的 `taskKey(address)`（本地 source）。
+    /// TS 投影的 `taskKey(address)`（本地或远端 source）。
     pub(super) fn row_key(&self, task_id: &str) -> String {
-        row_key(
-            &self.workspace_path,
-            self.workspace_identity.as_deref(),
-            task_id,
-        )
+        format!("{}\0{task_id}", self.source_key())
     }
 
-    /// TS `addressFor(scope, taskId)`：本地 source 不下发 `remoteSessionId`。
+    /// TS `addressFor(scope, taskId)`：远端 source 下发 `sourceServerId`，不下发 `remoteSessionId`。
     pub(super) fn address(&self, task_id: &str) -> Value {
         let mut address = json!({
             "workspacePath": self.workspace_path,
@@ -74,6 +92,9 @@ impl LocalScope {
         });
         if let Some(identity) = &self.workspace_identity {
             address["workspaceIdentity"] = Value::from(identity.clone());
+        }
+        if let Some(source_server_id) = &self.source_server_id {
+            address["sourceServerId"] = Value::from(source_server_id.clone());
         }
         address
     }
@@ -167,7 +188,7 @@ fn merged_meta(meta: &Value, overlay: Option<&Value>) -> Value {
     merged
 }
 
-/// TS `workspaceFact(source)`（本地 source 不含 `remoteSessionId`）。
+/// TS `workspaceFact(source)`（不使用 `remoteSessionId`；远端 source 带 `sourceServerId`）。
 pub(super) fn workspace_fact(source: &Source) -> Value {
     let mut fact = json!({
         "workspacePath": source.scope.workspace_path,
@@ -176,6 +197,9 @@ pub(super) fn workspace_fact(source: &Source) -> Value {
     });
     if let Some(identity) = &source.scope.workspace_identity {
         fact["workspaceIdentity"] = Value::from(identity.clone());
+    }
+    if let Some(source_server_id) = &source.scope.source_server_id {
+        fact["sourceServerId"] = Value::from(source_server_id.clone());
     }
     fact
 }

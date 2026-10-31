@@ -46,6 +46,9 @@ async fn main() {
 }
 
 async fn run() -> Result<i32> {
+    if let Some(code) = ssh_askpass_mode() {
+        return Ok(code);
+    }
     escode_cli_core_api::install_process_snapshot();
     let link = link_from_env();
     let instances = Instances::new(link);
@@ -63,6 +66,28 @@ async fn run() -> Result<i32> {
     // 收口出站队列：等泵把已入队的日志与 `stopped` 写完再退出。
     control.close().await;
     Ok(code)
+}
+
+/// OpenSSH askpass 子进程模式（S3 transport 用）：由 `SSH_ASKPASS` 调用，
+/// 只把 env 里的 secret 写到 stdout，不初始化 Host 控制通道。
+fn ssh_askpass_mode() -> Option<i32> {
+    let mut args = escode_cli_core_api::env::args();
+    let _program = args.next();
+    // 修复原因：OpenSSH 调用 SSH_ASKPASS 时只把提示语放在 argv[1]（如 `root@host's password:`），
+    // 不会附带 `--ssh-askpass`。此前按 argv[1] 恒等比较会进入 Host 正常启动分支，把
+    // `hostReady` 控制帧当成密码写给 ssh，导致远端握手超时。Host 正常启动不带位置参数，
+    // 因此存在位置参数就按 askpass 调用处理（显式 `--ssh-askpass` 仍然有效）。
+    args.next()?;
+    match escode_cli_core_api::env::var("ESCODE_SSH_ASKPASS_SECRET") {
+        Ok(secret) => {
+            println!("{secret}");
+            Some(0)
+        }
+        Err(_) => {
+            eprintln!("escode-host: ssh askpass secret missing");
+            Some(1)
+        }
+    }
 }
 
 /// runtime-link 选择器：默认 embedded；`ESCODE_HOST_RUNTIME_LINK=child` 时用 CLI 子进程
@@ -471,6 +496,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                 runtime_env,
                 local_media_preview,
                 main_services,
+                remote_assets,
             } => {
                 let addr: std::net::SocketAddr = bind
                     .parse()
@@ -519,6 +545,42 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                             patch.as_ref(),
                         )
                     });
+                let source_server_host = escode_host_rpc::HostEnvironment {
+                    askpass_program: std::env::current_exe().unwrap_or_default(),
+                    client_version: runtime_env
+                        .get("ESCODE_APP_VERSION")
+                        .cloned()
+                        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_owned()),
+                    remote_assets: remote_assets.map(|assets| {
+                        escode_host_services::source_server_bootstrap::RemoteAssetsConfig {
+                            release_dir: assets.release_dir.map(std::path::PathBuf::from),
+                            cdn_base_urls: assets.cdn_base_urls,
+                            app_version: assets.app_version,
+                        }
+                    }),
+                };
+                // project-storage 的唯一实现已迁到 Rust；Main 只准备 tasks 账本，项目 schema/账本
+                // 必须在对外服务前补齐（仅空 tasks 库；历史库缺账本显式失败，不跳过数据迁移）。
+                if let Some(data_base_dir) = data_base_dir.as_deref() {
+                    let path = escode_host_services::tasks_index::database_path(
+                        std::path::Path::new(data_base_dir),
+                    );
+                    if let Err(error) =
+                        escode_host_services::tasks_index::bootstrap::ensure_project_schema(&path)
+                    {
+                        control
+                            .send(ControlMessage::Failed {
+                                error: ControlError {
+                                    code: ControlErrorCode::Fatal,
+                                    message: format!(
+                                        "tasks-index project schema bootstrap failed: {error}"
+                                    ),
+                                },
+                            })
+                            .await?;
+                        continue;
+                    }
+                }
                 let channels = escode_host_rpc::domains::channels_with(
                     std::path::PathBuf::from(home),
                     data_base_dir.map(std::path::PathBuf::from),
@@ -528,6 +590,7 @@ async fn serve(control: &mut ControlLoop, instances: &Instances) -> Result<i32> 
                     authorizer,
                     broker,
                     client_services,
+                    Some(source_server_host),
                 );
                 match escode_host_rpc::serve(addr, channels, Some(instances.clone())).await {
                     Ok(surface) => {

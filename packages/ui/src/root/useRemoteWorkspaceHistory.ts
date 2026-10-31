@@ -18,6 +18,7 @@ import type {
   BindRemoteWorkspaceSessionContextResult,
   IPlatformService,
   RemoteTarget,
+  ResolvedWSLConnectOptions,
   RemoteSessionClosedEvent,
   RemoteSessionReconnectedEvent,
   SourceServerConnectionState,
@@ -1246,7 +1247,7 @@ export function useRemoteWorkspaceHistory({
           code?: string;
           retryable?: boolean;
           profileId?: string;
-          resolvedWslTarget?: Required<Extract<RemoteTarget, { kind: "wsl" }>>;
+          resolvedWslTarget?: ResolvedWSLConnectOptions;
         };
         if (result.reasonCode) error.code = result.reasonCode;
         if (result.retryable !== undefined) error.retryable = result.retryable;

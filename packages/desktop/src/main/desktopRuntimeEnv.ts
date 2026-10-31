@@ -93,6 +93,27 @@ export type RemoteAssetDirs = Pick<
   ConnectOptions,
   "mockCdnDir" | "remoteCdnBaseUrl" | "remoteCdnBaseUrls" | "remoteCacheDir"
 >;
+
+/**
+ * Rust Host 首次安装所需的 release 位置（spec §11.3）：Mock/内置目录按
+ * `releases/<version>/manifest-<platformArch>.json` 存放，Host 只按远端平台选择 manifest。
+ */
+export function resolveRustHostRemoteAssets(
+  dirs: RemoteAssetDirs,
+  version: string = ESCODE_VERSION,
+): { releaseDir?: string; cdnBaseUrls: string[]; appVersion: string } {
+  const baseUrls = (dirs.remoteCdnBaseUrls ?? [])
+    .map((url) => url.trim())
+    .filter(Boolean);
+  if (baseUrls.length === 0 && dirs.remoteCdnBaseUrl?.trim()) {
+    baseUrls.push(dirs.remoteCdnBaseUrl.trim());
+  }
+  return {
+    ...(dirs.mockCdnDir ? { releaseDir: join(dirs.mockCdnDir, "releases", version) } : {}),
+    cdnBaseUrls: baseUrls,
+    appVersion: version,
+  };
+}
 type LocalRuntimeEnv = Record<string, string | undefined>;
 
 export async function isDockerDaemonAvailable(): Promise<boolean> {

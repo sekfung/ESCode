@@ -63,5 +63,15 @@ pub(super) fn load_session(
         session.saved_inputs = session.history.inputs.len();
         session.saved_responses = session.history.responses.len();
     }
+    // TS 冷恢复由 transcript 重建 turnHeader，不含轮末解码统计（conversation-generation-speed.md §5.2/§8）；
+    // Rust 的 row 是落库派生投影，加载时剥掉，避免重启后仍显示上一轮读数。
+    for row in &mut session.rows {
+        if row["kind"] == "turnHeader"
+            && let Some(object) = row.as_object_mut()
+        {
+            object.remove("decodeMs");
+            object.remove("decodeTokens");
+        }
+    }
     Ok(Some(session))
 }

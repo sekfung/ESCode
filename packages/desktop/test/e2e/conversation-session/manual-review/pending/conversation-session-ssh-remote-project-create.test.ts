@@ -1,4 +1,5 @@
 import { posix } from "node:path";
+import { TID_COMPOSER_WORKSPACE_TRIGGER } from "@escode/shared";
 import { clearAppData, waitForWorkspaceApp } from "../../../helpers/desktop-app.js";
 import { skipOccupationOnboardingIfPresent } from "../../../helpers/occupation-onboarding.js";
 import { prepareV4ConversationE2E } from "../../../helpers/v4-conversation.js";
@@ -37,7 +38,9 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
     if (!remoteFixturePath.startsWith(`${config.workspacePath}/`)) {
       throw new Error(`${CASE_MARKER}: 非法远端 fixture path`);
     }
-    const created = await runSSHCommand(config, `mkdir -p '${remoteFixturePath}'`);
+    // 标记子目录用于证明目录选择器确实 readdir 了目标路径，而不是停在初始 home。
+    const markerEntry = `e2e-marker-${suffix}`;
+    const created = await runSSHCommand(config, `mkdir -p '${remoteFixturePath}/${markerEntry}'`);
     expect(created.code).toBe(0);
     expect(created.stderr).toBe("");
 
@@ -49,14 +52,35 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
     await fillSSHPasswordSettings(config);
     await clickLastEnabledSSHDialogButton(CASE_MARKER);
     await waitForSSHDialogClosed(CASE_MARKER);
-    await selectRemoteFolderProjectDirectory(remoteFixturePath, CASE_MARKER);
+    await selectRemoteFolderProjectDirectory(remoteFixturePath, CASE_MARKER, markerEntry);
 
     const projectName = `E2E remote project ${suffix}`;
     const nameInput = await $('[data-testid="virtual-project-name"]');
-    await nameInput.waitForDisplayed({
-      timeout: 30_000,
-      timeoutMsg: `${CASE_MARKER}: 新远端目录没有打开项目创建表单`,
-    });
+    try {
+      await nameInput.waitForDisplayed({
+        timeout: 30_000,
+        timeoutMsg: `${CASE_MARKER}: 新远端目录没有打开项目创建表单`,
+      });
+    } catch (error) {
+      const snapshot = await browser
+        .execute(() => ({
+          dialogText: (
+            document.querySelector('[data-testid="chat-remote-folder"]')?.textContent ?? ""
+          ).slice(0, 1_200),
+          visibleTestIds: Array.from(document.querySelectorAll("[data-testid]"))
+            .filter((element) => (element as HTMLElement).getClientRects().length > 0)
+            .map((element) => element.getAttribute("data-testid")),
+          bodyText: (document.body.innerText ?? "").slice(0, 1_200),
+        }))
+        .catch(() => null);
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)} [dialog: ${
+          snapshot?.dialogText.replaceAll("\n", " | ") ?? "unavailable"
+        }] [visible testids: ${snapshot?.visibleTestIds.join(", ") ?? "unavailable"}] [body: ${
+          snapshot?.bodyText.replaceAll("\n", " | ") ?? "unavailable"
+        }]`,
+      );
+    }
     await nameInput.setValue(projectName);
     const saveButton = await $('[data-testid="virtual-project-save"]');
     await saveButton.waitForEnabled({
@@ -64,6 +88,16 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
       timeoutMsg: `${CASE_MARKER}: 项目名已填写但保存按钮不可用`,
     });
     await saveButton.click();
+
+    // 新项目首次保存会先要求确认目录信任；不确认则保存流程一直挂起，工作区不会出现。
+    const trustConfirm = await $('[data-testid="project-folder-trust-confirm"]');
+    await trustConfirm.waitForDisplayed({
+      timeout: 30_000,
+      timeoutMsg: `${CASE_MARKER}: 保存后没有出现目录信任确认`,
+    });
+    const trustPath = (await $('[data-testid="project-folder-trust-path"]').getText()).trim();
+    expect(trustPath).toBe(remoteFixturePath);
+    await trustConfirm.click();
 
     await browser.waitUntil(
       () => browser.execute(() => !document.querySelector('[data-testid="chat-remote-folder"]')),
@@ -118,12 +152,28 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
     expect(draft.draftProjectId).toBeTruthy();
     expect(draft.draftTaskGroupId).toBeNull();
 
+    // 当前桌面 shell 挂的是 WorkspaceSidebar，项目目录行由 composer 的 ProjectComposerMenu 渲染；
+    // ProjectSidebar（ProjectNode）在本 fork 未挂载，不能再用 [data-project-id] 直接查整页。
+    const workspaceTrigger = await $(`[data-testid="${TID_COMPOSER_WORKSPACE_TRIGGER}"]`);
+    await workspaceTrigger.waitForDisplayed({
+      timeout: 30_000,
+      timeoutMsg: `${CASE_MARKER}: 草稿 composer 没有显示项目入口`,
+    });
+    expect(await workspaceTrigger.getText()).toContain(projectName);
+    await workspaceTrigger.click();
+
     await browser.waitUntil(
       () =>
         browser.execute(
           (projectId, expectedName) => {
-            const row = document.querySelector<HTMLElement>(`[data-project-id="${projectId}"]`);
-            return Boolean(row?.getClientRects().length && row.innerText.includes(expectedName));
+            const menu = document.querySelector<HTMLElement>(
+              '[data-testid="composer-project-menu"]',
+            );
+            if (!menu?.getClientRects().length) return false;
+            const row = menu.querySelector<HTMLElement>(`[data-project-id="${projectId}"]`);
+            return Boolean(
+              row?.getClientRects().length && (row.textContent ?? "").includes(expectedName),
+            );
           },
           draft.draftProjectId,
           projectName,
@@ -131,7 +181,7 @@ describe(`${CASE_MARKER}: 远端目录首次创建项目并落到草稿`, () => 
       {
         timeout: 30_000,
         interval: 250,
-        timeoutMsg: `${CASE_MARKER}: 新项目没有出现在项目侧栏`,
+        timeoutMsg: `${CASE_MARKER}: 项目目录里没有新保存的远端项目`,
       },
     );
   });

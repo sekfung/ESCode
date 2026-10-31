@@ -12,6 +12,7 @@
 //! 这一不变式不会因为没有 syncer 而被破坏。
 
 mod archive;
+pub mod bootstrap;
 pub mod fixture;
 mod ledger;
 mod meta;
@@ -23,6 +24,9 @@ pub mod query;
 mod query_grouped;
 mod query_shared;
 mod query_snippets;
+mod remote_project;
+mod remote_project_api;
+mod remote_project_rows;
 pub mod schema;
 mod task_group_api;
 mod write;
@@ -102,6 +106,14 @@ impl From<rusqlite::Error> for TasksIndexError {
 #[derive(Debug)]
 pub struct TasksIndex {
     connection: Connection,
+}
+
+/// `getTasksIndexDatabasePath()` = `<dataBaseDir>/.escode/v2/tasks-index.sqlite`。
+pub fn database_path(data_base_dir: &Path) -> PathBuf {
+    data_base_dir
+        .join(".escode")
+        .join("v2")
+        .join("tasks-index.sqlite")
 }
 
 impl TasksIndex {
@@ -408,6 +420,14 @@ fn verify_assets() -> Result<(), TasksIndexError> {
     if hex(&Sha256::digest(schema::MIGRATED_DDL.join("\n").as_bytes())) != schema::DDL_HASH {
         return Err(TasksIndexError::AssetTampered { what: "ddl" });
     }
+    if hex(&Sha256::digest(schema::TASKS_DDL.join("\n").as_bytes())) != schema::TASKS_DDL_HASH {
+        return Err(TasksIndexError::AssetTampered { what: "tasks ddl" });
+    }
+    if hex(&Sha256::digest(schema::PROJECT_DDL.join("\n").as_bytes())) != schema::PROJECT_DDL_HASH {
+        return Err(TasksIndexError::AssetTampered {
+            what: "project ddl",
+        });
+    }
     let project_canonical = schema::EXPECTED_PROJECT_MIGRATIONS
         .iter()
         .map(|(id, checksum)| format!("{id}\t{checksum}"))
@@ -422,8 +442,14 @@ fn verify_assets() -> Result<(), TasksIndexError> {
 }
 
 #[cfg(test)]
+#[path = "bootstrap_tests.rs"]
+mod bootstrap_tests;
+#[cfg(test)]
 #[path = "project_tests.rs"]
 mod project_tests;
+#[cfg(test)]
+#[path = "remote_project_tests.rs"]
+mod remote_project_tests;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]

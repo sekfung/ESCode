@@ -1079,6 +1079,29 @@ it.each([false, true])(
   },
 );
 
+it("raw SSH 没有 Source 身份时回退普通目录流程，不清空设备添加门禁", async () => {
+  const onDeviceConnected = vi.fn();
+  const props = defaults({
+    completion: "device-management",
+    allowUnidentifiedDeviceManagement: true,
+    onDeviceConnected,
+    onOpenChange: vi.fn(),
+  });
+  props.onConnect = vi.fn(async () => {
+    useRemoteWorkspaceSessionStore.setState({
+      sessionsById: { "session-a": { sessionId: "session-a" } as never },
+    });
+    return "session-a";
+  });
+  const { result } = renderHook(() => useRemoteConnectionFlow(props));
+  await drain();
+  act(() => result.current.selectionStep.onSelectTarget(targetA));
+  await waitFor(() => expect(result.current.currentStep).toBe("directory"));
+  expect(onDeviceConnected).toHaveBeenCalledWith(undefined, expect.any(Function));
+  expect(props.onCancelSession).not.toHaveBeenCalled();
+  expect(props.onOpenChange).not.toHaveBeenCalledWith(false);
+});
+
 it("设备管理取消后的迟到连接不能完成导航或关闭新界面", async () => {
   const connection = Promise.withResolvers<string>();
   const onDeviceConnected = vi.fn();

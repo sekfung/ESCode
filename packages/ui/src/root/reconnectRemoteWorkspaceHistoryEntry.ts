@@ -135,6 +135,14 @@ function resolveSshReconnectSnapshot(params: {
   );
   if (!profile || profile.target.kind !== "ssh") return previous;
   const target = profile.target;
+  // S3 重启恢复：history 里的 profile 归属必须回填到重连 target，否则 Main 会把这条
+  // 连接当成直连 SSH 交给 per-window Node Host，且拿不到 Profile 里的凭据引用。
+  const profileScope = {
+    profileId: history.profileId,
+    ...((history.sourceServerId ?? profile.sourceServerId)
+      ? { sourceServerId: history.sourceServerId ?? profile.sourceServerId }
+      : {}),
+  };
   // 旧历史可能只有 session 凭据引用；仅相同认证配置且 Profile 没有新引用时兼容。
   // 更换私钥后不能把旧密码/口令带给新密钥，也不能把旧口令引用误判成仍需凭据。
   if (
@@ -143,12 +151,13 @@ function resolveSshReconnectSnapshot(params: {
     target.privateKeyPath === previous.privateKeyPath
   ) {
     return {
+      ...profileScope,
       ...target,
       passwordCredentialKey: previous.passwordCredentialKey,
       privateKeyPassphraseCredentialKey: previous.privateKeyPassphraseCredentialKey,
     };
   }
-  return target;
+  return { ...profileScope, ...target };
 }
 
 export async function reconnectRemoteWorkspaceHistoryEntry({

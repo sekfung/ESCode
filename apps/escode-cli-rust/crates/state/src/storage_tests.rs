@@ -255,3 +255,30 @@ async fn queue_disposition_and_new_input_commit_or_roll_back_together() {
     assert_eq!(acks["next"]["status"], "accepted");
     assert!(session.pending_acks.is_empty());
 }
+
+#[tokio::test]
+async fn cold_load_strips_turn_header_decode_stats() {
+    use crate::contract::SessionStore;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("decode.sqlite");
+    let store = Store::open(path.clone()).await.unwrap();
+    let mut session = Session::new(
+        "s".into(),
+        "w".into(),
+        "p".into(),
+        "m".into(),
+        "none".into(),
+        "e".into(),
+        1,
+    );
+    // 行是落库派生投影；Node 冷恢复重建 turnHeader 时不含轮末解码统计。
+    session.rows = vec![
+        json!({"rowId":1,"kind":"turnHeader","decodeMs":500,"decodeTokens":10}),
+        json!({"rowId":2,"kind":"toolCall","decodeMs":1}),
+    ];
+    store.commit("w", Some(&mut session), None).await.unwrap();
+    let loaded = store.load_session("w", "s").await.unwrap().unwrap();
+    assert!(loaded.rows[0].get("decodeMs").is_none());
+    assert!(loaded.rows[0].get("decodeTokens").is_none());
+    assert_eq!(loaded.rows[1]["decodeMs"], 1);
+}

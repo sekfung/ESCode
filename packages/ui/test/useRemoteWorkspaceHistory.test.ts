@@ -329,6 +329,69 @@ describe("reconnectRemoteWorkspaceHistoryEntry", () => {
     });
   });
 
+  it("restores the Connection Profile scope when reconnecting from source-server history", async () => {
+    const profileId = "17ef20b3-622d-4a53-98c1-0cdff29f3e6d";
+    const sourceServerId = "ea0c1d1c-9c43-4a88-8f3e-3b2f0e2b7f4a";
+    const sessionEntry = createRemoteWorkspaceSessionEntry({
+      workspacePath: "/repo/demo",
+      workspaceIdentity: "remote:ssh:demo.internal:22:root:/repo/demo",
+      target: { kind: "ssh", host: "demo.internal", username: "root" },
+    });
+    const connectRemoteWorkspaceTarget = vi.fn(async () => "session-1");
+
+    await reconnectRemoteWorkspaceHistoryEntry({
+      sessionEntry,
+      activateTabByPath: vi.fn(() => false),
+      setReconnectingRemoteWorkspaceKeys: vi.fn((updater) => updater([])),
+      loadCredential: vi.fn(async () => "profile-password"),
+      getSettings: async () =>
+        ({
+          sourceServerWorkspaceHistory: [
+            {
+              workspacePath: "/repo/demo",
+              workspaceIdentity: "remote:ssh:demo.internal:22:root:/repo/demo",
+              profileId,
+              sourceServerId,
+              lastOpenedAt: 1,
+            },
+          ],
+          connectionProfiles: [
+            {
+              profileId,
+              sourceServerId,
+              transport: "ssh",
+              target: {
+                kind: "ssh",
+                host: "demo.internal",
+                username: "root",
+                passwordCredentialKey: "connection-profile:p:password",
+              },
+              createdAt: 1,
+            },
+          ],
+        }) as never,
+      connectRemoteWorkspaceTarget,
+      resolveRemoteWorkspaceCanonicalPath: vi.fn(async () => "/repo/demo"),
+      bindRemoteWorkspaceScope: createBindRemoteWorkspaceScopeMock(
+        "remote:ssh:demo.internal:22:root:/repo/demo",
+      ),
+      disposeRemoteWorkspaceSession: vi.fn(async () => undefined),
+      bindRemoteWorkspacePath: vi.fn(),
+      bindRemoteWorkspaceIdentity: vi.fn(),
+      upsertWorkspaceTab: vi.fn(),
+      commitRemoteWorkspaceSessionMutation: vi.fn(async (mutation) => mutation.entry),
+      getRemoteSessions: () => [sessionEntry],
+      logger: { warn: vi.fn() },
+      toast: vi.fn(),
+    });
+
+    expect(connectRemoteWorkspaceTarget).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "ssh", profileId, sourceServerId }),
+      undefined,
+      expect.anything(),
+    );
+  });
+
   it("keeps the current conversation mounted until reconnect is ready, then activates the remote draft", async () => {
     const activateTabByPath = vi.fn(() => true);
     const setReconnectingRemoteWorkspaceKeys = vi.fn((updater) => {
@@ -1157,6 +1220,8 @@ describe("openRemoteConversationWorkspace", () => {
       expect(connectRemoteWorkspaceTarget).toHaveBeenCalledWith({
         kind: "docker",
         container: "dev",
+        sourceServerId: "source-1",
+        profileId: "profile-1",
       });
       expect(selectRemoteWorkspace).toHaveBeenCalledWith(
         "conversation-session",

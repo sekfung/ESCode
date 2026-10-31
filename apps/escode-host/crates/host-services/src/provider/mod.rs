@@ -67,6 +67,8 @@ struct Loaded {
     builtin_providers: ProviderMap,
     /// Personal 文件的内容版本（`Doc::revision`；文件缺失/无效 = 空配置的版本）。
     personal_revision: String,
+    /// Personal 文件声明的 providerOrder（空配置 = 空数组）。
+    personal_provider_order: Vec<String>,
 }
 
 /// 指纹不变时两次真读之间的最长间隔（兜底：Windows 没有 inode/ctime，同粒度原地写可能骗过指纹）。
@@ -156,6 +158,8 @@ pub struct ProviderService {
     state: Mutex<State>,
     /// 修订号变化广播（`onDidChange` 的唯一源头；见 `service_events`）。
     changes: tokio::sync::watch::Sender<u64>,
+    /// Personal 写入成功后的专用通知（Provisioning 触发；Built-in 变化不触发）。
+    personal_changes: tokio::sync::watch::Sender<u64>,
     polling: std::sync::atomic::AtomicBool,
     poll_interval: std::time::Duration,
 }
@@ -182,6 +186,7 @@ impl ProviderService {
             write_gate: AsyncMutex::new(()),
             state: Mutex::default(),
             changes: tokio::sync::watch::channel(0).0,
+            personal_changes: tokio::sync::watch::channel(0).0,
             polling: std::sync::atomic::AtomicBool::new(false),
             poll_interval: service_events::POLL_INTERVAL,
         }
@@ -284,6 +289,12 @@ impl ProviderService {
             personal_providers: personal.providers,
             builtin_providers: builtin.providers,
             personal_revision,
+            personal_provider_order: match &personal_value {
+                Some(value) => personal::Doc::decode(value)
+                    .map(|doc| doc.provider_order.unwrap_or_default())
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            },
         });
         state.loaded = Some(Arc::clone(&loaded));
         state.gate.record(stamps, std::time::Instant::now());
@@ -371,6 +382,57 @@ impl ProviderService {
                 .collect(),
             resolved: &loaded.resolved,
         }))
+    }
+
+    /// Personal 写入成功的专用通知（S4-g Provisioning 触发）。
+    ///
+    /// 只有本进程的 Personal 写路径会推进该序号；Built-in 刷新或外部文件变化不触发。
+    pub fn watch_personal_changes(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.personal_changes.subscribe()
+    }
+
+    /// Provisioning Source 的 Personal Config：返回 `encodeProviderConfigFile(personal).config`。
+    ///
+    /// 修复：不能直接复用 Registry 的“坏文件降级为空配置”，否则会把读坏的 Personal 当成空配置
+    /// 下发给远端。这里按 TS `readProvisionablePersonalConfig` 重读文件并校验修订号，文件缺失
+    /// 只在 Personal 确实为空时合法。
+    pub async fn personal_config_for_provisioning(&self) -> Result<Value> {
+        let loaded = self.load().await?;
+        let raw = match tokio::fs::read_to_string(&self.personal_path).await {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let empty = loaded.personal_providers.0.is_empty()
+                    && loaded.personal_rules.is_empty()
+                    && loaded.personal_provider_order.is_empty()
+                    && loaded.default_selection.is_none();
+                if empty {
+                    return Ok(personal::Doc::empty().encode()["config"].clone());
+                }
+                return Err(anyhow::anyhow!(
+                    "本地 Personal Provider Config 无法同步: {}",
+                    self.personal_path.display()
+                ));
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let value: Value = serde_json::from_str(&raw).map_err(|error| {
+            anyhow::anyhow!(
+                "本地 Personal Provider Config 无法同步: {}: {error}",
+                self.personal_path.display()
+            )
+        })?;
+        let doc = personal::Doc::decode(&value).map_err(|error| {
+            anyhow::anyhow!(
+                "本地 Personal Provider Config 无法同步: {}: {error:#}",
+                self.personal_path.display()
+            )
+        })?;
+        if doc.revision() != loaded.personal_revision {
+            return Err(anyhow::anyhow!(
+                "Personal Provider Config 在读取期间发生变化"
+            ));
+        }
+        Ok(doc.encode()["config"].clone())
     }
 }
 

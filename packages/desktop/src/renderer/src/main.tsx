@@ -272,7 +272,7 @@ function renderDatabaseStartup(): void {
 function enterAppIfPrepared(): void {
   if (appInitialized) return;
   const port = databaseStartupAdmission.takeReadyPort();
-  if (port) initializeBusinessRoot(port);
+  if (port) void initializeBusinessRoot(port);
 }
 const firstStartupStateTimer =
   windowKind === "update-status"
@@ -294,20 +294,22 @@ const firstStartupStateTimer =
         renderDatabaseStartup();
       }, 30_000);
 
-function registerRemoteWorkspaceServicePort(params: RemoteWorkspaceServicePortRegistration) {
+async function registerRemoteWorkspaceServicePort(params: RemoteWorkspaceServicePortRegistration) {
   if (!baseServicesForRemoteSessions) {
     return;
   }
 
   const remoteConnection = createMessagePortServiceConnection(params.port);
-  const remoteServices = remoteConnection.services;
+  // services 在 Initialize（含 channel 能力广播）之后才构建。
+  const remoteServices = await remoteConnection.ready;
   const services =
     params.target.kind === "server"
       ? buildServerRemoteWorkspaceSessionServices(baseServicesForRemoteSessions, remoteServices)
       : buildRemoteWorkspaceSessionServices(baseServicesForRemoteSessions, remoteServices);
+  // scope（sourceServerId/workspacePath/workspaceIdentity）由 Main 权威投递，原样写入 session store。
+  const { attachmentId: _attachmentId, port: _port, ...session } = params;
   registerRemoteWorkspaceSession({
-    sessionId: params.sessionId,
-    target: params.target,
+    ...session,
     services,
     dispose: (reason) =>
       remoteConnection.dispose(reason ?? createRemoteWorkspaceDisconnectedError()),
@@ -386,7 +388,7 @@ function handleServicePortMessage(event: MessageEvent): void {
       return;
     }
 
-    registerRemoteWorkspaceServicePort(remoteWorkspacePort);
+    void registerRemoteWorkspaceServicePort(remoteWorkspacePort);
     return;
   }
 
@@ -402,13 +404,13 @@ function handleServicePortMessage(event: MessageEvent): void {
   enterAppIfPrepared();
 }
 
-function initializeBusinessRoot(port: MessagePort): void {
+async function initializeBusinessRoot(port: MessagePort): Promise<void> {
   appInitialized = true;
   stopStartupSnapshotRetry();
-  const services = connectViaMessagePort(port);
+  const services = await connectViaMessagePort(port);
   baseServicesForRemoteSessions = services;
   registerBaseWorkspaceServices(services);
-  flushPendingRemoteWorkspaceServicePorts();
+  void flushPendingRemoteWorkspaceServicePorts();
   const settingService = supportsSettings ? services.settingService : undefined;
 
   // 初始化稳定的设备 ID，确保所有 hook 在首次渲染前就使用正确的值

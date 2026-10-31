@@ -102,7 +102,7 @@ impl Engine {
                     let _ = reply.send(json!({"headersApplied": true, "requestAuth": auth}));
                     return;
                 }
-                let request_id = format!("rust-auth-{}", self.clock.id());
+                let request_id = self.next_server_request_id();
                 let workspace = json!({"workspaceKey":self.workspace,"workspacePath":self.workspace_path,"workspaceIdentity":self.workspace});
                 let params = json!({"requestId":request_id,"sessionId":id,"turnId":turn,"workspace":workspace,"providerId":provider,"modelSelection":selection,"accountAccess":access,"reason":"model-request"});
                 self.auth.insert(

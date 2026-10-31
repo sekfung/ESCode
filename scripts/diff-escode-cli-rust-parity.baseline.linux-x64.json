@@ -1,0 +1,4 @@
+{
+  "_readme": "未分类欠账基线（scripts/diff-escode-cli-rust-parity.mjs --update-baseline 写入）。指纹已登记的差异不再判失败，但会列在报告里；修复后指纹消失即自动收敛（可再跑 --update-baseline 清理）。",
+  "session-baseline": []
+}

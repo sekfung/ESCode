@@ -92,6 +92,80 @@ test("node_repl is registered and runs JavaScript the same way as Node", async (
   assert.deepEqual(rust, node);
 });
 
+// docs/specs/rust-mcp-parity.md「大结果预算」：node_repl 的 js 超过 64 KiB 时按 artifact 策略
+// 写完整输出，并只向模型返回 <persisted-output> 信封（十进制字节 + 2 000 字符预览）。
+// artifact 路径含临时根、会话与 artifact id，先归一化再比较信封正文。
+async function observeLargeResult(kind: "node" | "rust") {
+  let toolResult: unknown;
+  const respond = (req: any, res: any) => {
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    if (req.messages.at(-1).role !== "tool") {
+      event(res, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "c1",
+            type: "function",
+            function: {
+              name: "mcp__node_repl__js",
+              arguments: JSON.stringify({
+                title: "Large",
+                code: 'console.log("x".repeat(70000))',
+              }),
+            },
+          },
+        ],
+      });
+      end(res, "tool_calls");
+    } else {
+      toolResult = req.messages.at(-1).content;
+      event(res, { content: "done" });
+      end(res, "stop");
+    }
+  };
+  const f =
+    kind === "node"
+      ? await fixture({
+          command: process.execPath,
+          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          registry: true,
+          respond,
+          mode: "yolo",
+          env,
+        })
+      : await fixture({ registry: true, respond, mode: "yolo", env });
+  try {
+    await configureRegistry(f, false);
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    await h.command(h.envelope("sendText", id, { text: "run js" }));
+    await h.completed(id);
+    await h.close();
+    if (typeof toolResult !== "string") throw new Error("tool result missing");
+    // artifact 根由启动参数决定（Rust fixture 传 --data-dir，Node 用 HOME/.escode），路径分隔符随平台，
+    // 属环境事实；信封结构、字节数与文件名仍逐字比较。
+    const toSlash = (value: string) => value.replaceAll("\\", "/");
+    return toSlash(toolResult)
+      .replaceAll(toSlash(f.root), "<root>")
+      .replaceAll("<root>/data/tool-results/", "<artifacts>/")
+      .replaceAll("<root>/.escode/cli/artifacts/", "<artifacts>/")
+      .replace(/tool-result-[0-9a-f-]{36}/g, "tool-result-<uuid>")
+      .replace(/sess_[0-9a-f-]{36}/g, "sess_<id>");
+  } finally {
+    await f.close();
+  }
+}
+
+test("node_repl large js output is persisted to an artifact with the same envelope as Node", async () => {
+  const node = await nodeOracle("largeResult", () => observeLargeResult("node"));
+  const rust = await observeLargeResult("rust");
+  assert.deepEqual(rust, node);
+  // Node resultBudget 的 artifact 路径：完整输出落盘、模型只看信封。
+  assert.match(node, /^<persisted-output>\nOutput too large \(70 KB\)\. Full output saved to: /);
+  assert.match(node, /\n\nPreview \(first 2 KB\):\nx{2000}\n\.\.\.\n<\/persisted-output>$/);
+});
+
 // 第 2 期：node_repl 经私有 broker 访问浏览器，runtime 把 list/execute 转成 Host 的
 // interaction/browserList / interaction/browserExecute（请求上下文逐项一致）。
 const BROWSER_JS = [

@@ -14,6 +14,8 @@ export interface RemoteConnectionFlowOptions {
     sourceServerId: string | undefined,
     canDeliver?: () => boolean,
   ) => void | Promise<void>;
+  /** Q3 兼容：Node Host 无 Source 身份时，设备管理入口回退普通目录流程。 */
+  allowUnidentifiedDeviceManagement?: boolean;
   /** 只有用户明确取消才触发；成功关闭和后台收起不触发。 */
   onCancelled?: (background?: boolean) => void;
   initialFailure?: RemoteConnectionOpenPreference["initialFailure"];
@@ -63,6 +65,7 @@ export function normalizeRemoteConnectionOptions({
   openIntentId,
   completion,
   onDeviceConnected,
+  allowUnidentifiedDeviceManagement,
   onCancelled,
   onConnect,
   onConnectionReady,
@@ -89,6 +92,7 @@ export function normalizeRemoteConnectionOptions({
     openIntentId,
     completion,
     onDeviceConnected,
+    allowUnidentifiedDeviceManagement,
     onCancelled,
     onConnect,
     onConnectionReady,

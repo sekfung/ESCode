@@ -93,6 +93,7 @@ impl ModelPort for Model {
         }
         Ok(ModelOutput {
             response_id: String::new(),
+            decode_ms: None,
             message,
             calls,
             usage: json!({}),

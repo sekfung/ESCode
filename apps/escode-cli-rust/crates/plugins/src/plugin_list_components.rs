@@ -24,9 +24,16 @@ pub async fn components(plugin: &plugins::Plugin) -> Result<Value> {
     if !skills.is_empty() {
         groups.push(json!({"kind": "skill", "items": skills}));
     }
-    // hook 组留到第 4 期：TS 用 loader 的 hook 源发现（manifest hooks + hook 文件，且要过
-    // `canRunPluginHooks`）而不是直接读 manifest 键，本机 fixture 里 manifest 声明并不出现在
-    // Node 的列表里。宁可少一组，也不输出 Node 不会显示的名字。
+    // hook 组来自发现阶段的 hook 源解析（manifest hooks + hook 文件），与 TS `listPluginHookEventNames`
+    // 同口径：只列受支持事件名，非法 matcher 不影响分组。
+    if !plugin.hook_events.is_empty() {
+        let items: Vec<Value> = plugin
+            .hook_events
+            .iter()
+            .map(|name| json!({ "name": name }))
+            .collect();
+        groups.push(json!({"kind": "hook", "items": items}));
+    }
     let mcp: Vec<Value> = mcp_config::plugin_definitions(plugin)
         .await?
         .keys()

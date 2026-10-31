@@ -8,6 +8,7 @@ import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { z } from "zod";
 import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { projectRows } from "./escode-cli-rust-row-projection.js";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
@@ -79,6 +80,7 @@ async function observe(
     const observation = {
       // docs/specs/rust-row-projection.md：逐行字段集合与关键字段取值（id/时间戳只比较存在性与关系）。
       rowFields: rows.map((r) => [r.kind, Object.keys(r).sort()]),
+      rowValues: projectRows(rows, [f.cwd]),
       rowFacts: rows.map((r: any) => ({
         kind: r.kind,
         visibility: r.visibility,
@@ -152,6 +154,7 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
   assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ");
   assert.deepEqual(rust.rowFields, node.rowFields, "row field sets differ");
   assert.deepEqual(rust.rowFacts, node.rowFacts, "row field values differ");
+  assert.deepEqual(rust.rowValues, node.rowValues, "row values differ");
   assert.deepEqual(node.toolNames, rust.toolNames, "tool names differ");
   assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ");
   assert.deepEqual(node.schemaErrors, []);
@@ -168,6 +171,7 @@ test("Node and Rust project the same rows when a tool call fails", async () => {
   assert.deepEqual(node.rowKinds, rust.rowKinds, "row kinds differ on tool failure");
   assert.deepEqual(node.toolStatuses, rust.toolStatuses, "tool statuses differ on tool failure");
   assert.deepEqual(node.toolErrorCodes, rust.toolErrorCodes, "tool error codes differ");
+  assert.deepEqual(rust.rowValues, node.rowValues, "row values differ on tool failure");
   assert.deepEqual(node.rowTexts, rust.rowTexts, "assistant texts differ on tool failure");
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);

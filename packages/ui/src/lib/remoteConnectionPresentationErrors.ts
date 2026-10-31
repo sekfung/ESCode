@@ -4,6 +4,8 @@ import {
   REMOTE_RECOVERY_BUDGET_EXHAUSTED_ERROR_CODE,
   REMOTE_WORKSPACE_BIND_SESSION_MISSING_ERROR_CODE,
   REMOTE_WORKSPACE_DIRECTORY_UNAVAILABLE_ERROR_CODE,
+  PROVIDER_PROVISIONING_FAILED_ERROR_CODE,
+  PROVIDER_PROVISIONING_UNSUPPORTED_ERROR_CODE,
   SOURCE_SERVER_INSTALL_REQUIRED_ERROR_CODE,
   SOURCE_SERVER_IDENTITY_CHANGE_PENDING_ERROR_CODE,
   SOURCE_SERVER_UPDATE_RUNNING_TASKS_ERROR_CODE,
@@ -66,6 +68,8 @@ const messageIdByCode: Record<PublicESCodeErrorCode, string> = {
     "settings.source.error.source-server-remove-callback-failed",
   [SOURCE_SERVER_REMOVE_PERSIST_FAILED_ERROR_CODE]:
     "settings.source.error.source-server-remove-persist-failed",
+  [PROVIDER_PROVISIONING_FAILED_ERROR_CODE]: "remote.error.providerProvisioningFailed",
+  [PROVIDER_PROVISIONING_UNSUPPORTED_ERROR_CODE]: "remote.error.providerProvisioningUnsupported",
 };
 
 export function classifyRemoteConnectionError(input: {

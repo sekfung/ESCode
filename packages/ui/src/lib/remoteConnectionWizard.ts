@@ -309,12 +309,30 @@ export function withDefaultRemoteResourcePackages(target: RemoteTarget): RemoteT
 }
 
 /** 将已保存线路转换成不含凭据的连接目标，凭据仍由 Host Directory 权威解析。 */
+/**
+ * Connection Profile → 脱敏远端目标（S3-c，`source-server-remote-rust-host.md` §10.12）。
+ *
+ * `profileId` / `sourceServerId` 让 Main 知道连接事实由 Rust Host 按 profile 建立；其余字段只是
+ * 展示与历史恢复用的快照（凭据仍由 profile + credential 域提供，不在这里展开）。
+ */
+function profileScopeFields(profile: ConnectionProfile): {
+  profileId: string;
+  sourceServerId?: string;
+} {
+  return {
+    profileId: profile.profileId,
+    ...(profile.sourceServerId ? { sourceServerId: profile.sourceServerId } : {}),
+  };
+}
+
 export function buildRemoteTargetFromProfile(
   profile: ConnectionProfile,
 ): Exclude<RemoteTarget, { kind: "server" }> {
+  const scope = profileScopeFields(profile);
   switch (profile.target.kind) {
     case "ssh":
       return {
+        ...scope,
         kind: "ssh",
         host: profile.target.host,
         ...(profile.target.port ? { port: profile.target.port } : {}),
@@ -327,12 +345,13 @@ export function buildRemoteTargetFromProfile(
       };
     case "wsl":
       return {
+        ...scope,
         kind: "wsl",
         ...(profile.target.distro ? { distro: profile.target.distro } : {}),
         ...(profile.target.user ? { user: profile.target.user } : {}),
       };
     case "docker":
-      return { kind: "docker", container: profile.target.container };
+      return { ...scope, kind: "docker", container: profile.target.container };
   }
 }
 

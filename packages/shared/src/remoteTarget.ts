@@ -1,7 +1,16 @@
 import type { RemoteAssetInstallMode } from "./remoteAssetInstallMode.js";
 import type { RemoteResourcePackageSelection } from "./remoteResourcePackages.js";
 
-export interface SSHConnectOptions {
+/**
+ * Connection Profile 描述这条远端连接时的两个标识（S3-c：`source-server-remote-rust-host.md` §10.12）。
+ * 携带 `profileId` 表示连接事实由 Rust Host 按 profile 建立；其余字段只是脱敏快照。
+ */
+export interface ProfileScopedRemoteTarget {
+  sourceServerId?: string;
+  profileId?: string;
+}
+
+export interface SSHConnectOptions extends ProfileScopedRemoteTarget {
   kind: "ssh";
   host: string;
   port?: number;
@@ -14,13 +23,21 @@ export interface SSHConnectOptions {
   resourcePackages?: RemoteResourcePackageSelection;
 }
 
-export interface WSLConnectOptions {
+export interface WSLConnectOptions extends ProfileScopedRemoteTarget {
   kind: "wsl";
   distro?: string;
   user?: string;
 }
 
-export interface DockerConnectOptions {
+/**
+ * WSL 目标经 canonical 解析后的形态（`distro` / `user` 必有）。
+ *
+ * 直接写 `Required<WSLConnectOptions>` 会把后加的可选字段（`sourceServerId`/`profileId`）
+ * 也算成必填，失去“只要求解析结果字段”的语义。
+ */
+export type ResolvedWSLConnectOptions = WSLConnectOptions & { distro: string; user: string };
+
+export interface DockerConnectOptions extends ProfileScopedRemoteTarget {
   kind: "docker";
   container: string;
 }

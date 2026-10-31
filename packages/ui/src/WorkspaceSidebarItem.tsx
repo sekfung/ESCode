@@ -62,6 +62,7 @@ import {
   TID_WORKSPACE_FILE_TREE_BUTTON,
   TID_WORKSPACE_ITEM,
   TID_WORKSPACE_MORE_BUTTON,
+  TID_WORKSPACE_RECONNECT,
   testId,
 } from "@escode/shared";
 import type { ESCodeTaskMeta } from "@escode/shared";
@@ -1078,6 +1079,7 @@ export const WorkspaceSidebarItem = memo(function WorkspaceSidebarItem({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
+                            data-testid={testId(TID_WORKSPACE_RECONNECT, tab.workspacePath)}
                             className="shrink-0 text-foreground opacity-100 hover:bg-surface-hover hover:text-foreground disabled:opacity-100"
                             onMouseDown={handleActionMouseDown}
                             onClick={handleReconnectRemoteWorkspace}

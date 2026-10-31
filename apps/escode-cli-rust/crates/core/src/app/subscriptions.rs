@@ -254,8 +254,6 @@ impl Engine {
         session.seq += deltas.len() as u64;
         let to = session.seq;
         session.delta_log.push(from, &deltas);
-        let summary = session.summary();
-        let listed = session.listed && !session.archived;
         let topic = format!("conversation/{id}");
         let ids = self
             .subscriptions
@@ -272,6 +270,14 @@ impl Engine {
                 json!({"kind":"deltas","deltas":deltas}),
             )?;
         }
+        self.publish_index_state(id)
+    }
+    /// 只刷新 `sessions-index` 主题（用于 draft 创建：不产生会话可见增量）。
+    pub(super) fn publish_index_state(&mut self, id: &str) -> Result<()> {
+        let (summary, listed) = match self.sessions.get(id) {
+            Some(session) => (session.summary(), session.listed && !session.archived),
+            None => return Ok(()),
+        };
         self.publish_index(id, listed.then_some(summary))
     }
     pub(super) fn publish_index(&mut self, id: &str, summary: Option<Value>) -> Result<()> {

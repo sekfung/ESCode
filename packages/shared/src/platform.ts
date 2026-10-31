@@ -2,6 +2,7 @@
 import type {
   DockerConnectOptions,
   RemoteTarget,
+  ResolvedWSLConnectOptions,
   SSHConnectOptions,
   WSLConnectOptions,
 } from "./remoteTarget.js";
@@ -757,7 +758,7 @@ export interface IPlatformService {
     /** 安装/升级等待时由 Host 确认的实际连接线路。 */
     profileId?: string;
     /** WSL 安装/升级等待使用本次已解析身份；预览失败也不能重新选择系统默认值。 */
-    resolvedWslTarget?: Required<WSLConnectOptions>;
+    resolvedWslTarget?: ResolvedWSLConnectOptions;
   }>;
 
   /** Desktop-only：请求在线 Source 的无 workspace 配置 attachment。 */

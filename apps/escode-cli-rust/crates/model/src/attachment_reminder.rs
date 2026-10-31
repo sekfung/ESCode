@@ -34,16 +34,47 @@ pub(super) fn reminder_message(label: &str, text: &str, size_bytes: usize) -> Va
     json!({"role": "user", "content": wrap(&read_like_body(label, text, size_bytes))})
 }
 
+/// 本地文本附件的已落盘预览：直接使用 TS 的 `totalLines` / `partialViewNotice`，不再重新截断。
+pub(super) fn reminder_message_preview(
+    label: &str,
+    text: &str,
+    total_lines: Option<u64>,
+    notice: Option<&str>,
+) -> Value {
+    let label = sanitize_label(label);
+    let body = [
+        format!(
+            "Called the Read tool with the following input: {}",
+            json!({ "file_path": label })
+        ),
+        format!(
+            "Result of calling the Read tool:\n{}",
+            read_output_with(text, notice, total_lines)
+        ),
+    ]
+    .join("\n");
+    json!({"role": "user", "content": wrap(&body)})
+}
+
 /// TS `formatReadTextOutput`（从第 1 行起）：可选的部分视图提示 + 逐行编号（内容已 CRLF 归一）。
 fn read_output(content: &str, partial_view_notice: Option<&str>) -> String {
+    read_output_with(content, partial_view_notice, None)
+}
+
+fn read_output_with(
+    content: &str,
+    partial_view_notice: Option<&str>,
+    total_lines: Option<u64>,
+) -> String {
     let prefix = partial_view_notice
         .map(|n| format!("<system-reminder>{n}</system-reminder>\n\n"))
         .unwrap_or_default();
     if content.is_empty() {
         // 与 TS 实测一致（差分用例 empty）：TS 读取器对空文件报告 totalLines=1，
         // formatReadTextOutput 因此走「短于 offset」分支，而不是 EMPTY_FILE_REMINDER。
+        let total = total_lines.unwrap_or(1);
         return format!(
-            "{prefix}<system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.</system-reminder>"
+            "{prefix}<system-reminder>Warning: the file exists but is shorter than the provided offset (1). The file has {total} lines.</system-reminder>"
         );
     }
     let numbered = content

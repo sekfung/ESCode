@@ -12,7 +12,12 @@ function logMessagePortDebug(message: string): void {
 }
 
 export interface MessagePortServiceConnection {
-  services: IServiceAccessor;
+  /**
+   * 服务访问器：Initialize（含 channel 能力广播）之后才构建，可选服务按能力绑定。
+   * 端口在握手前被释放时仍会 resolve（能力未知），调用自行以连接错误失败。
+   */
+  ready: Promise<IServiceAccessor>;
+  /** 可在握手完成前调用：关闭协议并让 `ready` 立刻 resolve。 */
   dispose: (reason?: Error) => void;
 }
 
@@ -33,10 +38,17 @@ export function createMessagePortServiceConnection(
   });
   logMessagePortDebug("[messageport] client created, waiting for Initialize...");
 
-  const services = new RemoteServiceAccess(client);
+  // Initialize 携带 channel 能力广播；等服务端握手完成后再建服务访问器，
+  // 否则可选服务（如 `source-server-management`）会在能力未知时被判为不可用。
+  // 端口在握手前被释放时 `waitUntilInitialized` 会拒绝，这里退回“能力未知”语义：
+  // 访问器照旧构建（可选服务不绑定），后续调用以 ConnectionClosed 失败——与原同步构造一致。
+  const ready = client
+    .waitUntilInitialized()
+    .catch(() => undefined)
+    .then(() => new RemoteServiceAccess(client));
   let disposed = false;
   return {
-    services,
+    ready,
     dispose: (reason?: Error) => {
       if (disposed) {
         return;
@@ -54,6 +66,6 @@ export function createMessagePortServiceConnection(
  * Desktop 模式下，utilityProcess（或 main 进程的远程代理）通过 MessagePort
  * 暴露 ChannelServer，renderer 用此函数建立 ChannelClient 连接。
  */
-export function connectViaMessagePort(port: MessagePort): IServiceAccessor {
-  return createMessagePortServiceConnection(port).services;
+export async function connectViaMessagePort(port: MessagePort): Promise<IServiceAccessor> {
+  return await createMessagePortServiceConnection(port).ready;
 }

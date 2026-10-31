@@ -631,6 +631,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "encoding_rs",
  "escode-cli-core-api",
  "escode-cli-domain",
  "escode-cli-protocol",
@@ -853,10 +854,12 @@ name = "escode-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "escode-cli-core-api",
  "escode-cli-net",
  "escode-cli-rust",
  "escode-host-control",
+ "escode-host-core",
  "escode-host-rpc",
  "escode-host-runtime",
  "escode-host-services",
@@ -920,6 +923,7 @@ dependencies = [
  "escode-cli-host",
  "escode-cli-rust",
  "escode-host-control",
+ "escode-host-core",
  "escode-host-proto",
  "escode-host-runtime",
  "escode-host-services",

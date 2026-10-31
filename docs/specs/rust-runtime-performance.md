@@ -105,3 +105,24 @@ CI 三平台（run 36237407731，提交 ac2d0db，5 次配对中位数，GitHub 
 发 started/completed/failed 事件（requestId、provider/model、transport、attempt/maxAttempts、
 queuedMs、durationMs、TTFB/TTFT、失败 reason/retryable）、Rust 侧实现等价的 TTFT 记录器与帧挂载、
 并按 Node 的 batch 上报语义发 host 通道。规模接近一个小工作包，未在本次实施。
+
+## 2026-10-31：大活跃历史离线基线
+
+`packages/services/tests/escode-cli-rust-long-history-bench.test.ts` 新增 `ESCODE_BENCH_FIXTURE=1`：
+用真实 TS `createSqliteSessionStore` 写入 300 轮历史，Node bundle 与 Rust runtime 各跑 5 轮交错，
+测量首次打开（Rust 含一次性导入）、二次打开、`rows` 单页和下一轮 mock provider 延迟。
+
+Linux x64 本机结果：Node 二次打开 p50 2073ms、Rust 358ms；首次打开 2277/685ms；`rows` 200 行
+5/20ms；下一轮 mock 首输出 553/166ms。Rust 使用 debug 二进制，只用于同机相对比较。
+
+2000 轮 / 3 次交错（TS 库 4.1 MiB）：Node 首次/二次打开 2567/2343ms，Rust 7643/623ms；
+`rows` 200 行 5/22ms；下一轮 mock 首输出 1330/551ms。一次性导入随历史线性增长，二次打开仍明显快于 Node。
+
+10000 轮 / 1 次（TS 库 18.65 MiB，`ESCODE_BENCH_SKIP_TURN=1` 只测打开与分页）：Node 首次/二次打开
+3898/3678ms，Rust 222148/1748ms；`rows` 200 行 5/22ms。10k 轮已超过 mock provider 的上下文窗口，
+该规模不测下一轮，不能据此推断真实供应商长尾。
+同一库的 release 二进制：Node 首次/二次打开 3890/3762ms，Rust 61838/409ms；`rows` 200 行 6/5ms。
+debug 的 222s 首次打开主要是一次性 TS 导入，release 降至 62s；稳态二次打开约 0.41s。
+
+完整方法、读法和仍缺口径见 [大活跃历史离线基线](../reports/rust-long-history-fixture-2026-10-31.md)。
+真实供应商、流式稳定阶段 RPC 长尾和 Windows/macOS 原生测量仍未完成。

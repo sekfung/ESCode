@@ -1,7 +1,8 @@
 //! 项目/任务组织态的 SQLite 读写（对齐上游 `project-storage/project-repository.ts`）。
 //!
-//! Rust Host 只服务本地 workspace（远程仍由 Node Host，见 Q3），因此 ownerHostId 固定 `local`；
-//! 远端 single-root 约束由 Node Host 负责。表结构来自生成资产 `schema.rs`。
+//! S5-e 起 Rust Host 同时服务本地与远端 owner：`projects.host_id` / `tasks.host_id` 区分归属，
+//! `local` 是本地 host，`remote:server:<id>` 是 Source Server owner。表结构来自生成资产
+//! `schema.rs`；远端单 root 约束由 `project_write::save_project` 与 `prepareSession` 共同保证。
 
 use anyhow::{Result, bail};
 use rusqlite::{Connection, params};
@@ -83,43 +84,70 @@ fn project_roots(conn: &Connection) -> Result<Vec<(String, Value)>> {
     Ok(roots)
 }
 
-pub fn read_projects(conn: &Connection, include_deleted: bool) -> Result<Vec<Value>> {
+/// 项目列表。`host_id` 精确匹配 owner（本地为 `local`，远端为 `remote:server:<id>`）。
+pub fn read_projects(
+    conn: &Connection,
+    include_deleted: bool,
+    host_id: &str,
+) -> Result<Vec<Value>> {
+    read_projects_rows(conn, include_deleted, Some(host_id))
+}
+
+/// 按 id 读取单个项目（id 全局唯一，不按 host 过滤；调用方负责 host 归属校验）。
+fn read_projects_rows(
+    conn: &Connection,
+    include_deleted: bool,
+    host_id: Option<&str>,
+) -> Result<Vec<Value>> {
     let roots = project_roots(conn)?;
-    let sql = if include_deleted {
-        "SELECT project_id, host_id, name, name_overridden, position, pinned, deleted, created_at, updated_at FROM projects ORDER BY position, project_id"
-    } else {
-        "SELECT project_id, host_id, name, name_overridden, position, pinned, deleted, created_at, updated_at FROM projects WHERE deleted=0 ORDER BY position, project_id"
-    };
-    let mut statement = conn.prepare(sql)?;
-    let rows = statement.query_map([], |row| {
-        let id: String = row.get(0)?;
-        let project_roots = roots
-            .iter()
-            .filter(|(project_id, _)| project_id == &id)
-            .map(|(_, root)| root.clone())
-            .collect::<Vec<_>>();
-        Ok(json!({
-            "id": id,
-            "hostId": row.get::<_, String>(1)?,
-            "name": row.get::<_, String>(2)?,
-            "nameOverridden": row.get::<_, i64>(3)? == 1,
-            "position": row.get::<_, i64>(4)?,
-            "pinned": row.get::<_, i64>(5)? == 1,
-            "deleted": row.get::<_, i64>(6)? == 1,
-            "createdAt": row.get::<_, i64>(7)?,
-            "updatedAt": row.get::<_, i64>(8)?,
-            "roots": project_roots,
-        }))
-    })?;
-    let mut projects = Vec::new();
-    for row in rows {
-        projects.push(row?);
+    let mut sql = String::from(
+        "SELECT project_id, host_id, name, name_overridden, position, pinned, deleted, created_at, updated_at FROM projects",
+    );
+    let mut conditions: Vec<&str> = Vec::new();
+    if !include_deleted {
+        conditions.push("deleted=0");
     }
-    Ok(projects)
+    if host_id.is_some() {
+        conditions.push("host_id=?");
+    }
+    if !conditions.is_empty() {
+        sql.push_str(" WHERE ");
+        sql.push_str(&conditions.join(" AND "));
+    }
+    sql.push_str(" ORDER BY position, project_id");
+    let mut statement = conn.prepare(&sql)?;
+    let collect = |mut rows: rusqlite::Rows<'_>| -> Result<Vec<Value>> {
+        let mut projects = Vec::new();
+        while let Some(row) = rows.next()? {
+            let id: String = row.get(0)?;
+            let project_roots = roots
+                .iter()
+                .filter(|(project_id, _)| project_id == &id)
+                .map(|(_, root)| root.clone())
+                .collect::<Vec<_>>();
+            projects.push(json!({
+                "id": id,
+                "hostId": row.get::<_, String>(1)?,
+                "name": row.get::<_, String>(2)?,
+                "nameOverridden": row.get::<_, i64>(3)? == 1,
+                "position": row.get::<_, i64>(4)?,
+                "pinned": row.get::<_, i64>(5)? == 1,
+                "deleted": row.get::<_, i64>(6)? == 1,
+                "createdAt": row.get::<_, i64>(7)?,
+                "updatedAt": row.get::<_, i64>(8)?,
+                "roots": project_roots,
+            }));
+        }
+        Ok(projects)
+    };
+    match host_id {
+        Some(host_id) => collect(statement.query([host_id])?),
+        None => collect(statement.query([])?),
+    }
 }
 
 pub fn require_project(conn: &Connection, id: &str) -> Result<Value> {
-    read_projects(conn, true)?
+    read_projects_rows(conn, true, None)?
         .into_iter()
         .find(|project| project["id"] == id)
         .ok_or_else(|| anyhow::anyhow!("project.not-found"))
@@ -267,7 +295,8 @@ fn read_tasks(conn: &Connection) -> Result<Vec<Value>> {
         let archived: i64 = row.get("archived")?;
         let unread_at: Option<i64> = row.get("unread_at").ok();
         let project_id: Option<String> = row.get("project_id").ok();
-        let host_id: String = row.get("host_id")?;
+        // 旧行可能没有 host_id（早期写入只保留 workspace_key）；这些行属于本地 owner。
+        let host_id: Option<String> = row.get("host_id").ok().flatten();
         let created_at: Option<i64> = row.get("cli_created_at").ok();
         let updated_at: Option<i64> = row.get("cli_updated_at").ok();
         meta["taskId"] = json!(task_id);
@@ -302,7 +331,7 @@ fn read_tasks(conn: &Connection) -> Result<Vec<Value>> {
         meta["archived"] = json!(archived == 1);
         meta["unreadAt"] = json!(unread_at);
         meta["projectId"] = json!(project_id);
-        meta["hostId"] = json!(host_id);
+        meta["hostId"] = json!(host_id.unwrap_or_else(|| LOCAL_HOST.to_owned()));
         tasks.push(meta);
     }
     Ok(tasks)
@@ -313,22 +342,22 @@ pub fn read_tree(
     include_deleted: bool,
     include_deleted_tasks: bool,
     include_tasks: bool,
+    host_id: &str,
 ) -> Result<Value> {
     let read = || -> Result<Value> {
-        let projects = read_projects(conn, include_deleted)?
-            .into_iter()
-            .filter(|project| project["hostId"] == LOCAL_HOST)
-            .collect::<Vec<_>>();
+        let projects = read_projects(conn, include_deleted, host_id)?;
         let deleted_tasks = if include_deleted_tasks {
             let mut statement = conn.prepare(
-                "SELECT task_id, workspace_path, workspace_identity, host_id FROM tasks WHERE host_id=? AND (deleted=1 OR coalesce(cli_deleted,0)=1)",
+                "SELECT task_id, workspace_path, workspace_identity, host_id FROM tasks WHERE coalesce(host_id, 'local')=? AND (deleted=1 OR coalesce(cli_deleted,0)=1)",
             )?;
-            let rows = statement.query_map([LOCAL_HOST], |row| {
+            let rows = statement.query_map([host_id], |row| {
                 Ok(json!({
                     "taskId": row.get::<_, String>(0)?,
                     "workspacePath": row.get::<_, String>(1)?,
                     "workspaceIdentity": row.get::<_, Option<String>>(2)?,
-                    "hostId": row.get::<_, String>(3)?,
+                    "hostId": row
+                        .get::<_, Option<String>>(3)?
+                        .unwrap_or_else(|| LOCAL_HOST.to_owned()),
                 }))
             })?;
             let mut values = Vec::new();
@@ -342,7 +371,7 @@ pub fn read_tree(
         let tasks = if include_tasks {
             read_tasks(conn)?
                 .into_iter()
-                .filter(|task| task["hostId"] == LOCAL_HOST)
+                .filter(|task| task["hostId"] == host_id)
                 .collect()
         } else {
             Vec::new()

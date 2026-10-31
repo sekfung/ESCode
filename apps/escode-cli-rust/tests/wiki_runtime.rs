@@ -78,6 +78,7 @@ impl ModelPort for Model {
         Ok(ModelOutput {
             response_id: String::new(),
             output_limit: false,
+            decode_ms: None,
             message,
             calls,
             usage: json!({"prompt_tokens": 1, "completion_tokens": 1}),

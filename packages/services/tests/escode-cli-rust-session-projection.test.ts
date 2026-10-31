@@ -34,6 +34,47 @@ test("Rust local and remote snapshots preserve workspace identity through cold r
   }
 });
 
+test("Rust draft V4 snapshot matches Node's initial projection shape", async () => {
+  const f = await fixture();
+  try {
+    const h = f.start();
+    const id = await h.create();
+    await h.subscribe(`conversation/${id}`);
+    const snapshot = await h.wait(
+      (m) =>
+        m.params?.frame?.payload?.kind === "snapshot" && m.params?.topic === `conversation/${id}`,
+    );
+    assert.equal(snapshot.params.frame.fromSeq, 0);
+    assert.equal(snapshot.params.frame.toSeq, 0);
+    const projection = snapshot.params.frame.payload.snapshot;
+    assert.equal(projection.seq, 0, "draft create must not advance the log sequence");
+    assert.equal(projection.revision, 0);
+    assert.equal(projection.control.phase, "draft");
+    assert.equal(projection.modelTransition, null);
+    assert.deepEqual(projection.subagents, {
+      revision: 0,
+      childSessionIds: [],
+      running: [],
+      endedTotal: 0,
+    });
+    assert.equal(projection.workspaceHookAdmission, null);
+    assert.deepEqual(projection.availability, {
+      fork: { allowed: false, reasonCode: "forkTargetNotStable" },
+      compact: { allowed: false, reasonCode: "idleCannotCompact" },
+      switchModelConfig: { allowed: true },
+      setFollowupMode: { allowed: true },
+      queueEdit: { allowed: true },
+      sendQueuedNow: { allowed: false, reasonCode: "sendQueuedNowRequiresRunning" },
+      pauseGoal: { allowed: false, reasonCode: "noGoalToPause" },
+      resumeGoal: { allowed: false, reasonCode: "noGoalToResume" },
+    });
+    assert.deepEqual(projection.rows, { window: [], totalCount: 0, firstRowId: null });
+    await h.close();
+  } finally {
+    await f.close();
+  }
+});
+
 test("Task index repairs legacy local path identity in read projections and preserves remote isolation and shell state", async () => {
   const f = await fixture();
   const path = join(f.root, "tasks-index.sqlite");

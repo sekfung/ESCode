@@ -53,7 +53,11 @@ impl Engine {
                 let _ = committed.send(self.sessions[id].skills.clone().unwrap());
                 return Ok(());
             }
-            Event::ContextUsage(usage) => session.usage["contextWindow"] = usage,
+            // 预算估算只服务本地压缩判定；wire 的 usage.contextWindow 由 ModelDone 按供应商回报写入
+            // （docs/specs/rust-context-management.md「V4 usage.contextWindow 投影」）。
+            Event::ContextUsage(usage) => {
+                session.context_window_max_tokens = crate::domain::model_usage::capacity(&usage);
+            }
             // 断流恢复（docs/specs/rust-model-retry.md）：作废流式尾部并显示恢复态。
             Event::StreamRecovery {
                 retry_number,
@@ -101,8 +105,9 @@ impl Engine {
                 let changed = context.offset > session.context.offset;
                 session.context = context;
                 session.context_tokens = Some(tokens);
-                if session.usage["contextWindow"].is_object() {
-                    session.usage["contextWindow"]["usedTokens"] = tokens.into();
+                if changed {
+                    // TS onCompactCompleted（status=success）：水位立即回落，诊断块（cache/breakdown）随之丢弃。
+                    crate::domain::model_usage::write_context_window(session, tokens as u64);
                 }
                 for (from, to) in [
                     ("prompt_tokens", "inputTokens"),

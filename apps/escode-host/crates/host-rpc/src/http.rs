@@ -150,6 +150,49 @@ pub fn ensure_loopback(bind: SocketAddr) -> Result<()> {
     Ok(())
 }
 
+/// 读取请求头 + 可选 body（`content-length` 上限 64 KiB）。
+///
+/// `read_head` 会把同一 chunk 里跟进的 body 字节一起消费掉；需要 body 的路由必须用本函数，
+/// 否则请求体会被丢弃（capability 的 `scope` 就走这里）。
+pub async fn read_request(stream: &mut TcpStream) -> Result<Option<(RequestHead, Vec<u8>)>> {
+    const MAX_BODY_BYTES: usize = 64 * 1024;
+    let mut buffer = Vec::with_capacity(1024);
+    let mut chunk = [0_u8; 1024];
+    loop {
+        let read = stream.read(&mut chunk).await.context("HTTP read failed")?;
+        if read == 0 {
+            return Ok(None);
+        }
+        buffer.extend_from_slice(&chunk[..read]);
+        if let Some(end) = find_head_end(&buffer) {
+            let text = String::from_utf8_lossy(&buffer[..end]);
+            let head = parse_head(&text)?;
+            let mut body = buffer[end + 4..].to_vec();
+            let expected = head
+                .header("content-length")
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(0);
+            anyhow::ensure!(expected <= MAX_BODY_BYTES, "HTTP body exceeds size limit");
+            while body.len() < expected {
+                let read = stream
+                    .read(&mut chunk)
+                    .await
+                    .context("HTTP body read failed")?;
+                if read == 0 {
+                    break;
+                }
+                body.extend_from_slice(&chunk[..read]);
+            }
+            body.truncate(expected);
+            return Ok(Some((head, body)));
+        }
+        anyhow::ensure!(
+            buffer.len() < MAX_HEAD_BYTES,
+            "HTTP request head exceeds size limit"
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

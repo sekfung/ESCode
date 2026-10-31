@@ -1,0 +1,71 @@
+{
+  "projected": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "first"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool",
+          "tool": "Write",
+          "status": "completed",
+          "input": {
+            "file_path": "messages.txt",
+            "content": "x"
+          },
+          "output": "File created successfully at: messages.txt (file state is current in your context — no need to Read it back)"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "text",
+          "text": "done"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "type": "text",
+          "text": "second"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "tool",
+          "tool": "Write",
+          "status": "completed",
+          "input": {
+            "file_path": "messages.txt",
+            "content": "x"
+          },
+          "output": "The file messages.txt has been updated successfully. (file state is current in your context — no need to Read it back)"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "parts": [
+        {
+          "type": "text",
+          "text": "done"
+        }
+      ]
+    }
+  ],
+  "schemaErrors": []
+}

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  appSettingsSchema,
+  sourceServerManagementSnapshotSchema,
+} from "@escode/shared";
+import {
   buildRemoteWorkspacePersistPatch,
   projectRemoteConversationWorkspacePurpose,
   restorePersistedRemoteWorkspaceSessions,
@@ -19,7 +23,11 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
         kind: "remote" as const,
         workspacePath: `/srv/${name}`,
         workspaceIdentity: `remote:server:source-1:/srv/${name}`,
-        target: { kind: "ssh" as const, host: "dev.example.com", username: "dev" },
+        target: {
+          kind: "ssh" as const,
+          host: "dev.example.com",
+          username: "dev",
+        },
         lastOpenedAt: 1,
         lastConnectionStatus: "connected" as const,
       });
@@ -36,9 +44,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
         restoreMode: "active-first",
       });
       expect(restored?.deferredRestore).toBeUndefined();
-      expect(getRemoteWorkspaceSessionEntries(settings).map((e) => e.workspacePath)).toEqual([
-        `/srv/${active}`,
-      ]);
+      expect(
+        getRemoteWorkspaceSessionEntries(settings).map((e) => e.workspacePath),
+      ).toEqual([`/srv/${active}`]);
       expect(
         tabStoreApi
           .getState()
@@ -57,7 +65,10 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       const tabStoreApi = createTabStore();
       const result = restorePersistedRemoteWorkspaceSessions({
         settings: {
-          lastActiveWorkspace: { kind: "local", workspacePath: "/workspace/missing" },
+          lastActiveWorkspace: {
+            kind: "local",
+            workspacePath: "/workspace/missing",
+          },
         },
         unavailableWorkspacePath: "/workspace/missing",
         conversationWorkspacePath: "/workspace/default",
@@ -65,7 +76,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
         tabStoreApi,
       });
 
-      expect(tabStoreApi.getState().activeWorkspacePath).toBe("/workspace/default");
+      expect(tabStoreApi.getState().activeWorkspacePath).toBe(
+        "/workspace/default",
+      );
       expect(tabStoreApi.getState().tabs.filter(isWorkspaceTab)).toContainEqual(
         expect.objectContaining({
           workspacePath: "/workspace/default",
@@ -74,7 +87,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       );
       tabStoreApi.getState().addTab("/workspace/user-selected");
       result?.deferredRestore?.();
-      expect(tabStoreApi.getState().activeWorkspacePath).toBe("/workspace/user-selected");
+      expect(tabStoreApi.getState().activeWorkspacePath).toBe(
+        "/workspace/user-selected",
+      );
       expect(tabStoreApi.getState().tabs.filter(isWorkspaceTab)).toContainEqual(
         expect.objectContaining({
           workspacePath: "/workspace/missing",
@@ -88,7 +103,10 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
     "旧版首个项目失效时无项目目录的位置不影响默认草稿（%s）",
     (position) => {
       const tabStoreApi = createTabStore();
-      const missing = { kind: "local" as const, workspacePath: "/workspace/missing" };
+      const missing = {
+        kind: "local" as const,
+        workspacePath: "/workspace/missing",
+      };
       const conversation = {
         kind: "local" as const,
         workspacePath: "/workspace/default",
@@ -109,7 +127,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
         tabStoreApi,
       });
 
-      expect(tabStoreApi.getState().activeWorkspacePath).toBe(conversation.workspacePath);
+      expect(tabStoreApi.getState().activeWorkspacePath).toBe(
+        conversation.workspacePath,
+      );
       expect(
         tabStoreApi
           .getState()
@@ -133,7 +153,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       conversationWorkspacePath: "/workspace/default",
       tabStoreApi,
     });
-    expect(tabStoreApi.getState().activeWorkspacePath).toBe("/workspace/available");
+    expect(tabStoreApi.getState().activeWorkspacePath).toBe(
+      "/workspace/available",
+    );
   });
 
   it("新建任务的活动 cwd 保持独立，不被旧 canonical conversation 目录替换", () => {
@@ -188,7 +210,11 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
 
   it("窗口只写活动目录，并按 identity 区分同路径的远端", () => {
     const tabStoreApi = createTabStore();
-    const target = { kind: "ssh" as const, host: "example.test", username: "user" };
+    const target = {
+      kind: "ssh" as const,
+      host: "example.test",
+      username: "user",
+    };
     const sessions = ["a", "b"].map((id) => ({
       kind: "remote" as const,
       workspacePath: "/same",
@@ -205,7 +231,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       })),
       1,
     );
-    expect(buildRemoteWorkspacePersistPatch(tabStoreApi.getState(), sessions)).toEqual({
+    expect(
+      buildRemoteWorkspacePersistPatch(tabStoreApi.getState(), sessions),
+    ).toEqual({
       lastActiveWorkspace: sessions[1],
     });
   });
@@ -448,7 +476,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
 
     restorePersistedRemoteWorkspaceSessions({
       settings: {
-        lastWorkspaceSession: [{ kind: "local", workspacePath: "/Users/demo/project" }],
+        lastWorkspaceSession: [
+          { kind: "local", workspacePath: "/Users/demo/project" },
+        ],
         lastActiveTabIndex: 0,
       },
       conversationWorkspacePath,
@@ -520,7 +550,9 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       } as never,
     });
 
-    expect(restoreTabs.mock.calls[0]?.[0]?.[0]).not.toHaveProperty("availability");
+    expect(restoreTabs.mock.calls[0]?.[0]?.[0]).not.toHaveProperty(
+      "availability",
+    );
   });
 
   it("启动时恢复远程断开态 tab，但不再自动重连", () => {
@@ -549,10 +581,13 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
       } as never,
     });
 
-    const expectedWorkspaceIdentity = buildRemoteWorkspaceIdentity("/workspace/demo", {
-      kind: "docker",
-      container: "demo",
-    });
+    const expectedWorkspaceIdentity = buildRemoteWorkspaceIdentity(
+      "/workspace/demo",
+      {
+        kind: "docker",
+        container: "demo",
+      },
+    );
 
     expect(restoreTabs).toHaveBeenCalledWith(
       [
@@ -696,10 +731,13 @@ describe("restorePersistedRemoteWorkspaceSessions", () => {
 
   it("同一远程身份只恢复一次", () => {
     const restoreTabs = vi.fn();
-    const sharedWorkspaceIdentity = buildRemoteWorkspaceIdentity("/workspace/demo", {
-      kind: "docker",
-      container: "demo",
-    });
+    const sharedWorkspaceIdentity = buildRemoteWorkspaceIdentity(
+      "/workspace/demo",
+      {
+        kind: "docker",
+        container: "demo",
+      },
+    );
 
     restorePersistedRemoteWorkspaceSessions({
       settings: {
@@ -810,7 +848,10 @@ describe("projectRemoteConversationWorkspacePurpose", () => {
         },
       }),
     ).toEqual({
-      remoteSessions: [{ ...conversation, workspacePurpose: "conversation" }, project],
+      remoteSessions: [
+        { ...conversation, workspacePurpose: "conversation" },
+        project,
+      ],
       updatedEntries: [
         {
           workspacePath: conversationPath,
@@ -873,6 +914,92 @@ describe("projectRemoteWorkspaceSessionIdentityAliases", () => {
       },
     ]);
     expect(result.remoteSessions[0]?.workspaceIdentity).toBe(stableIdentity);
+  });
+
+  it("projects the Host snapshot identically to the settings view", () => {
+    const sourceServerId = "11111111-1111-4111-8111-111111111111";
+    const profileId = "22222222-2222-4222-8222-222222222222";
+    const workspacePath = "/srv/project";
+    const target = {
+      kind: "ssh" as const,
+      host: "dev.internal",
+      port: 22,
+      username: "developer",
+    };
+    const legacyIdentity = buildRemoteWorkspaceIdentity(workspacePath, target);
+    const stableIdentity = `remote:server:${sourceServerId}:${workspacePath}`;
+    const sessions = [
+      {
+        kind: "remote" as const,
+        workspacePath,
+        workspaceIdentity: legacyIdentity,
+        target,
+        lastOpenedAt: 5,
+        lastConnectionStatus: "connected" as const,
+      },
+    ];
+    const workspaceHistory = [
+      {
+        workspacePath,
+        workspaceIdentity: stableIdentity,
+        legacyWorkspaceIdentity: legacyIdentity,
+        sourceServerId,
+        profileId,
+        lastOpenedAt: 6,
+      },
+    ];
+    const profiles = [
+      {
+        profileId,
+        sourceServerId,
+        displayName: "dev.internal",
+        transport: "ssh" as const,
+        target,
+        createdAt: 1,
+        lifecycleState: "active" as const,
+      },
+    ];
+    const snapshot = sourceServerManagementSnapshotSchema.parse({
+      generation: 1,
+      abandonedPathCount: 0,
+      failedPathCount: 0,
+      migrationCounts: [],
+      profiles,
+      servers: [],
+      states: [],
+      workspaceHistory,
+    });
+    const settings = appSettingsSchema.parse({
+      connectionProfiles: profiles,
+      sourceServerWorkspaceHistory: workspaceHistory,
+    });
+
+    // Host 快照（workspaceHistory / profiles）与 settings 视图
+    // （sourceServerWorkspaceHistory / connectionProfiles）经过各自严格 schema 后，
+    // 必须给身份投影提供逐项相同的输入。
+    const fromSnapshot = projectRemoteWorkspaceSessionIdentityAliases(
+      sessions,
+      {
+        sourceServerWorkspaceHistory: snapshot.workspaceHistory,
+        connectionProfiles: snapshot.profiles,
+      },
+    );
+    const fromSettings = projectRemoteWorkspaceSessionIdentityAliases(
+      sessions,
+      {
+        sourceServerWorkspaceHistory: settings.sourceServerWorkspaceHistory,
+        connectionProfiles: settings.connectionProfiles,
+      },
+    );
+
+    expect(fromSnapshot).toEqual(fromSettings);
+    expect(fromSnapshot.identityRekeys).toEqual([
+      {
+        workspacePath,
+        previousWorkspaceIdentity: legacyIdentity,
+        workspaceIdentity: stableIdentity,
+      },
+    ]);
   });
 
   it("uses every bound Profile route for a canonical project history entry", () => {

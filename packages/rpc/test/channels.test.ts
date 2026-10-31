@@ -432,3 +432,38 @@ describe("getDelayedChannel", () => {
     expect(result).toBe("delayed-result");
   });
 });
+
+describe("Initialize channel capabilities", () => {
+  it("should advertise registered channel names so clients can gate optional services", async () => {
+    const [serverProtocol, clientProtocol] = createQueuePair();
+    const server = new ChannelServer(serverProtocol, "test-ctx", 1000, true);
+    const client = new ChannelClient(clientProtocol);
+    const noop: IServerChannel = {
+      call: () => Promise.resolve(),
+      listen: () => Event.None,
+    };
+    server.registerChannel("alpha", noop);
+    server.registerChannel("beta", noop);
+    server.ready();
+
+    await vi.waitFor(() => {
+      expect(client.hasChannel("alpha")).toBe(true);
+    });
+    expect(client.hasChannel("beta")).toBe(true);
+    expect(client.hasChannel("missing")).toBe(false);
+
+    server.dispose();
+    client.dispose();
+  });
+
+  it("should report every channel as unavailable before any capabilities arrive", () => {
+    const [serverProtocol, clientProtocol] = createQueuePair();
+    const server = new ChannelServer(serverProtocol, "test-ctx", 1000, true);
+    const client = new ChannelClient(clientProtocol);
+
+    expect(client.hasChannel("alpha")).toBe(false);
+
+    server.dispose();
+    client.dispose();
+  });
+});

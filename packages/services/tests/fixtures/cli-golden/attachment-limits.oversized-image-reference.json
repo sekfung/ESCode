@@ -1,0 +1,7 @@
+{
+  "attachmentDigest": "2a8209d9fb95018da736e6c914defe9a2be4ecc65376c4894ee562b535c3689e",
+  "attachmentMessages": [
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "[{\"text\":\"describe it\",\"type\":\"text\"},{\"text\":\"Attached image/png: <CWD>/huge.png\\nThe file was sent by local path because the image is larger than the inline media budget.\\nUse the available file reading tools if you need to inspect the file contents.\",\"type\":\"text\"}]"
+  ]
+}

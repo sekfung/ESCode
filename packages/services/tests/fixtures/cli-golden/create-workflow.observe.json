@@ -9,7 +9,7 @@
   ],
   "requestCount": 4,
   "workflowRuns": {
-    "revision": 0,
+    "revision": 7,
     "runs": [
       {
         "runId": "dwfrun-<uuid>",
@@ -29,13 +29,13 @@
             "outcome": "ok"
           }
         ],
-        "concurrencyCeiling": 14,
-        "lastEventSequence": 0
+        "concurrencyCeiling": "<concurrency>",
+        "lastEventSequence": 6
       }
     ]
   },
   "deltaWorkflowRuns": {
-    "revision": 0,
+    "revision": 7,
     "runs": [
       {
         "runId": "dwfrun-<uuid>",
@@ -55,8 +55,8 @@
             "outcome": "ok"
           }
         ],
-        "concurrencyCeiling": 14,
-        "lastEventSequence": 0
+        "concurrencyCeiling": "<concurrency>",
+        "lastEventSequence": 6
       }
     ]
   },

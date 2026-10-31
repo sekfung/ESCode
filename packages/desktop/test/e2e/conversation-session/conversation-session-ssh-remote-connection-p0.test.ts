@@ -1,18 +1,14 @@
-import { buildRemoteWorkspaceIdentity, type RemoteTarget } from "@escode/shared";
-import { clearAppData, waitForWorkspaceApp } from "../helpers/desktop-app.js";
+import { clearAppData } from "../helpers/desktop-app.js";
+import { readRemoteTabs } from "../helpers/source-server-rust-remote-state.js";
 import { prepareV4ConversationE2E } from "../helpers/v4-conversation.js";
 import {
   clickLastEnabledSSHDialogButton,
+  completeSSHDeviceConnection,
   fillSSHPasswordSettings,
   openSSHRemoteDialog,
   readHostProcesses,
-  readRemoteTabSnapshot,
   readSSHRuntimeConfig,
-  selectSSHRemoteDirectory,
-  waitForRemoteTab,
-  waitForSSHDirectoryStep,
   waitForSSHError,
-  SSH_WORKSPACE_READY_TIMEOUT_MS,
 } from "../helpers/ssh-remote-p0.js";
 
 const CASE_MARKER = "SSH_P0_CONNECTION";
@@ -27,22 +23,10 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     this.timeout(20 * 60_000);
     const config = readSSHRuntimeConfig(CASE_MARKER);
     const workspacePath = config.workspacePaths[0];
-    const target: RemoteTarget = {
-      kind: "ssh",
-      host: config.host,
-      port: config.port,
-      username: config.username,
-    };
-    const identity = buildRemoteWorkspaceIdentity(workspacePath, target);
-
     await prepareV4ConversationE2E({ skipProvider: true });
-    // M5 默认走 Rust Host；显式 0/false 才回到 Node Host。
-    const rustMode = !["0", "false"].includes(
-      (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
-    );
+    // `ESCODE_RUST_HOST` 只影响本地 window Host；远程 SSH 始终由 App 级 Rust Host 服务。
     const initialHosts = await readHostProcesses();
-    if (rustMode) expect(initialHosts.length).toBeGreaterThanOrEqual(1);
-    else expect(initialHosts).toHaveLength(1);
+    expect(initialHosts.length).toBeGreaterThanOrEqual(1);
 
     await openSSHRemoteDialog(CASE_MARKER);
     const invalidPassword = `${config.password}-e2e-invalid`;
@@ -54,41 +38,27 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     const errorText = await waitForSSHError(CASE_MARKER);
     expect(errorText).not.toContain(config.password);
     expect(errorText).not.toContain(invalidPassword);
-    expect((await readRemoteTabSnapshot(identity)).remoteSessionId).toBeNull();
-    if (rustMode) {
-      // 首次远程尝试仍会懒创建 per-window Node Host；认证失败只丢弃 logical session，
-      // Host 作为窗口级资源保留给后续连接复用，不随失败销毁。
-      const hostsAfterFailure = await readHostProcesses();
-      expect(hostsAfterFailure).toEqual(expect.arrayContaining(initialHosts));
-      expect(hostsAfterFailure.length).toBe(initialHosts.length + 1);
-    } else {
-      expect(await readHostProcesses()).toEqual(initialHosts);
-    }
+    expect((await readRemoteTabs()).some((tab) => tab.workspacePath === workspacePath)).toBe(false);
+    // 直接 SSH 首连由 App 级 Rust Host 解析 Profile；认证失败不会懒创建
+    // per-window Node Host，也不会留下可用的 remote session。
+    const hostsAfterFailure = await readHostProcesses();
+    expect(hostsAfterFailure).toEqual(expect.arrayContaining(initialHosts));
+    expect(hostsAfterFailure.length).toBe(initialHosts.length);
 
     await closeSSHDialogAfterFailure();
     await openSSHRemoteDialog(CASE_MARKER);
     await fillSSHPasswordSettings(config);
-    await clickLastEnabledSSHDialogButton(CASE_MARKER);
-    await waitForSSHDirectoryStep(CASE_MARKER);
-    await selectSSHRemoteDirectory(workspacePath, CASE_MARKER);
-    await waitForWorkspaceApp(workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
-
-    const tab = await waitForRemoteTab({
+    // S5-e 后「添加设备」连接成功即关闭向导，改由项目选择器承接目录。
+    const tab = await completeSSHDeviceConnection({
       caseMarker: CASE_MARKER,
-      expectedIdentity: identity,
-      expectedPath: workspacePath,
+      workspacePath,
     });
     expect(tab.remoteKind).toBe("ssh");
     expect(tab.remoteHost).toBe(config.host);
     expect(tab.secretPersistedInTab).toBe(false);
     const hostsAfterConnect = await readHostProcesses();
-    if (rustMode) {
-      // 本地窗口是 Rust Host；远程连接额外懒创建一个 per-window Node Host。
-      expect(hostsAfterConnect.length).toBe(initialHosts.length + 1);
-      expect(hostsAfterConnect).toEqual(expect.arrayContaining(initialHosts));
-    } else {
-      expect(hostsAfterConnect).toEqual(initialHosts);
-    }
+    expect(hostsAfterConnect.length).toBe(initialHosts.length);
+    expect(hostsAfterConnect).toEqual(expect.arrayContaining(initialHosts));
   });
 });
 

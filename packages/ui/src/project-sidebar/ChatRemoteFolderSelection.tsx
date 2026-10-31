@@ -61,10 +61,11 @@ export function ChatRemoteFolderSelection({
   };
   useEffect(() => {
     alive.current = true;
+    logger.lifecycle.info("[ChatRemoteFolderSelection] 打开远端目录选择", { hostId });
     return () => {
       alive.current = false;
     };
-  }, []);
+  }, [hostId]);
   const close = () => {
     alive.current = false;
     onClose();
@@ -114,6 +115,12 @@ export function ChatRemoteFolderSelection({
       (item) => item.id === project.id && matches(item, choice.path),
     );
     if (!actual || selected.current !== choice) throw new Error("project.not-found");
+    logger.lifecycle.info("[ChatRemoteFolderSelection] 进入远端项目", {
+      hostId,
+      projectId: actual.id,
+      roots: actual.roots.map((root) => root.rootPath),
+      selectedPath: choice.path,
+    });
     await service.readDirectory({ hostId, path: choice.path });
     await readHost();
     assertCurrent();
@@ -163,6 +170,7 @@ export function ChatRemoteFolderSelection({
     }
   };
   const confirm = async (path: string) => {
+    logger.lifecycle.info("[ChatRemoteFolderSelection] 收到目录选择", { hostId, path });
     if (flight.current || !current()) return;
     flight.current = true;
     setBusy(true);
@@ -171,6 +179,10 @@ export function ChatRemoteFolderSelection({
       await readHost();
       const validated = await service.readDirectory({ hostId, path });
       assertCurrent();
+      logger.lifecycle.info("[ChatRemoteFolderSelection] 目录已确认", {
+        hostId,
+        path: validated.path,
+      });
       const tree = await service.readTree({ hostId, includeDeleted: true });
       assertCurrent();
       const choice = { path: validated.path, tree };

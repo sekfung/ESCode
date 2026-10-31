@@ -1,13 +1,36 @@
-import { dirname, join } from "node:path";
 import {
   bridgeRustHostPort,
   type RustHostClientMode,
   type RustHostExit,
+  type RustHostRemoteProfileRequest,
+  type RustHostRemoteScope,
+  cancelRustHostRemoteProfile,
   isRustHostEnabled,
+  resolveRustHostRemoteProfile,
   RustHostStartError,
   startRustHost,
   type RustHostHandle,
 } from "./rustHostBridge.js";
+import type {
+  RustHostAttachment,
+  RustHostAttachmentClosedEvent,
+  RustHostAttachmentLostReason,
+  RustHostClock,
+  RustHostManager,
+  RustHostManagerOptions,
+  RustHostManagerState,
+  RustHostRestartPolicy,
+} from "./rustHostManagerTypes.js";
+
+export type {
+  RustHostAttachment,
+  RustHostAttachmentLostReason,
+  RustHostClock,
+  RustHostManager,
+  RustHostManagerOptions,
+  RustHostManagerState,
+  RustHostRestartPolicy,
+} from "./rustHostManagerTypes.js";
 
 // Rust Host 生命周期（默认开启，docs/specs/rust-u2-host-skeleton.md §6；韧性见
 // docs/specs/rust-u2-host-resilience.md §3/§4）：
@@ -24,127 +47,6 @@ import {
 // `desktopHostProcess.ts:762` 的 `MessageChannelMain` 已把 `port1` 交给 renderer、`port2` 交给
 // Electron utility Host；切到 Rust Host 需要 `windowHostProcessMap`/broadcast/taskRealtime 等
 // 子系统接受"非 utility process 的 window host"，属独立改造。
-
-export interface RustHostManagerOptions {
-  /** Host 可执行文件路径。 */
-  binary: string;
-  /** Host 可执行文件参数（测试用；缺省无参数）。 */
-  args?: string[];
-  /** 设置域根目录（Main 决定）。 */
-  home: string;
-  /** 应用数据根（TS `getDataBaseDir()`，Main 决定；供会话工作区等路径派生）。 */
-  dataBaseDir?: string;
-  /** 嵌入运行时的环境（Main 合成，见 `buildRustHostRuntimeEnv`）；懒启动时才求值，避免启动期读取。 */
-  runtimeEnv?: () => Record<string, string> | Promise<Record<string, string>>;
-  /** 本地媒体路径授权（Main 的注册表）；提供后 Host 的 media-preview 回 `local-url`（见 rustHostBridge）。 */
-  authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
-  /** Main 专属服务（cua-permission / sandbox 注册）；提供后 Host 经控制通道转发。 */
-  onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
-  /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
-  enabled?: boolean;
-  /** 启动握手截止时间（默认 10s，spec §4）。 */
-  startTimeoutMs?: number;
-  /** 受限重启策略（默认 60 s 内 3 次，退避 500 ms / 2 s / 5 s；spec §3.2）。 */
-  restartPolicy?: Partial<RustHostRestartPolicy>;
-  /** 时钟与定时器（测试注入；默认 `Date.now` / `setTimeout`）。 */
-  clock?: RustHostClock;
-  /** 日志钩子。`error` 用于启动失败、意外退出与放弃重启（缺省退回 `warn`）。 */
-  log?: {
-    info: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error?: (...args: unknown[]) => void;
-  };
-}
-
-export interface RustHostRestartPolicy {
-  /** 窗口内允许的自动重启次数。 */
-  maxRestarts: number;
-  /** 计数窗口（毫秒）。 */
-  windowMs: number;
-  /** 第 n 次重启之前的等待（毫秒，下标 n-1；超出取最后一个）。 */
-  backoffMs: number[];
-}
-
-export interface RustHostClock {
-  now(): number;
-  setTimeout(callback: () => void, ms: number): unknown;
-  clearTimeout(timer: unknown): void;
-}
-
-/** 管理器状态（spec §3.2 状态机）。 */
-export type RustHostManagerState =
-  | { state: "idle" }
-  | { state: "starting" }
-  | { state: "running"; pid: number | undefined }
-  | {
-      state: "restarting";
-      attempt: number;
-      delayMs: number;
-      exit: RustHostExit;
-    }
-  | { state: "failed"; error: RustHostStartError };
-
-export interface RustHostAttachment {
-  /** 交给 renderer/relay 的端口（另一端已在 Main 桥到 Rust Host）。 */
-  port: unknown;
-  /** 解绑：关闭桥与端口。 */
-  dispose(): void;
-  /**
-   * Host 意外退出时回调一次（端口已关闭、桥已拆）。消费方据此释放并按自己的恢复语义重建
-   * （spec §3.4：不在原端口上原地重连）。
-   */
-  onLost(listener: (reason: { reason: "host-exited"; exit: RustHostExit }) => void): void;
-}
-
-export interface RustHostManager {
-  /** 开关是否打开（关闭时调用方走 Node Host；M5 删除）。 */
-  readonly enabled: boolean;
-  /** 懒启动（single-flight）；失败抛 `RustHostStartError`。重启退避期间等待同一次重启。 */
-  ensureStarted(): Promise<RustHostHandle>;
-  /**
-   * 生产一个 attachment 端口（内部 `ensureStarted` + 桥接）。`clientMode` 与 Node 路径同一
-   * attachment 的交付模式一致（远程 workspace共享 Host = `web-remote-replayable`）。
-   */
-  attachLocalPort(
-    createChannel: () => { port1: unknown; port2: unknown },
-    clientMode: RustHostClientMode,
-    prepare?: {
-      startupId: string;
-      windowId: string;
-      workspace: {
-        path: string;
-        identity?: string;
-        dataDir?: string;
-        config?: string;
-      };
-      runtimeEnvPatch?: Record<string, string>;
-    },
-  ): Promise<RustHostAttachment>;
-  /** 发一条控制消息（workspace retry / 采样 / 网络捕获）。 */
-  sendControl(message: Record<string, unknown>): void;
-  /** Host 本地的 Host 事实（资源采样、网络捕获、agent 生命周期、CUA 状态）。 */
-  onHostEvent(listener: (event: unknown) => void): () => void;
-  /** 实例真实 `startup/storageState`。 */
-  onWorkspaceStartupState(
-    listener: (state: {
-      startupId: string;
-      windowId: string;
-      workspaceKey: string;
-      generation: number;
-      state: unknown;
-    }) => void,
-  ): () => void;
-  /** 当前是否已有 Host 进程在跑（诊断/测试）。 */
-  isRunning(): boolean;
-  /** 当前状态（诊断/测试）。 */
-  state(): RustHostManagerState;
-  /** 监听状态变化（返回取消函数）。 */
-  onStateChange(listener: (state: RustHostManagerState) => void): () => void;
-  /** 放弃（`failed`）后的显式恢复入口：清空重启计数并回到 `idle`。 */
-  resetRestartBudget(): void;
-  /** 收口（应用退出）。 */
-  stop(): Promise<void>;
-}
 
 const DEFAULT_RESTART_POLICY: RustHostRestartPolicy = {
   maxRestarts: 3,
@@ -197,12 +99,22 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   }
 
   async function launch(): Promise<RustHostHandle> {
+    // Rust Host 不建库：Main 必须先按 TS 迁移路径准备好 tasks-index，再 spawn Host。
+    try {
+      await options.prepareStorage?.();
+    } catch (error) {
+      throw new RustHostStartError(
+        "RUST_HOST_STORAGE_FAILED",
+        `tasks-index preparation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     const started = await startRustHost({
       binary: options.binary,
       ...(options.args ? { args: options.args } : {}),
       home: options.home,
       ...(options.dataBaseDir ? { dataBaseDir: options.dataBaseDir } : {}),
       ...(options.runtimeEnv ? { runtimeEnv: await options.runtimeEnv() } : {}),
+      ...(options.remoteAssets ? { remoteAssets: options.remoteAssets() } : {}),
       ...(options.startTimeoutMs ? { timeoutMs: options.startTimeoutMs } : {}),
       ...(options.authorizeLocalMediaPreviewPath
         ? {
@@ -322,64 +234,174 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
     return starting;
   }
 
+  /**
+   * 生产一个 attachment 端口并桥到 Rust Host（`scope` 存在时走远端 scope 的 RPC
+   * WebSocket；路径由 `clientMode` 决定，见 spec §10.15）。
+   *
+   * 修复：旧实现把整段桥接内联在 `attachLocalPort` 里（评审后新增 `attachRemoteScopePort` 时
+   * 复制一份会漂移）；这里抽成同一份，`prepare`/`scope` 只是桥接前的可选步骤。
+   */
+  async function attachPort(
+    createChannel: () => { port1: unknown; port2: unknown },
+    clientMode: RustHostClientMode,
+    params: {
+      prepare?: {
+        startupId: string;
+        windowId: string;
+        workspace: {
+          path: string;
+          identity?: string;
+          dataDir?: string;
+          config?: string;
+        };
+        runtimeEnvPatch?: Record<string, string>;
+      };
+      scope?: RustHostRemoteScope;
+    },
+  ): Promise<RustHostAttachment> {
+    const started = await ensureStarted();
+    if (params.prepare) {
+      started.send({
+        kind: "workspacePrepare",
+        startupId: params.prepare.startupId,
+        windowId: params.prepare.windowId,
+        workspace: params.prepare.workspace,
+        ...(params.prepare.runtimeEnvPatch
+          ? { runtimeEnvPatch: params.prepare.runtimeEnvPatch }
+          : {}),
+      });
+    }
+    const channel = createChannel() as {
+      port1: {
+        on?: HostPortLikeOn;
+        postMessage(value: unknown): void;
+        start?(): void;
+        close?(): void;
+      };
+      port2: {
+        on?: HostPortLikeOn;
+        postMessage(value: unknown): void;
+        start?(): void;
+        close?(): void;
+      };
+    };
+    const lostListeners: Array<(reason: RustHostAttachmentLostReason) => void> = [];
+    let lostReason: RustHostAttachmentLostReason | undefined;
+    const closedListeners: Array<(event: RustHostAttachmentClosedEvent) => void> = [];
+    let closedReason: RustHostAttachmentClosedEvent | undefined;
+    // 远端 scope 的 capability 申请包含 Host 建连（首次连接还会安装，spec §11.3）。
+    // attachment 必须等 scope 真正就绪后再交给 renderer，否则 renderer 的注册握手会
+    // 和安装耗时混在一起，被误判为 renderer 未 ready。
+    let settleReady: ((error?: Error) => void) | undefined;
+    const ready = params.scope
+      ? new Promise<void>((resolve, reject) => {
+          settleReady = (error) => {
+            if (error) reject(error);
+            else resolve();
+          };
+        })
+      : undefined;
+    let live!: LiveAttachment;
+    const notifyLost = (reason: RustHostAttachmentLostReason) => {
+      if (lostReason) return;
+      lostReason = reason;
+      live.teardown();
+      for (const listener of lostListeners.splice(0)) listener(reason);
+    };
+    const notifyClosed = (event: RustHostAttachmentClosedEvent) => {
+      if (closedReason) return;
+      closedReason = event;
+      live.teardown();
+      for (const listener of closedListeners.splice(0)) listener(event);
+    };
+    const bridgeTeardown = bridgeRustHostPort(
+      started,
+      channel.port2 as never,
+      clientMode,
+      params.scope,
+      {
+        onReady: () => settleReady?.(),
+        onUnexpectedClose: (event) =>
+          notifyClosed({
+            ...(event.code != null ? { code: event.code } : {}),
+            ...(event.reason ? { reasonText: event.reason } : {}),
+          }),
+      },
+    );
+    live = {
+      teardown() {
+        settleReady?.(new Error("Rust Host scoped attachment closed before ready"));
+        bridgeTeardown();
+        channel.port1.close?.();
+        channel.port2.close?.();
+      },
+      lost(exit) {
+        notifyLost({ reason: "host-exited", exit });
+      },
+    };
+    attachments.add(live);
+    if (ready) {
+      try {
+        await ready;
+      } catch (error) {
+        attachments.delete(live);
+        live.teardown();
+        throw error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    return {
+      port: channel.port1,
+      dispose() {
+        attachments.delete(live);
+        live.teardown();
+      },
+      onLost(listener) {
+        if (lostReason) listener(lostReason);
+        else lostListeners.push(listener);
+      },
+      onClosed(listener) {
+        if (closedReason) listener(closedReason);
+        else closedListeners.push(listener);
+      },
+    };
+  }
+
   return {
     enabled,
     ensureStarted,
-    async attachLocalPort(createChannel, clientMode, prepare) {
-      const started = await ensureStarted();
-      if (prepare) {
-        started.send({
-          kind: "workspacePrepare",
-          startupId: prepare.startupId,
-          windowId: prepare.windowId,
-          workspace: prepare.workspace,
-          ...(prepare.runtimeEnvPatch ? { runtimeEnvPatch: prepare.runtimeEnvPatch } : {}),
-        });
-      }
-      const channel = createChannel() as {
-        port1: {
-          on?: HostPortLikeOn;
-          postMessage(value: unknown): void;
-          start?(): void;
-          close?(): void;
+    async attachLocalPort(
+      createChannel: () => { port1: unknown; port2: unknown },
+      clientMode: RustHostClientMode,
+      prepare?: {
+        startupId: string;
+        windowId: string;
+        workspace: {
+          path: string;
+          identity?: string;
+          dataDir?: string;
+          config?: string;
         };
-        port2: {
-          on?: HostPortLikeOn;
-          postMessage(value: unknown): void;
-          start?(): void;
-          close?(): void;
-        };
-      };
-      const bridgeTeardown = bridgeRustHostPort(started, channel.port2 as never, clientMode);
-      const lostListeners: Array<(reason: { reason: "host-exited"; exit: RustHostExit }) => void> =
-        [];
-      let lostWith: RustHostExit | undefined;
-      const live: LiveAttachment = {
-        teardown() {
-          bridgeTeardown();
-          channel.port1.close?.();
-          channel.port2.close?.();
-        },
-        lost(exit) {
-          live.teardown();
-          lostWith = exit;
-          for (const listener of lostListeners.splice(0)) {
-            listener({ reason: "host-exited", exit });
-          }
-        },
-      };
-      attachments.add(live);
-      return {
-        port: channel.port1,
-        dispose() {
-          attachments.delete(live);
-          live.teardown();
-        },
-        onLost(listener) {
-          if (lostWith) listener({ reason: "host-exited", exit: lostWith });
-          else lostListeners.push(listener);
-        },
-      };
+        runtimeEnvPatch?: Record<string, string>;
+      },
+    ) {
+      return attachPort(createChannel, clientMode, { prepare });
+    },
+    async attachRemoteScopePort(createChannel, scope, clientMode) {
+      return attachPort(createChannel, clientMode, { scope });
+    },
+    async resolveRemoteProfile(
+      request: RustHostRemoteProfileRequest,
+      options?: { signal?: AbortSignal },
+    ) {
+      return resolveRustHostRemoteProfile(await ensureStarted(), request, options);
+    },
+    /**
+     * 取消在途首连（spec §12.2）。不调用 `ensureStarted`：取消不应为了取消而拉起 Host。
+     */
+    async cancelRemoteProfile(requestId: string) {
+      const current = handle;
+      if (!current) return;
+      await cancelRustHostRemoteProfile(current, requestId);
     },
     isRunning: () => handle !== undefined,
     sendControl(message) {
@@ -419,19 +441,6 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   };
 }
 
-/** 默认的 Host 二进制路径：开发态取仓库的 target/debug，安装包内与主进程同级。
- *  `ESCODE_RUST_HOST_BINARY` 是 E2E/自定义安装布局的显式覆盖（不读其它业务 env）。 */
-export function defaultRustHostBinary(
-  appPath: string,
-  packaged: boolean,
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  const override = env.ESCODE_RUST_HOST_BINARY?.trim();
-  if (override) return override;
-  const name = process.platform === "win32" ? "escode-host.exe" : "escode-host";
-  // 安装包：appPath 是 resources/app.asar；extraResources 落在 resources/escode-host/<binary>。
-  if (packaged) return join(dirname(appPath), "escode-host", name);
-  return join(appPath, "..", "..", "apps", "escode-host", "target", "debug", name);
-}
-
 type HostPortLikeOn = (event: "message", listener: (event: unknown) => void) => void;
+
+export { defaultRustHostBinary } from "./rustHostBinary.js";

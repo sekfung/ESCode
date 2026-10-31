@@ -43,7 +43,7 @@ impl Engine {
         if waiters.len() > 1 {
             return;
         }
-        let request_id = format!("rust-runtime-prefs-{}", self.clock.id());
+        let request_id = self.next_server_request_id();
         self.shell.requests.insert(request_id.clone(), key);
         self.outbox.push(json!({
             "id": request_id,
@@ -92,6 +92,18 @@ impl Engine {
         );
     }
 
+    /// 首个输入受理时预取 `user-execution`：Node 在会话物化期解析 shell，偏好请求排在
+    /// `inputAccepted` ack 之前（docs/specs/rust-shell-selection.md「请求时机」）。请求留在
+    /// `send_input` 的命令 outbox 中，由 `outbound_batch` 先于响应写出；后台回合的技能初始化
+    /// 复用同一 in-flight 请求。
+    pub(super) fn prefetch_shell_preference(&mut self, session: &str) {
+        let owner = self.shell_owner_session(session);
+        if self.shell.cached(&owner, "user-execution").is_some() {
+            return;
+        }
+        self.request_runtime_preferences(&owner, "user-execution", Box::new(|_| {}));
+    }
+
     /// `user-execution` 偏好的归属会话：子会话归其根会话（TS 的继承语义），主会话归自己。
     pub(super) fn shell_owner_session(&self, session: &str) -> String {
         let mut current = session;
@@ -128,6 +140,29 @@ impl Engine {
     /// 会话关闭后下次物化重新向 Host 请求（Memory Settings 变化随新物化生效）。
     pub(super) fn forget_runtime_preferences(&mut self, session: &str) {
         self.shell.cache.retain(|(s, _), _| s != session);
+    }
+
+    /// 失败/被丢弃命令的回滚：该命令 outbox 中的偏好请求不会再写出，必须同步撤销 in-flight 记账，
+    /// 否则后续输入误以为请求在途，永远等不到回包（首个提示词 shell 名/首个 Bash 等满 15s）。
+    /// waiter 以 Null 完成本轮（退回自动探测），但**不写缓存**，下一次输入会重新发起请求。
+    /// 见 docs/specs/rust-shell-selection.md「失败命令的预取回滚」。
+    pub(super) fn discard_staged_preference_requests(&mut self, dropped: &[Value]) {
+        for frame in dropped {
+            if frame.get("method").and_then(Value::as_str)
+                != Some("session/requestRuntimePreferences")
+            {
+                continue;
+            }
+            let Some(request_id) = frame.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(key) = self.shell.requests.remove(request_id) else {
+                continue;
+            };
+            for waiter in self.shell.waiters.remove(&key).unwrap_or_default() {
+                waiter(&Value::Null);
+            }
+        }
     }
 
     /// 非本模块发出的请求直接忽略。错误回包（旧 Host 的 -32601 等）在传输层归一为 Null，

@@ -30,8 +30,9 @@
   下一次启动仍用 Rust。`ESCodeAgentCommandResolverContext` 不再携带 `rustRuntimeFailed`。
 - 退出码 75（`WORKSPACE_OWNED_EXIT_CODE`）：workspace owner 锁被其他进程持有，是可重试的所有权冲突，记录
   `warn` `escode_agent.runtime.rust_workspace_owned`。
-- 默认 Rust 只属于桌面安装包（`ESCODE_DESKTOP_PACKAGED=1`）。远程服务端（SSH 部署的 `entry-stdio`）尚未随
-  远程资源分发 Rust 二进制，未设置时维持 Node 链；远程切换 Rust 见后续计划，切换前不得让远程默认选中 Rust。
+- 默认 Rust 属于桌面安装包（`ESCODE_DESKTOP_PACKAGED=1`）与已注入 `ESCODE_REMOTE_PACKAGED_RUNTIME=1` 的远程
+  server；远程 release 的 glm 组件已包含 Rust 二进制，缺失即部署/启动失败（见下文「远程环境使用 Rust」）。
+  开发态 App（未打包）连接远程时未注入该标记，远端维持 Node 链。
 
 ## 换代等待旧 owner（2026-10-12）
 

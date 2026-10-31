@@ -22,6 +22,7 @@ import {
   type ConnectionProfile,
   type SourceServerRunningTask,
   type RemoteTarget,
+  type ResolvedWSLConnectOptions,
 } from "@escode/shared";
 import { useCancelPendingRemoteConnection } from "@/hooks/useCancelPendingRemoteConnection.js";
 import { useConfirmDialogStore } from "@/store/confirmDialogStore.js";
@@ -100,6 +101,7 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
     openIntentId,
     completion,
     onDeviceConnected,
+    allowUnidentifiedDeviceManagement,
     onCancelled,
     onConnect,
     onConnectionReady,
@@ -724,7 +726,7 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
           if (activeRequestIdRef.current !== requestId) return;
           if (snapshot) applySourceManagementSnapshot(snapshot);
           const failure = error as {
-            resolvedWslTarget?: Required<Extract<RemoteTarget, { kind: "wsl" }>>;
+            resolvedWslTarget?: ResolvedWSLConnectOptions;
           };
           const installTarget =
             nextTarget.kind === "wsl" ? (failure.resolvedWslTarget ?? nextTarget) : nextTarget;
@@ -744,6 +746,25 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
       if (discardStaleResult()) return;
       const connectedSourceServerId =
         useRemoteWorkspaceSessionStore.getState().sessionsById[sessionId]?.sourceServerId;
+      // Q3 兼容：Node Host 直连 SSH/WSL/Docker 没有 Source Server identity。
+      // 设备管理入口仍需可用，此时回退普通目录流程（打开 workspace），
+      // 不能把向导关闭后留在无目录、无项目选择的死路。
+      const sourceBackedDeviceManagement =
+        completion === "device-management" && Boolean(connectedSourceServerId);
+      const deviceManagement =
+        completion === "device-management" &&
+        !(allowUnidentifiedDeviceManagement && !sourceBackedDeviceManagement);
+      if (
+        completion === "device-management" &&
+        !sourceBackedDeviceManagement &&
+        allowUnidentifiedDeviceManagement
+      ) {
+        await onDeviceConnected?.(
+          undefined,
+          () => entryEpochRef.current === operationEpoch && !minimizedRef.current,
+        );
+        if (entryEpochRef.current !== operationEpoch) return;
+      }
       // 识别时刻由连接结果驱动：directory-record 完成后 session 才携带 sourceServerId，
       // 此时展示「已识别为现有设备」并刷新快照，确保新识别设备的名称与目录历史立即可用。
       if (connectedSourceServerId) {
@@ -767,13 +788,12 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
       if (discardStaleResult()) return;
       // 后台只保留本次意图的完成动作；不能在网络结果到达时恢复旧页面。
       // 设备管理只需 Source 身份，立即释放本次独占 attachment。
-      ownsConnectedSessionRef.current =
-        completion !== "device-management" && !sessionsAtStart.has(sessionId);
-      if (completion === "device-management" && !sessionsAtStart.has(sessionId)) {
+      ownsConnectedSessionRef.current = !deviceManagement && !sessionsAtStart.has(sessionId);
+      if (deviceManagement && !sessionsAtStart.has(sessionId)) {
         await handleCancelSession(sessionId);
         if (discardStaleResult()) return;
       }
-      setConnectedSessionId(completion === "device-management" ? null : sessionId);
+      setConnectedSessionId(deviceManagement ? null : sessionId);
       const finishConnection = async () => {
         const isCurrent = () => entryEpochRef.current === operationEpoch;
         if (!isCurrent()) return;
@@ -794,7 +814,7 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
           return;
         }
         if (!acknowledged) return;
-        if (completion === "device-management") {
+        if (deviceManagement) {
           // 设备管理没有目录/项目副作用；只回收本次独占的临时 attachment，物理连接仍由 Source owner 保持。
           // 聊天返回仍需校验成员资格；必须等完成方确认，失败沿用本 flow 的错误和重试边界。
           await onDeviceConnected?.(
@@ -874,7 +894,7 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
         finishTrace((action) => action.complete({ resultSource: "platform_result" }));
       };
       const deferCompletion = () => {
-        setConnectedSessionId(completion === "device-management" ? null : sessionId);
+        setConnectedSessionId(deviceManagement ? null : sessionId);
         const continueConnection = async () => {
           if (connectedSourceServerId && sourceManagement) {
             const latest = await sourceManagement.getSnapshot();
@@ -936,7 +956,7 @@ export function useRemoteConnectionFlow(options: RemoteConnectionFlowOptions) {
         code?: unknown;
         retryable?: unknown;
         profileId?: unknown;
-        resolvedWslTarget?: Required<Extract<RemoteTarget, { kind: "wsl" }>>;
+        resolvedWslTarget?: ResolvedWSLConnectOptions;
       };
       const reasonCode = typeof failure.code === "string" ? failure.code : undefined;
       const errorMessage = formatRemoteConnectionError({

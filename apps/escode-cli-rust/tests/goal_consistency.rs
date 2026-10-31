@@ -90,6 +90,7 @@ impl ModelPort for Model {
             return Ok(ModelOutput {
                 response_id: String::new(),
                 output_limit: false,
+                decode_ms: None,
                 message: json!({"role":"assistant","content":""}),
                 calls: vec![],
                 usage: json!({}),
@@ -109,6 +110,7 @@ impl ModelPort for Model {
         Ok(ModelOutput {
             response_id: String::new(),
             output_limit: false,
+            decode_ms: None,
             message: json!({"role":"assistant","content":content}),
             calls: vec![],
             usage: json!({"prompt_tokens":10,"completion_tokens":3}),

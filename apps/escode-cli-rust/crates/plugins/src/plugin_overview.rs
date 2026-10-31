@@ -85,6 +85,8 @@ pub async fn overview(params: &Value, cancel: &CancellationToken) -> Result<Valu
             }
             let info = plugin_list::info(plugin, &cwd, &config, &data_root).await?;
             item["componentTypes"] = component_types_from_info(&info);
+            // TS `toInstalledPluginData`：发现到的已安装插件带 hookDetails（未发现时不带）。
+            item["hookDetails"] = info["hookDetails"].clone();
         }
         if let Some(version) = version.as_deref().filter(|v| !v.is_empty()) {
             item["version"] = version.into();
@@ -261,7 +263,7 @@ fn declaration_diagnostics(known: &[Value], declared: &[(String, Value)]) -> Vec
         .collect()
 }
 
-/// TS `inferComponentTypesFromMetadata`（hook 依赖 hookDetails，留到第 4 期）。
+/// TS `inferComponentTypesFromMetadata`：agent → command → skill → mcp → hook。
 pub fn component_types_from_info(info: &Value) -> Value {
     let mut types: Vec<&str> = vec![];
     let has_agents = info["components"].as_array().is_some_and(|groups| {
@@ -282,6 +284,9 @@ pub fn component_types_from_info(info: &Value) -> Value {
     }
     if non_empty("declaredMcpServerNames") || non_empty("mcpServerNames") {
         types.push("mcp");
+    }
+    if non_empty("hookDetails") {
+        types.push("hook");
     }
     json!(types)
 }

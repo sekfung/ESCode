@@ -222,6 +222,10 @@ const zhCN: Record<string, string> = {
   "remote.error.connectionCanceled.reason": "连接已取消，可以随时重新连接。",
   "remote.error.credentialsRequired.reason": "请补充连接所需的密码或私钥口令。",
   "remote.error.authentication.reason": "请检查 SSH 用户名、密码或私钥后重试。",
+  "remote.error.providerProvisioningFailed.reason":
+    "设备未能应用本地 Provider 配置，请查看详细信息后重试。",
+  "remote.error.providerProvisioningUnsupported.reason":
+    "设备版本不支持 Provider 配置同步，请更新远端服务端。",
   "remote.error.unknown.reason": "暂时无法连接，请重试或查看详细信息。",
   "remote.error.hostUnreachable.wsl": "无法访问 WSL 发行版",
   "remote.error.hostUnreachable.wsl.reason": "请确认发行版已安装并可启动。",
@@ -2016,6 +2020,8 @@ const zhCN: Record<string, string> = {
   "remote.error.spaceInsufficient": "远端空间不足",
   "remote.error.permissionDenied": "没有远端写入权限",
   "remote.error.connectionCanceled": "已取消连接",
+  "remote.error.providerProvisioningFailed": "Provider 配置同步失败",
+  "remote.error.providerProvisioningUnsupported": "远端服务端不支持 Provider 配置同步",
   "remote.error.unknown": "连接失败",
   "settings.source.recentLog": "查看最近日志",
   "remote.error.retryableHint": "你可以稍后重试。",

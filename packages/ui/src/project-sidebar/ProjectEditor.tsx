@@ -261,6 +261,13 @@ export function ProjectEditor({
     }
   };
   const save = async () => {
+    logger.lifecycle.info("[ProjectEditor] 保存请求", {
+      hostId,
+      roots,
+      fixedPath: fixedFolder?.path ?? null,
+      initialRoots,
+      projectId: project?.id ?? null,
+    });
     if (saveFlight.current || suspendedRef.current || !isCurrent()) return;
     const flight: { cancelTrust?: () => void } = {};
     saveFlight.current = flight;

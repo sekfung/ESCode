@@ -29,6 +29,7 @@ import {
 } from "./task-realtime-core.js";
 import { wslUserSchema } from "./wslUserValidation.js";
 import { sourceServerArtifactPolicySchema } from "./source-server/release.js";
+import { compatibilityManifestSchema } from "./source-server/compatibility.js";
 import { legacyESCodeProviderSchema } from "./escode-agent-policy.js";
 import { errorAttributionSchema } from "./escode-protocol-v4/snapshot.js";
 import { escodeTaskModeSchema } from "./escode-task-mode-schema.js";
@@ -62,7 +63,13 @@ export const credentialRecordSchema = z.record(z.string(), z.string());
 export const credentialKeySchema = nonEmptyStringSchema;
 export const credentialValueSchema = z.string();
 
+export const profileScopedTargetFields = {
+  sourceServerId: nonEmptyStringSchema.optional(),
+  profileId: nonEmptyStringSchema.optional(),
+};
+
 export const sshConnectOptionsSchema = z.object({
+  ...profileScopedTargetFields,
   kind: z.literal("ssh"),
   host: nonEmptyStringSchema,
   port: z.number().int().positive().max(65535).optional(),
@@ -80,12 +87,14 @@ export const sshConnectOptionsSchema = z.object({
 });
 
 export const wslConnectOptionsSchema = z.object({
+  ...profileScopedTargetFields,
   kind: z.literal("wsl"),
   distro: z.string().optional(),
   user: wslUserSchema.optional(),
 });
 
 export const dockerConnectOptionsSchema = z.object({
+  ...profileScopedTargetFields,
   kind: z.literal("docker"),
   container: nonEmptyStringSchema,
 });
@@ -112,6 +121,7 @@ export const helloMessageSchema = z.object({
   platform: z.string(),
   arch: z.string(),
   pid: z.number().int(),
+  compatibility: compatibilityManifestSchema.strip().optional(),
 });
 
 export const helloAckMessageSchema = z.object({

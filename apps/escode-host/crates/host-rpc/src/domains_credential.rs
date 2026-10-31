@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use escode_host_services::credential::{CredentialError, CredentialService};
+use escode_host_services::source_server_provider_provisioning::is_provisioning_credential_key;
 use serde_json::Value;
 
 use crate::channel::Channel;
@@ -60,7 +61,12 @@ fn method(
 }
 
 /// 组合根构造 `credential` channel；secret 与 TS 同源（`ESCODE_CREDENTIAL_SECRET` 或按平台/家目录/用户名派生）。
-pub(crate) fn credential_channel(data_base_dir: Option<PathBuf>) -> Channel {
+///
+/// `provisioning_trigger`：allowlist 凭据保存/删除成功后通知 Provider Provisioning（S4-g）。
+pub(crate) fn credential_channel(
+    data_base_dir: Option<PathBuf>,
+    provisioning_trigger: Option<Arc<dyn Fn() + Send + Sync>>,
+) -> Channel {
     let service: Service = data_base_dir.map(|base| {
         Arc::new(CredentialService::new(
             CredentialService::path(&base),
@@ -82,24 +88,38 @@ pub(crate) fn credential_channel(data_base_dir: Option<PathBuf>) -> Channel {
                     })
                 }),
             ),
-            (
-                "save",
-                method(&service, |s, arg| {
+            ("save", {
+                let trigger = provisioning_trigger.clone();
+                method(&service, move |s, arg| {
+                    let trigger = trigger.clone();
                     Box::pin(async move {
-                        s.save(&string_arg(&arg, 0), &string_arg(&arg, 1)).await?;
+                        let key = string_arg(&arg, 0);
+                        s.save(&key, &string_arg(&arg, 1)).await?;
+                        if is_provisioning_credential_key(&key)
+                            && let Some(trigger) = trigger
+                        {
+                            trigger();
+                        }
                         Ok(Wire::Undefined)
                     })
-                }),
-            ),
-            (
-                "delete",
-                method(&service, |s, arg| {
+                })
+            }),
+            ("delete", {
+                let trigger = provisioning_trigger;
+                method(&service, move |s, arg| {
+                    let trigger = trigger.clone();
                     Box::pin(async move {
-                        s.delete(&string_arg(&arg, 0)).await?;
+                        let key = string_arg(&arg, 0);
+                        s.delete(&key).await?;
+                        if is_provisioning_credential_key(&key)
+                            && let Some(trigger) = trigger
+                        {
+                            trigger();
+                        }
                         Ok(Wire::Undefined)
                     })
-                }),
-            ),
+                })
+            }),
         ],
     )
 }

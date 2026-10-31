@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "caseName": "source-server-rust-provisioning",
+  "spec": "./test/e2e/conversation-session/source-server-rust-provisioning.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/source-server-rust-provisioning.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "source-server-rust-provisioning-title",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "标题只用于会话列表展示，不参与 provisioning 断言。"
+    },
+    {
+      "id": "source-server-rust-provisioning-first-reply",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "只验证远端发起模型请求并收到本地 replay 响应，不依赖真实模型内容。"
+    }
+  ]
+}

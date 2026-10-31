@@ -35,6 +35,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  MessageChannelMain,
   nativeImage,
   net,
   protocol,
@@ -148,6 +149,7 @@ import {
   loadHostProcessEnvFromLocalFiles,
   resolveBundledAgentRuntimePaths,
   resolveRemoteAssetDirs,
+  resolveRustHostRemoteAssets,
   resolveESCodeEndpointEnvBaseOrigin,
   desktopRuntimeEnv,
   runtimeApplicationName,
@@ -199,7 +201,7 @@ import {
 } from "./resourceManagerHostSampling.js";
 import { ingestHostNetworkCapture } from "./resourceManagerNetwork.js";
 import { createRustHostManager, defaultRustHostBinary } from "./rustHostManager.js";
-import { isRustHostEnabled } from "./rustHostBridge.js";
+import { createRustHostTasksIndexPreparation } from "./rustHostStorageStartup.js";
 import {
   disposeDesktopCuaPermissionService,
   handleCuaPermissionMainRequest,
@@ -692,7 +694,7 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
-/** H2.3：Rust Host 承载本地窗口时，远程 workspace 的 per-window Node Host（显式所有权）。 */
+/** 仅 Web `kind: "server"` 目标的 per-window Node Host（显式所有权；ssh/wsl/docker 由 App 级 Rust Host 服务）。 */
 const remoteWindowHostProcessMap = new Map<number, ElectronUtilityProcess>();
 /** 远程-only Node Host 的 `InitLocal` 完成信号；连接必须在服务就绪后下发。 */
 const remoteWindowHostReady = new WeakMap<ElectronUtilityProcess, Promise<void>>();
@@ -813,9 +815,9 @@ app.on("browser-window-created", (_event, win) => {
 });
 
 /**
- * H2.3：远程 workspace 仍由 per-window Node Host 承载（SSH/WSL/Docker 的 TS 后端没有 Rust 等价物）。
- * 首次 Connect/Bind 时懒创建；本地 renderer 端口不创建（`attachInitialServicePort:false`），
- * 只服务远程 `ScopedServicePort`。所有权在日志与资源管理器中可见。
+ * 仅 `kind: "server"` 的 Web 服务端目标仍由 per-window Node Host 承载。SSH/WSL/Docker 与
+ * Connection Profile 已由 App 级 Rust Host 服务；该 Node Host 与本地 `ESCODE_RUST_HOST`
+ * 开关无关，首次 Connect/Bind 时懒创建，只服务远程 `ScopedServicePort`。
  */
 async function ensureRemoteWindowHost(win: BrowserWindow): Promise<ElectronUtilityProcess> {
   const windowId = win.webContents.id;
@@ -919,17 +921,34 @@ function waitForRemoteHostServicesReady(
 
 const remoteSessionManager = createRemoteWorkspaceSessionManager({
   logger,
-  // Rust 模式下远程 Node Host 写独立 map，避免混入本地窗口的 `windowHostProcessMap`
+  // Web 服务端目标的 Node Host 始终写独立 map，避免混入本地窗口的 `windowHostProcessMap`
   // （后者被 cron 派发、窗口 reload/close 与 app quit 当作本地 Host 处理）。
-  windowHostProcessMap: isRustHostEnabled() ? remoteWindowHostProcessMap : windowHostProcessMap,
-  ...(isRustHostEnabled() ? { ensureWindowHost: ensureRemoteWindowHost } : {}),
+  // `ESCODE_RUST_HOST` 只决定本地 window Host，不再参与远程路径选择。
+  windowHostProcessMap: remoteWindowHostProcessMap,
+  ensureWindowHost: ensureRemoteWindowHost,
+  // S3-c（spec §10.12）：带 Connection Profile 的远端 workspace 由 Rust Host 服务；Node Host
+  // 只保留给尚未迁移的直连目标（S5 删除）。
+  // 桌面远端窗口与 Node 路径一致使用 desktop-continuous；手机/Web 的共享 Host attachment
+  // 不经过这里（spec §10.15）。
+  attachRustRemoteScope: (scope) =>
+    rustHostManager.attachRemoteScopePort(
+      () => new MessageChannelMain(),
+      scope,
+      "desktop-continuous",
+    ),
+  // S5-a（spec §12.2）：首连/历史快照缺 Profile 时由 App 级 Rust Host 建立/复用 Profile，
+  // 连接成功后回填 sourceServerId；远程不再因缺字段回退 per-window Node Host。
+  resolveRustRemoteProfile: (request, resolveOptions) =>
+    rustHostManager.resolveRemoteProfile(request, resolveOptions),
+  cancelRustRemoteProfile: (requestId) => rustHostManager.cancelRemoteProfile(requestId),
   resolveRemoteAssetDirs: () =>
     resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
   resolveWslTarget: resolveCanonicalWslTarget,
 });
 
 // Host 开关（docs/specs/rust-u2-host-skeleton.md §6）：默认走 Rust Host（App 级一个进程，
-// Main 桥接 MessagePort ↔ RPC WebSocket）；显式 `ESCODE_RUST_HOST=0/false` 才回退 Node Host。
+// Main 桥接 MessagePort ↔ RPC WebSocket）；显式 `ESCODE_RUST_HOST=0/false` 只回退本地
+// window Host。远程 SSH/WSL/Docker 与 Connection Profile 始终由 Rust Host 服务。
 // 启动失败不阻塞应用：`attachRustHostLocal` 抛带分类的 `RustHostStartError`，由 Host 边界按
 // `desktop-disconnected` 呈现（docs/specs/rust-u2-host-resilience.md §4）。
 const rustHostManager = createRustHostManager({
@@ -938,6 +957,8 @@ const rustHostManager = createRustHostManager({
   // 会话工作区等路径按 TS `getDataBaseDir()` 派生（设置项 dataBaseDir 由 bootstrap 注入）；
   // 启动后不再变，与 `conversationWorkspaceDir` 的取值时机一致（见上面 resolveStartupWindowBootstrap）。
   dataBaseDir: getDataBaseDir(),
+  // Rust Host 不建库：Main 先用 Node Host 同一条迁移 worker 准备 tasks-index（spec §3.1）。
+  prepareStorage: createRustHostTasksIndexPreparation({ log: logger }),
   // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；含 provider 配置位置（A16b，spec §11）。
   runtimeEnv: () => ({
     ...buildRustHostRuntimeEnv(hostProcessLocalEnv),
@@ -950,6 +971,11 @@ const rustHostManager = createRustHostManager({
       endpointBaseOrigin: resolveESCodeEndpointOrigin(hostProcessLocalEnv),
     }),
   }),
+  remoteAssets: () =>
+    resolveRustHostRemoteAssets(
+      resolveRemoteAssetDirs({ locale: currentApplicationLocale }, hostProcessLocalEnv),
+      ESCODE_VERSION || app.getVersion(),
+    ),
   // 本地媒体预览：授权注册表属于 Main，Rust Host 经控制通道请求（rust-u2-attachments.md §5）。
   authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
   // CUA Helper 与 sandbox 注册属于 Main；Host 经控制通道转发。
@@ -1006,9 +1032,15 @@ rustHostManager.onStateChange((state) => {
         label: "rust-host",
         pid: state.pid,
         requestResourceUsage: (requestId) =>
-          rustHostManager.sendControl({ kind: "resourceUsageSnapshotRequest", requestId }),
+          rustHostManager.sendControl({
+            kind: "resourceUsageSnapshotRequest",
+            requestId,
+          }),
         cancelResourceUsage: (requestId) =>
-          rustHostManager.sendControl({ kind: "resourceUsageSnapshotCancel", requestId }),
+          rustHostManager.sendControl({
+            kind: "resourceUsageSnapshotCancel",
+            requestId,
+          }),
         setNetworkCapture: (captureId) =>
           rustHostManager.sendControl({ kind: "networkCapture", captureId }),
       });

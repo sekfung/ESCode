@@ -30,6 +30,7 @@
   "write": {
     "filePath": "sub/ts-written.txt",
     "type": "create",
-    "content": "written\n"
+    "content": "written\n",
+    "structuredPatch": []
   }
 }

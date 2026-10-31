@@ -67,7 +67,7 @@ describe("client renderer logging", () => {
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
     const { connectViaMessagePort } = await importMessagePort();
 
-    connectViaMessagePort(new FakeMessagePort());
+    void connectViaMessagePort(new FakeMessagePort());
 
     expect(consoleLog).not.toHaveBeenCalled();
   });
@@ -78,10 +78,11 @@ describe("client renderer logging", () => {
     const connection = createMessagePortServiceConnection(port);
     const reason = new Error("remote connection closed");
 
+    // 握手前即可释放：ready 立刻 resolve（能力未知语义），不会挂起或泄漏。
     connection.dispose(reason);
     connection.dispose();
 
-    expect(connection.services).toBeDefined();
+    expect(await connection.ready).toBeDefined();
     expect(port.close).toHaveBeenCalledTimes(1);
   });
 });

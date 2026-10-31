@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { prepareTasksIndexStorage } from "@escode/services/storage-startup";
 import { ChannelClient, MessagePortProtocol } from "@escode/rpc";
 import { connectViaMessagePort } from "@escode/client";
 import {
@@ -46,10 +47,16 @@ describe("rust host dev switch", () => {
       const root = await mkdtemp(join(tmpdir(), "escode-rust-host-bridge-"));
       const home = join(root, "home");
       // dataBaseDir 经 rpcListen 下发给 Host（与 home 不同，见 rustHostRpc.test.ts 同理）。
+      const dataBaseDir = join(root, "data-base");
+      // 与生产 Main 一致：Rust Host 只校验/引导账本，tasks-index 必须先由 Main 侧迁移准备。
+      await prepareTasksIndexStorage(
+        join(dataBaseDir, ".escode", "v2", "tasks-index.sqlite"),
+        () => undefined,
+      );
       handle = await startRustHost({
         binary: hostBinary,
         home,
-        dataBaseDir: join(root, "data-base"),
+        dataBaseDir,
       });
 
       // Main 侧：renderer 拿到 port1（Electron `MessageChannelMain` 同形），Main 桥接 port2。
@@ -58,7 +65,7 @@ describe("rust host dev switch", () => {
       const [rendererPort, mainPort] = createPortPair();
       const teardown = bridgeRustHostPort(handle, mainPort, "desktop-continuous");
 
-      const services = connectViaMessagePort(asMessagePort(rendererPort));
+      const services = await connectViaMessagePort(asMessagePort(rendererPort));
       // 交付模式由连接路径决定：continuous 桥 → hello 报 desktop-continuous。
       expect((await services.escodeAgentService.helloConversationV4()).clientMode).toBe(
         "desktop-continuous",
@@ -137,7 +144,9 @@ describe("rust host manager (dev switch)", () => {
           const [port1, port2] = createPortPair();
           return { port1, port2 };
         }, "web-remote-replayable");
-        const services = connectViaMessagePort(asMessagePort(attachment.port as HostPortLike));
+        const services = await connectViaMessagePort(
+          asMessagePort(attachment.port as HostPortLike),
+        );
         // 远程 workspace共享 Host attachment 与 Node 路径同为 replayable（评审：A9 改动曾写死 continuous）。
         const hello = await services.escodeAgentService.helloConversationV4();
         expect(hello.clientMode).toBe("web-remote-replayable");

@@ -225,6 +225,52 @@ impl Writer {
     }
 }
 
+/// 与 `host-core::rpc_serialization::WireValue` 的互转（远端 scope 转发用）。
+///
+/// `Int` 越界（超出 VQL 的 i32）时退化为 JSON number，与 TS 的 `Int` 语义一致地不丢值。
+impl From<Wire> for escode_host_core::rpc_serialization::WireValue {
+    fn from(value: Wire) -> Self {
+        use escode_host_core::rpc_serialization::{BytesKind, WireValue};
+        match value {
+            Wire::Undefined => WireValue::Undefined,
+            Wire::Str(text) => WireValue::String(text),
+            Wire::Bytes { vs, data } => WireValue::Bytes {
+                kind: if vs {
+                    BytesKind::VsBuffer
+                } else {
+                    BytesKind::Buffer
+                },
+                bytes: data,
+            },
+            Wire::Array(items) => {
+                WireValue::Array(items.into_iter().map(WireValue::from).collect())
+            }
+            Wire::Object(object) => WireValue::Object(object),
+            Wire::Int(number) => match i32::try_from(number) {
+                Ok(number) => WireValue::Int(number),
+                Err(_) => WireValue::Object(Value::from(number)),
+            },
+        }
+    }
+}
+
+impl From<escode_host_core::rpc_serialization::WireValue> for Wire {
+    fn from(value: escode_host_core::rpc_serialization::WireValue) -> Self {
+        use escode_host_core::rpc_serialization::{BytesKind, WireValue};
+        match value {
+            WireValue::Undefined => Wire::Undefined,
+            WireValue::String(text) => Wire::Str(text),
+            WireValue::Bytes { kind, bytes } => Wire::Bytes {
+                vs: kind == BytesKind::VsBuffer,
+                data: bytes,
+            },
+            WireValue::Array(items) => Wire::Array(items.into_iter().map(Wire::from).collect()),
+            WireValue::Object(object) => Wire::Object(object),
+            WireValue::Int(number) => Wire::Int(i64::from(number)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

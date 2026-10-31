@@ -245,33 +245,33 @@ Rust runtime `mcp/ui*` 上游阻塞；`plugin-ui-*` 的其余 16 个成员同样
 `hooks` / `provider-settings` / `usage-stats`。`escodeTaskServiceAdapter` 里的调用只存在 Node Host 组合中，
 Rust Host 使用原生 `escode-task`，不经过该适配器。
 
-| `escode-agent` 成员                                                                  | 等价实现 / 非缺口依据                                                                                                                        |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createSession` / `resumeSession` / `closeSession` / `readSession` / `listSessions`  | `escode-session` 同名成员                                                                                                                    |
-| `readSessionMessages` / `readWorkspacePresentation`                                  | `escode-session` 同名成员                                                                                                                    |
-| `setMode` / `setModel` / `setThoughtLevel`                                           | `escode-session` 同名成员                                                                                                                    |
-| `sendPrompt` / `compactSession` / `goalSession` / `initialize` / `getTaskTokenUsage` | `escode-task` 同名成员                                                                                                                       |
-| `grantWorkspaceHookTrust`                                                            | `hooks.grantWorkspaceHookTrust`                                                                                                              |
-| `testModelConnectivity`                                                              | `provider-settings.testModelConnectivity`                                                                                                    |
-| `getAppUsageStats`                                                                   | `usage-stats.getAppUsageSnapshot`                                                                                                            |
-| `readSessionEvents`                                                                  | 运行时无 `session/events`；当前 UI/客户端无调用点（另见 §8.4）                                                                               |
-| `collectLocalRuntimeChildProcesses`                                                  | Node Host 的进程巡检；Rust Host 由 `escode-host` 子进程与实例表自行收口，无 Renderer 调用                                                    |
-| `disposeAll` / `disposeWorkspace`                                                    | Node Host 生命周期入口；Rust Host 由 Host `Shutdown` / 实例表负责，无 Renderer 调用                                                          |
-| `prepareStorage` / `getStorageStartupState`                                          | Node Host 数据库启动门；Rust 模式由 `startup/storageState` 协议与 Main 的 `DatabaseStartupState` 承担                                        |
-| `hasActiveCuaOperationTurn`                                                          | Node Host 内部 CUA 门控；Main 侧 CUA 服务不依赖该查询（差异登记见 `rust-u2-cua-permission.md` §4.1）                                         |
-| `generateWorkspaceText`                                                              | Renderer 走 `git.generateCommitMessage` / 已保存工作流；该别名只由 Node 组合使用                                                             |
-| `respondSessionRuntimePreferences`                                                   | Rust runtime 的反向请求 `session/requestRuntimePreferences` 由 Host 的 `runtime_requests` 直接应答；该 RPC 只服务 Node Host 的远程 workspace |
+| `escode-agent` 成员                                                                  | 等价实现 / 非缺口依据                                                                                                                                         |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSession` / `resumeSession` / `closeSession` / `readSession` / `listSessions`  | `escode-session` 同名成员                                                                                                                                     |
+| `readSessionMessages` / `readWorkspacePresentation`                                  | `escode-session` 同名成员                                                                                                                                     |
+| `setMode` / `setModel` / `setThoughtLevel`                                           | `escode-session` 同名成员                                                                                                                                     |
+| `sendPrompt` / `compactSession` / `goalSession` / `initialize` / `getTaskTokenUsage` | `escode-task` 同名成员                                                                                                                                        |
+| `grantWorkspaceHookTrust`                                                            | `hooks.grantWorkspaceHookTrust`                                                                                                                               |
+| `testModelConnectivity`                                                              | `provider-settings.testModelConnectivity`                                                                                                                     |
+| `getAppUsageStats`                                                                   | `usage-stats.getAppUsageSnapshot`                                                                                                                             |
+| `readSessionEvents`                                                                  | 运行时无 `session/events`；当前 UI/客户端无调用点（另见 §8.4）                                                                                                |
+| `collectLocalRuntimeChildProcesses`                                                  | Node Host 的进程巡检；Rust Host 由 `escode-host` 子进程与实例表自行收口，无 Renderer 调用                                                                     |
+| `disposeAll` / `disposeWorkspace`                                                    | Node Host 生命周期入口；Rust Host 由 Host `Shutdown` / 实例表负责，无 Renderer 调用                                                                           |
+| `prepareStorage` / `getStorageStartupState`                                          | Node Host 数据库启动门；Rust 模式由 `startup/storageState` 协议与 Main 的 `DatabaseStartupState` 承担                                                         |
+| `hasActiveCuaOperationTurn`                                                          | Node Host 内部 CUA 门控；Main 侧 CUA 服务不依赖该查询（差异登记见 `rust-u2-cua-permission.md` §4.1）                                                          |
+| `generateWorkspaceText`                                                              | Renderer 走 `git.generateCommitMessage` / 已保存工作流；该别名只由 Node 组合使用                                                                              |
+| `respondSessionRuntimePreferences`                                                   | Rust runtime 的反向请求 `session/requestRuntimePreferences` 由 Host 的 `runtime_requests` 直接应答；Node Host 远程路径（仅 Web `kind: "server"`）仍使用该 RPC |
 
 ### 8.3 `escode-agent` 旧事件别名（6）
 
-| 成员                                                | 非缺口依据                                                                                            |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `onDynamicConversationTelemetryFact`                | 产品已删除遥测上报（2026-10-21）；V4 `onDynamicConversationFrame` 承载实时事实                        |
-| `onDynamicProviderRuntimeHeadersRequest`            | V4 面使用已实现的 `onDynamicWorkspaceProviderRuntimeHeadersRequest` + `respondProviderRuntimeHeaders` |
-| `onDynamicSessionEvent`                             | 旧 `session/subscribe` 订阅面已在 M5 删波次 2 移除；V4 使用 `onDynamicConversationFrame`              |
-| `onDynamicSessionRuntimePreferencesRequest`         | 同上；Host `runtime_requests` 直接应答，Node Host 远程路径才需要该事件                                |
-| `onDynamicStorageStartupState`                      | Rust 模式的存储启动状态走 Main→Renderer 的 `InternalChannels.DatabaseStartupState`，不是服务订阅      |
-| `onDynamicWorkspaceProviderRuntimeHeadersCancelled` | 无 Renderer 消费者；Host 的 `provider_headers` 在内部处理取消                                         |
+| 成员                                                | 非缺口依据                                                                                                           |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `onDynamicConversationTelemetryFact`                | 产品已删除遥测上报（2026-10-21）；V4 `onDynamicConversationFrame` 承载实时事实                                       |
+| `onDynamicProviderRuntimeHeadersRequest`            | V4 面使用已实现的 `onDynamicWorkspaceProviderRuntimeHeadersRequest` + `respondProviderRuntimeHeaders`                |
+| `onDynamicSessionEvent`                             | 旧 `session/subscribe` 订阅面已在 M5 删波次 2 移除；V4 使用 `onDynamicConversationFrame`                             |
+| `onDynamicSessionRuntimePreferencesRequest`         | 同上；Host `runtime_requests` 直接应答，历史 Node Host 远程路径才需要该事件（ssh/wsl/docker 自 S5-a 起走 Rust Host） |
+| `onDynamicStorageStartupState`                      | Rust 模式的存储启动状态走 Main→Renderer 的 `InternalChannels.DatabaseStartupState`，不是服务订阅                     |
+| `onDynamicWorkspaceProviderRuntimeHeadersCancelled` | 无 Renderer 消费者；Host 的 `provider_headers` 在内部处理取消                                                        |
 
 ### 8.4 其余非缺口（5）
 

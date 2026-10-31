@@ -1,5 +1,6 @@
 import { disposeServiceResourcesAndWait, getAppConfigDir } from "@escode/services/node";
 import {
+  ESCODE_COMPATIBILITY_MANIFEST,
   ESCODE_VERSION,
   SERVICE_AUTHORITY_MODE_ENV,
   formatLogPrefix,
@@ -44,6 +45,7 @@ async function main() {
     platform: process.platform,
     arch: process.arch,
     pid: process.pid,
+    compatibility: ESCODE_COMPATIBILITY_MANIFEST,
   };
   process.stdout.write(JSON.stringify(hello) + "\n");
 

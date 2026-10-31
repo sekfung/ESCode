@@ -15,12 +15,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { buildSchema } from "../scripts/upstream-sync/project-storage-oracle/run.ts";
 
 /** 提取方式（产物形状）变化时递增；Rust 侧加载期断言。 */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const built = await buildSchema();
 const migrations = built.tasks;
 const projectMigrations = built.project;
 const ddl = built.ddl;
+const projectDdl = built.projectDdl;
+const tasksDdl = built.tasksDdl;
 
 // 哈希口径用「换行连接的规范文本」而不是 JSON：两端 JSON 序列化对转义的处理不同，
 // 换行连接是双方都能逐字节复现的口径。
@@ -36,6 +38,12 @@ const projectExpectationsHash = createHash("sha256")
 // 哈希必须对**同一份文本**计算，否则 Rust 复现不出来。
 const compactDdl = ddl.map((sql) => sql.replace(/\s+/g, " ").trim());
 const ddlHash = createHash("sha256").update(compactDdl.join("\n")).digest("hex");
+const compactTasksDdl = tasksDdl.map((sql) => sql.replace(/\s+/g, " ").trim());
+const tasksDdlHash = createHash("sha256").update(compactTasksDdl.join("\n")).digest("hex");
+const compactProjectDdl = projectDdl.map((sql) => sql.replace(/\s+/g, " ").trim());
+const projectDdlHash = createHash("sha256")
+  .update(compactProjectDdl.join("\n"))
+  .digest("hex");
 
 const lines = [
   "//! tasks-index 的迁移账本与物理 DDL，由 `scripts/generate-escode-host-tasks-schema.mjs` 从 TS 生成，勿手改。",
@@ -81,6 +89,29 @@ const lines = [
   "/// `MIGRATED_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。",
   "#[rustfmt::skip]",
   `pub const DDL_HASH: &str = ${JSON.stringify(ddlHash)};`,
+  "",
+  "/// tasks 基础迁移后的物理 DDL（tasks-only 库；不含 project-storage 对象与 `schema_migration`）。",
+  "/// Rust Host 的 project-storage bootstrap 测试用它模拟 `prepareTasksIndexStorage` 的结果。",
+  "#[rustfmt::skip]",
+  "pub const TASKS_DDL: &[&str] = &[",
+  ...compactTasksDdl.map((sql) => `    ${JSON.stringify(sql)},`),
+  "];",
+  "",
+  "/// `TASKS_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。",
+  "#[rustfmt::skip]",
+  `pub const TASKS_DDL_HASH: &str = ${JSON.stringify(tasksDdlHash)};`,
+  "",
+  "/// project-storage 迁移给 tasks-only 库补齐的物理对象与列（不含 `schema_migration`）。",
+  "/// 包含新建表/索引，以及 tasks 表等既有表的 `ALTER TABLE ... ADD COLUMN`；",
+  "/// Rust Host 在 tasks 库为空且项目账本缺失时用它补齐项目 schema。",
+  "#[rustfmt::skip]",
+  "pub const PROJECT_DDL: &[&str] = &[",
+  ...compactProjectDdl.map((sql) => `    ${JSON.stringify(sql)},`),
+  "];",
+  "",
+  "/// `PROJECT_DDL` 的 sha256（换行连接的规范文本，加载期自校验）。",
+  "#[rustfmt::skip]",
+  `pub const PROJECT_DDL_HASH: &str = ${JSON.stringify(projectDdlHash)};`,
   "",
 ];
 const content = `${lines.join("\n")}`;

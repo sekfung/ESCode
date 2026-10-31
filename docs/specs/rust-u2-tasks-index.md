@@ -49,11 +49,29 @@ flowchart LR
 | 项       | 约定                                                                                                                                                                                                                                                                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 路径     | `join(getAppConfigDir(), "tasks-index.sqlite")` = `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（dataBaseDir 由 Main 经 `rpcListen` 提交，见 u2 骨架 §6）                                                                                                                                                                                  |
-| 表       | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`off_peak_tasks`、`tasks_schema_migration`                                                                                                                                               |
+| 表       | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`tasks_schema_migration`、`schema_migration`                                                                                                                                               |
 | 打开参数 | `PRAGMA busy_timeout = 5000`、`PRAGMA foreign_keys = ON`（Host 是长连接，与 TS `TaskIndexRepo` 的 5000ms 同；`prepareTasksIndexStorage` 的 25ms 只用于一次性启动准备）；迁移/维护期间的取锁等待上限 1h，且**分阶段上报**（`checking`/`waiting_for_lock`/`migrating`/`maintaining`/`committing`/`ready`，映射到 `startup/tasksState` 事件） |
 | DDL      | 复用 TS 的 `TASK_INDEX_SCHEMA` 文本（`schema-v1.ts`）+ 迁移 `0001_adopt_task_schema`/`0002_provider_selection`/`0003_official_glm_selection`；Rust 侧以 `include_str!` 引入同一份 DDL 文本并加 **checksum 哨兵**（对照质量报告 §4：`rust_*`/`dwf_*` DDL 无机器校验的欠账，本域不允许重演）                                                 |
-| 迁移对照 | 启动时读 `tasks_schema_migration` 已应用 id 集合；Rust 只允许**前向补齐**，遇到未知（更新版 TS 写的）id 就拒绝写入并回报结构化错误，不猜                                                                                                                                                                                                   |
+| 迁移对照 | 打开时读 `tasks_schema_migration` / `schema_migration`；Rust Host **只校验不迁移**，缺账本、多出未知 id 或 checksum 不符都以结构化错误拒绝，不重建、不半迁移                                                                                                                                                                                   |
 | 并发     | 与 TS Host 交替运行时靠 SQLite 锁 + busy_timeout；本域不引入第二套锁（`host/file_lock.rs` 是文件锁，语义不同，不混用）                                                                                                                                                                                                                     |
+
+### 3.1 启动准备（Rust Host 模式）
+
+Rust Host 默认开启后，本地窗口不再启动 Node Host，而 `TasksIndex::open` 按契约只校验不建库。因此
+**Main 在拉起 Rust Host 之前负责一次性准备 tasks-index**：
+
+- Main 复用 Node Host 同一条 `prepareTasksIndexStorage` 迁移路径（`host/tasksStorageWorker`），
+  在 `rustHostManager.launch()` 前完成后才 spawn Rust Host；Rust Host 仍是业务写入的唯一所有者，
+  只是在启动时校验准备好的账本。
+- tasks 迁移只负责 `tasks_schema_migration` 与基础表；`hosts` / `projects` / `project_roots` /
+  `remote_project_entries`、tasks 表的 project 归属列（`host_id` / `root_path` / `project_id` 等）
+  以及对应索引由 Rust Host 的 project bootstrap 在 tasks 库为空、项目账本缺失时补齐，并写入
+  `schema_migration` 账本。已有任务但没有项目账本的库显式拒绝（需要真实数据迁移），不按空库假装完成。
+- 新库与 TS 迁移后的库字节等价（同一 SQL/checksum/事务边界，生成资产由
+  `pnpm check:escode-host` 对照）；旧库按同一迁移前向补齐，不改变迁移语义。
+- 准备失败以 `RUST_HOST_STORAGE_FAILED` 显式拒绝启动，不回退 Node Host、不创建空库兜底。
+- 准备成功后 Main 标记本地数据库启动就绪，恢复依赖 tasks-index 的 cron scheduler；Node Host
+  模式保持现有 `startup/storageState` 路径不变。
 
 ## 4. 接口映射
 

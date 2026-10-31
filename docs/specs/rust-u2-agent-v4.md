@@ -16,7 +16,7 @@
 | `escode-agent` V4 面（host-rpc） | hello/initialize 握手；conversation / sessions-index / workspace-config 三类 topic 的 subscribe/unsubscribe/resync 与帧路由（ACK 前暂存）；`sendConversationCommandV4`、`queryConversationCommandsV4` 与只读 query 族、附件事务；连接关闭清理 | `escodeAgentConnectionScope.ts`（全文）、`escodeAgentService.ts:5850-6440`（base 层 V4 转发）                                                                    |
 
 不在本片：legacy `escode-agent` 方法（插件/自动化/MCP UI/wiki 等 112 个方法中非 V4 的部分，随各自域）；
-mobile `web-remote-replayable` attachment 的**接入**（本片在连接上下文里支持 clientMode，但 Main 仍把手机接到 Node Host，见 §6）。
+mobile `web-remote-replayable` attachment 的**接入**（本片在连接上下文里支持 clientMode；手机远控已删除，Main 当前没有该模式的 attachment 调用方，远程 workspace 统一走 `desktop-continuous`，见 §6）。
 
 ## 2. 状态所有者与事件顺序
 
@@ -48,6 +48,9 @@ Renderer(port)                Rust Host                                      run
 - 可信字段（`connectionId`/`clientMode`/`workflowRunDeltas`/`deliveryProfile`/`subscriberScope`）只由 Host 写入，Renderer 入参中的同名字段一律剥除（TS `withTrustedConnection`）。
 - `unsubscribe` 找不到 owner 时静默成功；`resync` 找不到 owner 回 `fault.subscription.notOwned`；同一 (kind, workspace, subscriptionId) 多重匹配时拒绝猜测。
 - 连接关闭与迟到 ACK 并发：迟到 ACK 不登记、立即反向 unsubscribe，并回 `fault.connection.closed`。
+- **出站顺序**（2026-10-31 对齐 Node）：runtime 在处理命令/事件期间产生的 Host 反向请求（同时带 `id` 与 `method`）
+  先于该命令响应写出；V4 帧、通知（无 `id` 的 `method`）与 Host 请求应答（`id` + `result`）仍在响应之后写出。
+  依据：Node 在产生反向请求时立即写 stdout，而命令响应要等处理完成（`session-baseline` 偏好请求位置对拍）。
 
 ## 3. 接口
 
@@ -59,6 +62,8 @@ Renderer(port)                Rust Host                                      run
   未知 channel/事件：TS 抛 `Event not found`（服务端日志，客户端无响应）；Rust 同样不回响应，只记 warn。
 - `EventDispose(id)`：取消订阅（丢弃事件流句柄）。
 - 连接关闭：取消全部在飞请求与事件订阅，再按注册顺序执行各 channel 的连接级 `dispose` 钩子。
+- 命令 ACK 的 `revisionAtDecision` 固定为 decide 时（执行前）的 revision，与 Node `command-inbox.decide()` 一致；
+  `inputAccepted` 等受理型 ACK 不因受理推进 revision 而改写该字段（2026-10-31 出站顺序对拍发现 Rust 曾报执行后 revision）。
 - 出站队列字节水位：高水位 8 MiB → 连接 `saturated`；低水位 2 MiB → `drained`；硬上限 64 MiB → 关闭连接（fail closed，
   不静默丢帧）。水位边沿交给连接作用域（V4 面把它转发为 `v4/connection/flow`，TS `setTransportFlowState` 同义）。
 
@@ -122,8 +127,8 @@ Rust 回 `false`（登记差异 §6-2）。
 
 ## 6. 登记差异
 
-1. **replayable attachment 的调用面变更**：连接上下文保留 `web-remote-replayable`，当前用于远程 workspace attachment；远程 workspace已于 2026-10-20 删除，不再作为调用方。
-   移除条件：remote 域（优先序 9）落地。
+1. **replayable attachment 的调用面变更**：连接上下文保留 `web-remote-replayable` 协议兼容，但桌面 Main 当前没有调用方（手机远控已删除；2026-10-20 远程 workspace 删除后失去调用方，2026-10-31 恢复的远程 workspace 由 Rust Host 以 `desktop-continuous` 接入）。
+   移除条件：`web-remote-replayable` 协议兼容字段退役。
 2. **`subagentRuntimeConfigEnabled=false`**：自定义子代理运行时配置不下发。可见条件：dev 开关下用户自定义 subagent 不生效。
    移除条件：subagents 域实现 `subagents/readRuntimeConfig`。
 3. **不做账号 provider 同步屏障**（`ensureAccountProviderConfigSynced`）：providers/account 域未迁移；Rust Host 下模型配置由 Main 经

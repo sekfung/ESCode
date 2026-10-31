@@ -76,15 +76,15 @@ describe(`${CASE_MARKER}: SSH 远端开发基础能力 P0`, () => {
     await assertRemoteFileTreeAndPreview(fixturePath);
     await assertRemoteTerminal(fixturePath);
     await assertRemoteGitStatus();
-    // AGENTS.md「进程、协议与远程控制」：本地 window Host 常驻，远程 scope 由窗口内独立的
-    // Node Host 服务。这里断言本地 Host 不被替换，且同一窗口只存在一个 remote Host。
+    // S5-a：直接 SSH 首连也已交给 App 级 Rust Host；本地 Host 不被替换，
+    // 且不再懒创建 per-window remote Node Host。
     const hostsAfterConnect = await readHostProcesses();
     for (const host of initialHosts) {
       expect(hostsAfterConnect).toEqual(expect.arrayContaining([host]));
     }
     expect(
       hostsAfterConnect.filter((host) => host.name.startsWith("escode-host-remote-")).length,
-    ).toBe(1);
+    ).toBe(0);
 
     const remote = await runSSHCommand(
       config,

@@ -1,0 +1,172 @@
+{
+  "plugins": [
+    {
+      "components": [
+        {
+          "kind": "hook",
+          "items": [
+            {
+              "name": "SessionStart"
+            },
+            {
+              "name": "PreToolUse"
+            }
+          ]
+        }
+      ],
+      "hookDetails": [
+        {
+          "command": "echo start",
+          "event": "SessionStart",
+          "runnable": true,
+          "sourcePath": "<root>/plugins/valid/hooks/hooks.json",
+          "type": "command"
+        },
+        {
+          "command": "node",
+          "event": "PreToolUse",
+          "runnable": true,
+          "sourcePath": "<root>/plugins/valid/hooks/hooks.json",
+          "type": "process",
+          "matcher": "Bash",
+          "args": ["h.js"]
+        }
+      ],
+      "id": "valid@inline"
+    },
+    {
+      "components": [],
+      "hookDetails": [],
+      "id": "missing@inline"
+    },
+    {
+      "components": [],
+      "hookDetails": [],
+      "id": "escape@inline"
+    },
+    {
+      "components": [
+        {
+          "kind": "hook",
+          "items": [
+            {
+              "name": "Stop"
+            }
+          ]
+        }
+      ],
+      "hookDetails": [
+        {
+          "command": "echo ok",
+          "event": "Stop",
+          "runnable": true,
+          "sourcePath": "<root>/plugins/duplicate/hooks/hooks.json",
+          "type": "command"
+        }
+      ],
+      "id": "duplicate@inline"
+    },
+    {
+      "components": [
+        {
+          "kind": "hook",
+          "items": [
+            {
+              "name": "PreToolUse"
+            },
+            {
+              "name": "SessionStart"
+            },
+            {
+              "name": "Stop"
+            }
+          ]
+        }
+      ],
+      "hookDetails": [
+        {
+          "command": "echo inline",
+          "event": "SessionStart",
+          "runnable": true,
+          "sourcePath": "<root>/plugins/invalid/.escode-plugin/plugin.json",
+          "type": "command",
+          "timeout": 3
+        }
+      ],
+      "id": "invalid@inline"
+    },
+    {
+      "components": [],
+      "hookDetails": [],
+      "id": "badjson@inline"
+    }
+  ],
+  "installedPlugins": [
+    {
+      "componentTypes": ["hook"],
+      "enabled": false,
+      "hookDetails": [
+        {
+          "command": "echo done",
+          "event": "Stop",
+          "runnable": true,
+          "sourcePath": "<root>/installed/hooked/hooks/hooks.json",
+          "type": "command"
+        }
+      ],
+      "id": "hooked@acme",
+      "scope": "user"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "plugin_hook_read_failed",
+      "message": "Plugin hooks file not found: hooks/nope.json",
+      "pluginId": "missing@inline",
+      "severity": "error"
+    },
+    {
+      "code": "plugin_component_path_invalid",
+      "message": "Plugin hooks path escapes plugin root: ../outside.json",
+      "pluginId": "escape@inline",
+      "severity": "error"
+    },
+    {
+      "code": "plugin_hook_invalid",
+      "message": "Duplicate plugin hooks file ignored: hooks/hooks.json",
+      "pluginId": "duplicate@inline",
+      "severity": "warning"
+    },
+    {
+      "code": "plugin_hook_invalid",
+      "message": "Duplicate plugin hooks file ignored: ./hooks/hooks.json",
+      "pluginId": "duplicate@inline",
+      "severity": "warning"
+    },
+    {
+      "code": "plugin_hook_unsupported_event",
+      "message": "Plugin hook event is not supported by this ESCode runtime: Nope",
+      "pluginId": "invalid@inline",
+      "severity": "warning"
+    },
+    {
+      "code": "plugin_hook_invalid",
+      "message": "<matcher error>",
+      "pluginId": "invalid@inline",
+      "severity": "error"
+    },
+    {
+      "code": "plugin_hook_invalid",
+      "message": "Plugin hook event must be an array: Stop",
+      "pluginId": "invalid@inline",
+      "severity": "error"
+    },
+    {
+      "code": "plugin_hook_read_failed",
+      "message": "<parse error>",
+      "pluginId": "badjson@inline",
+      "severity": "error"
+    }
+  ],
+  "schemaErrors": []
+}

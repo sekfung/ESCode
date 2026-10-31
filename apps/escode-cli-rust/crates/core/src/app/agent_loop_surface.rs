@@ -53,17 +53,41 @@ pub(super) async fn prepare_tool_surface(
         model.supports_tool_call(),
     )
     .map_err(anyhow::Error::msg)?;
-    let catalog: Vec<ToolSearchCandidate> = definitions
+    let mut catalog: Vec<ToolSearchCandidate> = definitions
         .iter()
         .filter_map(tool_search_catalog::candidate_from_definition)
         .collect();
     let has_deferred = catalog.iter().any(|candidate| candidate.deferred);
-    let discovered: HashSet<String> = tools.tool_search_discovered(session).into_iter().collect();
+    // 冷恢复：会话历史里的 tool_reference / compact 边界是已发现集合的权威事实，进程内记录只是
+    // 同一事实的缓存；取并集并回填，避免恢复后把已加载工具重新当作延迟工具。压缩边界由
+    // `ContextState.preCompactDiscoveredTools` 持有（rust-tool-search.md §5.2）。
+    let mut discovered: HashSet<String> =
+        tools.tool_search_discovered(session).into_iter().collect();
+    let mut restored = crate::domain::tool_search_announcement::discovered(&history.messages);
+    restored.extend(history.state.pre_compact_discovered_tools.iter().cloned());
+    if !restored.is_empty() {
+        discovered.extend(restored.iter().cloned());
+        tools.record_tool_search(session, restored);
+    }
     let mode = if resolved != ResolvedToolSearchMode::Off && has_deferred {
         resolved
     } else {
         ResolvedToolSearchMode::Off
     };
+    // 上游 resolveToolSearchCatalog：local 模式下压缩边界里已发现的工具不再算 deferred，
+    // 否则公告生成与 total_deferred_tools 会把已加载工具重新当作新增目录项。
+    if mode == ResolvedToolSearchMode::Local {
+        for candidate in &mut catalog {
+            if history
+                .state
+                .pre_compact_discovered_tools
+                .contains(&candidate.name)
+            {
+                candidate.deferred = false;
+            }
+        }
+    }
+    history.tool_search_active = mode != ResolvedToolSearchMode::Off;
     if mode != ResolvedToolSearchMode::Off {
         definitions.extend(tool_search_catalog::control_definitions(mode));
     }

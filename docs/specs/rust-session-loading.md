@@ -84,6 +84,27 @@ App 的 `readSessionMessages` 走 `session/messages`（TS `readMessages`），Ru
 验收：`packages/services/tests/escode-cli-rust-session-messages.test.ts`——Rust 侧校验 schema 通过、
 四类分页（命中锚点 / 锚点缺失 / limit 取尾部 / limit 超限）逐条对齐 TS 算法、未激活会话报同文案。
 
+## Snapshot 顶层可选字段（2026-10-31）
+
+`v4/conversation/frame` 的快照 payload 必须与 TS `initialProjectionState` 的键集合一致：Node 的快照
+显式带 `modelTransition: null`（`packages/shared/src/escode-protocol-v4/snapshot.ts` 中该字段
+`.nullable().default(null)`），而增量补丁只在 registry fallback 触发选型迁移时才写
+`modelTransition`。因此 Rust 在 `Session::snapshot()` 写入 `modelTransition: null`，`Session::patch()`
+保持省略；把 null 放进公共 patch 会让每次 `state.updated` 多出 Node 不发送的键。
+
+同一份初始快照还必须带 Node `initialProjectionState` 的默认键：`subagents`（无子代理时为
+`{revision:0, childSessionIds:[], running:[], endedTotal:0}`）与 `workspaceHookAdmission: null`。
+Rust 的 patch 只在有子代理/软门禁状态时写这两个键，因此 `Session::snapshot()` 在缺省时补齐。
+
+没有 `firstInput` 的 draft `createSession` 不产生任何会话可见增量：Node 的 draft 语义要求
+`seq` 保持 0，订阅快照以 `fromSeq=0 / toSeq=0` 发出。Rust 原先在创建后无条件 `publish` 一条
+`state.updated`，把快照 `seq` 推到 1；现在仅在确实有首个输入（`turn.is_some()`）时发布会话帧，
+否则只刷新 `sessions-index` 主题。
+
+验收：domain 单测断言快照含 null、补丁不含该键；`escode-cli-rust-session-projection.test.ts` 的
+draft 快照用例断言 `seq=0`、`subagents`/`workspaceHookAdmission` 默认值；golden 差分的首帧快照在
+`$.params.frame.payload.snapshot.modelTransition` 不再出现偏移。
+
 ## 验收
 
 - 用禁止会话写入的 trigger、损坏的未打开 transcript/ACK，证明启动和 index 不访问它们；坏历史只影响读取该会话。

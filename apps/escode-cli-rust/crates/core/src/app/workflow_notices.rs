@@ -154,24 +154,28 @@ pub(super) fn encode_workflow_runs(
     deltas_capable: bool,
     legacy: Option<&Value>,
 ) {
+    // 修复：`Value` 的可变索引会对缺失键插入 `null`（serde_json IndexMut 语义），
+    // 在快照/增量帧里多加 Node 不发送的 "deltas":null / "snapshot":null / "patch":null，
+    // 破坏 L4 帧对拍。可选键一律用 get/get_mut 读写，缺席即保持缺席。
     if !deltas_capable
         && let Some(legacy) = legacy
-        && payload["snapshot"].get("workflowRuns").is_some()
+        && let Some(snapshot) = payload.get_mut("snapshot").and_then(Value::as_object_mut)
+        && snapshot.contains_key("workflowRuns")
     {
-        payload["snapshot"]["workflowRuns"] = legacy.clone();
+        snapshot.insert("workflowRuns".into(), legacy.clone());
     }
-    let Some(deltas) = payload["deltas"].as_array_mut() else {
+    let Some(deltas) = payload.get_mut("deltas").and_then(Value::as_array_mut) else {
         return;
     };
     if !deltas_capable {
         deltas.retain(|d| {
-            !d["op"]
-                .as_str()
+            !d.get("op")
+                .and_then(Value::as_str)
                 .is_some_and(|op| op.starts_with("workflowRun."))
         });
     }
     for delta in deltas.iter_mut() {
-        let Some(patch) = delta["patch"].as_object_mut() else {
+        let Some(patch) = delta.get_mut("patch").and_then(Value::as_object_mut) else {
             continue;
         };
         if deltas_capable {
@@ -181,5 +185,52 @@ pub(super) fn encode_workflow_runs(
         {
             patch.insert("workflowRuns".into(), legacy.clone());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_workflow_runs;
+    use serde_json::json;
+
+    #[test]
+    fn snapshot_without_deltas_does_not_gain_a_null_key() {
+        let mut payload =
+            json!({"kind":"snapshot","snapshot":{"workflowRuns":{"runs":[{"id":"current"}]}}});
+        let legacy = json!({"runs":[{"id":"clamped"}]});
+        encode_workflow_runs(&mut payload, false, Some(&legacy));
+        assert!(payload.get("deltas").is_none());
+        assert_eq!(payload["snapshot"]["workflowRuns"], legacy);
+    }
+
+    #[test]
+    fn deltas_without_patch_or_snapshot_do_not_gain_null_keys() {
+        let mut payload = json!({"kind":"deltas","deltas":[
+            {"op":"row.appended","row":{"rowId":1}},
+            {"op":"state.updated","patch":{"revision":2,"workflowRuns":{"runs":[]}}},
+            {"op":"workflowRun.updated","runId":"r"}
+        ]});
+        let legacy = json!({"runs":[{"id":"clamped"}]});
+        encode_workflow_runs(&mut payload, false, Some(&legacy));
+        let deltas = payload["deltas"].as_array().unwrap();
+        assert_eq!(deltas.len(), 2);
+        assert!(deltas[0].get("patch").is_none());
+        assert!(payload.get("snapshot").is_none());
+        assert_eq!(deltas[1]["patch"]["workflowRuns"], legacy);
+        assert_eq!(deltas[1]["patch"]["revision"], 2);
+    }
+
+    #[test]
+    fn capable_subscriber_keeps_run_ops_and_drops_the_full_key() {
+        let mut payload = json!({"kind":"deltas","deltas":[
+            {"op":"state.updated","patch":{"revision":2,"workflowRuns":{"runs":[]}}},
+            {"op":"workflowRun.updated","runId":"r"}
+        ]});
+        encode_workflow_runs(&mut payload, true, None);
+        let deltas = payload["deltas"].as_array().unwrap();
+        assert_eq!(deltas.len(), 2);
+        assert!(deltas[0]["patch"].get("workflowRuns").is_none());
+        assert_eq!(deltas[0]["patch"]["revision"], 2);
+        assert!(deltas[1].get("patch").is_none());
     }
 }

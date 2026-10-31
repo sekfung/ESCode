@@ -20,7 +20,6 @@ import { createPluginSandboxRegistrationBridge } from "./pluginSandbox/index.js"
 import {
   MessagePortProtocol,
   ChannelServer,
-  type IDisposable,
   type IChannelServer,
   LoggingChannelServer,
 } from "@escode/rpc";
@@ -29,12 +28,8 @@ import { createBrowserControlMainBridge } from "./browserControlMainBridge.js";
 import { materializeBrowserRecordingArtifact } from "./browserRecordingArtifactMaterializer.js";
 import {
   ServiceCollection,
-  IFileService,
   IClientConfigService,
-  IMediaPreviewService,
   IModelSelectionService,
-  ISettingService,
-  IOnboardingRecordService,
   IWindowControllerService,
   IESCodeAgentService,
   IESCodeTaskService,
@@ -52,13 +47,11 @@ import {
   createServiceLogger,
   createHostApiNetworkTransport,
   createSettingServiceWithMigrations,
-  type HostApiNetworkTransport,
 } from "@escode/services/node";
 import { createHostResourceUsageResponder } from "./hostResourceUsage.js";
 import {
   HostMessageTypes,
   HostResponseTypes,
-  ESCODE_VERSION,
   formatLogPrefix,
   formatESCodeHostProcessName,
   formatZodError,
@@ -83,33 +76,15 @@ import {
   parseHostIncomingMessageEvent,
   rejectUnavailableAttachedServicePort,
 } from "./hostMessagePortGuard.js";
-// remote backend 相关模块延迟加载：ssh2 的 CJS 依赖链（asn1 等）在 asar 打包后路径断裂，
-// 静态 import 会导致 local 模式的 host process 也崩溃。
-// 改为动态 import，仅 remote 模式时才加载。
-import type {
-  ConnectOptions,
-  DeployLockMode,
-  IRemoteBackend,
-  RemoteRuntimeNetworkOptions,
-  RemoteAssetNetworkPort,
-  RemoteConnection,
-} from "@escode/server/remote";
+import type { IRemoteBackend } from "@escode/server/remote/backend.js";
 import type { RemoteTarget } from "@escode/shared";
 import { wrapElectronPort } from "./electronPort.js";
 import { createTaskRealtimeBridgeForHostInit } from "./taskRealtimeBridge.js";
 import { resolveRpcLogLevel } from "./rpcLogLevel.js";
 import { createHostWorkspaceTaskTracker } from "./hostWorkspaceTaskTracker.js";
-import {
-  createRemoteMediaPreviewProxy,
-  type RemoteMediaPreviewProxy,
-} from "./remoteMediaPreviewProxy.js";
 import { createHostRemoteWorkspaceProxyState } from "./hostRemoteWorkspaceProxyState.js";
-import {
-  createRemoteWorkspaceServiceCollection,
-  createServerRemoteWorkspaceServiceCollection,
-} from "./remoteWorkspaceServiceCollection.js";
+import { createServerRemoteWorkspaceServiceCollection } from "./remoteWorkspaceServiceCollection.js";
 import { getRemoteProviderProvisioningExecutor } from "./remoteProviderProvisioningService.js";
-import { createRemotePromptAttachmentTransferService } from "./promptAttachmentTransferService.js";
 import { shouldReportHostConsoleError, stringifyHostLogArg } from "./hostLog.js";
 import { flushHostE2ECoverage } from "./e2eCoverage.js";
 import { runHostShutdownPhases, type HostShutdownResult } from "./hostShutdownPhases.js";
@@ -121,11 +96,6 @@ import {
   settleCronRunTerminalOutcome,
   settleManualDispatchFailureBestEffort,
 } from "./cronRunLifecycle.js";
-import {
-  createRemotePromptAttachmentSessionService,
-  createRemotePromptAttachmentTaskService,
-  materializeRemotePromptAttachments,
-} from "./remotePromptAttachments.js";
 import { connectServerRemote, type ServerRemoteConnection } from "./serverRemoteConnection.js";
 import { createWindowHostAttachmentRegistry } from "./windowHostAttachmentRegistry.js";
 import {
@@ -137,36 +107,9 @@ import { pushDynamicWorkflowUserModeToRemoteHosts } from "./remoteDynamicWorkflo
 import { createWindowHostControllerRuntime } from "./windowHostControllerService.js";
 import { resolveAutomationSubmissionModelSelection } from "./automationModelSelection.js";
 import { createRemoteConnectionProgressContext } from "@escode/server/remote/remoteConnectionProgressContext.js";
-type RemoteBackendHostConnection = RemoteConnection & {
-  backend: IRemoteBackend;
-};
-type HostRemoteConnection = RemoteBackendHostConnection | ServerRemoteConnection;
 interface HostRemoteConnectionCapabilities {
   browserRecordingUploader?: Pick<IRemoteBackend, "upload">;
-  remoteMediaPreviewFactory?: (
-    scope: Extract<WindowHostAttachmentScope, { kind: "remote" }>,
-  ) => RemoteMediaPreviewProxy;
 }
-
-let activeRemoteMediaRequests = 0;
-const hostRemoteMediaRequestLimiter = {
-  tryAcquire: () => {
-    if (activeRemoteMediaRequests >= 4) return false;
-    activeRemoteMediaRequests += 1;
-    return true;
-  },
-  release: () => {
-    activeRemoteMediaRequests = Math.max(0, activeRemoteMediaRequests - 1);
-  },
-  getState: () => ({ active: activeRemoteMediaRequests, limit: 4 }),
-};
-const remoteMediaRangePreviewEnabled =
-  process.env["ESCODE_REMOTE_MEDIA_RANGE_PREVIEW_ENABLED"] !== "0";
-
-type RemoteAssetDirs = Pick<
-  ConnectOptions,
-  "mockCdnDir" | "remoteCdnBaseUrl" | "remoteCdnBaseUrls" | "remoteCacheDir"
->;
 
 const { parentPort } = process;
 const hostNetworkCapture = createHostNetworkCapture(parentPort);
@@ -1177,7 +1120,6 @@ console.error = (...args: unknown[]) => {
 let databaseStartup: ReturnType<typeof createHostDatabaseStartup> | undefined;
 const pendingStartupAttachments = new Map<string, () => void>();
 let activeServices: ServiceCollection | null = null;
-let activeHostApiNetworkTransport: HostApiNetworkTransport | null = null;
 /** 本地 host services 的资源遥测订阅；远端连接的订阅由各自的 connection handle 持有。 */
 // 资源管理器采样只在 main 请求时执行一次，Host 不维护任何周期定时器。
 const hostResourceUsageResponder = createHostResourceUsageResponder({
@@ -1188,183 +1130,50 @@ let activeSessionRealtimePort: ReturnType<typeof createTaskRealtimeBridgeForHost
 let hasDisposedHostResources = false;
 let disposeHostResourcesInFlight: Promise<HostShutdownResult> | null = null;
 
-function requireActiveHostApiNetworkTransport(): HostApiNetworkTransport {
-  if (!activeHostApiNetworkTransport) {
-    // Bug 原因：remote asset 若在 Host 网络策略就绪前回退 global fetch，会绕过设置页显式代理。
-    throw new Error("Window Host network transport is not initialized");
-  }
-  return activeHostApiNetworkTransport;
-}
-
-async function resolveDesktopRemoteRuntimeNetwork(
-  target: RemoteTarget,
-): Promise<RemoteRuntimeNetworkOptions | undefined> {
-  if (target.kind !== "wsl") {
-    return undefined;
-  }
-  const settingService = activeServices?.getOptional(ISettingService);
-  if (!settingService) {
-    return undefined;
-  }
-  try {
-    const settings = await settingService.get();
-    return {
-      authoritative: true,
-      httpProxy: settings.httpProxy,
-      noProxy: settings.httpProxyNoProxy,
-    };
-  } catch {
-    // 设置读取失败时保留原有远程连接行为，不让网络增强把 WSL 工作区直接阻断。
-    return undefined;
-  }
-}
-
-async function disposeHostRemoteConnection(connection: HostRemoteConnection): Promise<void> {
-  if ("disposeAndWait" in connection) {
-    await connection.disposeAndWait({ timeoutMs: 5_000 });
-    return;
-  }
+async function disposeHostRemoteConnection(connection: ServerRemoteConnection): Promise<void> {
   connection.dispose();
 }
 
 async function createWindowRemoteConnectionHandle(params: {
   target: RemoteTarget;
-  remoteAssets: RemoteAssetDirs;
   signal: AbortSignal;
 }): Promise<WindowRemoteConnectionHandle<ServiceCollection, HostRemoteConnectionCapabilities>> {
   if (!activeServices) throw new Error("Local Host services are not initialized.");
-  const clientConfigService = activeServices.get(IClientConfigService);
-  const localSettingService = activeServices.get(ISettingService);
-  const localOnboardingRecordService = activeServices.get(IOnboardingRecordService);
+  // S5-c（spec §12.3）：ssh/wsl/docker 已全部由 Rust Host 承载，Node Host 只保留
+  // kind: "server" 直连。非 server 目标必须显式失败，不能回退到已删除的 Node remote deploy。
+  if (params.target.kind !== "server") {
+    throw Object.assign(
+      new Error('远程 workspace 由 Rust Host 承载；Node Host 只支持 kind: "server" 直连'),
+      { code: "REMOTE_RUST_HOST_REQUIRED" as const },
+    );
+  }
   if (params.signal.aborted) {
     throw new Error("远程连接已取消");
   }
+  const clientConfigService = activeServices.get(IClientConfigService);
   const closeListeners = new Set<(event: WindowRemoteConnectionCloseEvent) => void>();
-  let peerServices: ServiceCollection | undefined;
   const notifyClose = (event: WindowRemoteConnectionCloseEvent) => {
     for (const listener of closeListeners) {
       listener(event);
     }
   };
-  let connection: HostRemoteConnection;
-  try {
-    connection =
-      params.target.kind === "server"
-        ? await connectServerRemote(params.target, {
-            onClose: ({ code, reason }) =>
-              notifyClose({ exitCode: code, signal: null, ...(reason ? { error: reason } : {}) }),
-          })
-        : await setupRemoteConnection(
-            params.target,
-            params.remoteAssets,
-            { fetch: requireActiveHostApiNetworkTransport().fetch },
-            await resolveDesktopRemoteRuntimeNetwork(params.target),
-            (exitCode) => notifyClose({ exitCode, signal: null }),
-            params.target.kind === "ssh" ? "caller-serialized" : "remote",
-            params.target.kind === "ssh" ? params.signal : undefined,
-          );
-  } catch (error) {
-    throw error;
-  }
-
+  const connection = await connectServerRemote(params.target, {
+    onClose: ({ code, reason }) =>
+      notifyClose({ exitCode: code, signal: null, ...(reason ? { error: reason } : {}) }),
+  });
   if (params.signal.aborted) {
     await disposeHostRemoteConnection(connection);
     throw new Error("远程连接已取消");
   }
-
-  const services =
-    params.target.kind === "server"
-      ? createServerRemoteWorkspaceServiceCollection({
-          clientConfigService,
-          connectionServices: connection.services,
-          sourceServices: activeServices ?? undefined,
-        })
-      : (() => {
-          const backendConnection = connection as RemoteBackendHostConnection;
-          const materializePromptAttachments = async (request: {
-            taskId: string;
-            traceId: TraceId | string;
-            content: string;
-            attachments?: ESCodePromptAttachment[];
-          }) => {
-            const result = await materializeRemotePromptAttachments(request, {
-              backend: backendConnection.backend,
-            });
-            return { content: result.content, attachments: result.attachments };
-          };
-          const promptAttachmentTransferService = createRemotePromptAttachmentTransferService(
-            backendConnection.backend,
-            {
-              onJanitorError: (error) =>
-                logger.warn("remote prompt attachment janitor failed", error),
-            },
-          );
-          return createRemoteWorkspaceServiceCollection({
-            clientConfigService,
-            localOnboardingRecordService,
-            connectionServices: backendConnection.services,
-            sourceServices: activeServices ?? undefined,
-            parentPort,
-            createRemotePromptAttachmentSessionService: (service) =>
-              createRemotePromptAttachmentSessionService(service, {
-                materializePromptAttachments,
-              }),
-            createRemotePromptAttachmentTaskService: (service) =>
-              createRemotePromptAttachmentTaskService(service, {
-                materializePromptAttachments,
-              }),
-            createReportingRemoteESCodeTaskService: (service) =>
-              createReportingRemoteESCodeTaskService(service, {
-                taskRealtimePort: activeSessionRealtimePort ?? undefined,
-              }),
-            promptAttachmentTransferService,
-            runtimePreferencesBridge: {
-              onError: (error: unknown) =>
-                logger.warn("remote runtime preferences bridge failed", error),
-            },
-          });
-        })();
-
-  // 动态工作流用户选择（docs/dynamic-workflow/launch.md「The user's choice」）：desktop-attached remote
-  // Host 读不到桌面设置，由这里推送。在 handle 交给 registry 之前 await，任何 workspace 请求都晚于它。
-  if (params.target.kind !== "server") {
-    const dynamicWorkflowUserMode = await localSettingService
-      .get()
-      .then((settings) => settings.dynamicWorkflowMode)
-      .catch(() => undefined);
-    await pushDynamicWorkflowUserModeToRemoteHosts(
-      [{ target: params.target, escodeAgentService: services.get(IESCodeAgentService) }],
-      dynamicWorkflowUserMode,
-      (error) => logger.warn("remote dynamic workflow user mode push failed", error),
-    );
-  }
-
-  peerServices = services;
+  const services = createServerRemoteWorkspaceServiceCollection({
+    clientConfigService,
+    connectionServices: connection.services,
+    sourceServices: activeServices ?? undefined,
+  });
   let disposed = false;
-  const remoteMediaPreviewFactory =
-    params.target.kind === "server" || !remoteMediaRangePreviewEnabled
-      ? undefined
-      : (scope: Extract<WindowHostAttachmentScope, { kind: "remote" }>) =>
-          createRemoteMediaPreviewProxy({
-            fileService: services.get(IFileService),
-            logger: {
-              debug: (message, metadata) => {
-                if (process.env.NODE_ENV !== "production") logger.info(message, metadata);
-              },
-              warn: (message, metadata) => logger.warn(message, metadata),
-            },
-            scope,
-            requestLimiter: hostRemoteMediaRequestLimiter,
-          });
   return {
     services,
-    capabilities:
-      "backend" in connection
-        ? {
-            browserRecordingUploader: connection.backend,
-            ...(remoteMediaPreviewFactory ? { remoteMediaPreviewFactory } : {}),
-          }
-        : {},
+    capabilities: {},
     onDidClose(listener) {
       closeListeners.add(listener);
       return { dispose: () => closeListeners.delete(listener) };
@@ -1590,18 +1399,17 @@ function createControllerRoutedTaskService(
 function exposeServicesOnMessagePort(
   port: Electron.MessagePortMain,
   services: ServiceCollection,
-  deferInit: boolean,
   clientMode: ESCodeAgentV4ClientMode = "desktop-continuous",
   attachmentScope: WindowHostAttachmentScope = { kind: "local" },
-  capabilities?: HostRemoteConnectionCapabilities,
+  _capabilities?: HostRemoteConnectionCapabilities,
 ): ExposedServicePortHandle {
   const wrappedPort = wrapElectronPort(port);
   const protocol = new MessagePortProtocol(wrappedPort);
-  // remote 模式延迟发送 Initialize：远程建连需要时间，如果构造时就发 Initialize，
-  // renderer 会立即发请求但 channel 还没注册，导致 "Unknown channel" 超时错误。
-  // attach 模式复用已就绪服务，必须立即初始化新的 RPC MessagePort。
-  logger.info(`creating ChannelServer (deferInit=${deferInit})`);
-  const rawServer = new ChannelServer(protocol, "host", 1000, deferInit);
+  // Initialize 必须在 channel 全部注册之后发送：它携带已注册 channel 名（Renderer 据此
+  // 绑定可选服务）。构造时发送会让 renderer 立即发请求但 channel 还没注册，
+  // 导致 "Unknown channel" 且能力清单为空。客户端在 Initialize 前会排队请求。
+  logger.info("creating ChannelServer (initialize deferred until channels are registered)");
+  const rawServer = new ChannelServer(protocol, "host", 1000, true);
   const server = new LoggingChannelServer(rawServer, logRpc);
   const agentService = services.getOptional(IESCodeAgentService);
   const connectionScope = agentService
@@ -1615,14 +1423,6 @@ function exposeServicesOnMessagePort(
   const overrides = new Map<string, unknown>([
     [IWindowControllerService.channelName, controllerAttachment],
   ]);
-  // 远端媒体必须按 attachment 的 clientMode 选择数据面：桌面使用 Host loopback Range，远程 workspace 保持 inline。
-  const remoteMediaPreviewProxy =
-    attachmentScope.kind === "remote" && clientMode === "desktop-continuous"
-      ? capabilities?.remoteMediaPreviewFactory?.(attachmentScope)
-      : undefined;
-  if (remoteMediaPreviewProxy) {
-    overrides.set(IMediaPreviewService.channelName, remoteMediaPreviewProxy.service);
-  }
   const taskService = services.getOptional(IESCodeTaskService);
   if (taskService) {
     overrides.set(
@@ -1634,6 +1434,7 @@ function exposeServicesOnMessagePort(
     overrides.set(IESCodeAgentService.channelName, connectionScope.service);
   }
   services.exposeOnChannelServer(server, overrides);
+  rawServer.ready();
   let disposed = false;
   let flowUpdateChain = Promise.resolve();
   const forwardFlowState = (state: "saturated" | "drained" | "closed") => {
@@ -1660,9 +1461,6 @@ function exposeServicesOnMessagePort(
       disposed = true;
       flowStateDisposable.dispose();
       controllerAttachment.dispose();
-      void remoteMediaPreviewProxy?.dispose().catch((error: unknown) => {
-        logger.warn("failed to dispose remote media preview proxy", error);
-      });
       // close 排在所有已接收 SAT/DRN 之后；scope.dispose 自身会再次幂等确保 closed，
       // 但绝不让迟到 saturated 在 close 后复活 CLI pause state。
       void forwardFlowState("closed")
@@ -1704,7 +1502,7 @@ const windowHostAttachmentRegistry = createWindowHostAttachmentRegistry<
     };
   },
   expose: ({ port, services, clientMode, scope, capabilities }) =>
-    exposeServicesOnMessagePort(port, services, false, clientMode, scope, capabilities),
+    exposeServicesOnMessagePort(port, services, clientMode, scope, capabilities),
 });
 
 function logWindowHostTopology(reason: string): void {
@@ -1782,7 +1580,6 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
         timedOutPhases: shutdownResult.timedOutPhases,
       });
     }
-    activeHostApiNetworkTransport = null;
     return shutdownResult;
   })();
 
@@ -1817,7 +1614,6 @@ function disposeHostResourcesBestEffort(reason: string): void {
       logger.error("failed to dispose local services:", error);
     } finally {
       activeServices = null;
-      activeHostApiNetworkTransport = null;
     }
   }
 
@@ -2423,7 +2219,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
                 process.platform === "win32" ? cuaOperationStateReporter : undefined,
             });
             activeServices = initializedServices;
-            activeHostApiNetworkTransport = hostApiNetworkTransport;
             return initializedServices;
           },
         });
@@ -2475,40 +2270,3 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
     await databaseStartup.coordinator.start();
   }
 });
-
-async function setupRemoteConnection(
-  target: RemoteTarget,
-  remoteAssets: RemoteAssetDirs,
-  remoteAssetNetwork: RemoteAssetNetworkPort,
-  remoteRuntimeNetwork: RemoteRuntimeNetworkOptions | undefined,
-  onDidRemoteClose: (exitCode: number) => void,
-  deployLockMode: DeployLockMode = "remote",
-  signal?: AbortSignal,
-): Promise<HostRemoteConnection> {
-  if (target.kind === "server") {
-    throw new Error("server remote target must use the server remote connector");
-  }
-  // 延迟加载 remote backend，避免 local 模式下因 ssh2 依赖链进入 asar 后崩溃
-  const { createRemoteBackend, connectRemote, pickRemoteRuntimeEnv } =
-    await import("@escode/server/remote");
-  const backend = await createRemoteBackend(target);
-  const connection = await connectRemote(backend, {
-    ...remoteAssets,
-    remoteAssetNetwork,
-    remoteRuntimeNetwork,
-    signal,
-    // SSH/Docker 远端 server 由 host process 单独启动，不能依赖桌面 main 的环境继承。
-    // 这里显式透传编译期版本，避免漏导入后生成裸 ESCODE_VERSION 引用导致 SSH 初始化直接 ReferenceError。
-    appVersion: ESCODE_VERSION,
-    // 远端 escode-server/agent 是独立进程，不能继承 host 里的测试/生产 endpoint 选择。
-    // 这里只透传 server 侧白名单允许的公开环境变量，避免把 credential/token 带到远端机器。
-    remoteRuntimeEnv: pickRemoteRuntimeEnv(process.env),
-    assetInstallMode: target.kind === "ssh" ? target.assetInstallMode : undefined,
-    // SSH 由窗口级 registry 串行复用，其余 transport 仍保留远端 connector 自身锁。
-    deployLockMode,
-    onDidRemoteClose: ({ code }) => {
-      onDidRemoteClose(code);
-    },
-  });
-  return { ...connection, backend };
-}

@@ -80,3 +80,44 @@
      `This tool cannot read binary files. The file appears to be a binary <ext> file. Please use appropriate tools for binary file analysis.`
 - 文案以 `<tool_use_error>` 包裹，行状态 error。
 - 差分发现：Rust 之前不做 2、3，先查文件是否存在（报"File does not exist"）；1 在大小检查之后才做。
+
+## Read 文本大文件与 token 预算（2026-10-31 对齐）
+
+真源：TS `core/src/tool/handlers/read-text.ts`（`readTextFileForModel` / `formatReadTextOutput`）
+与 `adapters/src/fs/text-range-reader.ts`。旧 Rust 对任意大小文本边流边取 64 KiB，并输出
+`Partial view; use offset and limit to continue reading.`；Node 对未给 `limit` 的整文件读取在 256 KiB
+处报错，超 token 预算时给部分视图或报错，两侧模型可见结果不同。
+
+规则：
+
+- 未提供 `limit`（Read 未传 `limit`，或文本附件读取之外的普通 Read）时，整文件读取上限
+  `READ_MAX_FILE_SIZE_BYTES = 256 KiB`；超出报
+  `File content (<size>) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.`
+- 提供 `limit` 时不做 256 KiB 上限，按 `offset`/`limit` 取行区间；`offset` 缺省或 ≤1 视为第 1 行，
+  `offset = 0` 时结构化输出与行号从 0 开始（TS `startLine: offset === 0 ? 0 : ...`）。
+- 编码探测顺序与 TS 一致：UTF-8 BOM → UTF-16LE BOM → 二进制启发式（含 NUL 或控制字符占比 >30%）→
+  合法 UTF-8 → GBK/GB18030 往返校验；全部失败报 `Unsupported or binary text encoding: <path>`。
+  BOM 保留在正文中（TS 不剥离）；UTF-16LE 按 BOM 解码。
+- CRLF 归一为 LF；空文件按 `totalLines = numLines = 1` 输出，模型看到
+  `Warning: the file exists but is shorter than the provided offset (1). The file has 1 lines.`。
+- 选中内容按 `packages/shared/src/token-estimate.ts` 估算 token（CJK `[一-鿿]` 计 2，其余按 UTF-16
+  码元计，除以 3 向上取整）。超过 25000 时：
+  - 初始整文件读取（未提供 `limit`，且 `offset` 缺省或 ≤1）给部分视图提示，前缀
+    `The file is too large to display in full (<tokens> estimated tokens, limit 25000). ...`；
+  - 其他范围读取报
+    `File content (<tokens> tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.`
+- 重复读取去重键为 `(offset ?? 1, limit)`；token 部分视图不参与去重，并覆盖同键的旧记录
+  （TS `isCachedReadFresh` 对 partial view 返回 false）。
+- 媒体分派、目录/缺失文件文案、二进制扩展名与设备路径预检保持原规则。
+
+验收：新增差分 `packages/services/tests/escode-cli-rust-read-text-parity.test.ts`，以 TS
+`readTextFileForModel` + `formatReadTextOutput` 为 oracle，逐字比较 Rust `Read` 的模型文本与结构化输出：
+小文件、无末尾换行、CRLF、空文件、BOM、UTF-16LE、GBK、offset=0、offset/limit 区间、超过 256 KiB、
+单行超 token 预算（部分视图）、范围超 token 预算（错误）、offset 超出文件行数。
+
+**交付记录（2026-10-31）**：`crates/tools/src/read_text.rs`（读取/探测/流式切行）与
+`read_text_format.rs`（token 部分视图与模型文案）实现上述规则；`tool_files_read.rs` 改为调用它们，
+并把 token 部分视图从重复读取缓存中排除（`file_state::invalidate_range`）。
+差分 `packages/services/tests/escode-cli-rust-read-text-parity.test.ts` 以真实 TS `readHandler` /
+`readTextFileForModel` 为 oracle，覆盖 16 种文件形态（含 UTF-16LE/GBK/BOM/超限/部分视图）与
+token 部分视图的重复读取；golden 为 `fixtures/cli-golden/read-text-parity.*.json`。

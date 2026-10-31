@@ -209,6 +209,8 @@ pub enum Event {
         stable: bool,
         message: Option<Value>,
         usage: Value,
+        /// 本次调用首个与末个非空生成 delta 的时间差（TS `ModelComplete.decodeMs`）；无可计量区间为 None。
+        decode_ms: Option<u64>,
         committed: oneshot::Sender<()>,
     },
     /// 成功轮次收尾的浏览器截图卡（TS `browser_turn_end` 工具行）。
@@ -275,6 +277,8 @@ pub struct ModelOutput {
     pub calls: Vec<Value>,
     pub usage: Value,
     pub output_limit: bool,
+    /// TS `decodeMs`：首个与末个非空生成 delta 的毫秒差；跨度为零时 None。
+    pub decode_ms: Option<u64>,
 }
 /// 权限判定结果：不允许时带拒绝文案（对应 TS `buildPermissionDeniedContent`），
 /// 由工具结果逐字回给模型。

@@ -141,10 +141,12 @@ export async function connectRpc(
   secret: string,
 ): Promise<ReturnType<typeof connectViaProtocol>> {
   const socket = createHostSocket(addr, await issueCapability(addr, secret));
-  const services = connectViaProtocol(new SocketProtocol(wrapNodeWebSocket(socket)));
+  // 协议必须在 `open` 之前创建，否则 Initialize 可能早于监听器到达而丢失；
+  // 但 `open` 监听也要先挂上，避免 open 已触发后再注册导致永久等待。
+  const connecting = connectViaProtocol(new SocketProtocol(wrapNodeWebSocket(socket)));
   await new Promise<void>((resolveOpen, reject) => {
     socket.once("error", reject);
     socket.once("open", () => resolveOpen());
   });
-  return services;
+  return await connecting;
 }

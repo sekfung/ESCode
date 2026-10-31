@@ -118,8 +118,35 @@ model_change 的真实选择写在 `toModelSelection` / `fromModelSelection`，`
 
 回归：`escode-cli-rust-migration-shapes.test.ts` 用真实 TS store 写出上述形态（不依赖用户数据），Node 与 Rust 打开结果逐行一致。
 
+### 2026-10-31 演练补齐：冷导入行态与命令资格
+
+整行差分比计数更严格，真实库暴露了以下冷导入差异（均以 Node runtime 打开同一副本为 oracle）：
+
+| 行/字段                         | Node（oracle）                                                                                                                                                                   | Rust 原行为                                                                       | 修复                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| turnHeader `activeMs`/`endedAt` | 本轮起止取首条用户消息到末条消息（含 reasoning/tool 结束时间）的跨度                                                                                                             | 与 `createdAt` 相同                                                               | `message_end_at` + `finalize_turn` 按消息跨度合成；controlOnly 轮不写 `activeMs`                                         |
+| turnHeader `outputTokens`       | 每轮合成 usage=0 的 ModelComplete，因此总写 0                                                                                                                                    | 缺字段                                                                            | 冷导入 header 固定写 `outputTokens: 0`                                                                                   |
+| turnHeader `historyRoundCount`  | 本轮写入历史的模型响应数（assistant 消息数）                                                                                                                                     | 缺字段                                                                            | agent 轮按 assistant 消息数写入；controlOnly 轮只在 >0 时写                                                              |
+| 行 `actions`                    | `materializeCommandRowActions` 收口：每轮最后一条 assistantText 可 fork；仅全局最新 realUser 输入可 edit；仅全局最新 assistantText 且同轮有可解析 realUser 来源时可 retry        | 完全不写 actions                                                                  | `state/legacy_row_post.rs::imported_actions` 逐条移植；资格以持久 transcript message 身份（`messageIdByRowId`）为界      |
+| 行 `createdAtSeq`               | 合成事件号：TurnStarted 产出的模型切换标记/turnHeader/userInput 共享一号，其余行各自独立事件                                                                                     | 所有行共用同一值                                                                  | `imported_sequences` 按事件分组重编号；投影按首次出现排名比较                                                            |
+| assistant 行顺序                | 按 part 顺序创建 text/reasoning 与 tool 行（同一条 assistant 内可交错）                                                                                                          | 先落全部正文行，再把工具行追加到最后                                              | `legacy_message.rs` 遍历 part 时就地建行                                                                                 |
+| assistantText `state`           | 冷恢复由合成的 ModelComplete 收口，正文行恒为 `complete`；中断只体现在 turnHeader/session phase 与工具行                                                                         | 未完成消息的正文行也标成中断态                                                    | 正文行固定 `complete`；`mark_interrupted` 只改 header 与 session phase                                                   |
+| toolCall 行字段                 | `entityId`=callID；`input`/`inputText` 来自 part state（Node `JSON.stringify(input ?? {})`，保留持久化键序）；`startedAt`/`endedAt` 来自 `state.time`；cancelled 行没有 `output` | 缺 `input`/时间；`inputText` 被 serde_json 按字典序重排；cancelled 行伪造提示文本 | 从 part 原始 JSON 文本抽取 `state.input` 并只压缩字符串外空白；pending/running 行在轮次结束时补 `endedAt`，不写 `output` |
+| compact 摘要                    | providerContextOnly 整条跳过：不落行、不计 `historyRoundCount`、不推进 `endedAt`                                                                                                 | 先累加 round 并推进 endedAt                                                       | `provider_context_only` 在轮次统计前返回，仅恢复 context 摘要与 offset                                                   |
+| userInput `attachments[].ref`   | `data:` 内联附件没有稳定内容引用时用 `turn-attachment/<rowId>/<index>`；稳定路径保留原 URL                                                                                       | 直接写 data URL                                                                   | 按 Node `attachmentMetasOfMessage` 同规则生成                                                                            |
+
+`actions` 与 `createdAtSeq` 都只锚定真实存在 transcript message 的行；`synthetic` 输入和 hidden 消息不会获得 edit/fork/retry 资格。
+
+回归：`escode-cli-rust-cold-rows.test.ts` 对 8 个冻结种子（`migration.real`/`migration.compact`/`migration.workspaces`、
+`migration-shapes.shapes`、`session-context-differential.legacy`、`history-request-differential.legacy`、
+`import-lifecycle.sessions`、`migration-boundaries.membership`）逐会话比较整份投影行；Node 观察冻结为
+`cold-rows.frozen-seeds.json`，正常跑只启动 Rust。membership 种子的 fork/subagent child/workflow 无消息历史，
+只验证可读且行集合为空；archived 会话在 Node 侧不可 resume，按产品保留范围排除在行对拍之外。
+
 ### 演练工具与结果
 
-`escode-cli-rust-real-data-rehearsal.test.ts`：默认跳过；`ESCODE_REHEARSAL_DB=<db.sqlite>` 时以 SQLite backup 取副本、复制附件目录，Node 与 Rust 各开一份，逐会话比较行种类计数、附件数、todo 数，只输出计数；并断言原库与副本哈希不变。
+`escode-cli-rust-real-data-rehearsal.test.ts`：默认跳过；`ESCODE_REHEARSAL_DB=<db.sqlite>` 时以 SQLite backup 取副本、复制附件目录，Node 与 Rust 各开一份，逐会话比较行种类计数、整行内容 SHA-256（归一化 id/时间戳/路径）、首个差异 JSON 路径（`rowDiffPath`）、附件数、todo 数，只输出计数与哈希；`DEBUG_REHEARSAL=1` 额外打印结构与枚举字段（不含会话文本/路径）。断言原库与副本哈希不变。
 
 本机实测（Windows，GNU 目标，用户授权）：3 个会话（3 个 workspace，43 条消息、126 个 part，含 2 个 conversation_rewind、6 个附件、6 个 todo、0 条工作流数据）全部一致；原库哈希前后不变。样本小，只能证明上述形态；其他机器与更大的真实库仍需用同一工具复核。
+
+2026-10-31 复跑（Linux，用户授权，`~/.escode/cli/db/db.sqlite`）：1 个 21 轮会话的整行内容哈希两侧一致；先前的 `actions`/`createdAtSeq` 差异已收敛。

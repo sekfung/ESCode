@@ -176,5 +176,7 @@ electron-builder
 - `packages/desktop/scripts/prepare-runtime-assets.mjs`
 - `packages/desktop/electron-builder.config.js`（`extraResources`、`assertPackagedBundledRemoteAssets`）
 - `scripts/prepare-prebuilds.mjs`（`ESCODE_REMOTE_ASSET_PLATFORMS`）
-- `packages/server/src/remote/deploy.ts`、`remoteAssetLiveIdentity.ts`、`remoteAssetDeployDecision.ts`（本地源消费方）
+- `packages/server/src/remote/localTarGz.ts`、`remoteAssetCdn.ts`、`serverBundleDeployCheck.ts`、
+  `escodeAgentBundleWrapper.ts`、`escodeAgentOfficialPluginAssets.ts`（构建期资产校验；Rust Host
+  首装运行时读取同一 `releases/<version>` 目录，Node deploy 编排已于 2026-11-01 删除）
 - `.github/workflows/release.yml`（桌面构建 job 的远程平台与资源准备）

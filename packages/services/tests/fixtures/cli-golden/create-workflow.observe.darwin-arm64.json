@@ -4,17 +4,12 @@
   "permissions": [
     {
       "toolName": "CreateWorkflow",
-      "kinds": [
-        "allowOnce",
-        "allowAlways",
-        "deny",
-        "custom"
-      ]
+      "kinds": ["allowOnce", "allowAlways", "deny", "custom"]
     }
   ],
   "requestCount": 4,
   "workflowRuns": {
-    "revision": 0,
+    "revision": 7,
     "runs": [
       {
         "runId": "dwfrun-<uuid>",
@@ -35,12 +30,12 @@
           }
         ],
         "concurrencyCeiling": "<concurrency>",
-        "lastEventSequence": 0
+        "lastEventSequence": 6
       }
     ]
   },
   "deltaWorkflowRuns": {
-    "revision": 0,
+    "revision": 7,
     "runs": [
       {
         "runId": "dwfrun-<uuid>",
@@ -61,13 +56,11 @@
           }
         ],
         "concurrencyCeiling": "<concurrency>",
-        "lastEventSequence": 0
+        "lastEventSequence": 6
       }
     ]
   },
-  "opKinds": [
-    "workflowRun.updated"
-  ],
+  "opKinds": ["workflowRun.updated"],
   "patchCarriedRuns": false,
   "schemaErrors": []
 }

@@ -106,6 +106,7 @@ impl ModelPort for Model {
         Ok(ModelOutput {
             response_id: String::new(),
             output_limit: limited,
+            decode_ms: None,
             message: json!({"role":"assistant","content":if limited {"partial"} else {"summary"}}),
             calls: vec![],
             usage: json!({}),

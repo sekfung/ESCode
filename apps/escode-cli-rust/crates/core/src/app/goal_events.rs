@@ -132,6 +132,15 @@ fn record(goal: &mut Goal, verdict: &Verdict, anchor: Value, now: u64) {
     }
     goal.verifications.push(verification);
 }
+/// Node `onModelComplete` 的 `usage.contextWindow` 投影：容量未知时协议字段保持 null；
+/// `autoCompactThresholdTokens` 沿用已有值（Node 初始为 null，不按本地策略回填）。
+pub(super) fn project_context_window(s: &mut crate::domain::session::Session, usage: &Value) {
+    let Some(used) = crate::domain::model_usage::context_tokens(usage) else {
+        return;
+    };
+    crate::domain::model_usage::write_context_window(s, used);
+}
+
 pub(super) fn account_usage(s: &mut crate::domain::session::Session, usage: &Value, now: u64) {
     if let Some(goal) = s.goal.as_mut().filter(|g| g.active()) {
         goal.account(usage, now);

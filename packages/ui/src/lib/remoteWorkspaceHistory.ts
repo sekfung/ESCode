@@ -258,6 +258,10 @@ export function createRemoteTargetSnapshot(
         host: target.host,
         port: target.port,
         username: target.username,
+        // S3 重启恢复：Profile 归属不是凭据，必须随脱敏快照落盘；否则重启后只能回退
+        // per-window Node Host，且没有凭据可复用。
+        ...(target.profileId?.trim() ? { profileId: target.profileId.trim() } : {}),
+        ...(target.sourceServerId?.trim() ? { sourceServerId: target.sourceServerId.trim() } : {}),
         ...(target.sshConfigAlias?.trim() ? { sshConfigAlias: target.sshConfigAlias.trim() } : {}),
         assetInstallMode: target.assetInstallMode,
         privateKeyPath: target.privateKeyPath,
@@ -282,12 +286,16 @@ export function createRemoteTargetSnapshot(
         kind: "wsl",
         distro: target.distro,
         ...(user ? { user } : {}),
+        ...(target.profileId?.trim() ? { profileId: target.profileId.trim() } : {}),
+        ...(target.sourceServerId?.trim() ? { sourceServerId: target.sourceServerId.trim() } : {}),
       };
     }
     case "docker":
       return {
         kind: "docker",
         container: target.container,
+        ...(target.profileId?.trim() ? { profileId: target.profileId.trim() } : {}),
+        ...(target.sourceServerId?.trim() ? { sourceServerId: target.sourceServerId.trim() } : {}),
       };
     case "server":
       return {
@@ -321,6 +329,10 @@ export function createRemoteTargetFromSnapshot(
         host: snapshot.host,
         port: snapshot.port,
         username: snapshot.username,
+        ...(snapshot.profileId?.trim() ? { profileId: snapshot.profileId.trim() } : {}),
+        ...(snapshot.sourceServerId?.trim()
+          ? { sourceServerId: snapshot.sourceServerId.trim() }
+          : {}),
         ...(snapshot.sshConfigAlias ? { sshConfigAlias: snapshot.sshConfigAlias } : {}),
         ...(snapshot.assetInstallMode ? { assetInstallMode: snapshot.assetInstallMode } : {}),
         ...(snapshot.privateKeyPath ? { privateKeyPath: snapshot.privateKeyPath } : {}),
@@ -334,11 +346,19 @@ export function createRemoteTargetFromSnapshot(
         kind: "wsl",
         distro: snapshot.distro,
         ...(snapshot.user ? { user: snapshot.user } : {}),
+        ...(snapshot.profileId?.trim() ? { profileId: snapshot.profileId.trim() } : {}),
+        ...(snapshot.sourceServerId?.trim()
+          ? { sourceServerId: snapshot.sourceServerId.trim() }
+          : {}),
       };
     case "docker":
       return {
         kind: "docker",
         container: snapshot.container,
+        ...(snapshot.profileId?.trim() ? { profileId: snapshot.profileId.trim() } : {}),
+        ...(snapshot.sourceServerId?.trim()
+          ? { sourceServerId: snapshot.sourceServerId.trim() }
+          : {}),
       };
     case "server":
       return {

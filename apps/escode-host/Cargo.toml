@@ -136,6 +136,8 @@ escode-cli-net.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
+escode-host-core.workspace = true
+async-trait.workspace = true
 tempfile.workspace = true
 tokio-tungstenite.workspace = true
 futures-util.workspace = true

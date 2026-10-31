@@ -8,6 +8,7 @@ import type {
   DesktopWindowChromeState,
   IPlatformService,
   RemoteTarget,
+  ResolvedWSLConnectOptions,
   RemoteWorkspaceSessionEntry,
   SourceServerUpdateTarget,
   UpdateStatePayload,
@@ -331,7 +332,7 @@ export interface RemoteConnectionOpenPreference {
     logs?: import("@/hooks/useRemoteConnectionLogs.js").RemoteConnectionLogEntry[];
     profileId?: string;
     failedTarget?: SourceServerUpdateTarget;
-    resolvedWslTarget?: Required<Extract<RemoteTarget, { kind: "wsl" }>>;
+    resolvedWslTarget?: ResolvedWSLConnectOptions;
   };
   preferredDirectoryPath?: string;
   preferredWorkspaceTabId?: string;

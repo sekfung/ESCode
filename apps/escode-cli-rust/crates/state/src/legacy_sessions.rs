@@ -8,6 +8,7 @@ use rusqlite::{Connection, params};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 use tokio_util::sync::CancellationToken;
+
 pub(super) fn project(
     dest: &Connection,
     snapshot: &Connection,
@@ -129,7 +130,17 @@ pub(super) fn project(
             &id,
         )?;
         let mut turn = String::new();
+        let mut turn_header: Option<usize> = None;
+        let mut turn_started_at = 0u64;
+        let mut turn_ended_at = 0u64;
+        let mut turn_rounds = 0u64;
         let mut positions: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+        // 拥有持久 transcript message 身份的行（Node messageIdByRowId），冷导入 actions 只锚定这些行。
+        let mut message_rows: Vec<usize> = Vec::new();
+        // pending/running 工具行由 TurnComplete(cancelled) 统一收口（Node closeOpenToolRows）。
+        let mut open_tools: Vec<usize> = Vec::new();
+        // Node 把 timeline model_change 消息的标记推迟到下一个 TurnStarted。
+        let mut pending_model: Option<(String, Value)> = None;
         let mut compact_boundary = Value::Null;
         let mut legacy_tail: Option<String> = None;
         let mut interrupted = false;
@@ -150,11 +161,20 @@ pub(super) fn project(
                 .collect();
         for (mid, message) in messages {
             check(cancel)?;
-            let parts = items(
+            let parts_raw = super::legacy_projection::items_raw(
                 snapshot,
                 "SELECT id,data FROM part WHERE message_id=?1 ORDER BY sequence,time_created,id",
                 &mid,
             )?;
+            let input_texts = parts_raw
+                .iter()
+                .filter(|(_, part, _)| part["type"] == "tool")
+                .map(|(id, _, data)| (id.clone(), super::legacy_message::tool_input_text(data)))
+                .collect::<BTreeMap<_, _>>();
+            let parts: Vec<(String, Value)> = parts_raw
+                .into_iter()
+                .map(|(id, part, _)| (id, part))
+                .collect();
             super::legacy_projection::validate_parts(&parts)?;
             if super::legacy_topic_context::project(&mut session, &mid, &message, &parts) {
                 continue;
@@ -200,37 +220,46 @@ pub(super) fn project(
                         Some("hidden" | "debug")
                     );
                 if visible || turn.is_empty() {
+                    super::legacy_projection::finalize_turn(
+                        &mut session,
+                        turn_header,
+                        turn_started_at,
+                        turn_ended_at,
+                        turn_rounds,
+                        &mut open_tools,
+                    );
                     turn = mid.clone();
-                    // 首轮之前的边界标记（如 ∅→X 模型标记）在 Node 中属于它之后的第一轮；
-                    // 未分配轮次时 turnId 为空，App schema 会拒绝整页 rows。
-                    for row in session.rows.iter_mut().filter(|r| r["turnId"] == "") {
-                        row["turnId"] = turn.clone().into();
-                        row["productTurnId"] = turn.clone().into();
+                    // 首轮之前的边界标记（如 ∅→X 模型标记）在 Node 中属于它之后的第一轮。
+                    super::legacy_projection::attach_pending_rows(&mut session, &turn);
+                    if let Some((pid, part)) = pending_model.take() {
+                        super::legacy_projection::model_marker(
+                            &mut session,
+                            &turn,
+                            &pid,
+                            &part,
+                            now,
+                        );
                     }
-                    let mut header = session.row("turnHeader", &turn, &turn, now);
-                    header["origin"] = "userInput".into();
-                    header["state"] = "completedSuccess".into();
-                    header["startedAt"] = now.into();
-                    header["endedAt"] = now.into();
-                    session.rows.push(header);
+                    turn_header = Some(super::legacy_projection::imported_turn_header(
+                        &mut session,
+                        &turn,
+                        now,
+                    ));
+                    turn_started_at = now;
+                    turn_ended_at = now;
+                    turn_rounds = 0;
                 }
+                let mut user_row = None;
                 if visible {
-                    let mut row = session.row("userInput", &turn, &mid, now);
-                    row["text"] = text.clone().into();
-                    row["origin"] = if message["synthetic"] == true {
-                        "synthetic"
-                    } else {
-                        "realUser"
-                    }
-                    .into();
-                    if let Some(command) = message["anchor"]["sourceCommandId"].as_str() {
-                        row["sourceCommandId"] = command.into();
-                    }
-                    let attachments=parts.iter().filter(|(_,p)|p["type"]=="file").map(|(_,p)|json!({"ref":p["url"],"fileName":p["filename"].as_str().unwrap_or("attachment"),"mime":p["mime"].as_str().unwrap_or("application/octet-stream"),"bytes":p["metadata"]["sizeBytes"].as_u64().unwrap_or(0)})).collect::<Vec<_>>();
-                    if !attachments.is_empty() {
-                        row["attachments"] = attachments.into();
-                    }
-                    session.rows.push(row);
+                    user_row = Some(super::legacy_projection::imported_user_input(
+                        &mut session,
+                        &turn,
+                        &mid,
+                        now,
+                        &message,
+                        &parts,
+                        &text,
+                    ));
                 }
                 let mut content = vec![];
                 if !text.is_empty() {
@@ -255,6 +284,7 @@ pub(super) fn project(
                     session
                         .messages
                         .push(json!({"role":"user","content":content}));
+                    message_rows.extend(user_row);
                 }
                 if session.provider.is_empty()
                     && let Some(s) = message.get("modelSelection")
@@ -266,124 +296,47 @@ pub(super) fn project(
                 }
             } else {
                 ensure!(role == "assistant", "Unsupported legacy message role");
-                if turn.is_empty() {
-                    turn = message["parentID"].as_str().unwrap_or(&mid).into();
-                }
-                let unfinished = message["time"]["completed"].is_null();
-                interrupted |= unfinished;
-                let reasoning = parts
-                    .iter()
-                    .filter(|(_, p)| p["type"] == "reasoning")
-                    .filter_map(|(_, p)| p["text"].as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                for (pid, p) in &parts {
-                    // 与 Node 冷恢复一致：空文本的 text/reasoning part 不成行（部分供应商只在
-                    // metadata 保存加密推理，text 为空）；模型上下文仍由下方 canonical 消息承载。
-                    if matches!(p["type"].as_str(), Some("text" | "reasoning"))
-                        && p["ignored"] != true
-                        && message["summary"] != true
-                        && p["text"].as_str().is_some_and(|t| !t.is_empty())
-                    {
-                        let kind = if p["type"] == "reasoning" {
-                            "reasoning"
-                        } else {
-                            "assistantText"
-                        };
-                        let mut row = session.row(kind, &turn, pid, now);
-                        row["text"] = p["text"].clone();
-                        row["assistantResponseId"] = mid.clone().into();
-                        row["state"] = if unfinished {
-                            "interrupted"
-                        } else {
-                            "complete"
-                        }
-                        .into();
-                        session.rows.push(row);
-                    }
-                }
-                let mut tools = parts
-                    .iter()
-                    .filter(|(_, p)| p["type"] == "tool")
-                    .collect::<Vec<_>>();
-                tools.sort_by_key(|(_, p)| p["declarationIndex"].as_u64().unwrap_or(u64::MAX));
-                let mut canonical = json!({"role":"assistant","content":text,"reasoning_content":reasoning,"_escode_origin":{"provider":message["providerId"].as_str().unwrap_or("unknown"),"model":message["modelId"].as_str().unwrap_or("unknown")}});
-                super::legacy_projection::reasoning(&mut canonical, &parts);
-                if !tools.is_empty() {
-                    canonical["tool_calls"]=tools.iter().map(|(_,p)|json!({"id":p["callID"],"type":"function","function":{"name":p["tool"],"arguments":p["state"]["input"].to_string()}})).collect();
-                }
-                if message["summary"] != true
-                    && message["semantics"]["providerVisibility"] != "hidden"
+                if let Some(model_change) = super::legacy_projection::model_change_timeline(&parts)
                 {
-                    session.messages.push(canonical);
+                    pending_model = Some(model_change);
+                    continue;
                 }
-                for (pid, p) in tools {
-                    let state = &p["state"];
-                    let status = state["status"].as_str().unwrap_or("pending");
-                    let output = match status {
-                        "completed" => state["output"].as_str().unwrap_or(""),
-                        "error" => state["error"].as_str().unwrap_or("Tool failed"),
-                        _ => {
-                            "Interrupted; execution outcome is unknown. Inspect effects before deciding whether to retry."
-                        }
-                    };
-                    interrupted |= !matches!(status, "completed" | "error");
-                    if message["semantics"]["providerVisibility"] != "hidden" {
-                        session.messages.push(json!({"role":"tool","tool_call_id":p["callID"],"content":output,"_escode_tool_failed":status!="completed"}));
-                    }
-                    let mut row = session.row("toolCall", &turn, pid, now);
-                    row["assistantResponseId"] = mid.clone().into();
-                    row["toolCallId"] = p["callID"].clone();
-                    row["toolName"] = p["tool"].clone();
-                    row["inputText"] = state["input"].to_string().into();
-                    row["status"] = match status {
-                        "completed" => "success",
-                        "error" => "error",
-                        _ => "cancelled",
-                    }
-                    .into();
-                    row["output"] = json!({"text":output});
-                    if status == "error" {
-                        row["error"] = json!({"code":"tool.failed","message":output});
-                    }
-                    session.rows.push(row);
+                super::legacy_message::Assistant {
+                    mid: &mid,
+                    message: &message,
+                    parts: &parts,
+                    text: &text,
+                    now,
+                    turn: &mut turn,
+                    interrupted: &mut interrupted,
+                    rounds: &mut turn_rounds,
+                    ended_at: &mut turn_ended_at,
+                    message_rows: &mut message_rows,
+                    open_tools: &mut open_tools,
+                    input_texts: &input_texts,
+                    compact_boundary: &compact_boundary,
+                    legacy_tail: legacy_tail.as_deref(),
+                    positions: &positions,
                 }
-                if message["summary"] == true {
-                    session.context.offset = compact_boundary["preservedSegment"]["headMessageId"]
-                        .as_str()
-                        .or(legacy_tail.as_deref())
-                        .and_then(|id| positions.get(id).map(|p| p.0))
-                        .or_else(|| {
-                            compact_boundary["lastSummarizedMessageId"]
-                                .as_str()
-                                .and_then(|id| positions.get(id).map(|p| p.1))
-                        })
-                        .unwrap_or(session.messages.len());
-                    session.context.summary = Some(text);
-                    let mut row = session.row("timelineMarker", &turn, &mid, now);
-                    row["lane"] = "assistantWork".into();
-                    row["marker"] = json!({"type":"compact","origin":"auto","status":"success"});
-                    session.rows.push(row);
-                }
-                for (key, target) in [("input", "inputTokens"), ("output", "outputTokens")] {
-                    let old = session.usage["cumulative"][target].as_u64().unwrap_or(0);
-                    session.usage["cumulative"][target] =
-                        (old + message["tokens"][key].as_u64().unwrap_or(0)).into();
-                }
+                .project(&mut session);
             }
             super::legacy_projection::timeline(&mut session, &parts, &turn, now);
             positions.insert(mid, (start, session.messages.len()));
         }
         super::legacy_projection::ledger(snapshot, &id, &mut session)?;
+        super::legacy_projection::finalize_turn(
+            &mut session,
+            turn_header,
+            turn_started_at,
+            turn_ended_at,
+            turn_rounds,
+            &mut open_tools,
+        );
         if interrupted {
-            session.phase = "completedInterrupted".into();
-            session.auto_drain = false;
-            for row in &mut session.rows {
-                if row["kind"] == "turnHeader" && row["turnId"] == turn {
-                    row["state"] = "completedInterrupted".into();
-                }
-            }
+            super::legacy_projection::mark_interrupted(&mut session, &turn);
         }
+        super::legacy_row_post::imported_sequences(&mut session);
+        super::legacy_row_post::imported_actions(&mut session, &message_rows);
         // 所有原始字段、快照和未实现投影仍完整保留在只读备份，import 的模型事实只追加一次。
         check(cancel)?;
         write(dest, workspace, Some(SessionWrite::new(&session)?), None)?;

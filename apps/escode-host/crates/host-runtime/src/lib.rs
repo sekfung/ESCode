@@ -46,7 +46,7 @@ struct Table {
 /// 实例表的共享句柄（Host 内唯一；每个 workspace 一个实例）。
 #[derive(Clone)]
 pub struct Instances {
-    link: Arc<Link>,
+    link_for: Arc<dyn Fn(&str) -> Link + Send + Sync>,
     table: Arc<Mutex<Table>>,
     grace: std::time::Duration,
     responder: host_io::ResponderSlot,
@@ -54,9 +54,18 @@ pub struct Instances {
 }
 
 impl Instances {
+    /// 所有 workspace 共用一条链路（本地 workspace 的现有行为）。
     pub fn new(link: Link) -> Self {
+        Self::with_link_for(move |_| link.clone())
+    }
+
+    /// 按 workspace identity 选择链路（S3：本地与远端实例共用一张表）。
+    ///
+    /// 选择器只在实例真正启动时调用；复用活实例不会触发。返回的链路启动失败时
+    /// 代次回退，错误显式返回给调用方。
+    pub fn with_link_for(link_for: impl Fn(&str) -> Link + Send + Sync + 'static) -> Self {
         Self {
-            link: Arc::new(link),
+            link_for: Arc::new(link_for),
             table: Arc::new(Mutex::new(Table::default())),
             grace: std::time::Duration::from_secs(5),
             responder: host_io::ResponderSlot::default(),
@@ -123,7 +132,8 @@ impl Instances {
         let options = options();
         let workspace_path = options.cwd.to_string_lossy().into_owned();
         let workspace_identity = options.workspace_identity.clone();
-        let runtime = match RuntimeLink::open(&self.link, options) {
+        let link = (self.link_for)(identity);
+        let runtime = match RuntimeLink::open(&link, options) {
             Ok(runtime) => runtime,
             Err(error) => {
                 // 启动失败不占世代名额：回退计数，下一次 get 仍是同一代次语义。

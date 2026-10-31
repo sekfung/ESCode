@@ -486,6 +486,17 @@ const pluginNoGitGitHubArchiveE2E = configuredE2ESpecs.some((spec) =>
 const workspacePluginRemoteExplicitSyncE2E = configuredE2ESpecs.some((spec) =>
   spec.includes("conversation-session-plugin-remote-explicit-sync-workspace.test.ts"),
 );
+// 空目标首次安装要经真实 SSH 上传整份 release（当前 ~72MB），实测单次安装超过 120s；
+// 主机指纹变化回归同样走真实 SSH 链路，两个 case 共用 600s 预算。
+const sourceServerRustSlowInstallE2E = configuredE2ESpecs.some(
+  (spec) =>
+    spec.endsWith("source-server-rust-install.test.ts") ||
+    spec.endsWith("source-server-rust-host-key.test.ts"),
+);
+// Provisioning 失败用例先走一次失败首连，再在同 target 上恢复凭据重试；需要真实 SSH 往返预算。
+const sourceServerRustProvisioningFailureE2E = configuredE2ESpecs.some((spec) =>
+  spec.endsWith("conversation-session-ssh-provisioning-failure.test.ts"),
+);
 const e2eReporter = createE2EReporter({
   repoRoot: REPO_ROOT,
   desktopDir: DESKTOP_DIR,
@@ -3144,7 +3155,9 @@ export const config: WebdriverIO.Config = {
     // 因此用例内的 this.timeout 无法为人工保留阶段追加预算。显式 hold 只扩展
     // manual-review 运行，不改变普通 E2E 的 120 秒上限。
     timeout:
-      (pluginNoGitGitHubArchiveE2E ||
+      (sourceServerRustSlowInstallE2E ||
+      sourceServerRustProvisioningFailureE2E ||
+      pluginNoGitGitHubArchiveE2E ||
       workspacePluginRemoteExplicitSyncE2E ||
       // 双 Host 参数化场景复用同一组已存在 session，覆盖完整保存/故障链后再核对整段轨迹。
       configuredE2ESpecs.some((spec) =>

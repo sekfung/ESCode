@@ -2,9 +2,11 @@
 //! 每 workspace 一实例、懒重启 generation、single-flight、收口残余清单、embedded/child 双链路同帧面。
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use escode_cli_rust::embed::RuntimeOptions;
+use escode_host_runtime::link::ProcessSpec;
 use escode_host_runtime::{Instances, Link};
 use serde_json::Value;
 
@@ -303,6 +305,123 @@ async fn child_link_serves_the_same_ready_frame() {
     assert!(instance.is_alive());
     let residual = instances.shutdown().await;
     assert!(residual.is_empty(), "child 收口无残余: {residual:?}");
+}
+
+/// 任意进程链路（S3 远端 transport 的底座）：program/args 由调用方决定，
+/// stdin/stdout 帧面与 `Child` 一致。
+#[tokio::test(flavor = "multi_thread")]
+async fn process_link_serves_the_same_ready_frame() {
+    let fixture = Fixture::new();
+    let args = vec![
+        "app-server".into(),
+        "--stdio".into(),
+        "--surface".into(),
+        "desktop".into(),
+        "--cwd".into(),
+        fixture.workspace.clone().into_os_string(),
+        "--data-dir".into(),
+        fixture.data_dir.clone().into_os_string(),
+    ];
+    let instances = Instances::new(Link::Process(ProcessSpec {
+        program: cli_binary(),
+        args,
+        env: BTreeMap::new(),
+    }));
+    let instance = instances
+        .get(&fixture.identity(), || fixture.options())
+        .await
+        .expect("process instance starts");
+    wait_ready(&instance).await;
+    assert!(instance.is_alive());
+    let residual = instances.shutdown().await;
+    assert!(residual.is_empty(), "process 收口无残余: {residual:?}");
+}
+
+/// S3：实例表按 workspace identity 选择链路；复用活实例不再调用选择器。
+#[tokio::test(flavor = "multi_thread")]
+async fn link_is_selected_per_workspace_identity() {
+    let first = Fixture::new();
+    let second = Fixture::new();
+    let asked = Arc::new(Mutex::new(Vec::<String>::new()));
+    let recorded = Arc::clone(&asked);
+    let instances = Instances::with_link_for(move |identity| {
+        recorded.lock().expect("lock").push(identity.to_owned());
+        Link::Embedded
+    });
+
+    let a = instances
+        .get(&first.identity(), || first.options())
+        .await
+        .expect("instance A starts");
+    let b = instances
+        .get(&second.identity(), || second.options())
+        .await
+        .expect("instance B starts");
+    wait_ready(&a).await;
+    wait_ready(&b).await;
+
+    let again = instances
+        .get(&first.identity(), || first.options())
+        .await
+        .expect("reuse");
+    assert!(std::sync::Arc::ptr_eq(&a, &again), "活着就复用");
+
+    let mut asked = asked.lock().expect("lock").clone();
+    asked.sort();
+    let mut expected = vec![first.identity(), second.identity()];
+    expected.sort();
+    assert_eq!(
+        asked, expected,
+        "每个身份各自触发一次链路选择，复用不再触发"
+    );
+
+    instances.shutdown().await;
+}
+
+/// 链路启动失败只影响该身份，且不占代次；其他身份仍可正常启动。
+#[tokio::test(flavor = "multi_thread")]
+async fn link_launch_failure_is_isolated_to_the_identity() {
+    let fixture = Fixture::new();
+    let missing = std::env::temp_dir().join("escode-host-missing-runtime-for-test");
+    let instances = Instances::with_link_for(move |identity| {
+        if identity == "remote:unreachable" {
+            Link::Child {
+                binary: missing.clone(),
+            }
+        } else {
+            Link::Embedded
+        }
+    });
+
+    let error = match instances
+        .get("remote:unreachable", || fixture.options())
+        .await
+    {
+        Ok(_) => panic!("远端身份不应启动成功"),
+        Err(error) => error,
+    };
+    assert!(
+        format!("{error:#}").contains("Cannot start runtime child"),
+        "显式错误: {error:#}"
+    );
+    assert_eq!(
+        instances.generations().get("remote:unreachable"),
+        Some(&0),
+        "启动失败回退代次"
+    );
+
+    let local = instances
+        .get(&fixture.identity(), || fixture.options())
+        .await
+        .expect("local starts");
+    wait_ready(&local).await;
+    assert_eq!(
+        instances.generations().get(&fixture.identity()),
+        Some(&1),
+        "其他身份不受影响"
+    );
+
+    instances.shutdown().await;
 }
 
 fn cli_binary() -> PathBuf {

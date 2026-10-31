@@ -5,6 +5,7 @@ import type { ServerResponse } from "node:http";
 import { fixture, event, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { applyConversationDeltas } from "@escode/shared/escode-protocol-v4";
 
 // `v4/conversation/usage`（TS getTaskTokenUsage → usage store queryTaskUsage）：一个带工具调用的回合（两次模型
 // 请求，provider 报告含缓存命中与推理 token 的用量）之后，两侧会话用量聚合一致（增量输入基线口径）。
@@ -15,6 +16,33 @@ function finish(res: ServerResponse, reason: string, usage: Record<string, unkno
   res.end(
     `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: reason }], usage })}\n\ndata: [DONE]\n\n`,
   );
+}
+
+// 把两侧订阅帧用 App 自己的归约器还原成最终快照，确认权威字段一致（不看中间帧批次）。
+function reducedSnapshot(messages: readonly any[], sessionId: string) {
+  let snapshot: any;
+  for (const message of messages) {
+    if (message?.method !== "v4/conversation/frame") continue;
+    const frame = message.params?.frame;
+    if (!frame || message.params.topic !== `conversation/${sessionId}`) continue;
+    if (frame.payload?.kind === "snapshot") snapshot = frame.payload.snapshot;
+    else if (frame.payload?.kind === "deltas" && snapshot)
+      snapshot = applyConversationDeltas(snapshot, frame.payload.deltas);
+  }
+  return snapshot;
+}
+
+// docs/specs/rust-context-management.md「V4 usage.contextWindow 投影」。
+function reducedContextWindow(snapshot: any) {
+  const window = snapshot?.usage?.contextWindow;
+  // Node 还会附带 cache/breakdown 诊断块（Rust 尚未采集，属已登记剩余边界），对拍只取协议水位字段。
+  return window
+    ? {
+        usedTokens: window.usedTokens,
+        maxTokens: window.maxTokens ?? null,
+        autoCompactThresholdTokens: window.autoCompactThresholdTokens ?? null,
+      }
+    : null;
 }
 
 async function observe(kind: "node" | "rust") {
@@ -41,8 +69,14 @@ async function observe(kind: "node" | "rust") {
         completion_tokens_details: { reasoning_tokens: 10 },
       });
     } else {
-      event(res, { content: "done" });
-      finish(res, "stop", { prompt_tokens: 1300, completion_tokens: 40, total_tokens: 1340 });
+      // 多块之间留出间隔，两侧才有可计量的解码区间（conversation-generation-speed.md §8）。
+      event(res, { content: "do" });
+      setTimeout(() => {
+        event(res, { content: "ne" });
+        setTimeout(() => {
+          finish(res, "stop", { prompt_tokens: 1300, completion_tokens: 40, total_tokens: 1340 });
+        }, 25);
+      }, 25);
     }
   };
   const f =
@@ -66,6 +100,16 @@ async function observe(kind: "node" | "rust") {
     await h.completed(sessionId);
     await new Promise((done) => setTimeout(done, 500));
     const after = (await h.client.request("v4/conversation/usage", { sessionId }, parse)) as any;
+    const snapshot = reducedSnapshot(h.messages, sessionId);
+    const contextWindow = reducedContextWindow(snapshot);
+    const header = snapshot?.rows?.window?.filter((r: any) => r.kind === "turnHeader").at(-1);
+    // 时间戳两侧不可能相同，归一为占位；token 和值必须逐值一致。
+    const turnDecode = header
+      ? {
+          decodeMs: header.decodeMs === undefined ? null : "<MS>",
+          decodeTokens: header.decodeTokens ?? null,
+        }
+      : null;
     // 应用级统计（v4/usage/stats）：耗时类字段两侧不同，抹成 0 / null 只比结构与计数。
     const timing =
       /^(generatedAt|avgTimeToFirstTokenMs|avgTurnDurationMs|longestSessionMs|avgDurationMs)$/;
@@ -86,6 +130,8 @@ async function observe(kind: "node" | "rust") {
       toolResult: requests[1]?.messages?.find((m: any) => m.tool_call_id === "g-1")?.content,
       hasGlob: (requests[0]?.tools ?? []).some((t: any) => t.function?.name === "Glob"),
       requestCount: requests.length,
+      contextWindow,
+      turnDecode,
       schemaErrors: h.schemaErrors,
     };
   } finally {
@@ -98,6 +144,10 @@ test("Node and Rust aggregate conversation and app usage the same way", async ()
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.ok(node.after.modelRequestCount >= 2);
+  // 供应商第二轮回报 prompt 1300 + completion 40；两侧都必须按回报写 wire，而不是本地字符估算。
+  assert.equal((node as any).contextWindow?.usedTokens, 1340);
+  assert.equal((rust as any).contextWindow?.usedTokens, 1340);
+  assert.deepEqual((node as any).turnDecode, { decodeMs: "<MS>", decodeTokens: 39 });
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
   }
