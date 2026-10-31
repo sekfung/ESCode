@@ -34,7 +34,11 @@ impl HttpModel {
         let native_tool_search = tools
             .iter()
             .any(|tool| tool["function"]["deferLoading"] == true);
-        super::tool_reference::project(&mut messages, native_tool_search);
+        let available: std::collections::HashSet<String> = tools
+            .iter()
+            .filter_map(|tool| tool["function"]["name"].as_str().map(str::to_owned))
+            .collect();
+        super::tool_reference::project(&mut messages, native_tool_search, &available);
         // 成功提示只在请求投影派生（上游 appendToolSearchSuccessMessages）。
         super::tool_search_success::append(&mut messages);
         let body = model_protocol::body(&self.config, messages, tools)?;

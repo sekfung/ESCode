@@ -122,7 +122,7 @@ tool call = DeferredToolCall({name,input})
   tool 结果之后，按该段里成功 ToolSearch（结果仍含 `tool_reference`）的条数追加
   `role=user`、`content="Tool loaded."` 的派生消息。提示只存在于请求投影，不写入历史；
   `local`/`off` 的结果没有 `tool_reference`，不产生该提示。
-- 跨模式：会话从 native 切到 local/off 或另一家 provider 时，历史里的 `tool_reference` 在发送前降级为文本，避免未知 part 被拒（`tool_reference::project`）。
+- 跨模式：会话从 native 切到 local/off 或另一家 provider 时，历史里的 `tool_reference` 在发送前降级为文本，避免未知 part 被拒；native 请求保留仍可用的引用，删除本轮目录里已不存在的工具引用并按上游写入占位文本（`tool_reference::project`）。
 - 包装边界：DeferredToolCall 的目标结果在模型历史/持久化工具消息上带 `_escode_model_call_wrapper: "DeferredToolCall"`，供 UI 与冷恢复区分直接调用与包装调用。
 - `auto` 是否解析为 native 取决于 provider 的 `default_enabled`；当前 Rust 默认 `false`，显式 `native` 可用。
 
