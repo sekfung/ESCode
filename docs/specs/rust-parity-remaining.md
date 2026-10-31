@@ -44,6 +44,12 @@ Node 首次/二次打开 3898/3678ms、Rust 222148/1748ms，`rows` 200 行 5/22m
 真实安装库与数万轮以上仍待测，详见
 [大活跃历史离线基线](../reports/rust-long-history-fixture-2026-10-31.md)。
 
+2026-11-01 ToolSearch 补充：local 结果在 `<functions>` 定义块后追加上游
+`localToolsLoadedReminder` / `localToolsAlreadyLoadedReminder` 文案（同批并行搜索按批次开始时的
+已发现快照判定“已加载”）；成功命中名同时写入结果消息的 `_escode_tool_search_discovered`，
+未压缩冷恢复也能重建已发现集合。`escode-cli-rust-tool-search-e2e.test.ts` 覆盖
+“首次加载提醒”“再次搜索已加载提醒”“未压缩冷恢复常驻”。
+
 2026-10-31 本地 bundle 切换演练：用仓库 `escode.cjs` 与 release Rust 二进制模拟包内
 `resources/glm` 路径，运行 `escode-cli-rust-installed.test.ts`，Node → Rust → Node 在同一数据目录
 完成写入、导入读取和回退续聊（1 例通过，TS 库逐字节不变）。它不等同于真实安装包/CI 演练，
