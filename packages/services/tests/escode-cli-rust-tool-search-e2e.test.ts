@@ -220,10 +220,14 @@ test("keeps a tool discovered before compaction resident after a cold restart", 
       res.writeHead(200, { "content-type": "text/event-stream" });
       const last = req.messages.at(-1);
       if (last.role === "user" && String(last.content) === "load tool") {
-        event(res, { tool_calls: [call("search-before-compact", "ToolSearch", { query: "echo" })] });
+        event(res, {
+          tool_calls: [call("search-before-compact", "ToolSearch", { query: "echo" })],
+        });
         end(res, "tool_calls");
       } else if (last.role === "user" && String(last.content) === "after compact") {
-        event(res, { tool_calls: [call("direct-after-compact", MCP_TOOL, { text: "after compact" })] });
+        event(res, {
+          tool_calls: [call("direct-after-compact", MCP_TOOL, { text: "after compact" })],
+        });
         end(res, "tool_calls");
       } else {
         event(res, { content: "done" });
@@ -241,14 +245,19 @@ test("keeps a tool discovered before compaction resident after a cold restart", 
     await h.subscribe(`conversation/${sid}`);
     await send(h, sid, "load tool");
     assert.ok(!names(f.requests[0]!).includes(MCP_TOOL));
-    assert.match(String(toolMessage(f.requests, 1, "search-before-compact")?.content), new RegExp(MCP_TOOL));
+    assert.match(
+      String(toolMessage(f.requests, 1, "search-before-compact")?.content),
+      new RegExp(MCP_TOOL),
+    );
 
     const after = h.messages.length;
     await h.command(h.envelope("compact", sid));
     await h.completed(sid, after);
     // 压缩边界必须持久化已发现名单（rust-tool-search.md §5.2）：冷进程只能从这里重建。
     const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"));
-    const body = db.prepare("SELECT body FROM rust_session WHERE id=?").get(sid) as { body: string };
+    const body = db.prepare("SELECT body FROM rust_session WHERE id=?").get(sid) as {
+      body: string;
+    };
     db.close();
     assert.deepEqual(JSON.parse(body.body).context.preCompactDiscoveredTools, [MCP_TOOL]);
     await h.close();
@@ -274,6 +283,96 @@ test("keeps a tool discovered before compaction resident after a cold restart", 
       assert.match(
         String(toolMessage(f.requests, before + 1, "direct-after-compact")?.content),
         /after compact/,
+      );
+      assert.deepEqual(cold.schemaErrors, []);
+    } finally {
+      await cold.close();
+    }
+  } finally {
+    await f.close();
+  }
+});
+
+test("keeps a locally discovered tool resident after a cold restart without compaction", async () => {
+  // local 模式没有 tool_reference；命中名必须随 ToolSearch 结果消息持久化，
+  // 否则未压缩的冷恢复会重新把目标工具当成延迟工具（rust-tool-search.md §5.1）。
+  const f = await fixture({
+    mode: "yolo",
+    env: { ESCODE_TOOL_SEARCH_MODE: "local" },
+    respond(req, res) {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      const last = req.messages.at(-1);
+      if (last.role === "user" && String(last.content) === "load tool") {
+        event(res, {
+          tool_calls: [call("search-before-restart", "ToolSearch", { query: "echo" })],
+        });
+        end(res, "tool_calls");
+      } else if (last.role === "user" && String(last.content) === "after restart") {
+        event(res, {
+          tool_calls: [call("direct-after-restart", MCP_TOOL, { text: "after restart" })],
+        });
+        end(res, "tool_calls");
+      } else {
+        event(res, { content: "done" });
+        end(res, "stop");
+      }
+    },
+  });
+  const server = await stdioServer(f.root);
+  try {
+    const h = f.start();
+    const ack = await h.command(
+      h.envelope("createSession", null, { workspaceId: f.cwd, mcpServers: [server.config] }),
+    );
+    const sid = (ack.result as { sessionId: string }).sessionId;
+    await h.subscribe(`conversation/${sid}`);
+    await send(h, sid, "load tool");
+    assert.ok(!names(f.requests[0]!).includes(MCP_TOOL));
+    assert.equal(announcementCount(f.requests[0]!), 1);
+    assert.match(
+      String(toolMessage(f.requests, 1, "search-before-restart")?.content),
+      new RegExp(MCP_TOOL),
+    );
+
+    // 结果消息要带已发现名单；不依赖压缩边界。
+    const db = new DatabaseSync(join(f.dataDir, "rust-sessions.sqlite"));
+    const body = db.prepare("SELECT body FROM rust_session WHERE id=?").get(sid) as {
+      body: string;
+    };
+    const stored = db
+      .prepare("SELECT body FROM rust_message WHERE session=? ORDER BY ordinal")
+      .all(sid) as Array<{ body: string }>;
+    db.close();
+    const persisted = JSON.parse(body.body);
+    assert.equal(persisted.context.preCompactDiscoveredTools, undefined);
+    const search = stored
+      .map((row) => JSON.parse(row.body))
+      .find((m) => m.role === "tool" && m.tool_call_id === "search-before-restart");
+    assert.ok(search);
+    assert.deepEqual(search._escode_tool_search_discovered, [MCP_TOOL]);
+    await h.close();
+
+    // 冷恢复：历史里的已发现名单让该工具继续常驻，且不再生成第二条公告。
+    const cold = f.start();
+    try {
+      await cold.client.request(
+        "session/resume",
+        {
+          workspace: { workspacePath: cold.workspace, workspaceKey: cold.workspace },
+          sessionId: sid,
+          mcpServers: [server.config],
+        },
+        escodeSessionStateSnapshotSchema,
+      );
+      await cold.subscribe(`conversation/${sid}`);
+      const before = f.requests.length;
+      await send(cold, sid, "after restart");
+      assert.ok(names(f.requests[before]!).includes(MCP_TOOL));
+      // 历史里的原始公告仍在（1 条）；未压缩的冷恢复不得再生成第二条。
+      assert.equal(announcementCount(f.requests[before]!), 1);
+      assert.match(
+        String(toolMessage(f.requests, before + 1, "direct-after-restart")?.content),
+        /after restart/,
       );
       assert.deepEqual(cold.schemaErrors, []);
     } finally {

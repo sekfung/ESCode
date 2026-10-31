@@ -217,6 +217,7 @@ impl Engine {
                 failed,
                 denied,
                 model_call_wrapper,
+                tool_search_matches,
                 committed,
                 ..
             } => {
@@ -225,6 +226,12 @@ impl Engine {
                 if let Some(wrapper) = &model_call_wrapper {
                     message["_escode_model_call_wrapper"] = wrapper.as_str().into();
                 }
+                // local ToolSearch 结果没有 tool_reference；命中名随结果入史，冷恢复据此
+                // 重建已发现集合（rust-tool-search.md §5.1）。
+                crate::domain::tool_search_announcement::annotate_discovered(
+                    &mut message,
+                    &tool_search_matches,
+                );
                 if let Some(parts) = stored {
                     message["content"] = parts.into();
                     message["_escode_tool_name"] = tool.into();

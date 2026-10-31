@@ -188,6 +188,21 @@ fn collects_discovered_names_from_tool_references_and_boundaries() {
 }
 
 #[test]
+fn collects_discovered_names_from_local_tool_search_results() {
+    // local 结果只有文本 schema 块；命中名由 `_escode_tool_search_discovered` 持久化，
+    // 冷恢复（无压缩边界）也必须能重建已发现集合。
+    let messages = [
+        json!({"role": "tool", DISCOVERED_KEY: ["mcp__demo__read", "mcp__demo__write"], "content": [{"type": "text", "text": "<functions>…</functions>"}]}),
+        json!({"role": "tool", "_escode_tool_failed": true, DISCOVERED_KEY: ["Failed"], "content": "error"}),
+        json!({"role": "tool", DISCOVERED_KEY: ["mcp__demo__read"], "content": "No matching deferred tools found"}),
+    ];
+    assert_eq!(
+        discovered(&messages),
+        vec!["mcp__demo__read".to_owned(), "mcp__demo__write".to_owned()]
+    );
+}
+
+#[test]
 fn groups_mcp_names_case_insensitively() {
     assert_eq!(
         summarize(&[

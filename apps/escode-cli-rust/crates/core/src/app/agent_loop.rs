@@ -342,18 +342,17 @@ pub(super) async fn run(
                 let (id, tool, output, failed, denied) = result?;
                 stop_turn |= output.control.stop_turn;
                 let content = output.content;
-                // 含媒体或 tool_reference 的结果以 part 数组入史，由 model 协议层按 API 格式投影
-                // （rust-media-read.md、rust-tool-search.md）。
-                let body = if output.media.is_empty() {
-                    Value::String(content.clone())
-                } else {
-                    Value::Array(output.media.clone())
-                };
-                let mut message = json!({"role":"tool","tool_call_id":id,"content":body,"_escode_tool_failed":failed,"_escode_tool_name":tool});
-                if let Some(wrapper) = &model_call_wrapper {
-                    message["_escode_model_call_wrapper"] = wrapper.as_str().into();
-                }
-                history.push(message);
+                let tool_search_matches =
+                    super::agent_support::tool_search_matches(&tool, failed, &output.data);
+                history.push(super::agent_support::tool_result_message(
+                    id.clone(),
+                    tool.clone(),
+                    &content,
+                    &output.media,
+                    failed,
+                    model_call_wrapper.as_deref(),
+                    &tool_search_matches,
+                ));
                 let (committed, receipt) = oneshot::channel();
                 sink.send(Event::ToolDone {
                     id,
@@ -364,6 +363,7 @@ pub(super) async fn run(
                     failed,
                     denied,
                     model_call_wrapper,
+                    tool_search_matches,
                     committed,
                 })
                 .await?;

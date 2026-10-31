@@ -259,6 +259,9 @@ pub enum Event {
         denied: bool,
         /// DeferredToolCall 包装边界：目标工具的调用与结果经包装入口到达（上游 modelCallWrapper）。
         model_call_wrapper: Option<String>,
+        /// 成功 ToolSearch 命中的工具名；冷恢复从结果消息的 `_escode_tool_search_discovered`
+        /// 重建已发现集合（local 模式没有 tool_reference part）。
+        tool_search_matches: Vec<String>,
         committed: oneshot::Sender<()>,
     },
     StepBoundary {

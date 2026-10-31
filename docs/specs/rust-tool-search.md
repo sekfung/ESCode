@@ -102,6 +102,8 @@ tool call = DeferredToolCall({name,input})
 - 结果投影：local ToolSearch 命中把匹配工具的完整 `function` 定义渲染成 `<functions>` 文本块
   （`tool_search_definitions::schema_block`），不把目标 schema 加进顶层 tools；定义缺失的名字跳过，
   全部缺失时不输出空容器。
+- 已发现事实持久化：成功 ToolSearch 结果消息顶层写 `_escode_tool_search_discovered=[name…]`
+  （失败或无命中不写），local 冷恢复与压缩边界都从历史重建已发现集合。
 - 权限元数据：`crates/tools/src/tool_capability.rs`。
 - 入口：`toolSearchMode` 命令字段（V4 输入）或 `ESCODE_TOOL_SEARCH_MODE` 环境变量；未设置时为 `off`。App 偏好接入后改为读设置。
 - 测试：`cargo test -p escode-cli-domain tool_search`、`--test tool_search_differential`、`cargo test -p escode-cli-model tool_search`、`cargo test -p escode-cli-tools tool_search_state`。
@@ -149,6 +151,9 @@ tool call = DeferredToolCall({name,input})
   `_escode_source="tool_search_announcement"`、
   `_escode_tool_search_announcement={addedNames,removedNames,readdedNames}`。
   `readdedNames ⊆ addedNames`；名字事实不进入会话元数据表或运行时缓存。
+- 已发现事实的唯一 owner 同样是会话消息：`native` 用 ToolSearch 结果的 `tool_reference` part，
+  `local` 用同一结果消息顶层的 `_escode_tool_search_discovered`（成功命中才写）。冷恢复从这两处
+  与 compact 边界重建 `discovered`；`ToolPort` 的进程内记录只是缓存。
 - `announced` / `listed` 每次从保留消息重新扫描：`addedNames` 加入 `announced`，非 `readdedNames` 的
   加入 `listed`；`removedNames` 从 `announced` 删除。
 - `deferred` 来自本轮 ToolSearch catalog（`prepare_tool_surface` 过滤前的目录），
@@ -177,9 +182,9 @@ tool call = DeferredToolCall({name,input})
 - 关闭 ToolSearch 时只在请求投影中隐藏公告消息，不删除存储事实（`RunContext.projection`）。
 - 公告在请求投影里按上游 bubble 规则移到本轮真实输入之前：跨过同轮其它 reminder，
   遇到工具/助手消息即停（公告仍留在它所属的步骤之后）。
-- `native` 模式的已发现集合在会话冷恢复时从历史 tool_reference part 与 compact 边界重新派生，
-  并回填 `ToolPort`，与进程内记录取并集；`local` 模式的历史没有 tool_reference，
-  恢复后仍以存储的公告增量为准，不重复通告。
+- 已发现集合在会话冷恢复时从历史 `tool_reference` part、`_escode_tool_search_discovered` 与
+  compact 边界重新派生，并回填 `ToolPort`，与进程内记录取并集。公告只记录目录变化，
+  不承载 schema 交付事实，不能替代已发现集合。
 
 压缩边界（2026-11-01 实现，见 §5.2）：
 
@@ -195,12 +200,13 @@ tool call = DeferredToolCall({name,input})
   空集合不写出字段。
 - 唯一写入者是 `RunContext::compact()` 成功路径：`ContextPort` 事务提交后才切换边界与工作副本；
   失败时边界与已发现集合都不变。
-- 取值 = 当前 canonical 历史里的 `tool_reference`、上一检查点的边界名单、`ToolPort` 本进程已发现集合的并集，
-  排序去重后写入。关闭 ToolSearch 时同样写入（上游 compact 语义）。
+- 取值 = 当前 canonical 历史里的 `tool_reference` / `_escode_tool_search_discovered`、上一检查点的
+  边界名单、`ToolPort` 本进程已发现集合的并集，排序去重后写入。关闭 ToolSearch 时同样写入（上游 compact 语义）。
 
 读取：
 
-- `prepare_tool_surface` 冷恢复时把边界名单并入 `discovered` 并回填 `ToolPort`，与历史 `tool_reference` 取并集。
+- `prepare_tool_surface` 冷恢复时把边界名单并入 `discovered` 并回填 `ToolPort`，与历史
+  `tool_reference` / `_escode_tool_search_discovered` 取并集。
 - `local` 模式把边界名单里的工具视为已发现：本轮工具面保留其定义，catalog 的 `deferred` 标记清除，
   公告生成因此不会把它们重新算作新增目录项；`native` 模式维持原有 `deferLoading` 规则。
 - `ReadSessionContext` 的合成 compaction part 不写完整 `CompactBoundaryPayload`：Rust 侧没有
@@ -214,6 +220,8 @@ tool call = DeferredToolCall({name,input})
 - 旧 `ContextState` JSON（无字段）读入为空集合；写入后序列化含排序去重的名单。
 - E2E：local ToolSearch 下经 ToolSearch 加载 MCP 工具 → 手动 `/compact` → 关闭 runtime 冷恢复 →
   下一轮工具面仍包含该工具定义，公告不把它当作新增项。（`escode-cli-rust-tool-search-e2e.test.ts`）
+- E2E：local ToolSearch 加载 MCP 工具后不压缩直接冷恢复（`session/resume` 重新带上 MCP 配置）→
+  下一轮工具面仍包含该工具定义，公告不重复。（同一测试文件）
 
 ## 6. 验收
 

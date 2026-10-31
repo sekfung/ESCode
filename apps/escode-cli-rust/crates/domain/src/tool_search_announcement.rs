@@ -11,6 +11,9 @@ use crate::tool_search_catalog::ResolvedToolSearchMode;
 /// 公告消息的来源标记（TS `tool_search_announcement`）与增量载荷键。
 pub const ANNOUNCEMENT_SOURCE: &str = "tool_search_announcement";
 pub const ANNOUNCEMENT_KEY: &str = "_escode_tool_search_announcement";
+/// local 模式没有 `tool_reference` part；ToolSearch 结果消息用它持久化本次命中的工具名，
+/// 冷恢复时与 native 的 tool_reference 一样重建已发现集合（rust-tool-search.md §5.1）。
+pub const DISCOVERED_KEY: &str = "_escode_tool_search_discovered";
 
 const TOOL_SEARCH_NAME: &str = "ToolSearch";
 const MAX_REMOVED_NAME_LINES: usize = 30;
@@ -40,6 +43,14 @@ pub fn discovered(messages: &[Value]) -> Vec<String> {
         if message["role"] != "tool" || message["_escode_tool_failed"] == true {
             continue;
         }
+        for name in message[DISCOVERED_KEY]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            push_unique(&mut names, name);
+        }
         let Some(parts) = message["content"].as_array() else {
             continue;
         };
@@ -52,6 +63,14 @@ pub fn discovered(messages: &[Value]) -> Vec<String> {
         }
     }
     names
+}
+
+/// 把成功 ToolSearch 的命中名写进结果消息顶层；冷恢复从此重建已发现集合。
+pub fn annotate_discovered(message: &mut Value, names: &[String]) {
+    if names.is_empty() {
+        return;
+    }
+    message[DISCOVERED_KEY] = json!(names);
 }
 
 /// 按历史里的公告增量与本轮目录计算下一段公告；无变化回 `None`。
