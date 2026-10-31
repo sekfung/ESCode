@@ -1825,6 +1825,9 @@ scoped capability。per-window Node Host 的远程 workspace 分支随之删除�
   零 `escode-host-remote-*`）已在 Linux x64 通过：`source-server-rust-server-direct.test.ts`，
   artifact `desktop-e2e-20261031-225816-501`。期间修复了 WS Initialize 早于 channel 注册的能力集
   缺陷（见上一节问题记录）；E2E 的 Host 进程基线改为在 App 重启之后取（重启会换 Rust Host 进程）。
+- 单测门禁（2026-11-01）：`pnpm verify:pre-push` 全绿（1573 files / 13874 tests passed，27 skipped）。
+  同一轮补齐了 `daaa2043` 引入的 tasks 账本引导缺口（Rust Host `rpcListen` 要求 Main 先建
+  `tasks-index.sqlite`）与 S3-c/S5-f-5 协议删除后失效的断言，共 28 例，见 commit `fd4e30a6`。
 - 未完成：Windows/macOS 主链 E2E（§11.11 的 CI SSH job 固定 `ubuntu-latest`）；在跨平台证据补齐前
   S5 与总目标仍不得标记完成。
 
