@@ -239,36 +239,7 @@ export async function waitForProfileState(
   let latest: string | null = null;
   await browser.waitUntil(
     async () => {
-      latest = await browser.executeAsync((wantedProfileId, done) => {
-        const services = (
-          window as Window & {
-            __remoteWorkspaceSessionStoreE2E?: {
-              getState?: () => {
-                baseServices?: {
-                  sourceServerManagementService?: {
-                    getSnapshot: () => Promise<{
-                      states: Array<{ profileId: string; state: string }>;
-                    }>;
-                  };
-                } | null;
-              };
-            };
-          }
-        ).__remoteWorkspaceSessionStoreE2E?.getState?.().baseServices;
-        const service = services?.sourceServerManagementService;
-        if (!service) {
-          done(null);
-          return;
-        }
-        void service.getSnapshot().then(
-          (snapshot) => {
-            done(
-              snapshot.states.find((state) => state.profileId === wantedProfileId)?.state ?? null,
-            );
-          },
-          () => done(null),
-        );
-      }, profileId);
+      latest = await readProfileState(profileId);
       return latest === expected;
     },
     {
@@ -277,4 +248,56 @@ export async function waitForProfileState(
       timeoutMsg: `${caseMarker}: profile ${profileId} 状态没有收敛到 ${expected}，latest=${latest}`,
     },
   );
+}
+
+/** 等待 Profile 离开指定状态（用于证明停服后 Rust Host 确实观察到断线）。 */
+export async function waitForProfileStateNot(
+  caseMarker: string,
+  profileId: string,
+  unexpected: string,
+  timeoutMs = 60_000,
+): Promise<void> {
+  let latest: string | null = null;
+  await browser.waitUntil(
+    async () => {
+      latest = await readProfileState(profileId);
+      return latest !== null && latest !== unexpected;
+    },
+    {
+      timeout: timeoutMs,
+      interval: 500,
+      timeoutMsg: `${caseMarker}: profile ${profileId} 停服后仍停留在 ${unexpected}，latest=${latest}`,
+    },
+  );
+}
+
+async function readProfileState(profileId: string): Promise<string | null> {
+  return browser.executeAsync((wantedProfileId, done) => {
+    const services = (
+      window as Window & {
+        __remoteWorkspaceSessionStoreE2E?: {
+          getState?: () => {
+            baseServices?: {
+              sourceServerManagementService?: {
+                getSnapshot: () => Promise<{
+                  states: Array<{ profileId: string; state: string }>;
+                }>;
+              };
+            } | null;
+          };
+        };
+      }
+    ).__remoteWorkspaceSessionStoreE2E?.getState?.().baseServices;
+    const service = services?.sourceServerManagementService;
+    if (!service) {
+      done(null);
+      return;
+    }
+    void service.getSnapshot().then(
+      (snapshot) => {
+        done(snapshot.states.find((state) => state.profileId === wantedProfileId)?.state ?? null);
+      },
+      () => done(null),
+    );
+  }, profileId);
 }
