@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use super::{
-    BuildOptions, DockerTarget, SshTarget, TransportSecrets, TransportTarget, WslTarget,
-    build_posix_shell_exec_command, build_transport_command, parse_target, quote_posix_path_arg,
-    quote_posix_shell_arg, resolve_posix_home_path,
+    BuildOptions, DockerTarget, ServerTarget, SshTarget, TransportSecrets, TransportTarget,
+    WslTarget, build_posix_shell_exec_command, build_transport_command, parse_target,
+    quote_posix_path_arg, quote_posix_shell_arg, resolve_posix_home_path,
 };
 use crate::source_server::ConnectionProfile;
 
@@ -328,6 +328,25 @@ fn parses_each_transport_and_rejects_unknown() {
             container: "c".to_owned(),
         })
     );
+    assert_eq!(
+        parse_target(&profile(
+            "server",
+            json!({"kind": "server", "url": "https://studio.example.com/escode/", "tokenCredentialKey": "connection-profile:p:token"})
+        ))
+        .expect("server"),
+        TransportTarget::Server(ServerTarget {
+            url: "https://studio.example.com/escode/".to_owned(),
+            token_credential_key: Some("connection-profile:p:token".to_owned()),
+        })
+    );
+    assert!(
+        parse_target(&profile(
+            "server",
+            json!({"kind": "server", "tokenCredentialKey": "k"})
+        ))
+        .is_err(),
+        "server 缺 url 必须失败"
+    );
     assert!(
         parse_target(&profile("serial", json!({}))).is_err(),
         "未知 transport 必须失败"
@@ -335,5 +354,19 @@ fn parses_each_transport_and_rejects_unknown() {
     assert!(
         parse_target(&profile("ssh", json!({"kind": "ssh", "username": "u"}))).is_err(),
         "缺 host 必须失败"
+    );
+}
+
+/// server 目标没有本地进程；调用方误走命令构造时必须显式失败，而不是拿到空命令。
+#[test]
+fn server_transport_has_no_process_command() {
+    let target = TransportTarget::Server(ServerTarget {
+        url: "https://studio.example.com/escode/".to_owned(),
+        token_credential_key: None,
+    });
+    let error = build(&target, &TransportSecrets::default()).expect_err("server command");
+    assert!(
+        format!("{error:#}").contains("server transport has no process command"),
+        "{error:#}"
     );
 }

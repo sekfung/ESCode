@@ -1,8 +1,11 @@
 //! Source Server transport 启动命令（S3，docs/specs/source-server-remote-rust-host.md §10.3）。
 //!
-//! 只把 Connection Profile 变成一条可执行的 stdio 命令，不建立连接、不做部署：
+//! 把 Connection Profile 变成一条可执行的 stdio 命令，不建立连接、不做部署：
 //! SSH 用系统 OpenSSH（与 `scripts/verify-remote-ssh.mjs`、`sshConfigAlias` 一致），
 //! WSL/Docker 用 `sh -lc`。远端命令与参数在链路之上完全一致，transport 差异不进入业务域。
+//!
+//! `kind: "server"` 没有本地进程（链路是 HTTP + WebSocket，见 §12.6），由
+//! [`TransportTarget::Server`] 承载：它只解析目标字段，不产生 [`TransportCommand`]。
 //!
 //! host-key 策略（S4-h）：首次连接 `accept-new` 写入 Desktop 自有 known_hosts；已存在但 key
 //! 变化时 OpenSSH 拒绝连接，调用方把 stderr 映射为 `remote-host-key-changed`，不自动覆盖。
@@ -24,6 +27,8 @@ pub enum TransportTarget {
     Ssh(SshTarget),
     Wsl(WslTarget),
     Docker(DockerTarget),
+    /// `kind: "server"` 直连：没有本地子进程，链路是 HTTP 探测 + WebSocket（见 §12.6）。
+    Server(ServerTarget),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -45,6 +50,13 @@ pub struct WslTarget {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DockerTarget {
     pub container: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerTarget {
+    pub url: String,
+    /// token 只存引用；明文由 CredentialService 在连接准备阶段解出。
+    pub token_credential_key: Option<String>,
 }
 
 /// 已从 credential 服务解出的 secret；`None` 表示 profile 没要求。
@@ -100,6 +112,10 @@ pub fn parse_target(profile: &ConnectionProfile) -> Result<TransportTarget> {
         "docker" => Ok(TransportTarget::Docker(DockerTarget {
             container: required_string(&profile.target, "container")?,
         })),
+        "server" => Ok(TransportTarget::Server(ServerTarget {
+            url: required_string(&profile.target, "url")?,
+            token_credential_key: optional_string(&profile.target, "tokenCredentialKey"),
+        })),
         other => bail!("unsupported source server transport: {other}"),
     }
 }
@@ -142,6 +158,10 @@ pub fn build_transport_command(
             ],
             env: BTreeMap::new(),
         }),
+        // server 目标没有本地进程：链路由 WebSocket 建立，强制走这条路径是调用方 bug。
+        TransportTarget::Server(_) => {
+            bail!("server transport has no process command; use the websocket link")
+        }
     }
 }
 

@@ -125,6 +125,8 @@ pub fn profile_target_identity(profile: &ConnectionProfile) -> Result<UpdateTarg
         TransportTarget::Docker(docker) => UpdateTargetIdentity::Docker {
             container: docker.container,
         },
+        // server 目标的 runtime 由服务端自己持有，Host 不执行 local-upload / remote-download 更新。
+        TransportTarget::Server(_) => bail!("source-server-update-unsupported"),
     })
 }
 

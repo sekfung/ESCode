@@ -45,6 +45,7 @@ mod source_server_connection_projection;
 mod source_server_connection_state;
 pub mod source_server_connections;
 pub mod source_server_deploy_lock;
+pub mod source_server_endpoints;
 pub mod source_server_exec;
 pub mod source_server_handshake;
 pub mod source_server_install;
