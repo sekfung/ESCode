@@ -28,7 +28,6 @@ import { createBrowserControlMainBridge } from "./browserControlMainBridge.js";
 import { materializeBrowserRecordingArtifact } from "./browserRecordingArtifactMaterializer.js";
 import {
   ServiceCollection,
-  IClientConfigService,
   IModelSelectionService,
   IWindowControllerService,
   IESCodeAgentService,
@@ -55,8 +54,6 @@ import {
   formatLogPrefix,
   formatESCodeHostProcessName,
   formatZodError,
-  buildRemoteWorkspaceIdentity,
-  buildRemoteEnvironmentKey,
   isRemoteWorkspaceIdentity,
   resolveWorkspaceKey,
   formatModelPickerValue,
@@ -76,15 +73,11 @@ import {
   parseHostIncomingMessageEvent,
   rejectUnavailableAttachedServicePort,
 } from "./hostMessagePortGuard.js";
-import type { IRemoteBackend } from "@escode/server/remote/backend.js";
-import type { RemoteTarget } from "@escode/shared";
 import { wrapElectronPort } from "./electronPort.js";
 import { createTaskRealtimeBridgeForHostInit } from "./taskRealtimeBridge.js";
 import { resolveRpcLogLevel } from "./rpcLogLevel.js";
 import { createHostWorkspaceTaskTracker } from "./hostWorkspaceTaskTracker.js";
 import { createHostRemoteWorkspaceProxyState } from "./hostRemoteWorkspaceProxyState.js";
-import { createServerRemoteWorkspaceServiceCollection } from "./remoteWorkspaceServiceCollection.js";
-import { getRemoteProviderProvisioningExecutor } from "./remoteProviderProvisioningService.js";
 import { shouldReportHostConsoleError, stringifyHostLogArg } from "./hostLog.js";
 import { flushHostE2ECoverage } from "./e2eCoverage.js";
 import { runHostShutdownPhases, type HostShutdownResult } from "./hostShutdownPhases.js";
@@ -96,20 +89,9 @@ import {
   settleCronRunTerminalOutcome,
   settleManualDispatchFailureBestEffort,
 } from "./cronRunLifecycle.js";
-import { connectServerRemote, type ServerRemoteConnection } from "./serverRemoteConnection.js";
 import { createWindowHostAttachmentRegistry } from "./windowHostAttachmentRegistry.js";
-import {
-  createWindowRemoteConnectionRegistry,
-  type WindowRemoteConnectionCloseEvent,
-  type WindowRemoteConnectionHandle,
-} from "./windowRemoteConnectionRegistry.js";
-import { pushDynamicWorkflowUserModeToRemoteHosts } from "./remoteDynamicWorkflowUserMode.js";
 import { createWindowHostControllerRuntime } from "./windowHostControllerService.js";
 import { resolveAutomationSubmissionModelSelection } from "./automationModelSelection.js";
-import { createRemoteConnectionProgressContext } from "@escode/server/remote/remoteConnectionProgressContext.js";
-interface HostRemoteConnectionCapabilities {
-  browserRecordingUploader?: Pick<IRemoteBackend, "upload">;
-}
 
 const { parentPort } = process;
 const hostNetworkCapture = createHostNetworkCapture(parentPort);
@@ -167,25 +149,11 @@ const browserControlMainBridge = createBrowserControlMainBridge({
     parentPort.postMessage(message);
   },
   materializeRecording: (input) => {
-    let remoteBackend: Pick<IRemoteBackend, "upload"> | undefined;
+    // 远程 workspace（含 server 直连）已由 Rust Host 承载，Node Host 不再持有远端 uploader。
     if (input.remoteSessionId) {
-      const workspaceIdentity = input.workspaceIdentity;
-      if (!workspaceIdentity?.trim()) {
-        throw new Error("remote Browser recording materialization requires workspaceIdentity");
-      }
-      // Window Host 重构后同一进程可同时持有多个远端连接，旧的进程级
-      // remoteConnection 会串 session。必须用完整 scope 从 registry 的权威 entry 取 uploader。
-      remoteBackend = windowRemoteConnectionRegistry.resolveScopedCapabilities({
-        kind: "remote",
-        remoteSessionId: input.remoteSessionId,
-        workspacePath: input.workspacePath,
-        workspaceIdentity,
-      })?.browserRecordingUploader;
+      throw new Error("remote Browser recording materialization is served by the Rust Host");
     }
-    return materializeBrowserRecordingArtifact({
-      ...input,
-      ...(remoteBackend ? { remoteBackend } : {}),
-    });
+    return materializeBrowserRecordingArtifact(input);
   },
 });
 
@@ -211,24 +179,6 @@ const rawConsole = {
   warn: console.warn.bind(console),
   error: console.error.bind(console),
 };
-
-const remoteConnectionProgressContext = createRemoteConnectionProgressContext({
-  emit: ({ requestId, level, args }) => {
-    if (!parentPort) {
-      return;
-    }
-    try {
-      parentPort.postMessage({
-        type: HostResponseTypes.RemoteWorkspaceConnectionLog,
-        requestId,
-        level,
-        message: args.map((arg) => stringifyHostLogArg(arg)).join(" "),
-      });
-    } catch {
-      // 连接进度上报失败不应中断 SSH/WSL/Docker 的真实连接流程。
-    }
-  },
-});
 
 function writeHostLog(level: HostLogLevel, ...args: unknown[]): void {
   const prefix = formatLogPrefix("escode-host", process.pid);
@@ -262,22 +212,10 @@ function resolveAutomationTargetServices(request: {
   workspacePath: string;
   workspaceIdentity?: string;
 }): ServiceCollection {
-  const remoteSession = windowRemoteConnectionRegistry.findSessionForWorkspace(request);
-  if (remoteSession) {
-    if (!remoteSession.workspaceIdentity) {
-      throw new Error("Automation 目标 Remote Host 缺少 workspaceIdentity");
-    }
-    return windowRemoteConnectionRegistry.resolveScopedServices({
-      kind: "remote",
-      remoteSessionId: remoteSession.remoteSessionId,
-      workspacePath: request.workspacePath,
-      workspaceIdentity: remoteSession.workspaceIdentity,
-    });
-  }
-  // 远程 Automation 找不到目标 logical session 时，旧派发会静默落到 Local Host，
-  // 从而使用本地模型首选与 Registry。远程身份只能失败，不能跨 Environment fallback。
+  // 远程 workspace 由 Rust Host 承载；Node Host 只执行本地 workspace 的 Automation 派发。
+  // 远程身份只能显式失败，不能静默落到本地 tasks-index。
   if (request.workspaceIdentity && isRemoteWorkspaceIdentity(request.workspaceIdentity)) {
-    throw new Error("Automation 目标 Remote Host 当前不可用");
+    throw new Error("Automation 目标 Remote Host 由 Rust Host 承载，Node Host 不可用");
   }
   if (!activeServices) {
     throw new Error("Local Host services are not initialized.");
@@ -669,7 +607,6 @@ const workspaceTaskTracker = createHostWorkspaceTaskTracker((event) => {
     type: HostResponseTypes.WorkspaceRunningTaskCountChanged,
     ...event,
   });
-  windowRemoteConnectionRegistry.setWorkspaceRunningTaskCount(event);
   reportHostRunningTaskCount();
 });
 
@@ -1077,32 +1014,14 @@ function logRpc(message: string, ...args: unknown[]): void {
   logger[level](message, ...args);
 }
 
-function formatRemoteTargetForLog(target: RemoteTarget): string {
-  switch (target.kind) {
-    case "ssh":
-      return `ssh:${target.username}@${target.host}:${target.port ?? 22}`;
-    case "wsl": {
-      const user = target.user?.trim();
-      const distro = target.distro ?? "default";
-      return user ? `wsl:${distro}:${user}` : `wsl:${distro}`;
-    }
-    case "docker":
-      return `docker:${target.container}`;
-    case "server":
-      return `server:${target.name?.trim() || target.url}`;
-  }
-}
-
 console.log = (...args: unknown[]) => {
   rawConsole.log(...args);
   reportHostLog("info", args);
-  remoteConnectionProgressContext.report("info", args);
 };
 
 console.warn = (...args: unknown[]) => {
   rawConsole.warn(...args);
   reportHostLog("warn", args);
-  remoteConnectionProgressContext.report("warn", args);
 };
 
 console.error = (...args: unknown[]) => {
@@ -1113,7 +1032,6 @@ console.error = (...args: unknown[]) => {
     return;
   }
   reportHostLog("error", args);
-  remoteConnectionProgressContext.report("error", args);
 };
 
 /** 当前 host 已注册的服务集合，进程退出时用于统一回收本地资源 */
@@ -1130,113 +1048,6 @@ let activeSessionRealtimePort: ReturnType<typeof createTaskRealtimeBridgeForHost
 let hasDisposedHostResources = false;
 let disposeHostResourcesInFlight: Promise<HostShutdownResult> | null = null;
 
-async function disposeHostRemoteConnection(connection: ServerRemoteConnection): Promise<void> {
-  connection.dispose();
-}
-
-async function createWindowRemoteConnectionHandle(params: {
-  target: RemoteTarget;
-  signal: AbortSignal;
-}): Promise<WindowRemoteConnectionHandle<ServiceCollection, HostRemoteConnectionCapabilities>> {
-  if (!activeServices) throw new Error("Local Host services are not initialized.");
-  // S5-c（spec §12.3）：ssh/wsl/docker 已全部由 Rust Host 承载，Node Host 只保留
-  // kind: "server" 直连。非 server 目标必须显式失败，不能回退到已删除的 Node remote deploy。
-  if (params.target.kind !== "server") {
-    throw Object.assign(
-      new Error('远程 workspace 由 Rust Host 承载；Node Host 只支持 kind: "server" 直连'),
-      { code: "REMOTE_RUST_HOST_REQUIRED" as const },
-    );
-  }
-  if (params.signal.aborted) {
-    throw new Error("远程连接已取消");
-  }
-  const clientConfigService = activeServices.get(IClientConfigService);
-  const closeListeners = new Set<(event: WindowRemoteConnectionCloseEvent) => void>();
-  const notifyClose = (event: WindowRemoteConnectionCloseEvent) => {
-    for (const listener of closeListeners) {
-      listener(event);
-    }
-  };
-  const connection = await connectServerRemote(params.target, {
-    onClose: ({ code, reason }) =>
-      notifyClose({ exitCode: code, signal: null, ...(reason ? { error: reason } : {}) }),
-  });
-  if (params.signal.aborted) {
-    await disposeHostRemoteConnection(connection);
-    throw new Error("远程连接已取消");
-  }
-  const services = createServerRemoteWorkspaceServiceCollection({
-    clientConfigService,
-    connectionServices: connection.services,
-    sourceServices: activeServices ?? undefined,
-  });
-  let disposed = false;
-  return {
-    services,
-    capabilities: {},
-    onDidClose(listener) {
-      closeListeners.add(listener);
-      return { dispose: () => closeListeners.delete(listener) };
-    },
-    async dispose() {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      closeListeners.clear();
-      await disposeServiceResourcesAndWait(services);
-      await disposeHostRemoteConnection(connection);
-    },
-  };
-}
-
-const windowRemoteConnectionRegistry = createWindowRemoteConnectionRegistry<
-  ServiceCollection,
-  HostRemoteConnectionCapabilities
->({
-  connect: (request) => createWindowRemoteConnectionHandle(request),
-  createId: randomUUID,
-  releaseWorkspace: async (services, context) => {
-    await services.get(IESCodeTaskService).releaseWorkspacePreparation({
-      workspacePath: context.workspacePath,
-      ...(context.workspaceIdentity ? { workspaceIdentity: context.workspaceIdentity } : {}),
-      provider: "glm",
-    });
-    logger.info(
-      `released WSL workspace runtime, workspaceKey=${context.workspaceIdentity?.trim() || context.workspacePath}`,
-    );
-  },
-  onWorkspaceReleaseError: (context, error) => {
-    logger.warn(
-      `failed to release WSL workspace runtime, workspaceKey=${context.workspaceIdentity?.trim() || context.workspacePath}`,
-      error,
-    );
-  },
-  onSessionClosed: (event) => {
-    // logical session 已离线时 attachment 仍持有旧 services/订阅；后续 sessionId
-    // 换代只释放 transport，无法按旧 ID 找回这些端口。Host 在失效源头统一关闭所有 clientMode。
-    windowHostAttachmentRegistry.detachRemoteSessionAttachments(event.remoteSessionId);
-    const session = windowRemoteConnectionRegistry.getSession(event.remoteSessionId);
-    if (session?.workspacePath && session.workspaceIdentity) {
-      windowHostControllerRuntime.disconnectSource({
-        kind: "remote",
-        remoteSessionId: event.remoteSessionId,
-        workspacePath: session.workspacePath,
-        workspaceIdentity: session.workspaceIdentity,
-      });
-    }
-    parentPort?.postMessage({
-      type: HostResponseTypes.RemoteWorkspaceClosed,
-      remoteSessionId: event.remoteSessionId,
-      reason: "connection-closed",
-      exitCode: event.exitCode,
-      signal: event.signal,
-      ...(event.error ? { error: event.error } : {}),
-    });
-    logWindowHostTopology("remote-connection-closed");
-  },
-});
-
 const windowHostControllerRuntime = createWindowHostControllerRuntime({
   createId: randomUUID,
   onSourceError: (scope, operation, error) => {
@@ -1246,26 +1057,7 @@ const windowHostControllerRuntime = createWindowHostControllerRuntime({
     );
   },
   resolveSource: (scope) => {
-    const remoteSession = windowRemoteConnectionRegistry.findSessionForWorkspace(scope);
-    if (remoteSession?.workspacePath && remoteSession.workspaceIdentity) {
-      const controllerScope = {
-        kind: "remote" as const,
-        remoteSessionId: remoteSession.remoteSessionId,
-        workspacePath: remoteSession.workspacePath,
-        workspaceIdentity: remoteSession.workspaceIdentity,
-      };
-      if (remoteSession.sourceAvailability !== "online") {
-        return { scope: controllerScope, sourceAvailability: "offline" as const };
-      }
-      const services = windowRemoteConnectionRegistry.resolveScopedServices(controllerScope);
-      return {
-        scope: controllerScope,
-        taskService: services.get(IESCodeTaskService),
-        agentService: services.getOptional(IESCodeAgentService),
-        sourceAvailability: "online" as const,
-      };
-    }
-    // 远程 history scope 未连接或已被移除时，绝不能落回本地 tasks-index。
+    // 远程 history scope 由 Rust Host 的 Controller 聚合；Node Host 绝不能落回本地 tasks-index。
     if (scope.workspaceIdentity && isRemoteWorkspaceIdentity(scope.workspaceIdentity)) {
       return null;
     }
@@ -1401,7 +1193,6 @@ function exposeServicesOnMessagePort(
   services: ServiceCollection,
   clientMode: ESCodeAgentV4ClientMode = "desktop-continuous",
   attachmentScope: WindowHostAttachmentScope = { kind: "local" },
-  _capabilities?: HostRemoteConnectionCapabilities,
 ): ExposedServicePortHandle {
   const wrappedPort = wrapElectronPort(port);
   const protocol = new MessagePortProtocol(wrappedPort);
@@ -1477,8 +1268,7 @@ function exposeServicesOnMessagePort(
 
 const windowHostAttachmentRegistry = createWindowHostAttachmentRegistry<
   ServiceCollection,
-  Electron.MessagePortMain,
-  HostRemoteConnectionCapabilities
+  Electron.MessagePortMain
 >({
   resolveScope: (scope: WindowHostAttachmentScope) => {
     if (scope.kind === "local") {
@@ -1491,24 +1281,18 @@ const windowHostAttachmentRegistry = createWindowHostAttachmentRegistry<
       // 本 fork 的 Source 配置仍由本地设置权威承载；不把远端项目 scope 冒充 source 配置。
       throw new Error(`Source Server settings scope is unavailable: ${scope.sourceServerId}`);
     }
-    const session = windowRemoteConnectionRegistry.getSession(scope.remoteSessionId);
-    if (!session) {
-      throw new Error(`未找到远程 logical session，remoteSessionId=${scope.remoteSessionId}`);
-    }
-    return {
-      services: windowRemoteConnectionRegistry.resolveScopedServices(scope),
-      generation: session.generation,
-      capabilities: windowRemoteConnectionRegistry.resolveScopedCapabilities(scope),
-    };
+    // 远程 workspace 只由 Rust Host 提供 attachment；Node Host 显式失败，不回退本地服务。
+    throw new Error(
+      `Remote workspace attachment is served by the Rust Host: ${scope.remoteSessionId}`,
+    );
   },
-  expose: ({ port, services, clientMode, scope, capabilities }) =>
-    exposeServicesOnMessagePort(port, services, clientMode, scope, capabilities),
+  expose: ({ port, services, clientMode, scope }) =>
+    exposeServicesOnMessagePort(port, services, clientMode, scope),
 });
 
 function logWindowHostTopology(reason: string): void {
-  const stats = windowRemoteConnectionRegistry.getStats();
   logger.info(
-    `window Host topology, reason=${reason}, pid=${process.pid}, connections=${stats.connectionCount}, logicalSessions=${stats.logicalSessionCount}, attachments=${windowHostAttachmentRegistry.size()}`,
+    `window Host topology, reason=${reason}, pid=${process.pid}, attachments=${windowHostAttachmentRegistry.size()}`,
   );
 }
 
@@ -1550,24 +1334,16 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
 
     const servicesToDispose = activeServices;
     activeServices = null;
-    // Registry 是全部远端 connection 的唯一 owner；释放失败不能阻塞本地服务继续收口。
     const shutdownResult = await runHostShutdownPhases(
-      [
-        {
-          name: "remote-registry-dispose",
-          run: () => windowRemoteConnectionRegistry.dispose(),
-          timeoutMs: 6_000,
-        },
-        ...(servicesToDispose
-          ? [
-              {
-                name: "service-dispose",
-                run: () => disposeServiceResourcesAndWait(servicesToDispose),
-                timeoutMs: 3_500,
-              },
-            ]
-          : []),
-      ],
+      servicesToDispose
+        ? [
+            {
+              name: "service-dispose",
+              run: () => disposeServiceResourcesAndWait(servicesToDispose),
+              timeoutMs: 3_500,
+            },
+          ]
+        : [],
       {
         phaseTimeoutMs: 5_000,
         log: (message, details) => logger.warn(message, details),
@@ -1605,7 +1381,6 @@ function disposeHostResourcesBestEffort(reason: string): void {
     disposeCronRunSubscription(key);
   }
   cronAutomationRepo.close();
-  void windowRemoteConnectionRegistry.dispose();
 
   if (activeServices) {
     try {
@@ -1842,226 +1617,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
     return;
   }
 
-  if (msg.type === HostMessageTypes.ProviderProvisioningExecute) {
-    const session = windowRemoteConnectionRegistry.getSession(msg.remoteSessionId);
-    if (
-      !session ||
-      !session.workspaceIdentity ||
-      buildRemoteEnvironmentKey(session.target) !== msg.environmentKey
-    ) {
-      parentPort.postMessage({
-        type: HostResponseTypes.ProviderProvisioningExecutionResult,
-        requestId: msg.requestId,
-        environmentKey: msg.environmentKey,
-        status: "failed",
-        error: "Remote Environment registration 已失效",
-        errorCode: "session-unavailable",
-      });
-      return;
-    }
-    const scope = {
-      kind: "remote",
-      remoteSessionId: session.remoteSessionId,
-      workspacePath: session.workspacePath ?? "/",
-      workspaceIdentity: session.workspaceIdentity,
-    } as const;
-    void Promise.resolve()
-      .then(() =>
-        (() => {
-          const provisioningService = getRemoteProviderProvisioningExecutor(
-            windowRemoteConnectionRegistry.resolveScopedServices(scope),
-          );
-          if (!provisioningService) {
-            throw new Error("Remote Environment 不支持 Provider Provisioning");
-          }
-          return provisioningService.syncLocalToRemote();
-        })(),
-      )
-      .then((result) => {
-        parentPort.postMessage({
-          type: HostResponseTypes.ProviderProvisioningExecutionResult,
-          requestId: msg.requestId,
-          environmentKey: msg.environmentKey,
-          status: result.status,
-          ...(result.errorMessage ? { error: result.errorMessage } : {}),
-          ...(result.errorCode ? { errorCode: result.errorCode } : {}),
-        });
-      })
-      .catch((error: unknown) => {
-        parentPort.postMessage({
-          type: HostResponseTypes.ProviderProvisioningExecutionResult,
-          requestId: msg.requestId,
-          environmentKey: msg.environmentKey,
-          status: "failed",
-          error: error instanceof Error ? error.message : String(error),
-          errorCode: "host-execution-failed",
-        });
-      });
-    return;
-  }
-
-  if (msg.type === HostMessageTypes.ConnectRemoteWorkspace) {
-    const workspacePath =
-      msg.workspacePath ??
-      (msg.target.kind === "server" ? msg.target.workspacePath?.trim() || "/" : "/");
-    const workspaceIdentity =
-      msg.workspaceIdentity ?? buildRemoteWorkspaceIdentity(workspacePath, msg.target);
-    logger.info(
-      `connecting window-scoped remote source, requestId=${msg.requestId}, target=${formatRemoteTargetForLog(msg.target)}`,
-    );
-    void remoteConnectionProgressContext
-      .run(msg.requestId, () =>
-        windowRemoteConnectionRegistry.connect({
-          requestId: msg.requestId,
-          target: msg.target,
-          remoteAssets: msg.remoteAssets,
-          workspacePath,
-          workspaceIdentity,
-        }),
-      )
-      .then(async (descriptor) => {
-        const replacedOfflineSessions = windowRemoteConnectionRegistry
-          .listSessions()
-          .filter(
-            (session) =>
-              session.remoteSessionId !== descriptor.remoteSessionId &&
-              session.state === "disconnected" &&
-              session.workspacePath === descriptor.workspacePath &&
-              session.workspaceIdentity === descriptor.workspaceIdentity,
-          );
-        for (const replaced of replacedOfflineSessions) {
-          if (replaced.workspacePath && replaced.workspaceIdentity) {
-            const previousScope = {
-              kind: "remote",
-              remoteSessionId: replaced.remoteSessionId,
-              workspacePath: replaced.workspacePath,
-              workspaceIdentity: replaced.workspaceIdentity,
-            } as const;
-            const nextScope = {
-              kind: "remote",
-              remoteSessionId: descriptor.remoteSessionId,
-              workspacePath: replaced.workspacePath,
-              workspaceIdentity: replaced.workspaceIdentity,
-            } as const;
-            try {
-              const services = windowRemoteConnectionRegistry.resolveScopedServices(nextScope);
-              await windowHostControllerRuntime.replaceDisconnectedSource(previousScope, {
-                scope: nextScope,
-                taskService: services.get(IESCodeTaskService),
-                sourceAvailability: "online",
-              });
-            } catch (error) {
-              // source 已连接但 task-index 暂时不可读时不能回滚 transport，也不能删除上一代
-              // 离线可信投影。Controller 会保留 pending replacement，后续 query 成功后原子替换。
-              logger.warn("failed to atomically replace disconnected Controller source", error);
-            }
-          }
-          windowHostAttachmentRegistry.detachRemoteSessionAttachments(replaced.remoteSessionId);
-          await windowRemoteConnectionRegistry.disposeSession(replaced.remoteSessionId);
-          // 重连替换后旧 remoteSessionId 已不再可 attachment；同步清理 Main 的端口请求关联，
-          // 但不向 Renderer 伪报一次新的 transport failure。
-          parentPort.postMessage({
-            type: HostResponseTypes.RemoteWorkspaceClosed,
-            remoteSessionId: replaced.remoteSessionId,
-            reason: "disposed",
-          });
-        }
-        parentPort.postMessage({
-          type: HostResponseTypes.RemoteWorkspaceConnected,
-          requestId: msg.requestId,
-          descriptor,
-        });
-        logWindowHostTopology("remote-connected");
-      })
-      .catch((error) => {
-        parentPort.postMessage({
-          type: HostResponseTypes.RemoteWorkspaceConnectFailed,
-          requestId: msg.requestId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-    return;
-  }
-
-  if (msg.type === HostMessageTypes.CancelRemoteWorkspaceConnect) {
-    windowRemoteConnectionRegistry.cancelConnect(msg.requestId);
-    return;
-  }
-
-  if (msg.type === HostMessageTypes.BindRemoteWorkspaceContext) {
-    const previous = windowRemoteConnectionRegistry.getSession(msg.remoteSessionId);
-    let workspaceReady: Promise<void>;
-    try {
-      workspaceReady = windowRemoteConnectionRegistry.bindWorkspaceContext({
-        remoteSessionId: msg.remoteSessionId,
-        workspacePath: msg.workspacePath,
-        workspaceIdentity: msg.workspaceIdentity,
-      });
-    } catch (error) {
-      logger.warn(
-        `failed to bind remote workspace context, remoteSessionId=${msg.remoteSessionId}`,
-        error,
-      );
-      return;
-    }
-    const current = windowRemoteConnectionRegistry.getSession(msg.remoteSessionId);
-    if (current) {
-      // scope generation 换代后，旧 Renderer/远程 workspace attachment 不得继续持有远端 IO facade。
-      windowHostAttachmentRegistry.detachStaleRemoteSessionAttachments(
-        msg.remoteSessionId,
-        current.generation,
-      );
-    }
-    void workspaceReady.catch((error) => {
-      logger.warn(
-        `failed to prepare bound remote workspace, remoteSessionId=${msg.remoteSessionId}`,
-        error,
-      );
-    });
-    if (previous?.workspacePath && previous.workspaceIdentity) {
-      windowHostControllerRuntime.removeSource({
-        kind: "remote",
-        remoteSessionId: msg.remoteSessionId,
-        workspacePath: previous.workspacePath,
-        workspaceIdentity: previous.workspaceIdentity,
-      });
-    }
-    logger.info(
-      `bound remote workspace context, remoteSessionId=${msg.remoteSessionId}, workspacePath=${msg.workspacePath}`,
-    );
-    return;
-  }
-
-  if (msg.type === HostMessageTypes.DisposeRemoteWorkspaceSession) {
-    const disposedSession = windowRemoteConnectionRegistry.getSession(msg.remoteSessionId);
-    windowHostAttachmentRegistry.detachRemoteSessionAttachments(msg.remoteSessionId);
-    void windowRemoteConnectionRegistry
-      .disposeSession(msg.remoteSessionId)
-      .then(() => {
-        if (disposedSession?.workspacePath && disposedSession.workspaceIdentity) {
-          windowHostControllerRuntime.removeSource({
-            kind: "remote",
-            remoteSessionId: msg.remoteSessionId,
-            workspacePath: disposedSession.workspacePath,
-            workspaceIdentity: disposedSession.workspaceIdentity,
-          });
-        }
-        parentPort.postMessage({
-          type: HostResponseTypes.RemoteWorkspaceClosed,
-          remoteSessionId: msg.remoteSessionId,
-          reason: "disposed",
-        });
-        logWindowHostTopology("remote-session-disposed");
-      })
-      .catch((error) => {
-        logger.warn(
-          `failed to dispose remote logical session, remoteSessionId=${msg.remoteSessionId}`,
-          error,
-        );
-      });
-    return;
-  }
-
   if (msg.type === HostMessageTypes.AttachServicePort) {
     if (!port) {
       logger.error("attach-service-port message missing MessagePort");
@@ -2076,11 +1631,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
       return;
     }
     try {
-      if (msg.scope.kind === "remote") {
-        // Bind 与 Attach 共用 parentPort，但 WSL 上一代 workspace release 可能仍在途。
-        // 持有已转移 port 等待 Host 内 generation barrier，避免新 attachment 踩过旧 runtime 清理。
-        await windowRemoteConnectionRegistry.waitForScopedServices(msg.scope);
-      }
       windowHostAttachmentRegistry.attach({
         requestId: msg.requestId,
         attachmentId: msg.attachmentId,
@@ -2177,19 +1727,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               prepareLegacyAccountConnections,
               hostApiNetworkTransport,
               authorizeLocalMediaPreviewPath,
-              // launch.md「The user's choice」：本机用户选择变化后，推给本窗口所有在线的远程 Host。
-              forwardDynamicWorkflowUserMode: (mode) => {
-                void pushDynamicWorkflowUserModeToRemoteHosts(
-                  windowRemoteConnectionRegistry
-                    .listReadyConnections()
-                    .map(({ target, services: remoteServices }) => ({
-                      target,
-                      escodeAgentService: remoteServices.get(IESCodeAgentService),
-                    })),
-                  mode,
-                  (error) => logger.warn("remote dynamic workflow user mode forward failed", error),
-                );
-              },
               registerPluginSandbox: pluginSandboxRegistrationBridge.register,
               runtimeProcessEnvPatch: msg.runtimeProcessEnvPatch,
               agentRuntimeSurface: "desktop_local_host",
@@ -2205,12 +1742,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
                 });
               },
               onAutomationManualRunRequested: dispatchManualAutomationRun,
-              onProviderProvisioningSourceChanged: (trigger) => {
-                parentPort?.postMessage({
-                  type: HostResponseTypes.ProviderProvisioningSourceChanged,
-                  trigger,
-                });
-              },
               // browser-use：agent 的 interaction/browserExecute 经 escodeAgentService 转到这个 executor，
               // 再经 parentPort 到 main 的 WebContentsView+CDP 执行。
               browserControlExecutor: browserControlMainBridge,
