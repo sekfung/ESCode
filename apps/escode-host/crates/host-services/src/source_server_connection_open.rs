@@ -111,8 +111,8 @@ pub(crate) async fn open_connection(
     command: &TransportCommand,
 ) -> std::result::Result<OpenedConnection, OpenFailure> {
     let connection = connect_initialized(options, command).await?;
-    let version = connection.hello.version.clone();
-    let compatibility = match connection.hello.compatibility.as_ref() {
+    let version = connection.info.version.clone();
+    let compatibility = match connection.info.compatibility.as_ref() {
         None => None,
         Some(remote) => match evaluate(&options.compatibility, remote) {
             Ok(evaluation) => Some(evaluation),

@@ -326,12 +326,15 @@ impl SourceServerConnections {
             .find_map(|profile_id| self.live_client(&profile_id))
     }
 
-    /// 活动连接的 hello（版本 / 远端 pid）；未连接时为 `None`。
-    pub fn hello(&self, profile_id: &str) -> Option<crate::source_server_handshake::Hello> {
+    /// 活动连接的远端身份（版本 / 兼容清单 / 远端 pid）；未连接时为 `None`。
+    pub fn hello(
+        &self,
+        profile_id: &str,
+    ) -> Option<crate::source_server_connection::ConnectionInfo> {
         self.lock()
             .get(profile_id)
             .and_then(|slot| slot.connection.as_ref())
-            .map(|connection| connection.hello.clone())
+            .map(|connection| connection.info.clone())
     }
 
     pub(crate) fn live_client(&self, profile_id: &str) -> Option<Arc<RemoteChannelClient>> {

@@ -149,7 +149,7 @@ async fn installs_release_over_real_ssh_and_starts_server() {
     .await
     .expect("initialize timeout")
     .expect("initialize");
-    assert_eq!(connection.hello.version, app_version);
+    assert_eq!(connection.info.version, app_version);
     connection.shutdown().await.expect("shutdown");
 }
 

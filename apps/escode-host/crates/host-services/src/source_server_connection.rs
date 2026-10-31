@@ -69,11 +69,37 @@ impl<'a> ConnectOptions<'a> {
     }
 }
 
+/// 已建立链路的远端身份：stdio 来自 `escode-hello`，server 直连来自 `/api/server-info`。
+///
+/// `platform` / `arch` / `pid` 只有 stdio hello 提供；server 目标不披露，保持 `None`
+/// 而不是编造占位值。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConnectionInfo {
+    pub version: String,
+    pub compatibility: Option<crate::source_server_compatibility::CompatibilityManifest>,
+    pub platform: Option<String>,
+    pub arch: Option<String>,
+    pub pid: Option<i64>,
+}
+
+impl From<Hello> for ConnectionInfo {
+    fn from(hello: Hello) -> Self {
+        Self {
+            version: hello.version,
+            compatibility: hello.compatibility,
+            platform: Some(hello.platform),
+            arch: Some(hello.arch),
+            pid: Some(hello.pid),
+        }
+    }
+}
+
 /// 建立连接并完成握手；返回的 client 在 Initialize 之前也可安全排队请求。
 pub struct RemoteConnection {
     pub client: std::sync::Arc<RemoteChannelClient>,
-    pub hello: Hello,
-    child: Child,
+    pub info: ConnectionInfo,
+    /// stdio 链路才有子进程；server 直连（WebSocket）为 `None`。
+    child: Option<Child>,
     tasks: Vec<JoinHandle<()>>,
     closed: watch::Sender<bool>,
 }
@@ -86,6 +112,22 @@ impl RemoteConnection {
         self.closed.subscribe()
     }
 
+    /// 由非 stdio 链路（server 直连）构造：没有子进程，关闭信号与任务由链路自己持有。
+    pub(crate) fn from_link(
+        client: std::sync::Arc<RemoteChannelClient>,
+        info: ConnectionInfo,
+        tasks: Vec<JoinHandle<()>>,
+        closed: watch::Sender<bool>,
+    ) -> Self {
+        Self {
+            client,
+            info,
+            child: None,
+            tasks,
+            closed,
+        }
+    }
+
     /// 收口：拒绝挂起请求、终止子进程并等待退出。
     pub async fn shutdown(mut self) -> Result<()> {
         self.closed.send_replace(true);
@@ -93,8 +135,10 @@ impl RemoteConnection {
         for task in self.tasks.drain(..) {
             task.abort();
         }
-        let _ = self.child.start_kill();
-        let _ = self.child.wait().await.context("wait for remote server")?;
+        if let Some(mut child) = self.child.take() {
+            let _ = child.start_kill();
+            let _ = child.wait().await.context("wait for remote server")?;
+        }
         Ok(())
     }
 }
@@ -225,8 +269,8 @@ pub async fn connect(
     }
     Ok(RemoteConnection {
         client,
-        hello: handshake.hello,
-        child,
+        info: ConnectionInfo::from(handshake.hello),
+        child: Some(child),
         tasks,
         closed: closed_tx,
     })

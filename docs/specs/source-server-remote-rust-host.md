@@ -1697,3 +1697,19 @@ Main/Renderer              Rust Host                                escode-serve
 | S5-f-3  | `establish` 按 transport 收口 install/probe，身份从 info 投影 | 单测 + 兼容判定                 |
 | S5-f-4  | Main 把 server target 路由到 `source-server-resolve-profile`，删除 node-host 分支 | TS 断言不调用 `ensureWindowHost` |
 | S5-f-5  | E2E + 文档收口                                              | §12.6.7-4/5/6/7                 |
+
+**S5-f-2 实现记录（2026-11-01）**
+
+- `source_server_endpoints`（S5-f-1）：`resolve_server_remote_endpoints` / `authenticated_url`，
+  12 例单测覆盖协议互转、子路径、尾部 `/ws`、非法协议与 token 覆盖语义。
+- `source_server_info`：`parse_server_info` / `parse_host_capability`。`protocolVersion != 1`、
+  `capabilities.desktopContinuous|websocketRpc` 非 `true`、必填字段缺失都显式失败。
+- `source_server_websocket`：`probe_server`（GET/POST + Bearer/query token）、`open_websocket`
+  （`x-zcode-rpc-host-capability` + Bearer + token query，`wss` 用 ring provider）、`bridge`
+  （WS 二进制消息 ↔ `rpc_wire` 帧 ↔ `RemoteChannelClient`，关闭时置位 `closed`）。
+  capture 只记录去掉 token 的 URL。
+- `RemoteConnection` 改为链路无关：`info: ConnectionInfo`（stdio hello 或 server-info 投影）
+  + `child: Option<Child>`；server 目标的 `platform` / `arch` / `pid` 保持 `None`，不编造占位值。
+- 验证：`pnpm check:escode-host`、`pnpm test:escode-host`（69 个测试目标全部 ok）、
+  `source_server_websocket` 8 例、`source_server_info` 8 例、`source_server_endpoints` 12 例。
+  尚未接入 `establish`（S5-f-3）与 Main 路由（S5-f-4）。

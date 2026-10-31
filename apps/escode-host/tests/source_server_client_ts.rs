@@ -165,8 +165,11 @@ async fn connects_over_stdio_with_handshake() {
     .await
     .expect("connect within timeout")
     .expect("connect");
-    assert_eq!(connection.hello.version, "3.15.2");
-    assert!(connection.hello.pid > 0, "hello 携带远端 pid");
+    assert_eq!(connection.info.version, "3.15.2");
+    assert!(
+        connection.info.pid.is_some_and(|pid| pid > 0),
+        "stdio hello 携带远端 pid"
+    );
     connection
         .client
         .wait_initialized()
@@ -726,6 +729,7 @@ async fn link_loss_marks_offline() {
         .hello(MANAGED_PROFILE)
         .expect("hello")
         .pid
+        .expect("stdio hello 携带 pid")
         .to_string();
     let killed = std::process::Command::new("kill")
         .args(["-TERM", &pid])

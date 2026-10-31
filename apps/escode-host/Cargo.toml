@@ -72,7 +72,9 @@ serde_json = "1"
 indexmap = { version = "2", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
-tokio-tungstenite = "0.30.0"
+# server 直连的 `/ws/host` 升级需要 TLS（wss）；provider 复用 CLI 侧的 ring。
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 tempfile = "3"
 # 共享基础代码复用 CLI 侧 crate（阶段 1 库化红利；见 rust-u2-host-skeleton.md §2）。
 # ICU4X：`file.readdir` 的排序要对齐 Node `String.prototype.localeCompare`
