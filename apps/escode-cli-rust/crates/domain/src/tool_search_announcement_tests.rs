@@ -12,7 +12,10 @@ fn available(names: &[&str]) -> HashSet<String> {
 fn announcement(names: &[&str], deferred: &[&str], messages: &[Value]) -> Option<Value> {
     build(
         messages,
-        &deferred.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>(),
+        &deferred
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect::<Vec<_>>(),
         &available(names),
         ResolvedToolSearchMode::Native,
     )
@@ -20,15 +23,12 @@ fn announcement(names: &[&str], deferred: &[&str], messages: &[Value]) -> Option
 
 #[test]
 fn announces_native_additions_with_exact_copy() {
-    let message = announcement(
-        &["ToolSearch", "WebFetch"],
-        &["WebFetch"],
-        &[],
-    )
-    .unwrap();
+    let message = announcement(&["ToolSearch", "WebFetch"], &["WebFetch"], &[]).unwrap();
     assert_eq!(
         message["content"],
-        json!("<system-reminder>\nThe following deferred tools are now available via ToolSearch. Their schemas are NOT loaded — calling them directly will fail with InputValidationError. Use ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before calling them:\nWebFetch\n</system-reminder>")
+        json!(
+            "<system-reminder>\nThe following deferred tools are now available via ToolSearch. Their schemas are NOT loaded — calling them directly will fail with InputValidationError. Use ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before calling them:\nWebFetch\n</system-reminder>"
+        )
     );
     assert_eq!(
         message[ANNOUNCEMENT_KEY],
@@ -69,17 +69,32 @@ fn ignores_announcements_in_off_mode() {
 fn rebuilds_listing_from_retained_deltas_and_reports_readded_only_suffix() {
     let names = ["ToolSearch", "WebFetch", "TodoWrite"];
     let first = announcement(&names, &["WebFetch"], &[]).unwrap();
-    let second = announcement(&names, &["WebFetch", "TodoWrite"], std::slice::from_ref(&first)).unwrap();
+    let second = announcement(
+        &names,
+        &["WebFetch", "TodoWrite"],
+        std::slice::from_ref(&first),
+    )
+    .unwrap();
     assert_eq!(
         second[ANNOUNCEMENT_KEY],
         json!({"addedNames": ["TodoWrite"], "removedNames": [], "readdedNames": []})
     );
-    let rebuilt = announcement(&names, &["WebFetch", "TodoWrite"], std::slice::from_ref(&second)).unwrap();
+    let rebuilt = announcement(
+        &names,
+        &["WebFetch", "TodoWrite"],
+        std::slice::from_ref(&second),
+    )
+    .unwrap();
     assert_eq!(
         rebuilt[ANNOUNCEMENT_KEY],
         json!({"addedNames": ["WebFetch"], "removedNames": [], "readdedNames": []})
     );
-    assert!(rebuilt["content"].as_str().unwrap().contains("\nWebFetch\n"));
+    assert!(
+        rebuilt["content"]
+            .as_str()
+            .unwrap()
+            .contains("\nWebFetch\n")
+    );
 
     let removed = announcement(
         &["ToolSearch", "TodoWrite"],
@@ -103,7 +118,9 @@ fn rebuilds_listing_from_retained_deltas_and_reports_readded_only_suffix() {
     );
     assert_eq!(
         readded["content"],
-        json!("<system-reminder>\n1 deferred tool is available again (names announced earlier in this conversation): WebFetch. Load via ToolSearch as before.\n</system-reminder>")
+        json!(
+            "<system-reminder>\n1 deferred tool is available again (names announced earlier in this conversation): WebFetch. Load via ToolSearch as before.\n</system-reminder>"
+        )
     );
 }
 
@@ -122,13 +139,7 @@ fn renders_removals_at_the_thirty_name_threshold() {
         )
         .unwrap();
         let tool_search: HashSet<String> = available(&["ToolSearch"]);
-        let removed = build(
-            &[first],
-            &[],
-            &tool_search,
-            ResolvedToolSearchMode::Native,
-        )
-        .unwrap();
+        let removed = build(&[first], &[], &tool_search, ResolvedToolSearchMode::Native).unwrap();
         let expected = if count == 30 {
             format!(
                 "The following deferred tools are no longer available. Do not search for them — ToolSearch will return no match:\n{}",
@@ -143,32 +154,49 @@ fn renders_removals_at_the_thirty_name_threshold() {
                 "<system-reminder>\n{expected}\n\n{AMBIENT_CONTEXT_NOTICE}\n</system-reminder>"
             ))
         );
-        assert_eq!(
-            removed[ANNOUNCEMENT_KEY]["removedNames"],
-            json!(names)
-        );
+        assert_eq!(removed[ANNOUNCEMENT_KEY]["removedNames"], json!(names));
     }
 }
 
 #[test]
 fn separates_added_readded_and_removed_paragraphs() {
-    let names = ["mcp__demo__read", "mcp__demo__write", "mcp__other__read", "TodoWrite"];
+    let names = [
+        "mcp__demo__read",
+        "mcp__demo__write",
+        "mcp__other__read",
+        "TodoWrite",
+    ];
     let prior = json!({"addedNames": ["mcp__demo__read", "mcp__demo__write", "mcp__other__read", "TodoWrite", "Gone"], "removedNames": [], "readdedNames": []});
     let removal = json!({"addedNames": [], "removedNames": names, "readdedNames": []});
     let entries = [
         json!({"_escode_source": "legacy_synthetic", ANNOUNCEMENT_KEY: prior}),
         json!({"_escode_source": "legacy_synthetic", ANNOUNCEMENT_KEY: removal}),
     ];
-    let deferred = ["WebFetch", "mcp__demo__read", "mcp__demo__write", "mcp__other__read", "TodoWrite"];
+    let deferred = [
+        "WebFetch",
+        "mcp__demo__read",
+        "mcp__demo__write",
+        "mcp__other__read",
+        "TodoWrite",
+    ];
     let message = announcement(
-        &["ToolSearch", "WebFetch", "mcp__demo__read", "mcp__demo__write", "mcp__other__read", "TodoWrite"],
+        &[
+            "ToolSearch",
+            "WebFetch",
+            "mcp__demo__read",
+            "mcp__demo__write",
+            "mcp__other__read",
+            "TodoWrite",
+        ],
         &deferred,
         &entries,
     )
     .unwrap();
     assert_eq!(
         message["content"],
-        json!(format!("<system-reminder>\nThe following deferred tools are now available via ToolSearch. Their schemas are NOT loaded — calling them directly will fail with InputValidationError. Use ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before calling them:\nWebFetch\n\n4 deferred tools are available again (names announced earlier in this conversation): mcp__demo__* (2), mcp__other__*, TodoWrite. Load via ToolSearch as before.\n\nThe following deferred tools are no longer available. Do not search for them — ToolSearch will return no match:\nGone\n\n{AMBIENT_CONTEXT_NOTICE}\n</system-reminder>"))
+        json!(format!(
+            "<system-reminder>\nThe following deferred tools are now available via ToolSearch. Their schemas are NOT loaded — calling them directly will fail with InputValidationError. Use ToolSearch with query \"select:<name>[,<name>...]\" to load tool schemas before calling them:\nWebFetch\n\n4 deferred tools are available again (names announced earlier in this conversation): mcp__demo__* (2), mcp__other__*, TodoWrite. Load via ToolSearch as before.\n\nThe following deferred tools are no longer available. Do not search for them — ToolSearch will return no match:\nGone\n\n{AMBIENT_CONTEXT_NOTICE}\n</system-reminder>"
+        ))
     );
 }
 

@@ -322,10 +322,20 @@ the implementation\",\"status\":\"in_progress\",\"priority\":\"high\"}]}})\n</ex
             json!({"type":"function","function":{"name":"Resident","description":"r","parameters":{}}}),
         ];
         let deferred: HashSet<String> = ["A", "B"].iter().map(|name| (*name).to_owned()).collect();
-        let names = |values: &[&str]| values.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
+        let names = |values: &[&str]| {
+            values
+                .iter()
+                .map(|name| (*name).to_owned())
+                .collect::<Vec<_>>()
+        };
         let text = |part: &Value| part["text"].as_str().unwrap_or_default().to_owned();
 
-        let first = local_media(&names(&["A", "B"]), &definitions, &deferred, &HashSet::new());
+        let first = local_media(
+            &names(&["A", "B"]),
+            &definitions,
+            &deferred,
+            &HashSet::new(),
+        );
         assert!(text(&first[0]).contains("\"name\":\"A\""));
         assert!(text(&first[1]).starts_with("<system-reminder>\nLoaded: A, B."));
 

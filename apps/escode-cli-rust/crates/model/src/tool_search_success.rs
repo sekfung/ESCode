@@ -22,7 +22,10 @@ pub(super) fn append(messages: &mut Vec<Value>) {
         }
         result.push(message.clone());
         // 整批 tool 结果必须连续；提示只在批次末尾派生，不能拆开 tool 结果。
-        if messages.get(index + 1).is_some_and(|next| next["role"] == "tool") {
+        if messages
+            .get(index + 1)
+            .is_some_and(|next| next["role"] == "tool")
+        {
             continue;
         }
         for _ in 0..pending {
@@ -80,7 +83,10 @@ mod tests {
         let mut messages = vec![search("search-1")];
         append(&mut messages);
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[1], json!({"role": "user", "content": LOADED_MESSAGE}));
+        assert_eq!(
+            messages[1],
+            json!({"role": "user", "content": LOADED_MESSAGE})
+        );
     }
 
     #[test]

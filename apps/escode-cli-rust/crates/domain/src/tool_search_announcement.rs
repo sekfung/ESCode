@@ -27,7 +27,10 @@ pub fn discovered(messages: &[Value]) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
     for message in messages {
         // 上游只读 entry.metadata.compactBoundary；Rust 的 legacy 会话把边界放在消息顶层。
-        for boundary in [&message["metadata"]["compactBoundary"], &message["compactBoundary"]] {
+        for boundary in [
+            &message["metadata"]["compactBoundary"],
+            &message["compactBoundary"],
+        ] {
             for name in boundary["preCompactDiscoveredTools"]
                 .as_array()
                 .into_iter()
@@ -235,10 +238,7 @@ pub(crate) fn summarize(names: &[String]) -> String {
     let mut counts: Vec<(String, usize)> = Vec::new();
     for name in names {
         let group = match name.strip_prefix("mcp__") {
-            Some(rest) => format!(
-                "mcp__{}__*",
-                rest.split("__").next().unwrap_or(rest)
-            ),
+            Some(rest) => format!("mcp__{}__*", rest.split("__").next().unwrap_or(rest)),
             None => name.clone(),
         };
         match counts.iter_mut().find(|(known, _)| *known == group) {
@@ -272,4 +272,3 @@ fn push_unique(names: &mut Vec<String>, name: &str) {
         names.push(name.to_owned());
     }
 }
-

@@ -45,7 +45,8 @@ pub(super) fn checked_input(
     call: &Value,
 ) -> Result<Option<String>, String> {
     use crate::domain::{json_order::Json, schema_order, tool_input_validation as validation};
-    let Some(schema) = registered_parameters(registry, name).and_then(|p| schema_order::ordered(&p))
+    let Some(schema) =
+        registered_parameters(registry, name).and_then(|p| schema_order::ordered(&p))
     else {
         return Ok(None);
     };
@@ -102,8 +103,8 @@ pub(super) fn failure_content(
     let Some(schema) = registered_parameters(registry, name) else {
         return content;
     };
-    let local = search.mode
-        == escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Local;
+    let local =
+        search.mode == escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Local;
     format!(
         "{content}{}",
         escode_cli_domain::tool_search_catalog::undiscovered_schema_guidance(name, &schema, local)

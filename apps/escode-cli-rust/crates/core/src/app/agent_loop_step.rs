@@ -90,9 +90,7 @@ pub(super) async fn append_step_reminders(
                 .collect::<Vec<_>>(),
             &registered
                 .iter()
-                .filter_map(|definition| {
-                    definition["function"]["name"].as_str().map(str::to_owned)
-                })
+                .filter_map(|definition| definition["function"]["name"].as_str().map(str::to_owned))
                 .collect::<HashSet<_>>(),
             search.mode,
         )

@@ -27,6 +27,8 @@ pub mod builtin_prompt_command;
 pub mod claude_import;
 pub mod claude_reimport;
 pub mod context;
+#[cfg(test)]
+mod context_tests;
 pub mod conversation_input;
 pub mod cron;
 mod cron_input;
@@ -53,8 +55,6 @@ pub mod mcp_oauth;
 mod mcp_oauth_pair;
 pub mod mcp_official_auth;
 pub mod mcp_result;
-#[cfg(test)]
-mod context_tests;
 #[cfg(test)]
 mod mcp_result_tests;
 pub mod memory;

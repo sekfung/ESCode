@@ -363,25 +363,30 @@ mod tests {
         );
         // 目录外的名字仍然拒绝，不触发目标生命周期。
         assert!(
-            resolve_deferred_call("mcp__x__missing", &json!({}), &catalog, ResolvedToolSearchMode::Local)
-                .is_err()
+            resolve_deferred_call(
+                "mcp__x__missing",
+                &json!({}),
+                &catalog,
+                ResolvedToolSearchMode::Local
+            )
+            .is_err()
         );
         // 非 local 模式没有 DeferredToolCall。
-        assert_eq!(
+        assert!(
             resolve_deferred_call(
                 "mcp__github__create_issue",
                 &json!({"title":"x"}),
                 &catalog,
                 ResolvedToolSearchMode::Native
             )
-            .is_err(),
-            true
+            .is_err()
         );
     }
 
     #[test]
     fn undiscovered_guidance_matches_upstream_copy_and_suffix() {
-        let schema = json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"]});
+        let schema =
+            json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"]});
         let native = undiscovered_schema_guidance("mcp__a__echo", &schema, false);
         assert!(native.starts_with(
             "\n\nThis tool's schema was not sent to the API — it was not in the discovered-tool set \

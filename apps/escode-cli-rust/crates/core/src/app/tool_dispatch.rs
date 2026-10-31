@@ -235,19 +235,20 @@ pub(super) async fn execute(
         }
     };
     // PreToolUse hooks（docs/specs/rust-hooks.md）：预处理之后、权限之前。
-    let pre = match super::tool_hooks::pre_tool_use(tools, turn, &mut call, context_registered).await {
-        Ok(pre) => pre,
-        Err(output) => {
-            let denied = output.control.denied;
-            return Ok((
-                call["id"].as_str().context("Tool id missing")?.into(),
-                tool_name,
-                output,
-                true,
-                denied,
-            ));
-        }
-    };
+    let pre =
+        match super::tool_hooks::pre_tool_use(tools, turn, &mut call, context_registered).await {
+            Ok(pre) => pre,
+            Err(output) => {
+                let denied = output.control.denied;
+                return Ok((
+                    call["id"].as_str().context("Tool id missing")?.into(),
+                    tool_name,
+                    output,
+                    true,
+                    denied,
+                ));
+            }
+        };
     // 判定统一由会话 owner 完成（模式、规则与确认交互都在那里）；这里只消费结论。
     let outcome = {
         let (reply, receipt) = oneshot::channel();

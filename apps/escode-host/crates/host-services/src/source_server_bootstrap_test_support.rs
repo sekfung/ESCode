@@ -14,6 +14,9 @@ use tokio::process::Child;
 
 #[cfg(unix)]
 use super::*;
+// 仅 `connections_with_identity`（`#[cfg(unix)]`）使用；非 unix 目标导入会触发 `-D warnings`，
+// 与 2026-10-31 S4-i 修复的同类 Windows clippy 失败一致。
+#[cfg(unix)]
 use crate::source_server::ServerIdentity;
 #[cfg(unix)]
 use crate::source_server_connections::{ConnectionsOptions, SourceServerConnections};

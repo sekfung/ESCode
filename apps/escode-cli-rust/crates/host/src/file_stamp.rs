@@ -100,6 +100,8 @@ mod tests {
     }
 
     /// 原子替换（temp + rename）。同长度内容替换时只有 inode/ctime 会变。
+    // 只有 `#[cfg(unix)]` 的同长度用例调用；Windows 目标下保留会触发 `-D warnings`（CI windows-latest）。
+    #[cfg(unix)]
     fn atomic_replace(path: &Path, bytes: &[u8]) {
         let temp = path.with_extension("tmp-stage");
         write(&temp, bytes);

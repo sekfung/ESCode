@@ -1221,6 +1221,10 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
 - CI 同款命令 `pnpm test:escode-host` 在 Linux 通过：workspace 全量单测 +
   `scripts/test-escode-host-interop.mjs`（Node/Rust 交替写同一 settings 文件 2 例）。这同时是
   Windows/macOS CI 将执行的入口。
+- 2026-11-01 复查：`x86_64-pc-windows-gnu` 目标的 `cargo clippy --workspace --all-targets -- -D warnings`
+  在 CLI 与 Host 两个 workspace 重新通过；复查发现并修复两处新的 Windows 专属失败
+  （`source_server_bootstrap_test_support` 的 `#[cfg(unix)]` 导入、`file_stamp` 测试的
+  `atomic_replace` 辅助）。同一轮把 CLI 门禁的 fmt 补成 `--all`，避免 crate 格式问题只在 Host 门禁暴露。
 - 新增 `preserves_known_hosts_paths_for_macos_and_windows_data_dirs`：macOS 默认数据目录含空格
   （`~/Library/Application Support`）、Windows 路径含反斜杠，`-o UserKnownHostsFile=` 必须原样
   透传。已在本机 OpenSSH 9.6 实测 `-o` 取值不按空白拆分，因此不加引号、不做转义；若后续改动引入
