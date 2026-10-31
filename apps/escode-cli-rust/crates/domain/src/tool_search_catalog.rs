@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 use std::collections::HashSet;
 
 pub use super::tool_search_definitions::{
-    control_definitions, deferred_tool_call_description, local_tool_search_description,
+    control_definitions, deferred_tool_call_description, local_already_loaded_reminder,
+    local_loaded_reminder, local_media, local_tool_search_description,
     native_tool_search_description, schema_block,
 };
 pub use super::tool_search_query::search_tools;

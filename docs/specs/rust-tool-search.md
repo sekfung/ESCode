@@ -102,6 +102,11 @@ tool call = DeferredToolCall({name,input})
 - 结果投影：local ToolSearch 命中把匹配工具的完整 `function` 定义渲染成 `<functions>` 文本块
   （`tool_search_definitions::schema_block`），不把目标 schema 加进顶层 tools；定义缺失的名字跳过，
   全部缺失时不输出空容器。
+- 结果提醒（2026-11-01，对齐上游 `apps/zcode-cli/packages/core/src/tool/search/local-projection.ts`）：
+  schema 块后依次追加 `<system-reminder>` 包装的“本次新加载”提醒
+  （`Loaded: … Call it/them now with DeferredToolCall …`）和“会话内已加载”提醒
+  （`Tool definitions already available in this conversation: … Searching again does not execute them.`）。
+  是否已加载按本轮批次开始时的已发现快照判定，同一批并行搜索互不算已加载。
 - 已发现事实持久化：成功 ToolSearch 结果消息顶层写 `_escode_tool_search_discovered=[name…]`
   （失败或无命中不写），local 冷恢复与压缩边界都从历史重建已发现集合。
 - 权限元数据：`crates/tools/src/tool_capability.rs`。
@@ -236,6 +241,8 @@ tool call = DeferredToolCall({name,input})
 - 公告（2026-11-01，`escode-cli-rust-tool-search-e2e.test.ts`）：local 首轮注入一次新增公告并逐行列出
   MCP 工具，下一用户轮不重复；`off` 不产生公告。domain 用例覆盖 30/31 删除阈值、MCP 分组恢复段、
   压缩后重建与“恢复提示不算完整列名”的后缀补齐。
+- 结果提醒（2026-11-01，同一 E2E）：首次命中追加 `Loaded: …` 调用提醒；再次搜索同一延迟工具时追加
+  “already available in this conversation … Searching again does not execute them” 提醒。
 - `pnpm typecheck`、`pnpm lint`、`pnpm check:escode-cli-rust`、`pnpm test:escode-cli-rust` 通过。
 
 ## 7. 非目标

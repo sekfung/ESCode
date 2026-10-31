@@ -309,6 +309,9 @@ pub(super) async fn run(
             let workflow_skill_loaded =
                 crate::domain::skills::loaded_in_history(&history.messages, "dynamic-workflows");
             // 只读工具并发执行，但按原始 call 顺序持久化结果；写/Shell 不跨越该屏障。
+            if let Some(search) = tool_search.as_ref() {
+                search.begin_batch();
+            }
             let mut results = stream::iter(group)
                 .map(|call| {
                     let model_call_wrapper = call["function"]["name"]

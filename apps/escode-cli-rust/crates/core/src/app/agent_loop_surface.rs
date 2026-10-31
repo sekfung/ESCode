@@ -13,6 +13,25 @@ pub(super) struct ToolSearchContext {
     pub(super) mode: ResolvedToolSearchMode,
     pub(super) catalog: Vec<ToolSearchCandidate>,
     pub(super) discovered: std::sync::Mutex<HashSet<String>>,
+    /// 本批调用开始时的已发现快照（上游 `visible`）：同批并行搜索互不算“已加载”。
+    pub(super) visible: std::sync::Mutex<HashSet<String>>,
+}
+
+impl ToolSearchContext {
+    /// 批次开始：冻结当前已发现集合作为模型已看到的集合。
+    pub(super) fn begin_batch(&self) {
+        if let (Ok(discovered), Ok(mut visible)) = (self.discovered.lock(), self.visible.lock()) {
+            *visible = discovered.clone();
+        }
+    }
+
+    /// 本批开始时的已发现快照；取不到锁时按空集合处理（只影响结果提醒文案）。
+    pub(super) fn visible(&self) -> HashSet<String> {
+        self.visible
+            .lock()
+            .map(|visible| visible.clone())
+            .unwrap_or_default()
+    }
 }
 
 pub(super) struct ToolSurface {
@@ -147,6 +166,7 @@ pub(super) async fn prepare_tool_surface(
     let tool_search = (mode != ResolvedToolSearchMode::Off).then(|| ToolSearchContext {
         mode,
         catalog,
+        visible: std::sync::Mutex::new(discovered.clone()),
         discovered: std::sync::Mutex::new(discovered),
     });
     Ok(ToolSurface {

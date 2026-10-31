@@ -1,6 +1,7 @@
 //! ToolSearch 控制工具声明与描述文案。
 
 use serde_json::{Value, json};
+use std::collections::HashSet;
 
 use super::tool_search_catalog::{
     DEFERRED_TOOL_CALL_NAME, ResolvedToolSearchMode, TOOL_SEARCH_NAME,
@@ -46,6 +47,55 @@ pub fn schema_block(names: &[String], definitions: &[Value]) -> Option<String> {
         })
         .collect::<Vec<_>>();
     (!functions.is_empty()).then(|| format!("<functions>\n{}\n</functions>", functions.join("\n")))
+}
+
+/// 本次新加载工具的调用提醒（上游 `localToolsLoadedReminder`）。
+pub fn local_loaded_reminder(names: &[String]) -> String {
+    let action = if names.len() == 1 {
+        "Call it now"
+    } else {
+        "Call them now"
+    };
+    reminder(format!(
+        "Loaded: {}. {action} with {DEFERRED_TOOL_CALL_NAME} {{\"name\":\"<tool name>\",\"input\":{{...}}}}, using the exact tool name and filling input according to its schema above. No additional {TOOL_SEARCH_NAME} is needed before calling these tools.",
+        names.join(", ")
+    ))
+}
+
+/// 会话内已加载工具的提醒（上游 `localToolsAlreadyLoadedReminder`）。
+pub fn local_already_loaded_reminder(names: &[String]) -> String {
+    reminder(format!(
+        "Tool definitions already available in this conversation: {}. Use {DEFERRED_TOOL_CALL_NAME} with {{name, input}} to execute these tools. Searching again does not execute them.",
+        names.join(", ")
+    ))
+}
+
+fn reminder(body: String) -> String {
+    format!("<system-reminder>\n{body}\n</system-reminder>")
+}
+
+/// local ToolSearch 结果的模型可见 part：定义块 + 新加载提醒 + 会话内已加载提醒。
+/// `visible` 是本批调用开始时的已发现快照（上游 `visible`）。
+pub fn local_media(
+    matches: &[String],
+    definitions: &[Value],
+    visible: &HashSet<String>,
+) -> Vec<Value> {
+    let (already, fresh): (Vec<String>, Vec<String>) = matches
+        .iter()
+        .cloned()
+        .partition(|name| visible.contains(name));
+    let mut parts = Vec::new();
+    if let Some(block) = schema_block(matches, definitions) {
+        parts.push(json!({"type": "text", "text": block}));
+    }
+    if !fresh.is_empty() {
+        parts.push(json!({"type": "text", "text": local_loaded_reminder(&fresh)}));
+    }
+    if !already.is_empty() {
+        parts.push(json!({"type": "text", "text": local_already_loaded_reminder(&already)}));
+    }
+    parts
 }
 
 pub fn deferred_tool_call_description() -> &'static str {
@@ -123,5 +173,29 @@ mod tests {
     #[test]
     fn schema_block_skips_unknown_names() {
         assert!(schema_block(&["missing".to_owned()], &[]).is_none());
+    }
+
+    #[test]
+    fn local_loaded_reminder_matches_upstream_copy() {
+        assert_eq!(
+            local_loaded_reminder(&["mcp__a__echo".to_owned()]),
+            "<system-reminder>\nLoaded: mcp__a__echo. Call it now with DeferredToolCall \
+{\"name\":\"<tool name>\",\"input\":{...}}, using the exact tool name and filling input according \
+to its schema above. No additional ToolSearch is needed before calling these tools.\n</system-reminder>"
+        );
+        assert!(
+            local_loaded_reminder(&["a".to_owned(), "b".to_owned()])
+                .contains("Loaded: a, b. Call them now")
+        );
+    }
+
+    #[test]
+    fn local_already_loaded_reminder_matches_upstream_copy() {
+        assert_eq!(
+            local_already_loaded_reminder(&["mcp__a__echo".to_owned()]),
+            "<system-reminder>\nTool definitions already available in this conversation: \
+mcp__a__echo. Use DeferredToolCall with {name, input} to execute these tools. Searching again \
+does not execute them.\n</system-reminder>"
+        );
     }
 }

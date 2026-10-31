@@ -41,6 +41,8 @@ test("local ToolSearch hides MCP tools, loads on search, executes via DeferredTo
       if (last.role === "user") {
         if (String(last.content) === "search then call")
           event(res, { tool_calls: [call("search-1", "ToolSearch", { query: "echo" })] });
+        else if (String(last.content) === "search again")
+          event(res, { tool_calls: [call("search-again", "ToolSearch", { query: "echo" })] });
         else event(res, { tool_calls: [call("direct-1", MCP_TOOL, { text: "direct" })] });
         end(res, "tool_calls");
       } else if (last.role === "tool" && last.tool_call_id === "search-1") {
@@ -77,6 +79,7 @@ test("local ToolSearch hides MCP tools, loads on search, executes via DeferredTo
     assert.match(search, new RegExp(MCP_TOOL));
     assert.match(search, /<functions>\n<function>\{/);
     assert.match(search, /"parameters":/);
+    assert.match(search, /Loaded: mcp__local_echo__echo\. Call it now with DeferredToolCall/);
     assert.ok(!names(f.requests[1]!).includes(MCP_TOOL));
     assert.match(String(toolMessage(f.requests, 2, "defer-1")?.content), /via search/);
 
@@ -84,6 +87,17 @@ test("local ToolSearch hides MCP tools, loads on search, executes via DeferredTo
     // 下一用户轮：已发现工具按完整 schema 展开。
     assert.ok(names(f.requests[3]!).includes(MCP_TOOL));
     assert.match(String(toolMessage(f.requests, 4, "direct-1")?.content), /direct/);
+
+    await send(h, mcpSession, "search again");
+    // 再次搜索已加载工具：仍展开定义，但提醒改用“会话内已加载”，不再要求立刻调用。
+    const again = String(toolMessage(f.requests, 6, "search-again")?.content);
+    assert.match(again, /<functions>\n<function>\{/);
+    assert.match(
+      again,
+      /Tool definitions already available in this conversation: mcp__local_echo__echo\./,
+    );
+    assert.match(again, /Searching again does not execute them\./);
+    assert.ok(!again.includes("Call it now with DeferredToolCall"));
 
     const calls = (await readFile(server.calls, "utf8"))
       .trim()

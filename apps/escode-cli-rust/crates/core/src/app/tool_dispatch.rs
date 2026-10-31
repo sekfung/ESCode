@@ -3,8 +3,8 @@ use super::tool_input_checks::{checked_input, prepare, resolve_registered};
 use crate::contract::{Event, EventSink, ModelPort, ToolPort};
 use anyhow::{Context, Result, bail};
 use escode_cli_domain::tool_search_catalog::{
-    DEFERRED_TOOL_CALL_NAME, TOOL_SEARCH_NAME, resolve_deferred_call, schema_block, search_tools,
-    tool_reference_blocks,
+    DEFERRED_TOOL_CALL_NAME, TOOL_SEARCH_NAME, local_media, resolve_deferred_call,
+    search_tools, tool_reference_blocks,
 };
 use serde_json::Value;
 use tokio::sync::oneshot;
@@ -122,11 +122,9 @@ pub(super) async fn execute(
                         output.media = tool_reference_blocks(&matches);
                     }
                     // Local：没有 provider 展开，直接把完整定义作为文本块放进结果（上游
-                    // 「在真实结果位置展开连续引用」的模型可见形状）。
+                    // 「在真实结果位置展开连续引用」的模型可见形状），并追加调用提醒。
                     escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Local => {
-                        if let Some(block) = schema_block(&matches, context_registered) {
-                            output.media = vec![serde_json::json!({"type": "text", "text": block})];
-                        }
+                        output.media = local_media(&matches, context_registered, &search.visible());
                     }
                     escode_cli_domain::tool_search_catalog::ResolvedToolSearchMode::Off => {}
                 }
