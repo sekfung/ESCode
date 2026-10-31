@@ -58,8 +58,6 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
       serverId: server.serverId,
       workspacePath: server.workspacePath,
     });
-    const initialHosts = await readHostProcessIdentities();
-
     await prepareV4ConversationE2E({ skipProvider: true });
     await saveCredential(CASE_MARKER, credentialKey, server.token);
     await seedServerProfile(server, profileId, credentialKey, workspaceIdentity);
@@ -86,6 +84,11 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     await reloadElectronSessionSafely(browser);
     await waitForWorkspaceApp(server.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
     await waitForProfileState(CASE_MARKER, profileId, "online");
+    // 重启会换掉 Rust Host 进程，所以基线要在重启之后取。
+    const hostsAfterRestart = await readHostProcessIdentities();
+    expect(hostsAfterRestart.filter((host) => host.name.startsWith("escode-host-remote-"))).toEqual(
+      [],
+    );
 
     // 断线 → 原位重连：停掉真实服务端，等到状态离开 online，再按同端口/同身份启动。
     await server.stopProcess();
@@ -101,8 +104,9 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     expect(windows.filter((window) => window.url.includes("index.html")).length).toBeGreaterThan(1);
 
     // §12.6.7-6：远程链路全部由 Rust Host 承载，不出现 Node UtilityProcess 远程进程。
+    // 每个窗口各有一个 window-scoped Local Host，进程 pid 会不同；这里断言的是「没有任何
+    // Node UtilityProcess 远程 Host」，而不是 pid 集合相等。
     const hosts = await readHostProcessIdentities();
-    expect(hosts).toEqual(expect.arrayContaining(initialHosts));
     expect(hosts.filter((host) => host.name.startsWith("escode-host-remote-"))).toEqual([]);
   });
 });

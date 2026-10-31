@@ -1589,7 +1589,7 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 ### 12.5 完成判据
 
-> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，per-window Node Host 的远程 handler、`serverRemoteConnection`、`windowRemoteConnectionRegistry` 及相关共享协议项已删除（S5-f-5），但零 `escode-host-remote-*` 的 server 真实 E2E、两窗口共享实例与重启恢复尚未执行。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
+> 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，零 `escode-host-remote-*` 的 server 真实 E2E、两窗口共享实例与重启恢复已在 Linux x64 通过（`source-server-rust-server-direct.test.ts`，artifact `desktop-e2e-20261031-225816-501`），跨平台版本仍待补齐。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`
@@ -1677,25 +1677,25 @@ Main/Renderer              Rust Host                                escode-serve
 
 #### 12.6.7 验收场景
 
-| #   | 场景                                                            | 证据                                                    |
-| --- | --------------------------------------------------------------- | ------------------------------------------------------- |
-| 1   | 端点解析：http/https/ws/wss、子路径、尾部 `/ws`、空白、非法协议 | Rust 单测，逐条对齐 TS `serverRemoteConnection.test.ts` |
-| 2   | info/capability 鉴权头与 capability 头升级成功                  | Rust 集成：本地 `escode-server` fixture                 |
-| 3   | Initialize 后 channel 可用，WS 断开时 `closed` 信号置位         | 同上                                                    |
-| 4   | 首连回填 `profileId` / `sourceServerId`，App 重启恢复并原位重连 | Desktop E2E（真实 `escode-server`）                     |
-| 5   | 同一 workspace 双窗口共享同一实例                               | 同上                                                    |
-| 6   | 失败显式报错，且不出现 Node UtilityProcess 远程进程             | 断言零 `escode-host-remote-*`                           |
-| 7   | 删除 node-host 分支后 `rg` / `dep:refs` 无生产引用              | 命令输出登记                                            |
+| #   | 场景                                                            | 证据                                                                                            |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | 端点解析：http/https/ws/wss、子路径、尾部 `/ws`、空白、非法协议 | Rust 单测，逐条对齐 TS `serverRemoteConnection.test.ts`                                         |
+| 2   | info/capability 鉴权头与 capability 头升级成功                  | Rust 集成：本地 `escode-server` fixture                                                         |
+| 3   | Initialize 后 channel 可用，WS 断开时 `closed` 信号置位         | 同上                                                                                            |
+| 4   | 首连回填 `profileId` / `sourceServerId`，App 重启恢复并原位重连 | Desktop E2E `source-server-rust-server-direct.test.ts`（真实 `escode-server`），2026-11-01 通过 |
+| 5   | 同一 workspace 双窗口共享同一实例                               | 同上（第二窗口恢复同一远端 tab）                                                                |
+| 6   | 失败显式报错，且不出现 Node UtilityProcess 远程进程             | 同上：断言零 `escode-host-remote-*`                                                             |
+| 7   | 删除 node-host 分支后 `rg` / `dep:refs` 无生产引用              | 命令输出登记                                                                                    |
 
 #### 12.6.8 切片
 
-| 切片   | 内容                                                                              | 退出条件                         |
-| ------ | --------------------------------------------------------------------------------- | -------------------------------- |
-| S5-f-1 | 端点解析 + `TransportTarget::Server` 解析（纯函数）                               | §12.6.7-1                        |
-| S5-f-2 | info/capability + WS 链路接入 `RemoteConnection`（无子进程）                      | §12.6.7-2/3                      |
-| S5-f-3 | `establish` 按 transport 收口 install/probe，身份从 info 投影                     | 单测 + 兼容判定                  |
-| S5-f-4 | Main 把 server target 路由到 `source-server-resolve-profile`，删除 node-host 分支 | TS 断言不调用 `ensureWindowHost` |
-| S5-f-5 | E2E + 文档收口                                                                    | §12.6.7-4/5/6/7                  |
+| 切片   | 内容                                                                              | 退出条件                                      |
+| ------ | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| S5-f-1 | 端点解析 + `TransportTarget::Server` 解析（纯函数）                               | §12.6.7-1                                     |
+| S5-f-2 | info/capability + WS 链路接入 `RemoteConnection`（无子进程）                      | §12.6.7-2/3                                   |
+| S5-f-3 | `establish` 按 transport 收口 install/probe，身份从 info 投影                     | 单测 + 兼容判定                               |
+| S5-f-4 | Main 把 server target 路由到 `source-server-resolve-profile`，删除 node-host 分支 | TS 断言不调用 `ensureWindowHost`              |
+| S5-f-5 | E2E + 文档收口                                                                    | §12.6.7-4/5/6/7（Linux x64 已过，跨平台待补） |
 
 **S5-f-2 实现记录（2026-11-01）**
 
@@ -1821,5 +1821,40 @@ scoped capability。per-window Node Host 的远程 workspace 分支随之删除�
     `pnpm exec vitest run` 覆盖 `desktopRemoteSessionsRustHostMode`、`windowHostAttachmentRegistry`、
     `windowHostControllerService`、`remoteWorkspaceSessionServices`、`remoteConnectionFlowRecovery`、
     `settingsWorkspaceServiceRouting`、`validation`、`windowHostControlProtocol` 共 182 例通过。
-- 未完成：真实 `escode-server` 的 server 直连 E2E（首连、应用重启恢复、原地重连、两窗口共享实例、
-  零 `escode-host-remote-*`）与 Windows/macOS 主链；在这些证据补齐前 S5 与总目标仍不得标记完成。
+- 真实 `escode-server` 的 server 直连 E2E（首连、应用重启恢复、断线原位重连、两窗口共享实例、
+  零 `escode-host-remote-*`）已在 Linux x64 通过：`source-server-rust-server-direct.test.ts`，
+  artifact `desktop-e2e-20261031-225816-501`。期间修复了 WS Initialize 早于 channel 注册的能力集
+  缺陷（见上一节问题记录）；E2E 的 Host 进程基线改为在 App 重启之后取（重启会换 Rust Host 进程）。
+- 未完成：Windows/macOS 主链 E2E（§11.11 的 CI SSH job 固定 `ubuntu-latest`）；在跨平台证据补齐前
+  S5 与总目标仍不得标记完成。
+
+**S5-f-5 问题记录：WS 首帧 Initialize 早于 channel 注册（2026-11-01）**
+
+真实 `escode-server` 直连 E2E（§12.6.7-4）首次执行时，Rust Host 在首连 provisioning 屏障处失败：
+
+```text
+[rust-host] attachment capability failed Rust Host refused to issue a remote workspace capability (HTTP 400):
+provider provisioning unsupported: capability-unavailable
+```
+
+- 触发场景：Desktop 用持久 Profile（`transport: "server"` + 凭据）连接真实 `escode-server`，
+  `establish` 完成 Initialize 后进入 `provision_before_online`，`RemoteProvisioningPeer::supports_target()`
+  读 `RemoteChannelClient::channel_names()` 判定远端没有 `provider-provisioning-target`。
+- 根因证据：用 `@escode/rpc` 的 `ChannelClient` 直连 fixture（`GET /api/rpc-host-capability` →
+  `WS /ws/host`，token + `x-zcode-rpc-host-capability`）后，首个 Initialize 帧的 `channels` 不含
+  `provider-provisioning-target`、`escode-agent` 等任何业务 channel；同一次连接里
+  `[rpc:register] channel "provider-provisioning-target"` 出现在 Initialize **之后**。
+  `packages/server/src/http.ts` 的 `setupChannelServer` 用 `new ChannelServer(protocol, "server")`
+  构造，默认 `deferInit=false` 会在构造期立即广播能力集，而 `services.exposeOnChannelServer()`
+  还没注册任何 channel——与 `packages/server/src/stdio.ts` 已修复的是同一个时序缺陷（§10.11 问题记录）。
+  Rust 侧 `wait_initialized()` 只取首帧能力集，后续不会因为 registe 补发而更新，所以远端 scope 只剩
+  `window-controller`，provider provisioning 被判成 `capability-unavailable`。
+- 修复：`setupChannelServer` 改为 `deferInit=true`，注册完 services/overrides 后调用
+  `exposeServicesAndReady()` 再广播 Initialize；`/ws`（`web-remote-replayable`）与 `/ws/host`
+  （`desktop-continuous`）共用同一收口点，能力集与 overrides（Provider Provisioning 仅受信 Host）
+  保持同一份注册结果。
+- 回归证据：`packages/server/test/httpInitializeCapabilities.test.ts` 断言两种模式的首帧 Initialize
+  都广播已注册 channel（`/ws` 仍拿到显式拒绝的 override）；用原始实现运行该用例为
+  `expected false to be true`，修复后通过。真实 server 探针（同上脚本）对 `/ws/host` 与 `/ws` 都返回
+  `provider-provisioning-target: true`。随后重跑 §12.6.7-4/5/6 的 Desktop E2E：artifact
+  `desktop-e2e-20261031-225816-501`，`1 passing (18.9s)`（本机 Linux x64）。
