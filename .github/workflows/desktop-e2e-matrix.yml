@@ -235,6 +235,123 @@ jobs:
             packages/desktop/.e2e-home
           if-no-files-found: warn
 
+  # Windows 客户端的远程目标只能是 POSIX（source server release 只有 linux/darwin），
+  # 而 windows runner 没有 Docker；这里用镜像自带的 WSL2 Ubuntu 作为真实 Linux SSH 目标，
+  # 与产品支持的 Windows 远程场景（WSL/SSH/Docker 都是 Linux）一致。远端 Rust runtime 用
+  # 纯 Linux 侧预构建的 musl 产物，避免在 Windows 上交叉编译 musl。
+  remote-rust-musl:
+    name: remote rust runtime (linux-x64 musl)
+    if: github.event_name == 'workflow_dispatch' && inputs.ssh
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: remote-rust-linux-x64-musl
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: build remote rust runtime
+        run: cargo build --release --locked --target x86_64-unknown-linux-musl -p escode-cli-rust
+        working-directory: apps/escode-cli-rust
+      - uses: actions/upload-artifact@v4
+        with:
+          name: remote-rust-linux-x64-musl
+          path: apps/escode-cli-rust/target/x86_64-unknown-linux-musl/release/escode-cli-rust
+          if-no-files-found: error
+
+  ssh-remote-project-windows:
+    name: desktop e2e (windows-latest, ssh remote)
+    if: github.event_name == 'workflow_dispatch' && inputs.ssh
+    needs: remote-rust-musl
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: e2e-ssh-windows
+          cache-on-failure: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: remote-rust-linux-x64-musl
+          path: ${{ runner.temp }}/remote-rust-artifact
+      - name: stage remote rust runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/remote-rust/linux-x64"
+          mkdir -p "$dest"
+          cp "$RUNNER_TEMP/remote-rust-artifact/escode-cli-rust" "$dest/escode-cli-rust"
+          chmod 755 "$dest/escode-cli-rust"
+          echo "ESCODE_REMOTE_RUST_BINARIES_DIR=$RUNNER_TEMP/remote-rust" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug)
+        run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # 直接调 wdio（不经 test:e2e 的 pretest）时 e2e-report 的 node 产物不会自动构建。
+      - name: build e2e report node entry
+        run: pnpm --filter @escode/e2e-report build:node
+      - name: start WSL ssh target
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
+          wsl --status || true
+          if ! wsl -l -q 2>/dev/null | tr -d '\0\r' | grep -qx 'Ubuntu-22.04'; then
+            wsl --install --web-download --no-launch --distribution Ubuntu-22.04 || {
+              wsl --update
+              wsl --install --web-download --no-launch --distribution Ubuntu-22.04
+            }
+          fi
+          wsl -l -v || true
+          repo_wsl="/mnt/$(cygpath -w "$PWD" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|\L\1|')"
+          wsl -d Ubuntu-22.04 -u root -- bash "$repo_wsl/scripts/e2e/start-ssh-e2e-server-wsl.sh" "$password" /root/workspace
+      - name: run SSH remote project E2E
+        env:
+          ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
+          ESCODE_E2E_SSH_HOST: 127.0.0.1
+          ESCODE_E2E_SSH_PORT: "2222"
+          ESCODE_E2E_SSH_USERNAME: root
+          ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
+          ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
+          ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
+        run: |
+          pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+      - name: dump WSL sshd log
+        if: always()
+        shell: bash
+        run: wsl -d Ubuntu-22.04 -u root -- tail -200 /tmp/escode-e2e-sshd.log 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-e2e-ssh-remote-windows
+          path: |
+            packages/desktop/.e2e-artifacts
+            packages/desktop/.e2e-home
+          if-no-files-found: warn
+
   # App 级性能测量（docs/specs/rust-unified-host.md §5）：首段延迟 + 4 路并发流式 CPU。
   # 只在 Linux 跑：CPU/内存读数只与同平台历史比较才有意义，且 Xvfb 环境可重复。
   app-perf:

@@ -120,6 +120,14 @@ Ubuntu 24.04 + password SSH
   监听 `127.0.0.1:2222` 的 sshd（密码登录、`AllowUsers` 限定该用户），远端平台取
   `darwin-arm64`/`darwin-x64`，`ESCODE_REMOTE_ASSET_PLATFORMS` 同步后用同一 spec 运行。
   这条覆盖 macOS 客户端的 SSH 首连链路，不涉及外部主机，也不使用仓库 secrets。
+  同日实跑 `desktop-e2e-matrix` run `41328043234`：Linux 与 macOS SSH 作业均 green
+  （macOS 作业 `desktop e2e (macos-latest, ssh remote)`，job `124912418285`），
+  「start local ssh target」步骤已证明本机 sshd 就绪。
+- 2026-11-02 补 Windows 客户端：新增 `remote-rust-musl`（Linux 侧产出 `x86_64-unknown-linux-musl`
+  runtime，经 `ESCODE_REMOTE_RUST_BINARIES_DIR` 交给 Windows）与 `ssh-remote-project-windows`
+  （`scripts/e2e/start-ssh-e2e-server-wsl.sh` 在 WSL2 Ubuntu 内起 sshd，root + password，
+  `ESCODE_REMOTE_ASSET_PLATFORMS=linux-x64`）。Windows 没有可用的原生 POSIX 目标，
+  WSL 是当前唯一不依赖外部主机/secrets 的方案；实跑证据待补。
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。

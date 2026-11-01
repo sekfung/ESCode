@@ -71,14 +71,16 @@ ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
 
 ### SSH 远端目标（仅 `workflow_dispatch` 且勾选 `ssh`）
 
-| 作业                       | 客户端 | 远端                       | 目标准备                                                                     |
-| -------------------------- | ------ | -------------------------- | ---------------------------------------------------------------------------- |
-| `ssh-remote-project`       | ubuntu | Linux（Ubuntu 24.04 容器） | `scripts/e2e/start-ssh-e2e-server.sh`，root + password + `linux-x64` 资产    |
-| `ssh-remote-project-macos` | macos  | macOS（runner 本机 sshd）  | `scripts/e2e/start-ssh-e2e-server-macos.sh`，专用用户 + `darwin-<arch>` 资产 |
+| 作业                         | 客户端  | 远端                       | 目标准备                                                                      |
+| ---------------------------- | ------- | -------------------------- | ----------------------------------------------------------------------------- |
+| `ssh-remote-project`         | ubuntu  | Linux（Ubuntu 24.04 容器） | `scripts/e2e/start-ssh-e2e-server.sh`，root + password + `linux-x64` 资产     |
+| `ssh-remote-project-macos`   | macos   | macOS（runner 本机 sshd）  | `scripts/e2e/start-ssh-e2e-server-macos.sh`，专用用户 + `darwin-<arch>` 资产  |
+| `ssh-remote-project-windows` | windows | Linux（WSL2 Ubuntu）       | `scripts/e2e/start-ssh-e2e-server-wsl.sh`，root + password + `linux-x64` 资产 |
 
-两个作业都只连 `127.0.0.1`，不使用仓库 secrets；macOS 目标平台的 `darwin-arm64` /
-`darwin-x64` 由 runner 架构推导，随 `ESCODE_REMOTE_ASSET_PLATFORMS` 传给 `prepare:remote-assets`。
-Windows 客户端仍缺 POSIX 目标（runner 无 Docker，需 WSL 或外部主机），未纳入本矩阵。
+三个作业都只连 `127.0.0.1`，不使用仓库 secrets。macOS 目标平台（`darwin-arm64` / `darwin-x64`）
+由 runner 架构推导；Windows 既无 Docker 也无原生 POSIX 目标，因此用镜像自带 WSL2 Ubuntu 作 Linux
+目标，远端 Rust runtime 由独立 `remote-rust-musl` 作业产出（不在 Windows 上交叉编译 musl）。
+2026-11-02 实跑 `41328043234`：Linux 与 macOS SSH 作业均通过；Windows 作业待跑。
 
 ## 不在本矩阵内
 
