@@ -1910,11 +1910,16 @@ provider provisioning unsupported: capability-unavailable
     `SessionRealtimePort` 导出（仅该 bridge 使用）。
   - `hostRemoteWorkspaceProxyState.ts` 的 `getTaskMeta` / `trackTaskReady` /
     `disposeTaskReadySubscription`（只服务于已删除的镜像分支）。
+  - 同一轮补删的 Node Host 远程组装残留：`host/remoteConnectionServiceCollection.ts` 与
+    `host/legacyRemoteWorkspaceRpcContract.ts`（`pnpm dep:refs` 显示 0 生产引用），以及
+    `host/remotePromptAttachments.ts` + `host/promptAttachmentTransferService.ts`（只被各自测试导入，
+    原由已删除的 `materializePromptAttachments` 选项提供），连同 3 个对应测试文件。
 - 保留：`createReportingRemoteESCodeTaskService` 仍负责 task meta 记忆、`session-route-announce` 与
   `workspace_session_message_send_requested` 转发（main `taskRealtimeBus` 的会话消息路由依赖它们）；
   main 侧 `TaskRealtimeBus` 与 `HostMessageTypes.TaskRealtimeDeliver` 等协议面继续供 Rust Host 使用。
 - 验证（2026-11-01，本机 Linux x64）：`pnpm typecheck` 通过；`pnpm lint` 0 error / 196 条存量 warning；
-  `pnpm architecture:check --changed` OK；`pnpm verify:pre-push` 1572 files / 13867 passed / 27 skipped；
+  `pnpm architecture:check --changed` OK；`pnpm verify:pre-push` 1569 files passed / 2 skipped、
+  13855 tests passed / 27 skipped（两批删除合并后的最终树）；
   `pnpm check:escode-host` 通过。Node 本地 Host 冒烟：`ESCODE_RUST_HOST=0` 下
   `conversation-session-conversation-workspace.test.ts` 通过（artifact
   `desktop-e2e-20261101-003047-392`，退出日志 `killing host process (local-1)` 确认走 Node Host）。
