@@ -9,6 +9,8 @@ pub mod bundled_skills;
 mod config_file;
 pub mod extension_config;
 pub mod extension_plugins;
+#[cfg(test)]
+mod extension_plugins_tests;
 pub mod lexical_path;
 pub mod mcp_config;
 mod mcp_config_order;

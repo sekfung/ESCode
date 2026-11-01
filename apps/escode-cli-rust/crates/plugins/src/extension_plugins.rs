@@ -109,7 +109,14 @@ pub async fn discover_with(
             {
                 let root = resolve(&storage, path);
                 let boundary = storage.join("cache").join(official).join(name);
-                if root.starts_with(&boundary) && root != boundary {
+                // 修复：bundled-marketplace 是目录（catalog），cachePath 指向"理应安放"的位置；
+                // seed 失败（随包资产缺失或 requiredSeedPaths 不全）时该目录并不存在。此前把每个
+                // cachePath 都当发现候选，会多出无 pluginId 的 plugin_root_not_found；Node 只发现
+                // 实际存在的根（resolveOfficialPluginRoots 的 extraRoots + 可用回落），此处同样先校验。
+                if root.starts_with(&boundary)
+                    && root != boundary
+                    && tokio::fs::metadata(&root).await.is_ok_and(|m| m.is_dir())
+                {
                     candidates.push((root, official.into(), "official", false, true));
                 }
             }

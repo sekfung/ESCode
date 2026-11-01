@@ -128,6 +128,15 @@ skills/`.mcp.json` 组件），Node 与 Rust 在整份列表的上述字段（�
 `node-repl-host@zcode-plugins-official` 与 `browser-use@zcode-plugins-official` 两行。注入后两侧
 **整份列表**（含官方插件、含顺序）在上述字段上一致。
 
+2026-11-01 发现候选收紧：bundled-marketplace 是目录（catalog），`cachePath` 指向“理应安放”的位置；
+seed 失败（随包资产缺失或 `requiredSeedPaths` 不全）时该目录并不存在。Node 只发现实际存在的根
+（`resolveOfficialPluginRoots` 的 extraRoots + 可用回落），Rust 曾把每个 `cachePath` 都当发现候选，
+于是 runner 上多出无 `pluginId` 的 `plugin_root_not_found`（`escode-cli-rust-plugins-hooks.test.ts`
+「Node and Rust discover plugin hooks identically」）。现在与 Node 一致，只接受实际存在的目录：
+`crates/plugins/src/extension_plugins.rs`，回归 `crates/plugins/src/extension_plugins_tests.rs`
+（缺失的 marketplace 根不成为候选、存在的根仍被发现、不产生 `plugin_root_not_found`）。
+用户显式 `plugins.dirs` 指向的缺失根仍按原契约产生该诊断。
+
 ## 实现与验证（第 2 期，2026-10-02）
 
 `plugins/setEnabled` 写面已落地（`crates/tools/src/plugin_list.rs::set_enabled` + `config_file.rs`），
