@@ -159,9 +159,14 @@ jobs:
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
+          # wdio `--spec` 不接受逗号分隔（会当成单个文件）；多 spec 走配置读取的 env。
+          ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
+            ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
         run: |
-          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts
       - name: dump SSH target logs
         if: always()
         run: docker logs escode-e2e-ssh 2>&1 | tail -200 || true
@@ -224,9 +229,13 @@ jobs:
           ESCODE_E2E_SSH_HOST: 127.0.0.1
           ESCODE_E2E_SSH_PORT: "2222"
           ESCODE_E2E_SSH_USERNAME: escode-e2e
+          ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
+            ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
         run: |
-          pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+          pnpm --filter @escode/desktop exec wdio run wdio.conf.ts
       - name: dump SSH target log
         if: always()
         run: sudo cat /tmp/escode-e2e-sshd.log 2>&1 | tail -200 || true
@@ -352,7 +361,12 @@ jobs:
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
-        run: pnpm --filter @escode/desktop exec wdio run wdio.conf.ts --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+          ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
+            ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
+            ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+        run: pnpm --filter @escode/desktop exec wdio run wdio.conf.ts
       - name: dump WSL sshd log
         if: always()
         shell: bash
