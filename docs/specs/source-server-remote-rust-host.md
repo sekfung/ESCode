@@ -1258,6 +1258,14 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
 - `source-server-rust-transport-drop.test.ts` 增加 `process.platform !== "linux"` 跳过：该用例依赖
   `/proc` 定位 Rust Host 的 `ssh` 子进程并 `SIGKILL`，Windows/macOS 没有对应实现；跨平台主链改由
   install / restart-recovery 用例覆盖。
+- 2026-11-02 Windows 客户端 POSIX 路径修复：Windows SSH E2E（run `41340564228`，job
+  `124950642203`）已接通 WSL2 sshd 并完成部署，但目录选择器停在「初始目录未就绪」。
+  根因是 `host-rpc` 的 `project.readDirectory` / `saveProject` 用 `std::path` 判断和归一
+  远端 owner 的路径：Windows 下 `Path::new("/root").is_absolute()` 为 false，且
+  `normalize_path` 以 `\` 拼接，`/root` 会变成 `\root`。远端 owner 由远端 Linux/macOS
+  解释，必须用 POSIX 规则；新增 `is_posix_absolute` / `posix_normalize` /
+  `normalize_owner_path`，控制端固定传 `posix=true`，本机 owner 仍沿用平台语义，
+  并加 `owner_path_uses_posix_rules_for_remote_owners` 锁定回归。
 
 平台审计结论（静态）：
 

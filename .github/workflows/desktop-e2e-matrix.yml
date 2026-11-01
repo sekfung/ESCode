@@ -105,6 +105,8 @@ jobs:
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home
+          # .e2e-home / .e2e-artifacts 是隐藏目录，默认会被过滤掉，失败时拿不到 App 日志。
+          include-hidden-files: true
           if-no-files-found: warn
 
   # SSH 远端 project 用例：自建 Ubuntu 24.04 sshd 容器，不依赖外部服务器或仓库 secrets。
@@ -170,6 +172,7 @@ jobs:
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home
+          include-hidden-files: true
           if-no-files-found: warn
 
   # SSH 远端 project 用例（macOS 客户端 + darwin 远端）：macOS runner 没有 Docker，
@@ -234,6 +237,7 @@ jobs:
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home
+          include-hidden-files: true
           if-no-files-found: warn
 
   # Windows 客户端的远程目标只能是 POSIX（source server release 只有 linux/darwin），
@@ -356,6 +360,22 @@ jobs:
           export MSYS_NO_PATHCONV=1
           export MSYS2_ARG_CONV_EXCL='*'
           wsl -d Ubuntu-22.04 -u root -- tail -200 /tmp/escode-e2e-sshd.log 2>/dev/null || true
+      # 远端 Source Server 的安装/启动状态只在 WSL 内可见；失败时先确认是部署没跑、
+      # 还是部署完成但控制端读目录失败。
+      - name: dump WSL remote source server state
+        if: always()
+        shell: bash
+        run: |
+          export MSYS_NO_PATHCONV=1
+          export MSYS2_ARG_CONV_EXCL='*'
+          wsl -d Ubuntu-22.04 -u root -- bash -lc '
+            set +e
+            echo "== workspace =="; ls -ld /root/workspace 2>&1
+            echo "== .escode =="; ls -la /root/.escode 2>&1 | head -20
+            echo "== server =="; ls -la /root/.escode/server 2>&1 | head -30
+            echo "== logs =="; for f in /root/.escode/logs/*.log; do [ -f "$f" ] && { echo "--- $f"; tail -80 "$f"; }; done
+            echo "== processes =="; ps -eo pid,ppid,args | grep -E "escode|zcode-server" | grep -v grep | head -20
+          ' 2>&1 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -363,6 +383,7 @@ jobs:
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home
+          include-hidden-files: true
           if-no-files-found: warn
 
   # App 级性能测量（docs/specs/rust-unified-host.md §5）：首段延迟 + 4 路并发流式 CPU。

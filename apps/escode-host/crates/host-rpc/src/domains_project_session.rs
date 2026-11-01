@@ -2,12 +2,13 @@
 //! （上游 `project/index.ts` 的本地 Host 子集）。
 
 use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
+use crate::domains_project_paths::{normalize_local_path, normalize_owner_path};
 use crate::domains_project_remote::DirectoryProbe;
 use crate::domains_task_support::ReadContext;
 use crate::session::ChannelResult;
@@ -23,41 +24,6 @@ fn now_ms() -> i64 {
         .map_or(0, |elapsed| {
             i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX)
         })
-}
-
-/// `node:path.normalize` 的词法归一（折叠 `.`/重复分隔符，按词法消解 `..`，保留根前缀）。
-pub(crate) fn normalize_path(path: &str) -> String {
-    let mut segments: Vec<String> = Vec::new();
-    let mut prefix = String::new();
-    let mut rooted = false;
-    for component in Path::new(path).components() {
-        match component {
-            Component::Prefix(value) => prefix = value.as_os_str().to_string_lossy().into_owned(),
-            Component::RootDir => rooted = true,
-            Component::CurDir => {}
-            Component::ParentDir => {
-                // 绝对路径的 `..` 到根为止；相对路径保留无法消解的前缀。
-                if segments.last().is_some_and(|last| last != "..") {
-                    segments.pop();
-                } else if !rooted {
-                    segments.push("..".to_owned());
-                }
-            }
-            Component::Normal(value) => segments.push(value.to_string_lossy().into_owned()),
-        }
-    }
-    let joined = segments.join(std::path::MAIN_SEPARATOR_STR);
-    if rooted {
-        format!("{prefix}{}{joined}", std::path::MAIN_SEPARATOR)
-    } else if joined.is_empty() {
-        ".".to_owned()
-    } else {
-        joined
-    }
-}
-
-pub(crate) fn is_absolute(path: &str) -> bool {
-    Path::new(path).is_absolute()
 }
 
 /// 上游 `projectPrimaryRootStatuses`：每次读取重新派生，不把文件系统事实固化进 SQLite。
@@ -92,10 +58,7 @@ pub(crate) async fn read_directory(home: &Path, params: &Value) -> ChannelResult
         Some(Value::String(path)) if !path.is_empty() => path.clone(),
         Some(_) => return Err(rejected("project.invalid-request")),
     };
-    if !is_absolute(&requested) {
-        return Err(rejected("project.absolute-path-required"));
-    }
-    let path = normalize_path(&requested);
+    let path = normalize_local_path(&requested)?;
     let mut readdir_params = json!({"path": path});
     if let Some(include_hidden) = params["includeHidden"].as_bool() {
         readdir_params["includeHidden"] = json!(include_hidden);
@@ -325,6 +288,7 @@ pub(crate) async fn validate_save_project(
         return Err(rejected("project.restore-roots-required"));
     }
     let mut normalized = input.clone();
+    let posix = probe.host_id() != "local";
     if let Some(roots) = input.get("roots").filter(|value| !value.is_null()) {
         let Some(roots) = roots.as_array() else {
             return Err(rejected("project.absolute-path-required"));
@@ -334,10 +298,7 @@ pub(crate) async fn validate_save_project(
             let Some(root) = root.as_str().filter(|value| !value.is_empty()) else {
                 return Err(rejected("project.absolute-path-required"));
             };
-            if !is_absolute(root) {
-                return Err(rejected("project.absolute-path-required"));
-            }
-            let root = normalize_path(root);
+            let root = normalize_owner_path(root, posix)?;
             if !probe.is_directory(&root).await {
                 return Err(rejected("project.directory-required"));
             }
@@ -355,10 +316,7 @@ pub(crate) async fn validate_save_project(
         .as_str()
         .filter(|value| !value.is_empty())
     {
-        if !is_absolute(primary) {
-            return Err(rejected("project.absolute-path-required"));
-        }
-        normalized["primaryRoot"] = json!(normalize_path(primary));
+        normalized["primaryRoot"] = json!(normalize_owner_path(primary, posix)?);
     }
     Ok(normalized)
 }
@@ -383,20 +341,4 @@ pub(crate) fn workspace_directory(data_base_dir: &Path) -> PathBuf {
         .join(".escode")
         .join("workspace")
         .join("default")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn normalize_matches_node_path_normalize() {
-        // Node `path.normalize` 也是平台相关的：Windows 输出反斜杠，POSIX 输出斜杠。
-        let sep = std::path::MAIN_SEPARATOR;
-        assert_eq!(normalize_path("/a//b/./c"), format!("{sep}a{sep}b{sep}c"));
-        assert_eq!(normalize_path("/a/../b"), format!("{sep}b"));
-        assert_eq!(normalize_path("a/../../b"), format!("..{sep}b"));
-        assert_eq!(normalize_path("/.."), sep.to_string());
-        assert_eq!(normalize_path(""), ".");
-    }
 }

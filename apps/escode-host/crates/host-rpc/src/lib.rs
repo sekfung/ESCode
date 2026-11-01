@@ -43,6 +43,7 @@ mod domains_plugin_ui_app_tools;
 mod domains_plugin_ui_sampling;
 mod domains_plugins_legacy;
 mod domains_project;
+mod domains_project_paths;
 mod domains_project_remote;
 mod domains_project_session;
 mod domains_provider;

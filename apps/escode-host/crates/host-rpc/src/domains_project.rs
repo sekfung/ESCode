@@ -12,12 +12,13 @@ use tokio::sync::Mutex;
 
 use escode_host_services::source_server_connections::SourceServerConnections;
 
+use crate::domains_project_paths::normalize_owner_path;
 use crate::domains_project_remote::{
     DirectoryProbe, RemoteHost, resolve_remote, workspace_identity_for_host,
 };
 use crate::domains_project_session::{
-    decorate_projects, is_absolute, normalize_path, prepare_session, read_directory,
-    validate_move_task, validate_save_project, workspace_directory,
+    decorate_projects, prepare_session, read_directory, validate_move_task, validate_save_project,
+    workspace_directory,
 };
 use crate::domains_task_support::ReadContext;
 use crate::session::{Channel, MethodHandler, handler};
@@ -71,10 +72,8 @@ pub(crate) fn project_channel(
                         Some(Value::String(path)) if !path.is_empty() => path.clone(),
                         Some(_) => return Err(rejected("project.invalid-request")),
                     };
-                    if !is_absolute(&requested) {
-                        return Err(rejected("project.absolute-path-required"));
-                    }
-                    let path = normalize_path(&requested);
+                    // 远端 owner 是 POSIX 主机：绝对路径与归一不能走控制端的平台规则。
+                    let path = normalize_owner_path(&requested, true)?;
                     remote
                         .readdir(&path, params["includeHidden"].as_bool())
                         .await

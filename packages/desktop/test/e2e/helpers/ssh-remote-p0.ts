@@ -455,23 +455,51 @@ export async function selectRemoteFolderProjectDirectory(
   }
   // 修复原因：目录选择器挂载后先异步加载远端 home；初始导航结束前输入会与 home 结果
   // 竞争，确认按钮还可能在 currentPath 仍是 home 时可用。先等初始输入值就绪再写目标路径。
-  await browser.waitUntil(
-    () =>
-      browser.execute(() => {
+  try {
+    await browser.waitUntil(
+      () =>
+        browser.execute(() => {
+          const input = document.querySelector<HTMLInputElement>(
+            '[data-testid="directory-browser-path"]',
+          );
+          const confirm = document.querySelector<HTMLButtonElement>(
+            '[data-testid="directory-browser-confirm"]',
+          );
+          return Boolean(input?.value) && confirm?.disabled === false;
+        }),
+      {
+        timeout: 30_000,
+        interval: 100,
+        timeoutMsg: `${caseMarker}: 目录选择器初始目录未就绪`,
+      },
+    );
+  } catch (error) {
+    // 初始目录由宿主 readDirectory 决定；失败时把对话框内可见错误一起带出，
+    // 否则 CI 只能看到「未就绪」，无法区分 host-offline / 路径归一 / 权限问题。
+    const snapshot = await browser
+      .execute(() => {
+        const dialog = document.querySelector('[data-testid="chat-remote-folder"]');
         const input = document.querySelector<HTMLInputElement>(
           '[data-testid="directory-browser-path"]',
         );
         const confirm = document.querySelector<HTMLButtonElement>(
           '[data-testid="directory-browser-confirm"]',
         );
-        return Boolean(input?.value) && confirm?.disabled === false;
-      }),
-    {
-      timeout: 30_000,
-      interval: 100,
-      timeoutMsg: `${caseMarker}: 目录选择器初始目录未就绪`,
-    },
-  );
+        return {
+          dialogText: (dialog?.textContent ?? "").slice(0, 800),
+          inputValue: input?.value ?? null,
+          confirmDisabled: confirm?.disabled ?? null,
+        };
+      })
+      .catch(() => null);
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)} [dialog: ${
+        snapshot?.dialogText.replaceAll("\n", " | ") ?? "unavailable"
+      }] [path: ${snapshot?.inputValue ?? "unavailable"}] [confirmDisabled: ${
+        snapshot?.confirmDisabled ?? "unavailable"
+      }]`,
+    );
+  }
   await setInputValueByTestIdDom(TID_DIRECTORY_BROWSER_PATH, directoryPath);
   // input/change 是连续事件，React 可能延后提交；提交表单前等两帧，避免提交读到旧 state。
   await browser.execute(
