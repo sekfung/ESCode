@@ -3,6 +3,11 @@
 //! 任务事实 owner 是 Source Server 的 `escode-task`；本模块只维护**连接级**投影与订阅表，
 //! 通过 `RemoteChannelClient` 读取/写入远端事实。远程失败显式返回，绝不回落本机 tasks-index。
 
+#[path = "remote_listener.rs"]
+mod remote_listener;
+#[path = "remote_unread.rs"]
+mod remote_unread;
+
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -15,6 +20,8 @@ use serde_json::{Value, json};
 use super::list::{compare_items, decorate_search_item, projection_items};
 use super::projection::Projection;
 use super::rows::LocalScope;
+use super::unread;
+use crate::event_fanout::EventFanout;
 use crate::remote_scope::RemoteScope;
 use crate::session::RpcError;
 use crate::wire::Wire;
@@ -29,6 +36,8 @@ pub(crate) struct RemoteController {
     dirty: AtomicBool,
     refresh_lock: tokio::sync::Mutex<()>,
     listener: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    /// `onDynamicTaskUnreadSignal` 的受众（远端 `escode-task` 事件派生，见 `unread.rs`）。
+    unread: Arc<EventFanout>,
 }
 
 impl RemoteController {
@@ -50,6 +59,7 @@ impl RemoteController {
             dirty: AtomicBool::new(false),
             refresh_lock: tokio::sync::Mutex::new(()),
             listener: Mutex::new(None),
+            unread: Arc::new(EventFanout::default()),
         });
         controller.projector.register_source(&controller.scope);
         controller
@@ -57,6 +67,10 @@ impl RemoteController {
 
     pub(super) fn projector(&self) -> &Arc<Projection> {
         &self.projector
+    }
+
+    pub(super) fn unread(&self) -> &Arc<EventFanout> {
+        &self.unread
     }
 
     fn scope_params(&self) -> Value {
@@ -354,70 +368,6 @@ impl RemoteController {
         let value = self.call_json("deleteArchivedTasks", batch).await?;
         self.refresh_after_write().await;
         Ok(value)
-    }
-
-    pub(super) fn start_listener(self: &Arc<Self>) {
-        let mut listener = self
-            .listener
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if listener.is_some() {
-            return;
-        }
-        let weak = Arc::downgrade(self);
-        let client = Arc::clone(&self.client);
-        let params = self.scope_params();
-        let task = tokio::spawn(async move {
-            let arg = Some(WireValue::from(Wire::Object(params)));
-            match client
-                .listen("escode-task", "onDynamicWorkspaceEvent", arg)
-                .await
-            {
-                Ok((id, mut receiver)) => {
-                    let _guard = ListenerGuard {
-                        client: Arc::clone(&client),
-                        id,
-                    };
-                    while receiver.recv().await.is_some() {
-                        let Some(controller) = weak.upgrade() else {
-                            return;
-                        };
-                        controller.dirty.store(true, Ordering::SeqCst);
-                        let signal = Arc::clone(&controller);
-                        tokio::spawn(async move {
-                            let _ = signal.refresh(false).await;
-                        });
-                    }
-                }
-                Err(error) => logging::warn(
-                    "window-controller",
-                    format!("remote workspace event subscription failed: {error:#}"),
-                ),
-            }
-        });
-        *listener = Some(task);
-    }
-
-    pub(super) fn stop_listener(&self) {
-        if let Some(task) = self
-            .listener
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take()
-        {
-            task.abort();
-        }
-    }
-}
-
-struct ListenerGuard {
-    client: Arc<RemoteChannelClient>,
-    id: u32,
-}
-
-impl Drop for ListenerGuard {
-    fn drop(&mut self) {
-        self.client.dispose_listener(self.id);
     }
 }
 

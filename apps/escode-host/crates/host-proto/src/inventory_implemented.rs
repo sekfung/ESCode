@@ -5,7 +5,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("window-controller", "subscribeControllerV4"),
     ("window-controller", "resyncControllerV4"),
     ("window-controller", "unsubscribeControllerV4"),
-    ("window-controller", "onDynamicControllerFrame"),
+    ("window-controller", "onDynamicControllerFrame"), ("window-controller", "onDynamicTaskUnreadSignal"),
     ("window-controller", "listTaskList"),
     ("window-controller", "mutateTask"),
     ("window-controller", "deleteArchivedTask"),

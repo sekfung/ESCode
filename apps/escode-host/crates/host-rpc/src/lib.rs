@@ -89,6 +89,7 @@ mod domains_task_trajectory;
 mod domains_terminal;
 mod domains_usage_stats;
 mod domains_workspace_vcs;
+mod event_fanout;
 pub mod forward;
 pub mod frame;
 mod host_command;

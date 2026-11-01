@@ -132,7 +132,13 @@ pub(crate) fn remote_channel(client: Arc<RemoteChannelClient>, scope: &RemoteSco
         })
     };
     Channel::new("window-controller", methods)
-        .with_events(vec![("onDynamicControllerFrame", frames)])
+        .with_events(vec![
+            ("onDynamicControllerFrame", frames),
+            ("onDynamicTaskUnreadSignal", {
+                let unread = Arc::clone(controller.unread());
+                Arc::new(move |_arg: Wire| Ok(unread.listen()))
+            }),
+        ])
         .with_open(open)
         .with_close(close)
 }

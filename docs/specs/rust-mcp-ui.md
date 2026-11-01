@@ -158,6 +158,17 @@ sampling    → 账本容量/并发校验 → pin 实例 → 模型调用 → �
    但 Rust 侧的模型请求不产生 conversation row。
 3. 资源订阅通知只走 live 通道；`web-remote-replayable` 下按既有恢复语义重建订阅，不补历史通知。
 4. `plugins/listUiSurfaces` 的枚举顺序按 server 名字节序，与 `mcp_config_order` 的 JS 键序对齐规则一致。
+5. **后台工具结果不推送 UI（2026-11-01 发现，未实现）**：`docs/plugin-ui-background-execution.md`
+   要求 Agent 在成功 MCP UI 工具结果完成投影后经 `v4/plugin-ui/tool-result` 通知本地宿主，App 的
+   `attachPluginUiToolResults` 据此在没有工具卡的场景创建页面。Rust 引擎目前没有这条通知，
+   Rust Host 也没有 `escode-agent.onDynamicPluginUiToolResult`（订阅时记
+   `event ... is not implemented` 并返回空流）。后果：Rust Host 下后台/自动化任务的 MCP App 页面
+   不会自动创建，仍只有前台卡片路径。修复需要两侧同时落地：引擎在工具结果投影处发通知（含
+   `workspacePath/workspaceIdentity/sessionId/toolCallId/serverName/ui/input`），Host 校验 schema 与
+   本地 runtime 来源后按窗口广播。证据：本地 `source-server-rust-server-direct` E2E
+   `desktop-e2e-20261101-133737-322` 每次启动都有该 warn；同轮
+   `window-controller.onDynamicTaskUnreadSignal` 的对应告警已修（见 rust-u2-window-controller.md WC-4），
+   可作为“告警消失即修复生效”的对照。
 
 ## 6. 验收命令
 

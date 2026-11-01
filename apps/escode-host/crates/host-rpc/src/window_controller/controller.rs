@@ -111,6 +111,11 @@ impl WindowController {
     pub(crate) fn projector(&self) -> &Arc<Projection> {
         &self.projector
     }
+    /// 任务写面的事件总线：`onDynamicTaskUnreadSignal` 直接从同一条总线派生（TS
+    /// `windowHostControllerService.ts:340-380` 也是订阅 source 的 workspace 事件）。
+    pub(crate) fn events(&self) -> &Arc<WorkspaceEvents> {
+        &self.events
+    }
     /// 索引读句柄（搜索分支直查 DB；与 `escode-task` 共用同一份懒打开的索引）。
     pub(super) fn read(&self) -> &ReadContext {
         &self.read

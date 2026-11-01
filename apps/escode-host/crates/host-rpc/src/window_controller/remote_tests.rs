@@ -404,6 +404,8 @@ async fn search_converges_to_the_bound_scope_and_decorates_items() {
     server.abort();
 }
 
+#[path = "remote_tests_unread.rs"]
+mod unread_tests;
 #[cfg(test)]
 #[path = "remote_tests_write.rs"]
 mod write;

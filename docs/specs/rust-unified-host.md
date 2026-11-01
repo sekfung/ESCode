@@ -201,7 +201,8 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   Node/Rust 交替写读保留为灰度期回归，不再作为切换门槛；
 - 进程表断言：`conversation-session-rust-host-window-lifecycle.test.ts` 断言本地窗口只有
   `escode-host-rust-host`、无 `escode-host-local-*` utility Host；
-- Host 服务契约清单（channel/method）`--check` 与源码一致（`pnpm check:escode-host`，43/495）。
+- Host 服务契约清单（channel/method）`--check` 与源码一致（`pnpm check:escode-host`；2026-11-01 统计
+  `IMPLEMENTED` 437 / TS 服务面 565 成员，51 个 channel）。
 
 证据汇总：`docs/reports/rust-unified-host-phase2-phase3-2026-10-23.md`。
 

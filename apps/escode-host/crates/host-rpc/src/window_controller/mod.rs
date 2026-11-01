@@ -18,6 +18,7 @@ mod remote;
 mod remote_channel;
 mod rows;
 mod scope;
+mod unread;
 
 use std::sync::Arc;
 
@@ -78,10 +79,16 @@ fn connection_channel(controller: &Arc<WindowController>) -> Channel {
             })
         })
     };
-    let events: Vec<(&'static str, EventHandler)> = vec![("onDynamicControllerFrame", {
-        let scope = Arc::clone(&scope);
-        Arc::new(move |_arg: Wire| Ok(scope.listen()))
-    })];
+    let events: Vec<(&'static str, EventHandler)> = vec![
+        ("onDynamicControllerFrame", {
+            let scope = Arc::clone(&scope);
+            Arc::new(move |_arg: Wire| Ok(scope.listen()))
+        }),
+        ("onDynamicTaskUnreadSignal", {
+            let events = Arc::clone(controller.events());
+            Arc::new(move |_arg: Wire| Ok(unread::listen(events.listen_all())))
+        }),
+    ];
     let closing = Arc::clone(&scope);
     let methods: Vec<(&'static str, MethodHandler)> = vec![
         ("subscribeControllerV4", subscribe),
@@ -128,12 +135,20 @@ pub(crate) fn gap_channel() -> Channel {
             ("deleteArchivedTasks", missing()),
         ],
     )
-    .with_events(vec![(
-        "onDynamicControllerFrame",
-        Arc::new(move |_arg: Wire| {
-            Ok(Box::pin(futures_util::stream::empty()) as crate::session::EventStream)
-        }),
-    )])
+    .with_events(vec![
+        (
+            "onDynamicControllerFrame",
+            Arc::new(move |_arg: Wire| {
+                Ok(Box::pin(futures_util::stream::empty()) as crate::session::EventStream)
+            }),
+        ),
+        (
+            "onDynamicTaskUnreadSignal",
+            Arc::new(move |_arg: Wire| {
+                Ok(Box::pin(futures_util::stream::empty()) as crate::session::EventStream)
+            }),
+        ),
+    ])
 }
 
 #[cfg(test)]

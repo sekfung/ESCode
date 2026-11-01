@@ -12,12 +12,16 @@ use std::sync::Mutex;
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
+use crate::event_fanout::EventFanout;
 use crate::session::EventStream;
 use crate::wire::Wire;
 
 #[derive(Default)]
 pub(crate) struct WorkspaceEvents {
     listeners: Mutex<BTreeMap<String, Vec<mpsc::UnboundedSender<Value>>>>,
+    /// 与 workspace 无关的监听者（`window-controller.onDynamicTaskUnreadSignal`：一条连接
+    /// 负责本 Host 服务过的全部 workspace，不需要预先知道身份键）。
+    all: EventFanout,
 }
 
 /// 事件定位：TS `WorkspaceBroadcastTarget`。
@@ -45,14 +49,22 @@ impl WorkspaceEvents {
         }))
     }
 
+    /// 监听所有 workspace 的事件（不做身份过滤，消费方自行按事件字段判断）。
+    pub(crate) fn listen_all(&self) -> EventStream {
+        self.all.listen()
+    }
+
     pub(crate) fn emit(&self, workspace_key: &str, event: &Value) {
-        let mut listeners = self.lock();
-        if let Some(entries) = listeners.get_mut(workspace_key) {
-            entries.retain(|tx| tx.send(event.clone()).is_ok());
-            if entries.is_empty() {
-                listeners.remove(workspace_key);
+        {
+            let mut listeners = self.lock();
+            if let Some(entries) = listeners.get_mut(workspace_key) {
+                entries.retain(|tx| tx.send(event.clone()).is_ok());
+                if entries.is_empty() {
+                    listeners.remove(workspace_key);
+                }
             }
         }
+        self.all.emit(event);
     }
 
     /// TS `emitWorkspaceTaskListChanged`：`undefined` 字段整键省略。
