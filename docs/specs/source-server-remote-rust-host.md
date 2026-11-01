@@ -1266,6 +1266,12 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   `lastIndexOf("/")` 为 -1，父路径退化成整条路径去掉末字符，永远找不到目标目录。已改为同时接受
   反斜杠与 `/` 分隔符并保留盘符根 `C:\`；本机 Linux 复跑 `desktop-e2e-20261101-021944-470`（1 passing / 18.9s）。
   windows 通过结果待第三轮 CI 确认。
+- 2026-11-01 第三轮 CI（run `41264933484`，commit `c79b6a7b`）：windows 与 macOS 的该用例**首次通过**，
+  说明 libuv 短路径与目录分隔符两处修复成立；ubuntu 该用例失败（`2m 2s`，裸 `Timeout`，无阶段信息），
+  同 commit 本机 Linux 连续复跑通过（最近一次 `1 passing / 18.7s`）。同一用例在不同平台上分别通过、
+  ubuntu 偶发超时，按 flaky 处理，不据此判定产品回归。
+- 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
+  下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
   `wait-workspace-ready` / `wait-remote-session` / `restart-recovery` / `disconnect-reconnect` /
   `second-window` / `assert-zero-node-host`），失败时错误信息带阶段名；`after` 钩子改为 `server?.stop()`，

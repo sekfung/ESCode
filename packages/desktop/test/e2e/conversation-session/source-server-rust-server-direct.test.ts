@@ -41,6 +41,11 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
   let credentialKey: string;
   /** 失败时把卡住的阶段写进错误里：WDIO 的裸 `Timeout` 不带调用点，跨平台排查只能靠阶段标记。 */
   let stage = "before";
+  /** 同时打到 worker 日志：裸 `Timeout` 有时绕过用例内的 catch，只能看最后打印的阶段。 */
+  const mark = (next: string) => {
+    stage = next;
+    console.log(`[${CASE_MARKER}] stage=${next}`);
+  };
 
   before(async () => {
     server = await startLocalESCodeServer();
@@ -71,7 +76,7 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
       serverId: server.serverId,
       workspacePath: server.workspacePath,
     });
-    stage = "seed-profile";
+    mark("seed-profile");
     await prepareV4ConversationE2E({ skipProvider: true });
     await saveCredential(CASE_MARKER, credentialKey, server.token);
     await seedServerProfile(server, profileId, credentialKey, workspaceIdentity);
@@ -82,15 +87,15 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     });
 
     // §12.6.7-4：Rust Host 用持久 Profile + 凭据服务建立真实 HTTP/WS 链路。
-    stage = "open-profile";
+    mark("open-profile");
     await openRemoteProfile(CASE_MARKER, profileId, server.serverId);
-    stage = "select-directory";
+    mark("select-directory");
     await waitForSSHDirectoryStep(CASE_MARKER);
     await selectRemoteDirectoryByPath(CASE_MARKER, server.workspacePath);
-    stage = "wait-workspace-ready";
+    mark("wait-workspace-ready");
     await waitForWorkspaceApp(server.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
     await waitForProfileState(CASE_MARKER, profileId, "online");
-    stage = "wait-remote-session";
+    mark("wait-remote-session");
     const firstSession = await waitForRemoteSession(
       CASE_MARKER,
       server.workspacePath,
@@ -99,7 +104,7 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     expect(firstSession.remoteSessionId).toBeTruthy();
 
     // App 重启后从持久 Profile 恢复 tab，并由 Rust Host 重新建链。
-    stage = "restart-recovery";
+    mark("restart-recovery");
     await reloadElectronSessionSafely(browser);
     await waitForWorkspaceApp(server.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
     await waitForProfileState(CASE_MARKER, profileId, "online");
@@ -110,14 +115,14 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     );
 
     // 断线 → 原位重连：停掉真实服务端，等到状态离开 online，再按同端口/同身份启动。
-    stage = "disconnect-reconnect";
+    mark("disconnect-reconnect");
     await server.stopProcess();
     await waitForProfileStateNot(CASE_MARKER, profileId, "online", 2 * 60_000);
     await server.startProcess();
     await waitForProfileState(CASE_MARKER, profileId, "online", 3 * 60_000);
 
     // §12.6.7-5：第二个窗口恢复同一远端 workspace，共享 Rust Host 实例。
-    stage = "second-window";
+    mark("second-window");
     await openSecondMainWindow(CASE_MARKER);
     await waitForSecondWindowAppShell(CASE_MARKER);
     await waitForSecondWindowRemoteTab(CASE_MARKER, server.workspacePath);
@@ -127,9 +132,10 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
     // §12.6.7-6：远程链路全部由 Rust Host 承载，不出现 Node UtilityProcess 远程进程。
     // 每个窗口各有一个 window-scoped Local Host，进程 pid 会不同；这里断言的是「没有任何
     // Node UtilityProcess 远程 Host」，而不是 pid 集合相等。
-    stage = "assert-zero-node-host";
+    mark("assert-zero-node-host");
     const hosts = await readHostProcessIdentities();
     expect(hosts.filter((host) => host.name.startsWith("escode-host-remote-"))).toEqual([]);
+    mark("done");
   }
 });
 
