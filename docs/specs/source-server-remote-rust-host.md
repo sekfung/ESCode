@@ -1340,6 +1340,10 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   workspace。修复：重启前先在用例里调用
   `waitForPersistedActiveRemoteWorkspace(CASE_MARKER, workspaceIdentity)`，与 SSH
   `restart-recovery` 用例同一守卫；重启恢复的前提是设置已落盘，不是“切到远端后立刻退出”。
+  验证（run `41288521726`，commit `3f804de1`）：三平台 `desktop e2e` 全绿，ubuntu 日志里
+  `stage=restart-recovery` 到 `deleteSession` 之间为 524ms，即守卫补上了原本被截断的写回窗口。
+  产品侧同样存在这个窗口（切到远端后 <300ms 退出会回退到上一条 workspace）；本轮只把
+  “已落盘”作为用例前置条件，未改 quit 前的持久化语义。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
