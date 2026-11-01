@@ -1373,6 +1373,12 @@ export function createConversationV4Gateway(
         method: V4_NOTIFICATIONS.cuaPermissionObservation,
         params: observation,
       }),
+    // 后台 MCP App 创建入口：没有卡片/订阅时也要能创建 guest（docs/plugin-ui-background-execution.md）。
+    emitPluginUiToolResult: (result) =>
+      context.notify({
+        method: V4_NOTIFICATIONS.pluginUiToolResult,
+        params: result,
+      }),
     // ── config 种子：投影初值 = runtime 真值 ─────────────
     // 覆盖三个种子来源：启动缺省（Workspace 模型偏好 + 项目持久化 mode）、
     // createSession.config（handler 先应用到 runtime 再种）、历史会话 resume

@@ -30,6 +30,10 @@ import type { ConversationSnapshot } from "@escode/shared/escode-protocol-v4";
 import { SessionEventType, isFileSystemPortError } from "@escode/contracts";
 import type { ESCodeWorkspaceRef } from "@escode/shared";
 import { extractMarkdownArtifactImageRefs } from "@escode/shared";
+import {
+  pluginUiToolResultNotificationSchema,
+  type PluginUiToolResultNotification,
+} from "@escode/shared/mcp-apps";
 import type {
   CommandAck,
   AttachmentRef,
@@ -226,6 +230,8 @@ export interface V4GatewayHost {
   emitConversationTelemetryFact?(fact: ConversationTelemetryFact): void;
   /** 当前进程 live request_access 权限事实；不缓存、不进入 topic replay。 */
   emitCuaPermissionObservation?(observation: CuaPermissionObservation): void;
+  /** 当前执行的成功 MCP UI 工具结果；独立于 conversation 订阅，不进入 topic replay。 */
+  emitPluginUiToolResult?(result: PluginUiToolResultNotification): void;
   /**
    * sessions-index：会话 → 所属 workspaceId（列表 topic 的分桶键）。
    * 未实现（旧宿主）→ sessions-index 路径整体不激活（no-op），不影响 conversation。
@@ -481,6 +487,7 @@ interface ProjectionEventCommitWaiter {
 
 const PROJECTION_EVENT_COMMIT_TIMEOUT_MS = 25_000;
 const MAX_TELEMETRY_EVENT_IDS = 2_000;
+const MAX_PLUGIN_UI_TOOL_RESULT_KEYS = 2_000;
 /** detached subagent child 终态后无订阅者时，publisher 由低频 tick 释放前的保留时长。 */
 export const DETACHED_CHILD_PUBLISHER_GRACE_MS = 120_000;
 
@@ -623,6 +630,8 @@ export class ConversationV4Gateway {
   private readonly telemetryNormalizer = new ConversationTelemetryFactNormalizer();
   private readonly cuaPermissionNormalizer = new CuaPermissionObservationNormalizer();
   private readonly telemetryEventIds = new Set<string>();
+  /** 同一 toolCallId 的重放/恢复只投递一次后台 UI 创建入口。 */
+  private readonly pluginUiToolResultKeys = new Set<string>();
   private disposed = false;
 
   constructor(
@@ -886,6 +895,54 @@ export class ConversationV4Gateway {
     await this.waitForProjectionEventCommit(sessionId, eventId);
   }
 
+  /**
+   * 后台 MCP App 创建入口（docs/plugin-ui-background-execution.md）。
+   *
+   * 只在 live 工具结果完成投影后投递：没有卡片或 conversation 订阅时，App 仍要能按结果创建
+   * guest。输入与 UI 描述都从同一权威工具行取，不从事件载荷另拼一份；历史 hydration 直接写
+   * publisher，不走这个入口，避免恢复时重放创建副作用。失败、取消与 MCP isError 不投递。
+   */
+  private emitPluginUiToolResult(
+    sessionId: string,
+    event: SessionEvent,
+    publisher: ConversationTopicPublisher,
+  ): void {
+    if (event.type !== SessionEventType.ToolCallResult) return;
+    const toolCallId = (event.payload as { toolCallId?: unknown }).toolCallId;
+    if (typeof toolCallId !== "string" || toolCallId.length === 0) return;
+    const row = publisher
+      .getSnapshot()
+      .rows.window.find(
+        (candidate) => candidate.kind === "toolCall" && candidate.toolCallId === toolCallId,
+      );
+    if (
+      row?.kind !== "toolCall" ||
+      row.status !== "success" ||
+      row.display?.kind !== "mcp_tool"
+    ) {
+      return;
+    }
+    const key = `${sessionId}\0${toolCallId}`;
+    if (this.pluginUiToolResultKeys.has(key)) return;
+    const input = row.input;
+    const parsed = pluginUiToolResultNotificationSchema.safeParse({
+      sessionId,
+      toolCallId,
+      serverName: row.display.serverName,
+      ui: row.display.ui,
+      ...(typeof input === "object" && input !== null && !Array.isArray(input)
+        ? { input: input as Record<string, unknown> }
+        : {}),
+    });
+    if (!parsed.success) return;
+    this.pluginUiToolResultKeys.add(key);
+    if (this.pluginUiToolResultKeys.size > MAX_PLUGIN_UI_TOOL_RESULT_KEYS) {
+      const oldest = this.pluginUiToolResultKeys.values().next().value;
+      if (typeof oldest === "string") this.pluginUiToolResultKeys.delete(oldest);
+    }
+    this.host.emitPluginUiToolResult?.(parsed.data);
+  }
+
   private ingestNormalizedEvent(sessionId: string, event: SessionEvent): void {
     const publisher = this.ensurePublisher(sessionId);
     const promotedQueueRemoval =
@@ -928,6 +985,7 @@ export class ConversationV4Gateway {
       return;
     }
     this.resolveProjectionEventCommit(sessionId, String(event.id));
+    this.emitPluginUiToolResult(sessionId, event, publisher);
     if (
       event.type === SessionEventType.TargetChanged &&
       (event.payload as TargetChangedPayload).target?.status === "complete"

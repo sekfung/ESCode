@@ -158,17 +158,27 @@ sampling    → 账本容量/并发校验 → pin 实例 → 模型调用 → �
    但 Rust 侧的模型请求不产生 conversation row。
 3. 资源订阅通知只走 live 通道；`web-remote-replayable` 下按既有恢复语义重建订阅，不补历史通知。
 4. `plugins/listUiSurfaces` 的枚举顺序按 server 名字节序，与 `mcp_config_order` 的 JS 键序对齐规则一致。
-5. **后台工具结果不推送 UI（2026-11-01 发现，未实现）**：`docs/plugin-ui-background-execution.md`
-   要求 Agent 在成功 MCP UI 工具结果完成投影后经 `v4/plugin-ui/tool-result` 通知本地宿主，App 的
-   `attachPluginUiToolResults` 据此在没有工具卡的场景创建页面。Rust 引擎目前没有这条通知，
-   Rust Host 也没有 `escode-agent.onDynamicPluginUiToolResult`（订阅时记
-   `event ... is not implemented` 并返回空流）。后果：Rust Host 下后台/自动化任务的 MCP App 页面
-   不会自动创建，仍只有前台卡片路径。修复需要两侧同时落地：引擎在工具结果投影处发通知（含
-   `workspacePath/workspaceIdentity/sessionId/toolCallId/serverName/ui/input`），Host 校验 schema 与
-   本地 runtime 来源后按窗口广播。证据：本地 `source-server-rust-server-direct` E2E
-   `desktop-e2e-20261101-133737-322` 每次启动都有该 warn；同轮
-   `window-controller.onDynamicTaskUnreadSignal` 的对应告警已修（见 rust-u2-window-controller.md WC-4），
-   可作为“告警消失即修复生效”的对照。
+5. **后台工具结果推送：TS 侧已补齐，Rust 侧仍缺两块（2026-11-01）**。
+   `docs/plugin-ui-background-execution.md` 要求在成功 MCP UI 工具结果完成投影后经
+   `v4/plugin-ui/tool-result` 通知本地宿主，App 的 `attachPluginUiToolResults` 据此在没有工具卡的
+   场景创建页面。该产出来自上游 `3c5b2276` 的旧 CLI（`v4-gateway.ts` 的
+   `emitPluginUiToolResult` → `v4-bridge.ts` 的 `context.notify`），移植成 `apps/escode-cli`
+   时整条链路丢失：`V4GatewayHost` 没有该钩子，
+   Rust Host 因此只能记 `event escode-agent.onDynamicPluginUiToolResult is not implemented`。
+   本轮已在 TS 侧按上游语义补回：`ConversationV4Gateway` 在 live 投影提交后按同一权威工具行判定
+   `status=success` + `display.kind=mcp_tool`，用 `pluginUiToolResultNotificationSchema` 组
+   `{sessionId, toolCallId, serverName, ui, input?}` 并经 `v4-bridge` 投递；历史 hydration 与
+   失败/isError 不投递，同一 `toolCallId` 的重复 ingest 只投一次（单测
+   `apps/escode-cli/packages/bootstrap/tests/v4-plugin-ui-background.test.ts`）。
+   Rust 侧仍需两块前置才能对齐：①引擎根本没有 `display.ui` 投影——`crates/tools` 的
+   `mcp_tool` 卡片只有 `serverName/toolName/description`（P0 只保留了 `_meta.ui.visibility`
+   用于页面调用资格），而 UI 的 `pluginUiRowPolicy` 要求 `display.ui !== undefined` 才建卡；
+   ②引擎没有 `v4/plugin-ui/tool-result` 通知。二者必须与 Host 侧
+   `escode-agent.onDynamicPluginUiToolResult`（校验 schema、只接受本地 runtime 来源、按窗口广播）
+   一起作为一个工作包落地，否则只补 Host 会把 `NotImplemented` 换成永不到达的死代码。
+   证据：本地 `desktop-e2e-20261101-133737-322` 每次启动都有该 warn；同轮
+   `window-controller.onDynamicTaskUnreadSignal` 的对应告警已修（见
+   rust-u2-window-controller.md WC-4），可作为「告警消失即修复生效」的对照。
 
 ## 6. 验收命令
 
