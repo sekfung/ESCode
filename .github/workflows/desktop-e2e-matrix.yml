@@ -314,6 +314,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # git-bash 会把传给 wsl.exe 的 /mnt/<drive>/... 当成 MSYS 路径改写成
+          # "C:/Program Files/Git/mnt/..."，WSL 里就找不到仓库脚本；这里关闭自动转换。
+          export MSYS_NO_PATHCONV=1
+          export MSYS2_ARG_CONV_EXCL='*'
           password="$(openssl rand -hex 16)"
           echo "::add-mask::$password"
           echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
@@ -342,7 +346,10 @@ jobs:
       - name: dump WSL sshd log
         if: always()
         shell: bash
-        run: wsl -d Ubuntu-22.04 -u root -- tail -200 /tmp/escode-e2e-sshd.log 2>/dev/null || true
+        run: |
+          export MSYS_NO_PATHCONV=1
+          export MSYS2_ARG_CONV_EXCL='*'
+          wsl -d Ubuntu-22.04 -u root -- tail -200 /tmp/escode-e2e-sshd.log 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
