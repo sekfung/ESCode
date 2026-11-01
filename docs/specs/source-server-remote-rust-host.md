@@ -1324,17 +1324,22 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   `read-text-parity`）在补 Windows 录制 golden 后通过。
   **这不改变 S4-i 结论**：SSH 三条主链（首装/更新/重启恢复）仍需 Windows/macOS 可达的 Linux
   目标机，CI 的 SSH job 固定 `ubuntu-latest`。
-- 2026-11-01 复发的 e2e flake（与产品无关，未修）：`source-server-rust-server-direct` 在
-  `restart-recovery` 阶段约 2 分钟后以裸 `Timeout` 失败（run `41282629303` 首次、`41285070206`
-  再次；两次都只有 ubuntu/macOS 命中，windows 通过；同 commit rerun 通过）。日志证据：App 正常退出
-  （`app-quit … exiting prepared app`、`RESULT null`）后紧接着
-  `Kill driver process with PID …` 与 `WebDriverError: invalid session id`，随后一条在飞的
-  `executeScript` 取不到 `/json/version`（`fetch failed`），直到
-  `ESCODE_E2E_WEBDRIVER_REQUEST_TIMEOUT_MS=120000` 到期。即 ChromeDriver 随 App 退出被回收，
-  而 `reloadElectronSessionSafely` 依赖它继续存活来 `reloadSession()`。
-- 待办（需先对齐边界，本轮未改）：在 `reloadElectronSessionSafely` 里给 `reloadSession()` 加一次
-  有界重试（重试前确认 driver 存活），或换成不依赖 driver 存活的重建方式。该 helper 被全部 e2e
-  共用，改它等于改变所有重启类用例的失败语义。
+- 2026-11-01 复发的 e2e flake（已定位，用例侧修）：`source-server-rust-server-direct` 在
+  `restart-recovery` 阶段以裸 `Timeout` 失败（run `41282629303` 首次、`41285070206` 再次；
+  两次都只有 ubuntu/macOS 命中，windows 通过；同 commit rerun 通过）。
+  **早前“ChromeDriver 随 App 退出被回收”的判断不成立**：日志里 deleteSession 的 body 是
+  `{"deleteSessionOpts":{"shutdownDriver":false}}`，说明 `reloadElectronSessionSafely` 的参数形态
+  正确（WebdriverIO 只从 `body.deleteSessionOpts.shutdownDriver` 取值），delete 时没有
+  `Kill driver process`。`Kill driver process with PID …`、`invalid session id` 与
+  `/json/version` 的 `fetch failed` 都发生在 120s 超时**之后**的 teardown，是失败的结果而不是原因。
+  真实链路：重启后的新实例只建了 `__base__ …/ESCodeProject` 连接，远端 workspace 连接始终没出现，
+  于是 `waitForWorkspaceApp` 一直轮询到超时；用例正是在 `waitForRemoteSession` 返回后立刻退出。
+  触发条件是 tab 持久化写回的 300ms 防抖（`useTabPersistence` 的 `DEBOUNCE_MS`）：三次日志实测
+  「远端连接建立 → App 退出」分别为 267ms（失败 macOS）、349ms（失败 ubuntu）、387ms（通过
+  ubuntu）。丢写后 `setting.json.lastActiveWorkspace` 仍是上一条本地 tab，重启就只恢复本地
+  workspace。修复：重启前先在用例里调用
+  `waitForPersistedActiveRemoteWorkspace(CASE_MARKER, workspaceIdentity)`，与 SSH
+  `restart-recovery` 用例同一守卫；重启恢复的前提是设置已落盘，不是“切到远端后立刻退出”。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /

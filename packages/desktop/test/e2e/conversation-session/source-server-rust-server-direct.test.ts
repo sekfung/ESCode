@@ -27,6 +27,7 @@ import {
 } from "../helpers/source-server-rust-remote.js";
 import {
   readHostProcessIdentities,
+  waitForPersistedActiveRemoteWorkspace,
   waitForRemoteSession,
 } from "../helpers/source-server-rust-remote-state.js";
 import { waitForSSHDirectoryStep } from "../helpers/ssh-remote-p0.js";
@@ -105,6 +106,10 @@ describe(`${CASE_MARKER}: Rust Host 直连真实 escode-server`, () => {
 
     // App 重启后从持久 Profile 恢复 tab，并由 Rust Host 重新建链。
     mark("restart-recovery");
+    // Bug 根因：tab 持久化有 300ms 防抖，远程 workspace 连上后立刻 quit 会把
+    // 「活动远端 workspace」写丢，重启只能恢复到上一条本地 tab（spec §11.11 的 flake）。
+    // 重启恢复的前提是设置已落盘，先等这份事实再重启。
+    await waitForPersistedActiveRemoteWorkspace(CASE_MARKER, workspaceIdentity);
     await reloadElectronSessionSafely(browser);
     await waitForWorkspaceApp(server.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
     await waitForProfileState(CASE_MARKER, profileId, "online");
