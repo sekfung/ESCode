@@ -221,13 +221,13 @@ pub fn model_configured(config: Option<&PathBuf>) -> bool {
             && escode_cli_core_api::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE").is_some())
 }
 
-#[cfg(test)]
+/// 只在 unix 上可构造软链接；Windows 的 verbatim 前缀由词法工具自身单测覆盖，这里不重复。
+#[cfg(all(test, unix))]
 mod tests {
     use super::resolve_data_dir;
 
     /// 数据目录保留调用方给的写法：macOS `/var` 与 `/private/var` 是同一目录，realpath 会改写
     /// 写进 `<persisted-output>` 的路径，而 Node 只做 `path.resolve`。
-    #[cfg(unix)]
     #[test]
     fn data_dir_keeps_the_requested_spelling_like_node_path_resolve() {
         let dir = tempfile::tempdir().unwrap();
