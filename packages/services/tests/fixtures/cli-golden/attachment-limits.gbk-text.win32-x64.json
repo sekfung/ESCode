@@ -1,0 +1,8 @@
+{
+  "attachmentDigest": "9f03d2607da42f52f6a66799e997aad9fcc6f824e8eeabf816f542e656f5d64d",
+  "attachmentMessages": [
+    "<system-reminder>\nCalled the Read tool with the following input: {\"file_path\":\"<CWD>\\\\gbk.txt\"}\nResult of calling the Read tool:\n1\t中文\n2\t\n</system-reminder>",
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "describe it"
+  ]
+}

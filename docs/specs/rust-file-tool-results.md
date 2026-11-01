@@ -121,3 +121,9 @@
 差分 `packages/services/tests/escode-cli-rust-read-text-parity.test.ts` 以真实 TS `readHandler` /
 `readTextFileForModel` 为 oracle，覆盖 16 种文件形态（含 UTF-16LE/GBK/BOM/超限/部分视图）与
 token 部分视图的重复读取；golden 为 `fixtures/cli-golden/read-text-parity.*.json`。
+
+跨平台 golden（2026-11-01）：windows-latest 上「binary content」一例的报错文案带路径
+（`Unsupported or binary text encoding: <ROOT>\\binary.txt`），通用 golden 是 Linux 的
+`<ROOT>/binary.txt`。同样按 `rust-unified-host.md` 补平台录制（run `41279354207`），入库
+`fixtures/cli-golden/read-text-parity.cases.win32-x64.json`；`partial-view-dedup` 的观察与通用
+golden 逐字相同，未新增平台文件。

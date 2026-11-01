@@ -1,0 +1,7 @@
+{
+  "attachmentDigest": "992b2bcad7539722e265e1177f8bdaa5c95ad6d8c09cf8237f4ae17935e817e7",
+  "attachmentMessages": [
+    "<system-reminder>\nAvailable agent types for the Agent tool:\n- documents:visual-judge: THE single visual acceptance pass for a rendered deliverable of these types only — pptx, docx, xlsx, pdf, poster, …ate in your system prompt. (Tools: Read, Bash)\n\nWhen you launch multiple agents for independent work, send them in a single message with multiple tool uses so they run concurrently.\n</system-reminder>",
+    "[{\"text\":\"describe it\",\"type\":\"text\"},{\"text\":\"Attached application/octet-stream: <CWD>\\\\note.mp3\\nThe file was sent by local path because the file is not a known text attachment.\\nUse the available file reading tools if you need to inspect the file contents.\",\"type\":\"text\"}]"
+  ]
+}

@@ -82,3 +82,11 @@ TS 真源：`core/src/runtime/helpers/attachments.ts` + `attachment-media-resolv
 拒绝。既有附件/媒体/Read 差分（`escode-cli-rust-attachments.test.ts`、
 `escode-cli-rust-attachment-media.test.ts`、`escode-cli-rust-media-read-differential.test.ts`、
 `escode-cli-rust-history.test.ts`、`escode-cli-rust-read-text-parity.test.ts`）33/33 通过。
+
+跨平台 golden（2026-11-01）：windows-latest 上这 9 个用例全红，差异只有附件引用里的路径分隔符——
+附件引用嵌在 JSON 转义文本里（`{"file_path":"D:\\..."}`），而 `canonical()` 只归一 `*Path` 字段，
+无法归一字符串内部的转义形态；Windows 的 Node 与 Rust 都输出反斜杠引用（JSON 里是
+`<CWD>\\\\note.mp3`，解析后 `<CWD>\note.mp3`），通用 golden 是 Linux 录制的 `<CWD>/note.mp3`。
+按 `rust-unified-host.md` 的规则补平台录制：
+`record cli goldens` run `41279354207`（Windows runner 上 `ESCODE_GOLDEN_PLATFORM=1`）产出
+`attachment-limits.*.win32-x64.json`，人工挑选这 9 个文件入库（未手抄 Linux 值）。
