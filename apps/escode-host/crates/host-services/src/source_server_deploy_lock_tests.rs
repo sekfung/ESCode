@@ -50,7 +50,13 @@ fn options(lock_dir: &std::path::Path, timeout: u64) -> AcquireOptions {
     AcquireOptions {
         lock_dir: lock_dir.to_string_lossy().into_owned(),
         acquire_timeout: Duration::from_secs(timeout),
-        release_timeout: Duration::from_secs(5),
+        // Bug 根因：5s 覆盖不了 CI 满负载下的 shell 收尾（kill heartbeat + wait + rm -rf）。
+        // 74167f06 的 rust-runtime-ci `test (ubuntu-latest, 1/3)` 在 764 个 host 用例并发 spawn
+        // `sh` 时实测 release 超 5s 而被误判失败；同一次运行的其余 14 个作业（含跑同一 unix-only
+        // 用例的 macOS）全绿，本地 8 连跑全量 + 单用例 700 次（含 CPU 饥饿）也未复现。这里与
+        // source_server_ssh_install 的真实 SSH 用例取同一预算；产品默认
+        // `DEFAULT_RELEASE_TIMEOUT` 仍是 5s，真挂死由 30s 兜底。
+        release_timeout: Duration::from_secs(30),
         ..AcquireOptions::default()
     }
 }

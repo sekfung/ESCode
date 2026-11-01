@@ -925,6 +925,10 @@ connect(profile)
   `remote-permission-denied`。
 - 部署锁语义与 Node `remoteDeployLock` 对齐（owner token + heartbeat + stale claim）；Rust Host 是唯一写入方，
   但必须与旧 Node 部署共用同一锁目录，保证混跑期间互斥。
+- 单测 `source_server_deploy_lock_tests` 的 release 收尾预算与真实 SSH 用例一致取 30s：5s 在
+  `rust-runtime-ci` 的 ubuntu 分片上会被 764 个并发用例 spawn `sh` 的负载误判为超时（`74167f06`
+  实测；同一次运行其余 14 个作业含 macOS 同用例全绿，本地 8 连跑全量 + 单用例 700 次未复现）。
+  产品默认 `DEFAULT_RELEASE_TIMEOUT` 仍为 5s，超时只终止本机 holder、不删远端锁。
 - 安装期间状态为 `bootstrapping` 并写 operation log；不发布 `online`，不签发远端 capability。
 
 ### 11.4 兼容清单与显式更新
