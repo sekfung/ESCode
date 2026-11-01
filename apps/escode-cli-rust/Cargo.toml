@@ -169,6 +169,7 @@ escode-cli-host.workspace = true
 escode-cli-state.workspace = true
 escode-cli-model.workspace = true
 escode-cli-tools.workspace = true
+escode-cli-plugins.workspace = true
 escode-cli-app-server.workspace = true
 escode-cli-tui.workspace = true
 escode-cli-wiki.workspace = true

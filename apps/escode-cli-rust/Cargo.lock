@@ -715,6 +715,7 @@ dependencies = [
  "escode-cli-host",
  "escode-cli-model",
  "escode-cli-net",
+ "escode-cli-plugins",
  "escode-cli-protocol",
  "escode-cli-state",
  "escode-cli-tools",

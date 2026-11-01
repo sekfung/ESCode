@@ -44,7 +44,29 @@ pub async fn resolve_workspace(
             serde_json::Value::Null,
         ),
     }
-    let requested_data = data_dir.unwrap_or_else(|| {
+    let data_dir = resolve_data_dir(data_dir)?;
+    tokio::fs::create_dir_all(&data_dir).await?;
+    let db = data_dir.join("rust-sessions.sqlite");
+    // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
+    let identity = escode_cli_host::workspace_identity(identity.as_deref(), &requested_cwd);
+    Ok(Workspace {
+        requested_cwd,
+        cwd,
+        data_dir,
+        db,
+        identity,
+    })
+}
+
+/// 数据目录按 Node `path.resolve` 词法归一，不解析符号链接。
+///
+/// 修复：此前这里走 `escode_cli_host::realpath`，macOS 上 `--data-dir /var/folders/...` 会展开成
+/// `/private/var/folders/...`。该目录随后拼进 `data_dir/tool-results/...` 并写进模型可见的
+/// `<persisted-output>` 信封；Node 的 storage 根只做 `path.resolve`，于是两侧文本不同
+/// （CI macOS `node_repl large js output is persisted ...` 差异）。词法归一同时符合
+/// `docs/specs/rust-windows-parity.md`「模型可见路径一律词法解析」；状态键与文件比较仍用 realpath。
+fn resolve_data_dir(requested: Option<PathBuf>) -> Result<PathBuf> {
+    let requested = requested.unwrap_or_else(|| {
         escode_cli_core_api::env::var_os("ESCODE_CLI_RUST_DATA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
@@ -57,23 +79,8 @@ pub async fn resolve_workspace(
                 .join("rust")
             })
     });
-    let data_dir = if requested_data.is_absolute() {
-        requested_data
-    } else {
-        escode_cli_core_api::env::current_dir()?.join(requested_data)
-    };
-    tokio::fs::create_dir_all(&data_dir).await?;
-    let data_dir = escode_cli_host::realpath(data_dir).await?;
-    let db = data_dir.join("rust-sessions.sqlite");
-    // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
-    let identity = escode_cli_host::workspace_identity(identity.as_deref(), &requested_cwd);
-    Ok(Workspace {
-        requested_cwd,
-        cwd,
-        data_dir,
-        db,
-        identity,
-    })
+    let base = escode_cli_core_api::env::current_dir()?;
+    Ok(escode_cli_plugins::lexical_path::resolve(&base, &requested))
 }
 
 /// 按需导入 TS 历史（数据迁移）。`stop` 触发时取消导入并返回 `Ok(true)`，调用方应直接退出。
@@ -212,4 +219,22 @@ pub fn model_configured(config: Option<&PathBuf>) -> bool {
     config.is_some()
         || (escode_cli_core_api::env::var_os("ESCODE_BUILTIN_PROVIDER_CONFIG_FILE").is_some()
             && escode_cli_core_api::env::var_os("ESCODE_PERSONAL_PROVIDER_CONFIG_FILE").is_some())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_data_dir;
+
+    /// 数据目录保留调用方给的写法：macOS `/var` 与 `/private/var` 是同一目录，realpath 会改写
+    /// 写进 `<persisted-output>` 的路径，而 Node 只做 `path.resolve`。
+    #[cfg(unix)]
+    #[test]
+    fn data_dir_keeps_the_requested_spelling_like_node_path_resolve() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("real-data");
+        std::fs::create_dir_all(&target).unwrap();
+        let link = dir.path().join("linked-data");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert_eq!(resolve_data_dir(Some(link.clone())).unwrap(), link);
+    }
 }

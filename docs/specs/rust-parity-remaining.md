@@ -81,12 +81,23 @@ rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 欠账�
 其中 macOS/Windows 均以 `--golden --strict` 运行并判定 parity（同样 0 欠账、0 新差异），跨平台 golden
 strict 门禁就此转绿。
 
-2026-11-01 CI 复跑另见一处**环境相关**的既有失败：`packages/services/tests/escode-cli-rust-plugins-hooks.test.ts`
-「Node and Rust discover plugin hooks identically」在 runner 上比 Node 多出无 `pluginId` 的
-`plugin_root_not_found`（`.../cache/zcode-plugins-official/rea/0.1.0`），本地同一文件通过
-（`ESCODE_TEST_REQUEST_MS=60000` 下 1 pass）。同样失败在平台归一化改动之前的 run `41264933512` 已出现，
-与本轮无关；根因待查（疑似 CI 构建产物让 Rust 侧发现到 rea 定义并写入 marketplace，而 seed 失败后
-`usable_fallback` 之外仍有根进入发现列表）。
+2026-11-01 CI 跨平台 test 分片三处失败的处置（run `41270183483`，commit `57179fa0`）：
+
+1. `escode-cli-rust-plugins-hooks.test.ts`「Node and Rust discover plugin hooks identically」在
+   Windows/macOS/Ubuntu 都多出无 `pluginId` 的 `plugin_root_not_found`（`.../cache/zcode-plugins-official/rea/0.1.0`）。
+   根因：Rust `discover_with` 把 bundled-marketplace 的每个 `cachePath` 都当发现候选，而 seed 失败
+   （随包资产缺失或 `requiredSeedPaths` 不全）时这些目录并不存在；Node `resolveOfficialPluginRoots`
+   只返回实际存在的根。修复见 commit `c9d7d79d`（候选增加目录存在校验 + `extension_plugins_tests.rs`
+   回归），验证 run `41273018321` 的 `checks` 三平台全绿。
+2. `escode-cli-rust-create-workflow.test.ts`（Windows）期望 `.escode/workflow-drafts/...`、Rust 输出
+   `.escode\workflow-drafts\...`。Node 在 Windows 录制时确实写反斜杠（`472a96ec` 的原始
+   `create-workflow.observe.win32-x64.json`），`daaa2043` 手工同步 golden 时把它覆盖成了 Linux 值；
+   恢复 Windows golden 的平台事实，Rust 不动（`path.relative` 语义）。
+3. `escode-cli-rust-node-repl.test.ts`（macOS）`<persisted-output>` 里的产物路径多出 `/private`：
+   Rust `resolve_workspace` 对 `--data-dir` 做 realpath（`/var` → `/private/var`），Node 的 storage 根
+   只做 `path.resolve`。改为词法归一（复用 `escode_cli_plugins::lexical_path`），回归
+   `runtime::tests::data_dir_keeps_the_requested_spelling_like_node_path_resolve`；
+   状态键与文件比较仍用 realpath。
 
 已确认的基础链路包括账号模型、三种模型协议、AskUserQuestion、Todo、shared context handover、本地文本附件、取消/队列/冷恢复。相关报告保留在 `docs/reports/`。本清单区分功能核心完成、残余兼容差分和发布门槛，不宣称全量 TS 替换已经验收。
 

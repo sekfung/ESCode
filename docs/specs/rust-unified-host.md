@@ -234,6 +234,10 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       CLI：全部 `packages/services/tests/escode-cli-rust-*.test.ts` 的确定性 oracle 已冻结到
       `packages/services/tests/fixtures/cli-golden/`；正常跑只启动 Rust
       （`ESCODE_RECORD_CLI_GOLDEN=1` 重录；`nodeOracle` 统一 record/load，大观察 gzip）。
+      `<suite>.<case>.<platform>-<arch>.json` 必须由该平台上的 Node 录制：`canonical()` 只把
+      `*Path`/`workspace`/`cwd`/`root` 这类字段的分隔符归一，自由文本里的路径（如 workflow
+      `createResult` 的 `.escode\workflow-drafts\...`）仍是平台事实。把 Linux 观察手工抄进
+      Windows golden 会伪造等价证据（2026-11-01 `create-workflow` 即由此误报，已恢复录制值）。
       例外（均非确定性 parity 门禁）：3 个默认跳过的 benchmark/rehearsal
       （`long-history-bench`、`real-data-rehearsal`、`real-provider-bench`）；
       `shell-resume-notice` 仅在 Windows 启用，其 golden 需在 Windows runner 上重录一次。

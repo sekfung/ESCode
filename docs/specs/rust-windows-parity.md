@@ -142,6 +142,20 @@ Read/Write/Edit 只把它用于模型可见路径，读写状态键与检查点�
 用旧 `join` 实现构建 fixture 时该用例失败、换成词法实现后通过。
 差异只剩绝对路径的尾部分隔符（Node `normalize` 保留、这里去掉），工具路径不靠它区分实体。
 
+## 数据目录也走词法解析（2026-11-01）
+
+CI macOS 的 `escode-cli-rust-node-repl.test.ts`「node_repl large js output is persisted to an artifact
+with the same envelope as Node」暴露：Rust 把 `--data-dir` realpath 后写进模型可见的 `<persisted-output>`
+信封（`<data-dir>/tool-results/...`），`/var/folders/...` 因此变成 `/private/var/folders/...`，而 Node 的
+storage 根（`resolvePath(configResult.config.storage.dir)` → `cli/artifacts`）只做 `path.resolve`。
+
+处理：`apps/escode-cli-rust/src/runtime.rs` 的 `resolve_data_dir` 改用
+`escode_cli_plugins::lexical_path::resolve`（Node `path.resolve` 语义），data_dir 不再 realpath。
+状态键、锁文件与文件实体比较仍用 `escode_cli_host::realpath`；与上表「模型可见路径一律词法解析」同一规则，
+只是这次是数据目录里的 artifact 路径。回归
+`runtime::tests::data_dir_keeps_the_requested_spelling_like_node_path_resolve`（软链接路径必须原样保留；
+用旧 realpath 实现运行该用例会得到目标路径并失败）。
+
 ## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
 
 `pnpm test:escode-cli-rust`（`ESCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。
