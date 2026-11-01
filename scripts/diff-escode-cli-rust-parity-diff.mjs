@@ -80,6 +80,22 @@ export const NORMALIZATION = [
       "时长类字段（durationMs/activeMs/elapsedMs/initialFrameEncodeMs 等 *Ms）是计时事实，逐次运行不同；掩码为 <MS>。移除条件：某时长字段成为契约值（预算/断言）时单独保留",
   },
   {
+    id: "prompt-char-counts",
+    order: "field",
+    pattern: '"source":"<source>","chars":<n>（原始插入序）',
+    replacement: '"chars":"<CHARS>"',
+    reason:
+      "上下文用量分解的 chars 是提示词字节数，系统提示含平台/Shell/系统信息行，跨平台天然不同；只掩码分解项的计数值，保留出现次数与 source 结构。移除条件：提示词字节预算成为跨平台契约值时",
+  },
+  {
+    id: "workspace-path-separator",
+    order: "field",
+    pattern: "<ROOT>\\\\\\\\",
+    replacement: "<ROOT>/",
+    reason:
+      "临时根被替换为 <ROOT> 后的路径分隔符是平台事实（Windows 为转义的反斜杠）；统一为 / 以便同一已批准差异的 sha 跨平台可比。移除条件：协议要求跨平台一致的分隔符编码时",
+  },
+  {
     id: "json-key-order",
     order: "serialization",
     pattern: "每行 JSON 对象按键名排序后比较",
@@ -112,6 +128,10 @@ function applyTextFieldRules(line, sideRoot) {
   out = out.replace(/"databaseId":"[0-9a-f]{64}"/g, '"databaseId":"<STORAGE_ID>"');
   out = out.replace(/(?:msg|sub|sess)_[a-z0-9]{6,8}(?=[_-])/g, "<RAND>");
   out = out.replace(/"([A-Za-z][A-Za-z]*Ms)":\d+/g, '"$1":"<MS>"');
+  // 上下文分解在原始帧里是 source→chars（插入序），键序归一后才是 chars→source；两种顺序都掩码。
+  out = out.replace(/"source":"([a-z_]+)","chars":\d+/g, '"source":"$1","chars":"<CHARS>"');
+  out = out.replace(/"chars":\d+(?=,"source":")/g, '"chars":"<CHARS>"');
+  out = out.replace(/<ROOT>\\\\/g, "<ROOT>/");
   // 值位置上的裸占位符补引号：归一后的行必须仍是合法 JSON，否则按方法分流（流/进度/消息）会失败。
   return out.replace(/:(<(?:ROOT|UUID|ISO_TS|EPOCH_MS|STORAGE_ID)>)/g, ':"$1"');
 }

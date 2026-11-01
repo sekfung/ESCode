@@ -413,6 +413,7 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 - **已落地（垂直切片，阶段 0）**：`scripts/diff-escode-cli-rust-parity.mjs`
   - 捕获层（`-capture`）：同一 mock SSE、临时 HOME/workspace/storage、固定 clientId/commandId/文本、400ms 尾帧静默期。
   - 差分层（`-diff`）：归一化规则随 evidence 输出、首差异 UTF-16 位置/JSON 路径/双侧 sha256、指纹棘轮。
+  - **响应面独立（2026-11-01）**：JSON-RPC 响应（有 `id` 且无 `method` 的行）不与通知帧混排比较——它由客户端按 `id` 关联，相对先后由各自调度决定（Node 在 Windows 录制到 frame→ack，Rust 固定 ack→frame）。响应自身按出现顺序全字段对拍，面名 `rpcResponses`；`frames` 面只保留通知与请求。
   - 落盘层（`-report`）：evidence.json + 双侧原始/归一帧 + 模型请求 + report.md。
   - 登记表 `…approved.json`（reason+removal，双侧钉住匹配）与欠账基线 `…baseline.json`；示例场景 `session-baseline`；平台欠账基线为空时 CI 自动启用 `--strict`（Linux 已启用；见 §4.6）。
 - 生成器 + `--check` 防漂移（复用现有 36 个 `generate-escode-cli-rust-*.mjs` 与 26 份语料的机制）。
@@ -432,6 +433,10 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 
 - 报告首个不同字节、UTF-16 位置、JSON 路径、消息序号、SHA-256 与双侧上下文。
 - 差分器自身的任何归一化步骤必须列出理由并被 review（见 §4.1 禁止清单）。
+- **平台事实归一化（2026-11-01）**：冻结 golden 的已批准差异按双侧 SHA-256 精确钉住，但旧规则未抹掉两类跨平台事实，导致同一已批准差异在 macOS/Windows 上因 sha 不同被判为“新差异”，只能依赖平台欠账基线续命：
+  - `prompt-char-counts`：上下文用量分解里的 `"chars":<n>`（`source` 为 `system_prompt` 等）是提示词字节数；系统提示含平台/Shell/系统信息行，各平台天然不同。掩码为 `"chars":"<CHARS>"`，保留出现次数与 `source` 结构。移除条件：提示词字节预算成为跨平台契约值时。
+  - `workspace-path-separator`：`<ROOT>` 之后的路径分隔符（Windows 为 `\\`）是平台事实；统一为 `/`。移除条件：协议要求跨平台一致的分隔符编码时。
+  - 两条规则都随 evidence 输出；掩码只针对上述字段/位置，不做通用路径或数字抹平。
 - 每个发现的偏移：分类（真偏移 / 已批准差异）→ 修复或记账 → 固化为永久回归用例；禁止"用例过时"式沉默修改。
 
 ### 4.5 CI 产物
@@ -460,6 +465,7 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 - [x] `-real-data-rehearsal.test.ts`：整行内容 SHA-256（归一化 id/时间戳/路径）、首个差异 JSON 路径与计数、附件、todo 一起断言；默认跳过，需 `ESCODE_REHEARSAL_DB`。2026-10-31 演练据此收敛冷导入的行 `actions`（`materializeCommandRowActions` 等价物）、`createdAtSeq` 事件分组、工具/正文行顺序、cancelled 工具行收口与 compact 摘要跳过；真实库单会话整行哈希两侧一致。
 - [x] `-cold-rows.test.ts`：8 个冻结 legacy 种子逐会话比较整份投影行（Node 观察冻结为 `cold-rows.frozen-seeds.json`，正常跑只启动 Rust），覆盖工具/正文交错、actions、createdAtSeq、工具行字段、摘要、内联附件 ref，以及 fork/subagent child/workflow 会话的可读性。
 - [x] 垂直切片的级别声明（2026-10-14）：消息帧 L4（键序归一已登记；位置严格）/ 存储进度 L2（阶段集合+键集合，条数为进度事实）/ 事件流 L3（方法×kind 集合，条数随冲刷时机，时序事实见 evidence.timing）/ 模型请求 L4（字符串值字节级）/ workspace 文件 L5。
+- [x] RPC 响应面（2026-11-01）：L4，按出现顺序全字段严格；与通知帧的相对位置不进契约（见 §4.2 响应面独立）。
 - [x] 切片真偏移收敛进度（2026-10-14，详见 `docs/reports/rust-difference-ledger-2026-10-14.md`）：
       M 系列已修复（模型请求字段名 `max_completion_tokens` / `tool_choice:"auto"`）；C 系列部分收敛
       （`memoryEnabled` 进全部遥测事实与后续命令 ack；偏好请求提前到创建期发起）。2026-10-31 进一步对齐出站顺序：

@@ -70,6 +70,15 @@ Windows/macOS 仍待对应 runner。
 modelRequests 1 条为已批准，workspaceFiles 0。CI 已使用 `--golden`，并在平台欠账基线为空时追加
 `--strict`（Linux 已满足；macOS/Windows 需在各自 runner 重录并逐条登记后转 strict）。
 
+2026-11-01 平台归一化与响应面拆分：冻结 golden 的已批准差异按双侧 SHA-256 钉住，但提示词字节数
+（`"chars"`）与 `<ROOT>` 后的路径分隔符是平台事实，导致 macOS/Windows 上同一已批准差异因 sha 不同被判为
+新差异；JSON-RPC 响应又与通知帧混排，Windows 录制的 frame→ack 与 Rust 固定的 ack→frame 形成顺序竞态。
+差分层新增 `prompt-char-counts`、`workspace-path-separator` 两条归一化规则，并把响应拆到独立
+`rpcResponses` 面（按出现顺序严格，相对通知帧的位置不进契约），见
+[rust-unified-host.md](rust-unified-host.md) §4.2/§4.6。`--golden --strict` 在 Linux 通过（frames 7、
+rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 欠账）；用 macOS/Windows golden 在本地
+模拟也无新增差异类（仅剩“Linux 二进制跑别平台 golden”的 Platform 行伪差），三平台真实结果待 CI 复验。
+
 已确认的基础链路包括账号模型、三种模型协议、AskUserQuestion、Todo、shared context handover、本地文本附件、取消/队列/冷恢复。相关报告保留在 `docs/reports/`。本清单区分功能核心完成、残余兼容差分和发布门槛，不宣称全量 TS 替换已经验收。
 
 ## App 协议方法级 diff（2026-09-30）

@@ -4,7 +4,7 @@
     {
       "id": "capabilities-execution-extension",
       "scenario": "session-baseline",
-      "surface": "frames",
+      "surface": "rpcResponses",
       "status": "approved",
       "match": {
         "index": 0,
@@ -41,7 +41,7 @@
     {
       "id": "subscribe-ack-open-timing-diagnostics",
       "scenario": "session-baseline",
-      "surface": "frames",
+      "surface": "rpcResponses",
       "status": "approved",
       "match": {
         "leftContaining": "\"openTiming\":{\"initialFrameEncodeMs\""
@@ -65,7 +65,7 @@
     {
       "id": "create-session-ack-memory-enabled-absent",
       "scenario": "session-baseline",
-      "surface": "frames",
+      "surface": "rpcResponses",
       "status": "approved",
       "match": {
         "jsonPath": "$.result.memoryEnabled",
@@ -82,7 +82,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 7,
+        "index": 3,
         "leftSha256": "3e960893c3278aea79c5ed667ba3f622db122c59e2854bbbeae730fa6ad7051c",
         "rightSha256": "aa208a8bfdae878831bdd62f17d6ff1adb59d270023b10f89b1fea570c06042e"
       },
@@ -95,7 +95,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 8,
+        "index": 4,
         "leftSha256": "416fd9219532469ac5396d456ead39e261ed1c2094ac50e611ee1e2ac4f215e0",
         "rightSha256": "70ac42c561d7c38a09e876fc74c5d6ff19ab56ed8bd713a7618934e748ed21e0"
       },
@@ -108,7 +108,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 9,
+        "index": 5,
         "leftSha256": "f643fe06e921b553888e6073a1d698dbfacede2999a6607094a71351639acb82",
         "rightSha256": "e47e2639a99df0af1dba711ff66f25fca01b4d767135429344f4d043341b1a36"
       },
@@ -121,8 +121,8 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 10,
-        "leftSha256": "88101ad5473bb114df663c03dce88be7c17399abecd27e5bce5250cefadac8ff",
+        "index": 6,
+        "leftSha256": "b128f3da4538772526789396bbf4d6313a6bfc05f0c37a5919d4ff28212b25b2",
         "rightSha256": "9e8cdfa07a48ded8c8a5ef680d849329cc7c74bfc9a1146570fec5257aa6b151"
       },
       "removal": "Rust 投递层按 Node 的 flushWindowMs/事件序号/键级补丁重写（阶段 2 P2），或差分 frames 面改为逻辑 delta 流后移除"
@@ -134,7 +134,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 11,
+        "index": 7,
         "leftSha256": "54ca83ef06ef7ceb682f60b6c24176d0655bd88fbdfd37daad1b5ac8e8320818",
         "rightSha256": "4d241bed520777232fc0b4513013ce06929056bb032625a31d0c9ac28ccd5ce3"
       },
@@ -147,7 +147,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 12,
+        "index": 8,
         "leftSha256": "9e615b16eb3af22a5e1e690a5c6cd13fcfd3295871ff9d940604519aa065588a",
         "rightSha256": "fdd782234a3f8b3577be39b059377475b41456427bb0b7dffd9e0d137f1ffc62"
       },
@@ -160,7 +160,7 @@
       "surface": "frames",
       "status": "approved",
       "match": {
-        "index": 13,
+        "index": 9,
         "leftSha256": null,
         "rightSha256": "814a7b4b8ba9982a825a4960d052bf493df843b2b0b664adc24c21bcf204f255"
       },

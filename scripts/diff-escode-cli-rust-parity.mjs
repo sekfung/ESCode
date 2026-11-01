@@ -194,6 +194,7 @@ const STREAM_METHODS = new Set([
 function splitFrames(side) {
   const progress = [];
   const streams = [];
+  const responses = [];
   const messages = [];
   for (const line of side.framesNormalized) {
     let frame = null;
@@ -202,9 +203,10 @@ function splitFrames(side) {
     } catch {
       /* 原始日志行按消息处理。 */
     }
-    if (!frame?.method || !STREAM_METHODS.has(frame.method)) {
-      messages.push(line);
-    } else if (frame.method === "startup/storageState") {
+    // 响应按 id 关联，与通知帧的相对先后取决于调度（非契约）；响应自身仍按出现顺序全字段对拍。
+    if (frame && frame.id !== undefined && frame.method === undefined) responses.push(line);
+    else if (!frame?.method || !STREAM_METHODS.has(frame.method)) messages.push(line);
+    else if (frame.method === "startup/storageState") {
       progress.push(frame);
     } else {
       streams.push({
@@ -213,7 +215,7 @@ function splitFrames(side) {
       });
     }
   }
-  return { progress, streams, messages };
+  return { progress, streams, responses, messages };
 }
 // 进度/遥测等计数型流的"条数与先后"本身随机抖动（迁移步骤进度、遥测冲刷时机），
 // 汇总只比较"出现过哪些阶段/方法/kind"这一集合面，条数与顺序不参与判定（时序事实另记）。
@@ -259,6 +261,7 @@ const summarySurfaces = (name, left, right) =>
       ];
 const surfaces = {
   frames: diffLines("frames", framesSplit.node.messages, framesSplit.rust.messages),
+  rpcResponses: diffLines("rpcResponses", framesSplit.node.responses, framesSplit.rust.responses),
   storageProgress: summarySurfaces("storageProgress", nodeProgress, rustProgress),
   streams: summarySurfaces("streams", nodeStreams, rustStreams),
   modelRequests: diffLines(
