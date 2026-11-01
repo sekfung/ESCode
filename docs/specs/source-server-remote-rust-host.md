@@ -538,13 +538,13 @@ RPC（`source-server-management`）：
 
 **转发语义**
 
-| 项   | 行为                                                                                                               |
-| ---- | ------------------------------------------------------------------------------------------------------------------ |
-| 方法 | `RemoteChannelClient::call(channel, method, arg)`；返回值按 `WireValue`→`Wire` 转回                                |
-| 事件 | `listen(channel, event, arg)`；返回的流被丢弃（连接关闭/取消订阅）时 `dispose_listener`，不泄漏远端订阅            |
+| 项     | 行为                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| 方法   | `RemoteChannelClient::call(channel, method, arg)`；返回值按 `WireValue`→`Wire` 转回                                      |
+| 事件   | `listen(channel, event, arg)`；返回的流被丢弃（连接关闭/取消订阅）时 `dispose_listener`，不泄漏远端订阅                  |
 | 事件序 | EventListen 必须在 handler 返回前写入远端出站队列（eager），保证先于紧随其后的 `call` 到达远端（见 2026-11-01 落地记录） |
-| 错误 | `RemoteCallError{name,message,data}` → `RpcError{name: 远端 name, message, extra.code: data.code}`；不吞错、不重试 |
-| 取消 | PromiseCancel 只中止本地等待任务；远端请求无取消帧时保持既有语义（与 TS `ChannelClient` 一致）                     |
+| 错误   | `RemoteCallError{name,message,data}` → `RpcError{name: 远端 name, message, extra.code: data.code}`；不吞错、不重试       |
+| 取消   | PromiseCancel 只中止本地等待任务；远端请求无取消帧时保持既有语义（与 TS `ChannelClient` 一致）                           |
 
 **落地记录（2026-11-01：EventListen 必须 eager 入队）**
 
@@ -1313,6 +1313,17 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   `workspace_root()` 裸 `canonicalize()` 在 Windows 回 `\\?\D:\...`（verbatim），把它当脚本参数交给
   `node` 会被 `Module._findPath` 解析成 `D:`（`EISDIR`），整条跨语言对拍在 windows-latest 全红。
   夹具按 `rust-windows-parity.md` 的规则去掉非 UNC 的 verbatim 前缀。
+- 2026-11-01 跨平台 CI 转绿（run `41282629407`，commit `f6f4b10f`）：`checks`（含 Windows 目标
+  clippy `-D warnings`）、`bench`、`test` 的 9 个分片（ubuntu/macOS/windows × 1..3）与
+  `desktop e2e matrix` 三平台全绿。其中 `test (windows-latest, 1/3)` 与
+  `test (macos-latest, 1/3)` 是 `pnpm test:escode-host` 首次真正跑到这两个平台：
+  Windows 侧 15 个跨语言对拍用例（10 client + 5 remote scope）与 macOS 侧 10 个
+  bootstrap/identity 用例 + V4 帧差分全部通过。修复项见上面三条夹具缺陷，以及 §10.11 的
+  EventListen eager 入队（macOS 的 `v4_frames_match_the_node_remote_oracle` 5s 无帧超时）。
+  同轮 `test (windows-latest, 2/3)` 的两个 CLI 差分套件（`attachment-limits`、
+  `read-text-parity`）在补 Windows 录制 golden 后通过。
+  **这不改变 S4-i 结论**：SSH 三条主链（首装/更新/重启恢复）仍需 Windows/macOS 可达的 Linux
+  目标机，CI 的 SSH job 固定 `ubuntu-latest`。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
@@ -1679,6 +1690,12 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 ### 12.5 完成判据
 
 > 当前阻塞（2026-11-01）：其一，Windows/macOS 主链 E2E 需要对应平台桌面环境或可达 SSH 目标（本机只有 Linux x64，CI 的 SSH job 固定 `ubuntu-latest`，见 §11.11）。其二，零 `escode-host-remote-*` 的 server 真实 E2E、两窗口共享实例与重启恢复已在 Linux x64 通过（`source-server-rust-server-direct.test.ts`，artifact `desktop-e2e-20261031-225816-501`），跨平台版本仍待补齐。S5-d 的 Node remote deploy 链已删除，但 S5 与总目标尚未完成，不得据此删除 Node Host / TS CLI。
+>
+> 2026-11-01 补充：run `41282629407`（commit `f6f4b10f`）已让 `pnpm test:escode-host` 在
+> windows-latest / macos-latest 转绿，`desktop e2e matrix` 的
+> `source-server-rust-server-direct.test.ts` 三平台全绿——上面第二条（server-direct 跨平台版本）
+> 因此补齐。第一条（SSH 三条主链）仍缺对应平台可达目标机，P1 的真实供应商/MCP/安装包演练也未开始，
+> S5 与总目标仍未完成。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`

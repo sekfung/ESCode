@@ -146,3 +146,10 @@ method 表逐条用 `rg --fixed-strings` 对比，对命中"App 有调用、Rust
     `session/events`、`session/debug`、`session/subscribe`（V4 已用 `v4/conversation/subscribe` 取代）、
     `workspace/hooks/trustGrant` 已随 hooks H2 实现（见 [rust-hooks.md](rust-hooks.md)）。`plugins/referenceCatalog*` 同样没有活跃 UI
     调用点，但 TS 仍提供，Rust 已一并实现（见上）。
+
+2026-11-01 三平台 CLI 差分门禁：`rust-runtime-ci` run `41282629407`（commit `f6f4b10f`）的
+`test` 9 个分片（ubuntu/macOS/windows × 1..3）全绿，`bench` 三平台 strict 全绿。同一轮补了两个
+Windows 平台 golden（`attachment-limits.*.win32-x64.json` 9 个、`read-text-parity.cases.win32-x64.json`），
+由 `record cli goldens` run `41279354207` 在 windows-latest 用 `ESCODE_GOLDEN_PLATFORM=1` 录制，
+未手抄 Linux 值（规则见 [rust-unified-host.md](rust-unified-host.md)）。这不代表 P1 的
+「真实供应商 / 第三方 MCP / 安装包演练」已完成。
