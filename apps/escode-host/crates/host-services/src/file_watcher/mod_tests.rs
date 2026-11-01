@@ -21,6 +21,11 @@ async fn quiet(rx: &mut mpsc::UnboundedReceiver<Value>) -> bool {
 async fn single_changed_path_is_reported_and_batches_drop_it() {
     let dir = tempfile::tempdir().expect("dir");
     let root = dir.path().to_string_lossy().into_owned();
+    // macOS 的 FSEvents 会把「创建 + 写入」拆成 create/modify 两个底层事件，防抖窗口内合并后
+    // changedPath 为 null。先建文件再监听，本次写入只剩一个 modify 事件，才能确定地断言单路径。
+    tokio::fs::write(dir.path().join("a.txt"), "0")
+        .await
+        .expect("seed");
     let service = FileWatcherService::with_debounce(WINDOW);
     let id = service.watch(&root, false).await.expect("watch");
     assert_eq!(id, "0");
