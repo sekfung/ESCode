@@ -1252,6 +1252,18 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   本机 Linux x64 复跑：单跑 `desktop-e2e-20261101-005906-288`（1 passing / 18.6s），按 CI 默认
   四条清单合跑 `desktop-e2e-20261101-010134-706`（4 passing / 1m08s）；Windows/macOS 的 CI 实跑
   结果在 push 后登记。
+- 2026-11-01 首次三平台 CI 实跑（`desktop-e2e-matrix` run `41260831810`，commit `73cbfb1e`）：
+  ubuntu 通过；windows 在 fixture 启动 `escode-server` 时崩溃（libuv `fs-event.c` 断言
+  `_wcsnicmp(filename, dir, dirlen)`，exit `3221226505`），macOS 报裸 `Timeout`（阶段不可定位）。
+  两个平台都没拿到该用例的通过证据，S4-i 保持未完成。
+- Windows 崩溃根因（已修）：fixture 用 `tmpdir()` 建 workspace / dataDir，Windows 路径含 8.3 短名
+  （`C:\Users\RUNNER~1\...`），server 对 workspace 做递归 `fs.watch`，libuv 用短名目录与 OS 回报的
+  长名前缀比较不一致即断言退出。`local-escode-server.ts` 改为先 `realpath(tmpdir())` 再拼子目录，
+  同时不受 macOS `\var` → `\private\var` 符号链接影响；这是测试环境路径，不是产品缺陷。
+- 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
+  `wait-workspace-ready` / `wait-remote-session` / `restart-recovery` / `disconnect-reconnect` /
+  `second-window` / `assert-zero-node-host`），失败时错误信息带阶段名；`after` 钩子改为 `server?.stop()`，
+  避免 `before` 失败时 `reading 'stop'` 掩盖真实原因。macOS 的 `Timeout` 需下一轮 CI 用阶段名确认。
 - 2026-11-01 删除 Node 远程路径（S5-f-5）后，Linux x64 上按本 runbook 复跑的三条主链均已通过：
   - 首次安装 + 显式更新：`source-server-rust-install.test.ts`，
     `desktop-e2e-20261101-000342-581`（`1 passing (5m 22s)`；空目标 `needs-install` →

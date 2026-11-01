@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, rm } from "node:fs/promises";
+import { access, mkdir, realpath, rm } from "node:fs/promises";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -43,10 +43,15 @@ export async function startLocalESCodeServer(
 ): Promise<LocalESCodeServer> {
   const entry = await resolveServerEntry();
   const publicPort = options.port ?? (await allocateFreePort());
+  // Windows 的 tmpdir() 常含 8.3 短名（如 `C:\Users\RUNNER~1\...`）。server 会对 workspace
+  // 递归 fs.watch，libuv 的 fs-event 用短名目录与 OS 回报的长名前缀比较，命中不一致时直接
+  // 断言退出（`_wcsnicmp(filename, dir, dirlen)`，exit 3221226505）。macOS 同理：`/var` 是
+  // `/private/var` 的符号链接。先 realpath 成规范长路径，避免把平台路径差异当成产品缺陷。
+  const tempRoot = await realpath(tmpdir()).catch(() => tmpdir());
   const workspacePath =
-    options.workspacePath ?? join(tmpdir(), `escode-e2e-server-${randomUUID()}`, "workspace");
+    options.workspacePath ?? join(tempRoot, `escode-e2e-server-${randomUUID()}`, "workspace");
   const dataBaseDir =
-    options.dataBaseDir ?? join(tmpdir(), `escode-e2e-server-${randomUUID()}`, "home");
+    options.dataBaseDir ?? join(tempRoot, `escode-e2e-server-${randomUUID()}`, "home");
   // settings/Profile schema 要求 sourceServerId 是 UUID；server 的 info.serverId 直接投影为它。
   const serverId = options.serverId ?? randomUUID();
   const token = `e2e-token-${randomUUID()}`;
