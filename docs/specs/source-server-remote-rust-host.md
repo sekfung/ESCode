@@ -1244,6 +1244,16 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
 
 未完成（S4 退出条件仍不满足）：
 
+- 2026-11-01 删除 Node 远程路径（S5-f-5）后，Linux x64 上按本 runbook 复跑的三条主链均已通过：
+  - 首次安装 + 显式更新：`source-server-rust-install.test.ts`，
+    `desktop-e2e-20261101-000342-581`（`1 passing (5m 22s)`；空目标 `needs-install` →
+    `installPreview.sizeBytes > 0` → 远端 `~/.escode/server/node` 与 `zcode-server.cjs` →
+    `force` 更新到 `3.15.2` 后仍 `online`）。首跑时目标机残留上次安装，用例按「空目标」契约
+    先 `rm -rf /root/.escode` 才能复现 `needs-install`，这是 fixture 前置条件而非产品缺陷。
+  - 重启恢复：`source-server-rust-restart-recovery.test.ts` 于
+    `desktop-e2e-20261031-235726-737` 通过（App 重启后按 `lastOnlineAt` 自动恢复，零 Node Host）。
+  - host key：`source-server-rust-host-key.test.ts` 于 `desktop-e2e-20261101-000052-414` 通过
+    （首连写 Desktop 自有 known_hosts；key 变化显式 `remote-host-key-changed` 且不覆盖）。
 - Windows/macOS 上三条主链的真实 E2E：首次安装、显式更新、重启恢复。
 - 现状缺口：本机无 Windows/macOS 桌面环境；CI 的 SSH E2E job 固定 `ubuntu-latest`（Docker sshd），
   三平台 e2e matrix 不含 SSH 用例；且 S3/S4 源码尚未提交，已有 CI 记录（`01ebe258`，2026-10-30）
@@ -1562,9 +1572,13 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 ### 12.4 验收场景（S5）
 
 1. 删除后首连、断线原位重连、App 重启恢复、多窗口共享实例全部走 Rust Host，无 Node UtilityProcess
-   远程进程。证据（Linux）：首连 `desktop-e2e-20261031-122307-136`；断线/重启/多窗口等 6 例
-   `desktop-e2e-20261031-123400-961`；双 workspace `desktop-e2e-20261031-125229-399`；均断言零
-   `escode-host-remote-*`。Windows/macOS 待对应平台环境（见 §11.11）。
+   远程进程。证据（Linux，S5-f-5 删除 Node 远程路径之后复跑）：首连
+   `desktop-e2e-20261031-235507-219`；多窗口 + 断线重连 + 重启恢复
+   `desktop-e2e-20261031-235726-737`（3 例）；远端 scope + Provider Provisioning
+   `desktop-e2e-20261101-001114-778`；`kind: "server"` 真实 server
+   `desktop-e2e-20261031-225816-501`；均断言零 `escode-host-remote-*`。删除前的历史证据见
+   `desktop-e2e-20261031-122307-136` / `-123400-961` / `-125229-399`。Windows/macOS 待对应平台
+   环境（见 §11.11）。
 2. `ESCODE_RUST_HOST=0` 下远程连接仍成功（开关只影响本地），或按产品决策显式报错而非回退 Node。
    证据（2026-10-31）：S5-b 已让远程路由不再读取该开关；
    `desktopRemoteSessionsRustHostMode.test.ts` 新增用例断言缺少 Rust resolver 的 SSH 目标返回
@@ -1825,6 +1839,17 @@ scoped capability。per-window Node Host 的远程 workspace 分支随之删除�
   零 `escode-host-remote-*`）已在 Linux x64 通过：`source-server-rust-server-direct.test.ts`，
   artifact `desktop-e2e-20261031-225816-501`。期间修复了 WS Initialize 早于 channel 注册的能力集
   缺陷（见上一节问题记录）；E2E 的 Host 进程基线改为在 App 重启之后取（重启会换 Rust Host 进程）。
+- 删除后 SSH/server 远端链路复跑（2026-11-01，Linux x64，本机 Docker sshd + 真实 escode-server）：
+  - `source-server-rust-first-connect`（`desktop-e2e-20261031-235507-219`）
+  - `source-server-rust-multi-window` + `-transport-drop` + `-restart-recovery`
+    （`desktop-e2e-20261031-235726-737`，3 例）
+  - `source-server-rust-install`（`desktop-e2e-20261101-000342-581`）与
+    `source-server-rust-host-key`（`desktop-e2e-20261101-000052-414`）
+  - `source-server-rust-remote-scope` + `source-server-rust-provisioning`
+    （`desktop-e2e-20261101-001114-778`）
+  - `source-server-rust-server-direct`（`desktop-e2e-20261031-225816-501`）
+    全部断言零 `escode-host-remote-*`；`ESCODE_RUST_HOST` 仍只作用于本地 Host 选择（§12.2），
+    远程链路不读取该开关。
 - 单测门禁（2026-11-01）：`pnpm verify:pre-push` 全绿（1573 files / 13874 tests passed，27 skipped）。
   同一轮补齐了 `daaa2043` 引入的 tasks 账本引导缺口（Rust Host `rpcListen` 要求 Main 先建
   `tasks-index.sqlite`）与 S3-c/S5-f-5 协议删除后失效的断言，共 28 例，见 commit `fd4e30a6`。
