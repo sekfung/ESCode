@@ -9,6 +9,6 @@
       "scope": "user-execution"
     }
   ],
-  "childBash": "Microsoft Windows [Version 10.0.26100.33650]",
+  "childBash": "Microsoft Windows [Version <windows-version>]",
   "schemaErrors": []
 }

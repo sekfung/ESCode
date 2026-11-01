@@ -1,7 +1,7 @@
 {
   "shell": {
     "firstTool": "Exit code 127\n/usr<shell>: ver: command not found",
-    "secondTool": "Microsoft Windows [Version 10.0.26100.33650]"
+    "secondTool": "Microsoft Windows [Version <windows-version>]"
   },
   "entryTypes": [
     "runtime/execution_state",

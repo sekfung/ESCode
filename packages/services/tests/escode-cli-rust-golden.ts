@@ -36,6 +36,12 @@ export function canonical<T>(value: T, parentKey?: string): T {
         )
         .replace(/^(- Platform: ).*$/gm, "$1<platform>")
         .replace(/^(- OS Version: ).*$/gm, "$1<os>")
+        // Windows runner 镜像升级会改 cmd `ver` 输出的补丁号（10.0.26100.33650 →
+        // …33674）。补丁号不是 parity 语义，归一并冻结为占位符，避免每次镜像更新误报。
+        .replace(
+          /Microsoft Windows \[Version [0-9.]+\]/g,
+          "Microsoft Windows [Version <windows-version>]",
+        )
         // macOS 的临时目录是 /var/folders/.../T/；与 Linux /tmp/ 归一，避免同一条观察跨平台漂移。
         .replace(/\/var\/folders\/[^/\s]+\/[^/\s]+\/T\//g, "/tmp/")
         .replace(/Shell cwd was reset to .*/g, "Shell cwd was reset to <cwd>")
