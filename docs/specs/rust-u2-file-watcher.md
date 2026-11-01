@@ -41,12 +41,20 @@
 
 ## 5. 验收
 
-1. **TS oracle 差分**：`packages/desktop/test/rustHostFileWatcher.test.ts` 在同一组目录夹具上，用真实 TS `createFileWatcherService()` 与 Rust Host 的
-   `file-watcher` channel（真实 `@escode/client`）执行同一脚本，比较每步收到的事件序列：创建单文件（带 `changedPath`）、同窗口两个文件（无 `changedPath`）、
+1. **TS oracle 差分**：`packages/desktop/test/rustHostFileWatcher.test.ts` 在同一组目录夹具上只启动 Rust Host 的
+   `file-watcher` channel（真实 `@escode/client`），与冻结观察 `packages/desktop/test/fixtures/golden/rustHostFileWatcher.oracle.json`
+   逐项比较每步收到的事件序列（不再实例化 TS 服务）：创建单文件（带 `changedPath`）、同窗口两个文件（无 `changedPath`）、
    修改、重命名、非递归下子目录写（无事件）、递归下子目录写（带子路径）、删除被监视目录自身（非递归 / 递归两种映射）、`unwatch` 后无事件、
    stale id 订阅不抛错、`watch` 不存在目录的错误文案。
 2. **Rust 单测**：防抖窗口合并、`changedPath` 取舍、根自身映射、Access 过滤。
 3. **负向验证**：改坏根自身映射（非递归 / 递归各一）、放宽「恰好一个路径才带 changedPath」，差分必须失败。Access 过滤只能由单测覆盖（notify 的 inotify 掩码本身不产生 open 事件，差分里它不可见）。
+
+### 5.1 2026-11-02 macOS flake 修复
+
+Rust 单测 `single_changed_path_is_reported_and_batches_drop_it` 原先把一次 `fs::write` 当作单个底层事件；
+macOS FSEvents 会把「创建 + 写入」拆成 create/modify 两个事件，40 ms 防抖窗口内合并后 `changedPath` 为
+null（产品预期行为）。夹具改为先建文件再监听，使写入只产生一个 modify 事件。修复后 run `41360826267`
+的 macOS shard（job `125012610781`）通过，本地连跑 5 次通过。
 
 ## 6. 登记差异
 
