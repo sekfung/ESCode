@@ -161,7 +161,7 @@ jobs:
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
         run: |
           xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+            --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
       - name: dump SSH target logs
         if: always()
         run: docker logs escode-e2e-ssh 2>&1 | tail -200 || true
@@ -226,7 +226,7 @@ jobs:
           ESCODE_E2E_SSH_USERNAME: escode-e2e
         run: |
           pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+            --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
       - name: dump SSH target log
         if: always()
         run: sudo cat /tmp/escode-e2e-sshd.log 2>&1 | tail -200 || true
@@ -352,7 +352,7 @@ jobs:
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
-        run: pnpm --filter @escode/desktop exec wdio run wdio.conf.ts --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+        run: pnpm --filter @escode/desktop exec wdio run wdio.conf.ts --spec ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
       - name: dump WSL sshd log
         if: always()
         shell: bash
