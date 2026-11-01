@@ -332,8 +332,14 @@ jobs:
           wsl -l -v || true
           repo_wsl="/mnt/$(cygpath -w "$PWD" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|\L\1|')"
           wsl -d Ubuntu-22.04 -u root -- bash "$repo_wsl/scripts/e2e/start-ssh-e2e-server-wsl.sh" "$password" /root/workspace
+      # Bug 根因：该步骤此前用 bash，node 侧读到的 /root/workspace 被 git-bash 的 MSYS
+      # 环境变量改写规则换成了 "C:/Program Files/Git/root/workspace"，helpers 的
+      # `startsWith("/")` 断言随即失败。改用 pwsh（原生进程）并单行调用，避免 env 改写。
+      - name: check SSH env reaches node unchanged
+        env:
+          ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
+        run: node -e "console.log('workspacePath=' + process.env.ESCODE_E2E_SSH_WORKSPACE_PATH)"
       - name: run SSH remote project E2E
-        shell: bash
         env:
           ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
           ESCODE_E2E_SSH_HOST: 127.0.0.1
@@ -342,9 +348,7 @@ jobs:
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
-        run: |
-          pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+        run: pnpm --filter @escode/desktop exec wdio run wdio.conf.ts --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
       - name: dump WSL sshd log
         if: always()
         shell: bash
