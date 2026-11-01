@@ -415,7 +415,7 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
   - 差分层（`-diff`）：归一化规则随 evidence 输出、首差异 UTF-16 位置/JSON 路径/双侧 sha256、指纹棘轮。
   - **响应面独立（2026-11-01）**：JSON-RPC 响应（有 `id` 且无 `method` 的行）不与通知帧混排比较——它由客户端按 `id` 关联，相对先后由各自调度决定（Node 在 Windows 录制到 frame→ack，Rust 固定 ack→frame）。响应自身按出现顺序全字段对拍，面名 `rpcResponses`；`frames` 面只保留通知与请求。
   - 落盘层（`-report`）：evidence.json + 双侧原始/归一帧 + 模型请求 + report.md。
-  - 登记表 `…approved.json`（reason+removal，双侧钉住匹配）与欠账基线 `…baseline.json`；示例场景 `session-baseline`；平台欠账基线为空时 CI 自动启用 `--strict`（Linux 已启用；见 §4.6）。
+  - 登记表 `…approved.json`（reason+removal，双侧钉住匹配）与欠账基线 `…baseline.json`；示例场景 `session-baseline`；平台欠账基线为空时 CI 自动启用 `--strict`（三平台已启用，2026-11-01 起 macOS/Windows 欠账基线为空；见 §4.6）。
 - 生成器 + `--check` 防漂移（复用现有 36 个 `generate-escode-cli-rust-*.mjs` 与 26 份语料的机制）。
 - **golden freeze（阶段 3 前置）**：删除 Node 前，把全部 goldens 冻结为自包含资产；此后 oracle 从"双跑 Node"切换为"goldens + spec"，必须能独立重验。
 - **帧键集合不增删（2026-10-31 修复）**：编码层不得为由 TS 定义的可选键补 `null`。`serde_json::Value` 的
