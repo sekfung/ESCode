@@ -50,12 +50,11 @@ fn options(lock_dir: &std::path::Path, timeout: u64) -> AcquireOptions {
     AcquireOptions {
         lock_dir: lock_dir.to_string_lossy().into_owned(),
         acquire_timeout: Duration::from_secs(timeout),
-        // Bug 根因：5s 覆盖不了 CI 满负载下的 shell 收尾（kill heartbeat + wait + rm -rf）。
-        // 74167f06 的 rust-runtime-ci `test (ubuntu-latest, 1/3)` 在 764 个 host 用例并发 spawn
-        // `sh` 时实测 release 超 5s 而被误判失败；同一次运行的其余 14 个作业（含跑同一 unix-only
-        // 用例的 macOS）全绿，本地 8 连跑全量 + 单用例 700 次（含 CPU 饥饿）也未复现。这里与
-        // source_server_ssh_install 的真实 SSH 用例取同一预算；产品默认
-        // `DEFAULT_RELEASE_TIMEOUT` 仍是 5s，真挂死由 30s 兜底。
+        // Bug 根因：74167f06 / e11c680f 的 rust-runtime-ci `test (ubuntu-latest, 1/3)` 失败不是
+        // 负载慢，而是 heartbeat 子 shell 丢弃 SIGTERM 后旧脚本无界 `wait` 造成的真挂起（见
+        // `build_lock_script` 的 cleanup 注释）。该挂起已修；这里仍保留 30s 预算，覆盖 CI 在 764
+        // 个并发用例里 spawn `sh` 的慢启动。产品默认 `DEFAULT_RELEASE_TIMEOUT` 保持 5s，
+        // 超时只终止本机 holder、不删远端锁。
         release_timeout: Duration::from_secs(30),
         ..AcquireOptions::default()
     }
@@ -74,6 +73,29 @@ async fn acquires_and_releases_the_lock_directory() {
     assert_eq!(owner, lock.owner_token());
     lock.release().await.expect("release");
     assert!(!lock_dir.exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn immediate_release_after_acquire_does_not_wait_on_the_heartbeat() {
+    // Bug 根因见 build_lock_script 的 cleanup 注释：release 紧邻 acquire 时 SIGTERM 可能落在
+    // heartbeat 子 shell 的 fork 启动窗口内被丢弃；旧实现用无界 `wait` 收尾，会一直阻塞到
+    // release 超时（CI 上表现为 5s/30s 超时）。这里 300 轮紧邻 acquire→release 覆盖该竞态：
+    // 旧实现在本机每轮约 2% 命中，300 轮可稳定捕获；新实现整轮约 2s。
+    let temp = tempfile::tempdir().expect("temp");
+    for round in 0..300 {
+        let lock_dir = temp.path().join(format!(".deploy.lock.{round}"));
+        let mut lock_options = options(&lock_dir, 5);
+        lock_options.release_timeout = Duration::from_secs(2);
+        let lock = acquire(&LocalRunner, &lock_options).await.expect("acquire");
+        lock.release()
+            .await
+            .unwrap_or_else(|error| panic!("immediate release failed (round {round}): {error}"));
+        assert!(
+            !lock_dir.exists(),
+            "lock dir must be removed (round {round})"
+        );
+    }
 }
 
 #[cfg(unix)]

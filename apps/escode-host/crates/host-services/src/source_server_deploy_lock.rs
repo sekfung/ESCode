@@ -162,8 +162,17 @@ pub fn build_lock_script(lock_dir: &str, owner_token: &str) -> String {
         "done".to_owned(),
         "printf %s \"$owner_token\" > \"$owner_file\"".to_owned(),
         "lock_heartbeat_pid=".to_owned(),
+        // Bug 根因：cleanup 里对 heartbeat 的 `wait "$lock_heartbeat_pid"` 会无限阻塞。heartbeat 是
+        // dash 的 `&` 子 shell；Host 在 acquire 成功后立刻 release（失败回滚与单测都是紧邻两次调用）
+        // 时，SIGTERM 会落在子 shell 的 fork 启动窗口内被丢弃——`kill` 返回 0，子 shell 却仍存活并
+        // 持续刷新 owner 文件，`wait` 永不返回，release 只能等到超时。
+        // 实测（读完 acquired 立即写 release marker，48 并发）：旧脚本 800 次挂起 16 次；同一脚本
+        // 延迟 200ms 再 release 则 0 次；去掉 `wait` 后 1500 次 0 次。
+        // 修复依据：释放语义只取决于锁目录（owner 校验后 `rm -rf`），heartbeat 只是 keep-alive。
+        // 子 shell 的 fd 已全部指向 /dev/null（见上方 heartbeat 注释），即使它多活一个心跳周期也不
+        // 占用 SSH 通道；锁目录删除后它下一轮 `cat owner` 失败即自行退出。
         "cleanup_deploy_lock() {".to_owned(),
-        "  if [ -n \"${lock_heartbeat_pid:-}\" ]; then kill \"$lock_heartbeat_pid\" >/dev/null 2>&1 || true; wait \"$lock_heartbeat_pid\" 2>/dev/null || true; fi".to_owned(),
+        "  if [ -n \"${lock_heartbeat_pid:-}\" ]; then kill \"$lock_heartbeat_pid\" >/dev/null 2>&1 || true; fi".to_owned(),
         "  current_owner=$(cat \"$owner_file\" 2>/dev/null || true)".to_owned(),
         "  if [ \"$current_owner\" = \"$owner_token\" ]; then rm -rf \"$lock_dir\"; fi".to_owned(),
         "}".to_owned(),

@@ -925,10 +925,16 @@ connect(profile)
   `remote-permission-denied`。
 - 部署锁语义与 Node `remoteDeployLock` 对齐（owner token + heartbeat + stale claim）；Rust Host 是唯一写入方，
   但必须与旧 Node 部署共用同一锁目录，保证混跑期间互斥。
-- 单测 `source_server_deploy_lock_tests` 的 release 收尾预算与真实 SSH 用例一致取 30s：5s 在
-  `rust-runtime-ci` 的 ubuntu 分片上会被 764 个并发用例 spawn `sh` 的负载误判为超时（`74167f06`
-  实测；同一次运行其余 14 个作业含 macOS 同用例全绿，本地 8 连跑全量 + 单用例 700 次未复现）。
-  产品默认 `DEFAULT_RELEASE_TIMEOUT` 仍为 5s，超时只终止本机 holder、不删远端锁。
+- 部署锁 release 收尾（2026-11-01）：heartbeat 子 shell 的 SIGTERM 可能落在 dash fork 启动窗口内被丢弃
+  （`kill` 返回 0，子 shell 却仍存活并持续刷新 owner 文件），旧脚本在 `kill` 后无界 `wait`，于是 release
+  一直卡到超时。`74167f06` / `e11c680f` 的 `rust-runtime-ci` 失败即此根因，与并发负载无关：本地
+  「读完 acquired 立即 release」48 并发 800 次挂起 16 次，同一脚本延迟 200ms 再 release 则 0 次。
+- 修复为只 `kill` 不 `wait`：释放语义只取决于锁目录（owner 校验后 `rm -rf`），heartbeat 的 fd 已全部指向
+  `/dev/null`，即使多活一个心跳周期也不占用 SSH 通道；锁目录删除后它下一轮 `cat owner` 失败即自行退出。
+  回归用例 `immediate_release_after_acquire_does_not_wait_on_the_heartbeat`（300 轮紧邻 acquire→release，
+  2s 预算；旧实现在本机每轮约 2% 命中）。
+- 单测 `source_server_deploy_lock_tests` 的 release 预算仍取 30s，覆盖 CI 在 764 个并发用例里 spawn `sh`
+  的慢启动；产品默认 `DEFAULT_RELEASE_TIMEOUT` 仍为 5s，超时只终止本机 holder、不删远端锁。
 - 安装期间状态为 `bootstrapping` 并写 operation log；不发布 `online`，不签发远端 capability。
 
 ### 11.4 兼容清单与显式更新
