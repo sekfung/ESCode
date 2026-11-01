@@ -158,12 +158,12 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 
 本文件上文描述的是 **Agent runtime**（Rust CLI / Node CLI）的切换面。Host 进程本身另有独立开关：
 
-| 范围                           | 默认                                    | 显式回退                           | 说明                                                                |
-| ------------------------------ | --------------------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
-| 本地 workspace 窗口            | Rust Host（`apps/escode-host`）         | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级          |
-| 远程 SSH/WSL/Docker 与 Profile | App 级 Rust Host 的 Source Server scope | 不提供 Node 远程回退               | `ESCODE_RUST_HOST` 不参与远程路径选择；失败显式报错                 |
-| Web 服务端（`kind: "server"`） | 窗口内独立 Node Host                    | 不适用                             | 仅显式 Web 服务端保留 Node/HTTP；连接注册表与本地窗口 Host map 隔离 |
-| Agent runtime（本地/远程）     | Rust CLI                                | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                            |
+| 范围                           | 默认                                           | 显式回退                           | 说明                                                                            |
+| ------------------------------ | ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| 本地 workspace 窗口            | Rust Host（`apps/escode-host`）                | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级                      |
+| 远程 SSH/WSL/Docker 与 Profile | App 级 Rust Host 的 Source Server scope        | 不提供 Node 远程回退               | `ESCODE_RUST_HOST` 不参与远程路径选择；失败显式报错                             |
+| Web 服务端（`kind: "server"`） | App 级 Rust Host（`kind: "server"` transport） | 不提供 Node 远程回退               | 与 ssh/wsl/docker 共用 Source Server 注册表；连接注册表与本地窗口 Host map 隔离 |
+| Agent runtime（本地/远程）     | Rust CLI                                       | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                                        |
 
 回退步骤（Host）：
 

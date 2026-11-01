@@ -2,6 +2,13 @@
 
 > 状态：S1 已随 v3.16.2 同步落地，S2（Host 侧 registry 只读面 + §9.8 写面）已落地；S3 进行中（S3-a/S3-b/S3-c-1/S3-c-2/S3-c-3a/S3-c-3b/S3-c-3c/S3-c-3d 已落地；Linux x64 真实 SSH formal E2E 覆盖首连双 workspace、App 重启恢复并原位重连、同一 workspace 双窗口共享实例、真实断开 SSH transport 后离线→原位重连并续发，4 例通过；Windows/macOS E2E 待补）；S4 进行中（S4-a 兼容/状态字段、S4-b release 解析/preflight/install preview/部署决策、S4-c 首次安装（local-upload + remote-download）/部署锁/component meta、S4-d 显式更新/running-task guard/失败回滚、S4-e `lastOnlineAt` 持久化/启动自动连接/2-4-8s 恢复预算、S4-f `source-server-workspace` 转发 + 迁移统计投影/报告/重试/放弃、S4-g Provider provisioning 首连屏障/后续触发/远端 runtime preferences 应答、S4-h known_hosts 策略（accept-new + Desktop 自有 known_hosts + host key 变化不可重试）、S4-j 握手身份记录/`identity-change-pending`/Profile 重绑定已落地；S4-i 进行中（Windows 交叉编译 + clippy 通过、平台审计完成；Windows/macOS 桌面 E2E 待对应平台环境，见 §11.11））。
 > S5-a 静态完成（Rust `ensureProfile` + 首连 resolve endpoint + Main target single-flight/sourceServerId 回填已落地，Linux 单测与类型、Lint、架构、Host 边界门禁通过；真实直接首连 E2E 已通过：Linux SSH `desktop-e2e-20261031-122307-136`）；S5-b 完成（`ESCODE_RUST_HOST` 收窄为本地开关，远程路由不再读取；Node Host 对非 `kind: "server"` 远端显式 `REMOTE_RUST_HOST_REQUIRED` 拒绝并 dispose）；S5-c/S5-d 更新（2026-11-01：`packages/web` 已于 2026-10-20 随手机远控删除，仓库内已无 `/api/connect-remote` / `/ws/remote/:id` 调用方；两条 route 已删除并以 404 测试锁定，Node remote deploy 删除继续按 §12.3 收口）；S5-e 完成（远端项目存储与 `project` / `remote-projects` channel 收口到 Controller Rust Host，Source 只提供文件系统探测；真实 SSH PROJECT-01 在 Linux 通过，`desktop-e2e-20261031-120850-450`（最终重建树；前次 `desktop-e2e-20261031-115924-542`），Windows/macOS 待补）；S5 步 7 文档/脚本/fixture 引用清理完成（2026-10-31，保留历史记录与 Web `kind: "server"` 路径说明）· 2026-11-01
+> 2026-11-02 收口：三平台 SSH 主链证据补齐——run `41355882063` 的 Linux job `124995848070`、macOS job
+> `124995848156`、Windows job `124997065666` 各 5 passed（首次安装 / 首连 / 重启恢复 / 双窗口共享 /
+> PROJECT-01），首装用例包含同版本内容寻址的显式更新。S4-i 以「三平台部署（安装 + 显式更新）与恢复
+> （重启恢复）」关闭；新 server 握手失败后的 release 回滚仍只由注入失败的 Rust 单测覆盖
+> （`source_server_update_flow` / `source_server_connections_update_tests`），没有三平台桌面 E2E。
+> S5 删除项审计：`desktopRemoteSessions` 无 `node-host` route，`ProviderProvisioningExecute` 无生产引用，
+> `ESCODE_RUST_HOST` 仅剩本地开关（见 §12.1/§12.5）。
 > 关联：[upstream-v3.16.2-sync.md](upstream-v3.16.2-sync.md)、[rust-unified-host.md](rust-unified-host.md)、[rust-u2-window-host.md](rust-u2-window-host.md)、[rust-u2-host-skeleton.md](rust-u2-host-skeleton.md)
 > 上游参考：`shared/src/source-server/*`、`desktop/src/host/sourceServer*`、`server/src/source-server/*`、`docs/architecture/r3-source-server-remote-architecture.md`
 
@@ -165,8 +172,8 @@ Host 解析 release ──► 校验 compatibility ──► 安装 ──► �
 | ---- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S1   | 协议/兼容字段、只读展示（本轮 v3.16.2 同步 W1/W3）                 | schema 测试与类型检查通过；远程仍由 Node Host 服务                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）                                                                                                                                                                                                                                                                                                                                                                                                          |
+| S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复/双窗口 E2E（三平台 SSH 各 5 例通过：run `41355882063`）                                                                                                                                                                                                                                                                                                                                                                                                      |
+| S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（三平台 SSH 安装（含同版本显式更新）与重启恢复 E2E 通过：run `41355882063`；失败回滚由注入失败的 Rust 单测覆盖；S4-i 于 2026-11-02 关闭）                                                                                                                                                                                                                                                                                                        |
 | S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零 `escode-host-remote-*` 断言：`kind:"server"` 直连已连续两轮三平台通过（run `41268279642`、`41269283544`），SSH 三平台各 5 例（首次安装 / 首连 / 重启恢复 / 双窗口共享 / PROJECT-01）：Linux（job `124989308622`）、macOS（job `124989308551`）、Windows（job `124990489645`）在 run `41353627596` 同时 4 passed；Windows 首个首连证据为 job `124961277623`） |
 
 ## 8. 非目标
@@ -1173,18 +1180,18 @@ S4-h 完成（2026-10-31）：
 
 ### 11.10 切片与退出条件
 
-| 切片 | 内容                                                                           | 退出条件                  |
-| ---- | ------------------------------------------------------------------------------ | ------------------------- |
-| S4-a | 兼容清单 + hello 扩展 + 状态字段 + operation log 发布                          | 单测 + 兼容矩阵           |
-| S4-b | release 解析、preflight、install preview、部署决策（dry-run）                  | 单测 + 真实 SSH preflight |
-| S4-c | 首次安装（两种 install mode）+ 部署锁 + component meta                         | 空容器首连 E2E            |
-| S4-d | 显式更新 + running-task guard + 失败保留旧 release                             | 更新 E2E（含 force）      |
-| S4-e | `lastOnlineAt` 持久化 + 启动自动连接 + 恢复预算（已落地）                      | 重启 / 断线 E2E           |
-| S4-f | `source-server-workspace` 转发 + 迁移投影（远端实现另行验收，已落地）          | 契约 + 快照测试           |
-| S4-g | Provider provisioning 首连屏障 + 后续触发 + 远端 runtime preferences（已落地） | 真实 SSH 模型可用 E2E     |
-| S4-h | known_hosts 策略（已落地）                                                     | 单测 + 真实 SSH           |
-| S4-i | Windows / macOS 部署与恢复验证（Windows 交叉编译已过；桌面 E2E 待跑）          | 三平台 E2E                |
-| S4-j | 握手身份记录 + `identity-change-pending` + Profile 重绑定（已落地）            | 单测 + RPC/集成           |
+| 切片 | 内容                                                                                      | 退出条件                  |
+| ---- | ----------------------------------------------------------------------------------------- | ------------------------- |
+| S4-a | 兼容清单 + hello 扩展 + 状态字段 + operation log 发布                                     | 单测 + 兼容矩阵           |
+| S4-b | release 解析、preflight、install preview、部署决策（dry-run）                             | 单测 + 真实 SSH preflight |
+| S4-c | 首次安装（两种 install mode）+ 部署锁 + component meta                                    | 空容器首连 E2E            |
+| S4-d | 显式更新 + running-task guard + 失败保留旧 release                                        | 更新 E2E（含 force）      |
+| S4-e | `lastOnlineAt` 持久化 + 启动自动连接 + 恢复预算（已落地）                                 | 重启 / 断线 E2E           |
+| S4-f | `source-server-workspace` 转发 + 迁移投影（远端实现另行验收，已落地）                     | 契约 + 快照测试           |
+| S4-g | Provider provisioning 首连屏障 + 后续触发 + 远端 runtime preferences（已落地）            | 真实 SSH 模型可用 E2E     |
+| S4-h | known_hosts 策略（已落地）                                                                | 单测 + 真实 SSH           |
+| S4-i | Windows / macOS 部署与恢复验证（2026-11-02 关闭：三平台 SSH 安装/更新/重启恢复 E2E 通过） | 三平台 E2E                |
+| S4-j | 握手身份记录 + `identity-change-pending` + Profile 重绑定（已落地）                       | 单测 + RPC/集成           |
 
 S4 完成判据：上述 11 条验收在 Linux 全绿；Windows/macOS 至少完成安装、更新、恢复三条主链。S4 期间 Node
 Host 远程路径仍可作为对照，但 Rust 路径不得回退 Node。
@@ -1293,7 +1300,11 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
 - macOS 编译检查在本机不可行：`rusqlite` bundled 需要目标平台的 C 工具链/SDK，
   `aarch64-apple-darwin` 无法交叉编译。macOS 证据只能来自真实机器或 CI。
 
-未完成（S4 退出条件仍不满足）：
+验收过程（2026-11-01 起，已收口）：
+
+- 2026-11-02 收口：run `41355882063` 的 Linux / macOS / Windows SSH 作业各 5 passed，覆盖首次安装
+  （含同版本显式更新）、首连、重启恢复、双窗口共享与 PROJECT-01；S4-i 的部署与恢复退出条件由此满足，
+  历史过程记录保留在下面，不再作为未完成项。
 
 - 2026-11-01：三平台桌面矩阵新增 `source-server-rust-server-direct.test.ts`（worker 内拉起真实
   `escode-server`，走 Rust Host 的 HTTP/WS 远程链路）。它为 Windows/macOS 提供 server transport 的
@@ -1513,6 +1524,13 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 - `packages/server/src/remote` 中仍被 Rust Host 首装资产、`kind: "server"` 直连和 Adapter 底座使用的模块
   （backend 原语、manifest/归档工具）继续保留，不按目录名整体删除。
 - 删除前必须用 `pnpm dep:refs --list-exports` / `pnpm knip` 证明无引用，不能按目录名推断。
+
+> 2026-11-02 引用审计（`rg`，全仓排除文档/上游快照）：`desktopRemoteSessions` 已无 `node-host` route
+> 与 `ConnectRemoteWorkspace` / `DisposeRemoteWorkspaceSession`；`ProviderProvisioningExecute` 仅命中
+> `packages/shared/test/providerProvisioning.test.ts` 的“已删除”断言和上游冲突存档；`ESCODE_RUST_HOST`
+> 只出现在本地 Host 开关、E2E 与测试里。`packages/server/src/remote` 的生产引用只剩构建期资产工具
+> `packages/desktop/scripts/prepare-bundled-remote-assets.ts`（`remoteAssetCdn` / `serverBundleDeployCheck`）
+> 与 `packages/server` 自身测试，符合本节“保留 backend 原语与构建期资产工具”的范围。
 
 ### 12.2 直接首连路由到 Rust Host
 
@@ -1751,6 +1769,12 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 > `source-server-rust-server-direct.test.ts` 三平台全绿——上面第二条（server-direct 跨平台版本）
 > 因此补齐。第一条（SSH 三条主链）仍缺对应平台可达目标机，P1 的真实供应商/MCP/安装包演练也未开始，
 > S5 与总目标仍未完成。
+>
+> 2026-11-02：S2–S4 退出条件所需的三平台主链已全绿（run `41355882063`），S5 删除项已在源码审计中确认
+> （`desktopRemoteSessions` 无 `node-host` route、`ProviderProvisioningExecute` 无生产引用、
+> `ESCODE_RUST_HOST` 仅剩本地开关）。远程 workspace 只剩 Rust Host 一条路径。Node Host 剩余的本地
+> `ESCODE_RUST_HOST=0` 回退与 Node runtime 删除仍受 P1 收敛与三平台 Rust-only 发行门禁约束，属破坏性
+> 步骤，需单独确认。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`

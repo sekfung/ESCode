@@ -159,7 +159,7 @@ CI（2026-10-14 已接入 `rust-runtime-ci.yml`）：checks 作业加 `pnpm chec
 
 Host 开关（2026-10-14 落地，2026-10-23 默认开启；2026-10-22 窗口 attachment 落地）：Main 懒启动一个 App 级 Rust Host（`rustHostManager.ts`：single-flight 启动、退出时收口；失败抛带分类的 `RustHostStartError`，调用方不回退、错误上抛，意外退出受限自动重启——2026-10-18 M2 订正，见 `rust-u2-host-resilience.md` §3/§4），窗口经 `desktopRustHostWindow.ts` 直接 attach 到 Host（`MessageChannelMain` + synthetic `DatabaseStartupState`），reload/close 只解绑 attachment，见 `rust-u2-window-host.md`。握手消息 `rpcListen` 由 Main 提交两个根：`home`（设置域根，Node `os.homedir()` 语义）与 `dataBaseDir`（TS `getDataBaseDir()`：设置项 `dataBaseDir` > `ESCODE_DATA_BASE_DIR` > homedir，供会话工作区派生）——Host 不读进程 env 推断业务事实。测试：`packages/desktop/test/rustHostBridge.test.ts`、`rustHostCuaPermission.test.ts`、`desktopRustHostWindow.test.ts`、`desktopWindowLifecycle.test.ts`。
 
-H2.3 parity（2026-10-23）：`rust-u2-window-host.md` §5 的 1–10 已闭合——当时远程 workspace 走显式 per-window Node Host（不静默回退）、资源采样/网络捕获/Agent 事件/CUA 状态/browser-use 经 HostEvent/MainRequest、真实 storageState 启动门、窗口级 env patch、恢复页与打包。2026-10-31 S5-a/S5-b 起 ssh/wsl/docker 改由 App 级 Rust Host 承载，仅 Web 服务端保留 Node Host；`ESCODE_RUST_HOST` 只切换本地 Host。
+H2.3 parity（2026-10-23）：`rust-u2-window-host.md` §5 的 1–10 已闭合——当时远程 workspace 走显式 per-window Node Host（不静默回退）、资源采样/网络捕获/Agent 事件/CUA 状态/browser-use 经 HostEvent/MainRequest、真实 storageState 启动门、窗口级 env patch、恢复页与打包。2026-10-31 S5-a/S5-b 起 ssh/wsl/docker 改由 App 级 Rust Host 承载，Web 服务端已于 S5-f 迁到 App 级 Rust Host；`ESCODE_RUST_HOST` 只切换本地 Host。
 
 TaskScope 与进程回收按 §3.1/§3.3 复用 `escode-cli-core-api::scope` 与 `escode-cli-host`，本工作区不重复实现（已验证可跨 workspace path 依赖）。
 
