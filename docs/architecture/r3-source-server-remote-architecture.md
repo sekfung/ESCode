@@ -8,6 +8,11 @@
 - 发布方式：SSH、WSL、Docker 在同一 App 版本统一切换新主链；不按连接方式分版本或灰度；R3 App 内不保留可运行的旧远程主链
 - 核心目标：引入 Source Server、`sourceServerId`、Connection Profile、Transport Adapter、Source 权威、身份迁移与版本兼容，让三种连接方式在「窗口级 Local Host（R1）↔ 常驻 ESCode Server daemon（R2）」的新主链上完成产品闭环
 
+> 基线说明（2026-11-01 追加）：本文描述 2026-09 的 R3 基线，其中的窗口级 Local Host、`connectServerRemote`、
+> `ProviderProvisioningExecute` 与 `providerProvisioningTargetService` 属于当时的 Node 实现。自 S5-f 起，
+> Desktop 的 ssh/wsl/docker/`kind:"server"` 远程链路全部由 App 级 Rust Host 承载，上述 Node 入口已删除，
+> 能力位置与迁移顺序以 [source-server-remote-rust-host.md](../specs/source-server-remote-rust-host.md) §12 为准。
+
 本文基于：
 
 - [ESCode 统一多端远程连接架构与产品方案（评审稿）](https://internal-docs.example.invalid/redacted)（D5—D11 定义）

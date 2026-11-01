@@ -1463,8 +1463,8 @@ nodes:
       - "docs/remote-workspace-session-unified-settings.md"
       - "docs/working-memory/provider-refactor/steps/todo-56-remote-provider-provisioning-environment-sync.md"
     codeSeeds:
-      - symbol: "ProviderProvisioningEnvironmentCoordinator"
-        file: "packages/desktop/src/main/providerProvisioningEnvironmentCoordinator.ts"
+      - symbol: "SourceServerProviderProvisioning"
+        file: "apps/escode-host/crates/host-services/src/source_server_provider_provisioning.rs"
       - symbol: "createProviderProvisioningSource"
         file: "packages/services/src/model-provider/providerProvisioningSource.ts"
       - symbol: "createProviderProvisioningTarget"
