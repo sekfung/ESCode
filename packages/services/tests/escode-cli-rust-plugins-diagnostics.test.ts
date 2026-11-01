@@ -89,8 +89,12 @@ async function observe(kind: Runtime) {
           version: plugin.version,
         })),
       diagnostics: (result.diagnostics as any[])
-        // rea 是可选随包插件：本地 bundle 有、CI 的 agent bundle 未必有。
-        .filter((item) => !String(item.message).includes("/zcode-plugins-official/rea/"))
+        // rea 是可选随包插件：本地 bundle 有、CI 的 agent bundle 未必有。Windows 文案是反斜杠，
+        // 先归一再匹配，否则该条会漏过滤、让平台 golden 固化环境差异。
+        .filter(
+          (item) =>
+            !String(item.message).replaceAll("\\", "/").includes("/zcode-plugins-official/rea/"),
+        )
         .map((item) => ({
           code: item.code,
           severity: item.severity,

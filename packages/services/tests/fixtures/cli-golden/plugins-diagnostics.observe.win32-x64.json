@@ -75,11 +75,6 @@
       "severity": "error",
       "pluginId": "image-search@zcode-plugins-official",
       "message": "Missing environment variable: ESCODE_BASE_URL"
-    },
-    {
-      "code": "plugin_root_not_found",
-      "severity": "warning",
-      "message": "Plugin root does not exist: <root>\\.escode\\cli\\plugins\\cache\\zcode-plugins-official\\rea\\0.1.0"
     }
   ],
   "schemaErrors": []

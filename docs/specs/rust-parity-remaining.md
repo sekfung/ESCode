@@ -83,12 +83,13 @@ strict 门禁就此转绿。
 
 2026-11-01 CI 跨平台 test 分片三处失败的处置（run `41270183483`，commit `57179fa0`）：
 
-1. `escode-cli-rust-plugins-hooks.test.ts`「Node and Rust discover plugin hooks identically」在
-   Windows/macOS/Ubuntu 都多出无 `pluginId` 的 `plugin_root_not_found`（`.../cache/zcode-plugins-official/rea/0.1.0`）。
-   根因：Rust `discover_with` 把 bundled-marketplace 的每个 `cachePath` 都当发现候选，而 seed 失败
-   （随包资产缺失或 `requiredSeedPaths` 不全）时这些目录并不存在；Node `resolveOfficialPluginRoots`
-   只返回实际存在的根。修复见 commit `c9d7d79d`（候选增加目录存在校验 + `extension_plugins_tests.rs`
-   回归），验证 run `41273018321` 的 `checks` 三平台全绿。
+1. plugins hooks / diagnostics 的 `plugin_root_not_found`（`.../cache/zcode-plugins-official/rea/0.1.0`）：
+   rea 是可选随包插件，seed 未覆盖时 catalog 里的 `cachePath` 不存在。Node `scanOfficialCache` 不查
+   存在性、由 loader 产出该诊断（`plugins/list` 语义），Rust 原本一致；hook 用例按 `pluginId` 过滤官方
+   插件观察，而该诊断没有 `pluginId`，且诊断用例的 rea 过滤只匹配 `/`，Windows 反斜杠漏过滤后把环境
+   差异写进了平台 golden。修复：两处过滤先归一分隔符再匹配（`plugins-hooks` / `plugins-diagnostics`），
+   win32 诊断 golden 去掉被契约过滤的 rea 条目；Rust 发现层保持 Node 语义，
+   `extension_plugins_tests.rs` 断言缺失根必须产出该诊断。
 2. `escode-cli-rust-create-workflow.test.ts`（Windows）期望 `.escode/workflow-drafts/...`、Rust 输出
    `.escode\workflow-drafts\...`。Node 在 Windows 录制时确实写反斜杠（`472a96ec` 的原始
    `create-workflow.observe.win32-x64.json`），`daaa2043` 手工同步 golden 时把它覆盖成了 Linux 值；

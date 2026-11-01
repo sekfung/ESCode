@@ -163,8 +163,15 @@ async function observe(kind: Runtime) {
           })),
       ),
       diagnostics: (result.diagnostics as any[])
-        // 随包官方插件的诊断随 bundle 与环境变化；本用例只比对 fixture 插件产生的 hook 诊断。
-        .filter((item) => !String(item.pluginId ?? "").endsWith("@zcode-plugins-official"))
+        // 随包官方插件的诊断随 bundle 与环境变化（含无 pluginId 的 plugin_root_not_found：seed 未覆盖
+        // 的可选插件如 rea）；本用例只比对 fixture 插件产生的 hook 诊断。文案分隔符随平台，先归一。
+        .filter(
+          (item) =>
+            !String(item.pluginId ?? "").endsWith("@zcode-plugins-official") &&
+            !String(item.message ?? "")
+              .replaceAll("\\", "/")
+              .includes("zcode-plugins-official"),
+        )
         .map((item) => ({
           code: item.code,
           message: normalize(item).message,

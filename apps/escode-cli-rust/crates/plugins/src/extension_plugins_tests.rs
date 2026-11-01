@@ -1,12 +1,13 @@
-//! 发现层回归：bundled-marketplace 的 `cachePath` 是目录声明的“理应安放”位置，seed 失败时并不存在。
-//! Node 只发现实际存在的根；Rust 若把缺失路径也当候选，会多出无 pluginId 的 `plugin_root_not_found`
-//! （CI run `41264933512` 的 `escode-cli-rust-plugins-hooks.test.ts` 差异）。
+//! 发现层回归：bundled-marketplace 是目录（catalog），`cachePath` 指向“理应安放”的位置。
+//! Node `scanOfficialCache` 把分片里的每个 `cachePath` 都当候选、不查存在性；seed 未覆盖的可选
+//! 随包插件（如 rea）因此由 loader 产出 `plugin_root_not_found`。Rust 必须保留这条诊断，否则
+//! `plugins/list` 的发现诊断与 Node 不等（CI run `41270183483` 的 plugins-hooks / plugins-diagnostics）。
 use super::extension_plugins::discover;
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
 #[tokio::test]
-async fn marketplace_cache_path_must_exist_to_be_discovered() {
+async fn marketplace_cache_path_is_discovered_even_when_missing_like_node() {
     let dir = tempfile::tempdir().unwrap();
     // `storage()` 把不以 cli 结尾的根补成 <root>/cli/plugins。
     let storage = dir.path().join("cli").join("plugins");
@@ -71,10 +72,13 @@ async fn marketplace_cache_path_must_exist_to_be_discovered() {
             .iter()
             .any(|plugin| plugin.id == "missing@zcode-plugins-official")
     );
-    assert!(
-        !diagnostics
-            .iter()
-            .any(|item| item["code"] == "plugin_root_not_found"),
-        "{diagnostics:?}"
+    let missing_diagnostic = diagnostics
+        .iter()
+        .find(|item| item["code"] == "plugin_root_not_found")
+        .expect("missing cachePath must report plugin_root_not_found like Node");
+    assert_eq!(missing_diagnostic["severity"], "warning");
+    assert_eq!(
+        missing_diagnostic["message"].as_str().unwrap(),
+        format!("Plugin root does not exist: {}", missing.display())
     );
 }
