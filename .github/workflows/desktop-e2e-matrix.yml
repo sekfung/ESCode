@@ -149,6 +149,8 @@ jobs:
           echo "::add-mask::$password"
           echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
           bash scripts/e2e/start-ssh-e2e-server.sh 2222 "$password" /root/workspace
+          # formal spec 的第二个 workspace 只用于平台契约校验；先建好避免后续双 workspace 用例跳过。
+          docker exec escode-e2e-ssh mkdir -p /root/workspace-2
       - name: run SSH remote project E2E
         shell: bash
         env:
@@ -156,6 +158,8 @@ jobs:
           ESCODE_E2E_SSH_HOST: 127.0.0.1
           ESCODE_E2E_SSH_PORT: "2222"
           ESCODE_E2E_SSH_USERNAME: root
+          # formal spec 读复数变量（默认 /root,/home）；Windows/WSL 与容器目标都用 root。
+          ESCODE_E2E_SSH_WORKSPACE_PATHS: /root/workspace,/root/workspace-2
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
@@ -219,6 +223,7 @@ jobs:
           echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
           workspace="/Users/escode-e2e/workspace"
           bash scripts/e2e/start-ssh-e2e-server-macos.sh 2222 "$password" "$workspace"
+          sudo -u escode-e2e mkdir -p "${workspace}-2"
           echo "ESCODE_E2E_SSH_WORKSPACE_PATH=$workspace" >> "$GITHUB_ENV"
           if [ "$(uname -m)" = "arm64" ]; then remote_platform=darwin-arm64; else remote_platform=darwin-x64; fi
           echo "ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS=$remote_platform" >> "$GITHUB_ENV"
@@ -229,6 +234,7 @@ jobs:
           ESCODE_E2E_SSH_HOST: 127.0.0.1
           ESCODE_E2E_SSH_PORT: "2222"
           ESCODE_E2E_SSH_USERNAME: escode-e2e
+          ESCODE_E2E_SSH_WORKSPACE_PATHS: /Users/escode-e2e/workspace,/Users/escode-e2e/workspace-2
           ESCODE_E2E_SPEC: >-
             ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
             ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
@@ -345,6 +351,7 @@ jobs:
           wsl -l -v || true
           repo_wsl="/mnt/$(cygpath -w "$PWD" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|\L\1|')"
           wsl -d Ubuntu-22.04 -u root -- bash "$repo_wsl/scripts/e2e/start-ssh-e2e-server-wsl.sh" "$password" /root/workspace
+          wsl -d Ubuntu-22.04 -u root -- mkdir -p /root/workspace-2
       # Bug 根因：该步骤此前用 bash，node 侧读到的 /root/workspace 被 git-bash 的 MSYS
       # 环境变量改写规则换成了 "C:/Program Files/Git/root/workspace"，helpers 的
       # `startsWith("/")` 断言随即失败。改用 pwsh（原生进程）并单行调用，避免 env 改写。
@@ -358,6 +365,7 @@ jobs:
           ESCODE_E2E_SSH_HOST: 127.0.0.1
           ESCODE_E2E_SSH_PORT: "2222"
           ESCODE_E2E_SSH_USERNAME: root
+          ESCODE_E2E_SSH_WORKSPACE_PATHS: /root/workspace,/root/workspace-2
           ESCODE_E2E_SSH_WORKSPACE_PATH: /root/workspace
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
