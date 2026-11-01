@@ -300,7 +300,7 @@ pub const IMPLEMENTED: &[(&str, &str)] = &[
     ("escode-agent", "readSessionDebug"),
     ("escode-agent", "syncAppRuntimePreferences"),
     ("escode-agent", "syncDynamicWorkflowUserMode"),
-    ("escode-agent", "onDynamicCuaPermissionObservation"),
+    ("escode-agent", "onDynamicCuaPermissionObservation"), ("escode-agent", "onDynamicPluginUiToolResult"),
     ("escode-agent", "addPluginMarketplace"),
     ("escode-agent", "cancelPluginOperation"),
     ("escode-agent", "configurePlugin"),

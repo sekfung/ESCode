@@ -15,6 +15,10 @@ pub(super) struct Binding {
     pub(super) key: String,
     pub(super) safe: bool,
     pub(super) definition: Value,
+    /// `tools/list` 的 `_meta` 归一化后的 UI 描述（行级 `display.ui` 的唯一来源）。
+    pub(super) ui: Option<Value>,
+    /// 卡片 `pluginId`：插件 server 取 `plugin:<id>:<server>` 的 id，其余用 server 名顶替。
+    pub(super) plugin_id: String,
     pub(super) connection: Arc<Connection>,
 }
 
@@ -46,6 +50,8 @@ pub(super) fn bind(
             safe: tool["annotations"]["readOnlyHint"] == true
                 && tool["annotations"]["destructiveHint"] == false,
             definition,
+            ui: crate::domain::mcp_tool_ui::normalize_meta(&tool["_meta"]),
+            plugin_id: crate::domain::mcp_tool_ui::plugin_id_for_server(&server.name).to_owned(),
             connection: connection.clone(),
         });
     }

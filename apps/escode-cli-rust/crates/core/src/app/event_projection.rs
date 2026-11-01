@@ -43,6 +43,8 @@ impl Engine {
         let mut finished = false;
         let text_only = matches!(event.event, Event::Text { .. });
         let mut receipt = None;
+        // live 工具结果提交后投递后台 UI 创建入口（docs/plugin-ui-background-execution.md）。
+        let mut plugin_ui_tool_result = None;
         match event.event {
             Event::FilePrepared { .. }
             | Event::Todos { .. }
@@ -244,6 +246,8 @@ impl Engine {
                     denied,
                 };
                 if let Some(row) = s.finish_tool_row(&turn, &call_id, done, now) {
+                    plugin_ui_tool_result =
+                        crate::domain::mcp_tool_ui::tool_result_notification(&id, &row);
                     deltas.push(json!({"op":"row.upserted","row":row}));
                 }
             }
@@ -349,6 +353,11 @@ impl Engine {
             );
         }
         self.publish(&id, deltas)?;
+        // 投影提交之后、与 conversation 订阅无关地投递；失败/isError 已在构造处过滤。
+        if let Some(params) = plugin_ui_tool_result {
+            self.outbox
+                .push(json!({"method":"v4/plugin-ui/tool-result","params":params}));
+        }
         if checkpoint {
             self.persist(&id, None).await?;
         }

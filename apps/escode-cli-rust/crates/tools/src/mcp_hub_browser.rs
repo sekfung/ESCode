@@ -5,9 +5,22 @@ use serde_json::Value;
 use std::sync::Arc;
 
 impl Binding {
-    pub(super) fn display(&self) -> Option<Value> {
+    /// 工具卡；`output` 为本次 `tools/call` 的原始结果（ToolStart 阶段还没有结果）。
+    pub(super) fn display_with_output(&self, output: Option<&Value>) -> Option<Value> {
         let description = self.definition["function"]["description"].as_str();
-        crate::domain::tool_display::mcp_tool(&self.server, &self.original, description)
+        let mut display =
+            crate::domain::tool_display::mcp_tool(&self.server, &self.original, description)?;
+        // UI 的 pluginUiRowPolicy 要求 `display.ui !== undefined` 才建卡；缺这段投影时
+        // MCP App 卡片在 Rust runtime 下完全不出现（对齐 TS createMcpToolDisplay）。
+        if let Some(ui) = self.ui.as_ref().and_then(|descriptor| {
+            crate::domain::mcp_tool_ui::display_ui(descriptor, &self.plugin_id, output)
+        }) {
+            display["ui"] = ui;
+        }
+        Some(display)
+    }
+    pub(super) fn display(&self) -> Option<Value> {
+        self.display_with_output(None)
     }
 }
 impl Hub {

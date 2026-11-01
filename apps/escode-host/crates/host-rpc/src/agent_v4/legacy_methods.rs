@@ -292,19 +292,29 @@ pub(super) fn legacy_methods(base: &Arc<Base>) -> Vec<(&'static str, MethodHandl
 
 pub(super) fn legacy_events(base: &Arc<Base>) -> Vec<(&'static str, EventHandler)> {
     let (_, mut events) = base.plugin_management.aliases();
-    let observations = Arc::clone(&base.cua_observations);
-    events.push((
-        "onDynamicCuaPermissionObservation",
-        Arc::new(move |arg: Wire| {
-            let params = first_object(arg);
-            let target = params["workspaceIdentity"]
-                .as_str()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .or_else(|| params["workspacePath"].as_str())
-                .map(str::to_owned);
-            Ok(observations.event(target))
-        }),
-    ));
+    for (name, hub) in [
+        (
+            "onDynamicCuaPermissionObservation",
+            Arc::clone(&base.cua_observations),
+        ),
+        (
+            "onDynamicPluginUiToolResult",
+            Arc::clone(&base.plugin_ui_tool_results),
+        ),
+    ] {
+        events.push((
+            name,
+            Arc::new(move |arg: Wire| {
+                let params = first_object(arg);
+                let target = params["workspaceIdentity"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| params["workspacePath"].as_str())
+                    .map(str::to_owned);
+                Ok(hub.event(target))
+            }),
+        ));
+    }
     events
 }

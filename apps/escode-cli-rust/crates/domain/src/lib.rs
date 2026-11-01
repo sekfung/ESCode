@@ -57,6 +57,7 @@ pub mod mcp_official_auth;
 pub mod mcp_result;
 #[cfg(test)]
 mod mcp_result_tests;
+pub mod mcp_tool_ui;
 pub mod memory;
 mod memory_markdown;
 mod memory_policy;

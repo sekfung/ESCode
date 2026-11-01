@@ -48,7 +48,8 @@ pub(crate) struct Base {
     /// 已追平的 (身份键, 代次)，避免每条请求重复同步。
     runtime_state_applied: Mutex<std::collections::BTreeSet<(String, u64)>>,
     /// CUA 权限观察事件扇出（runtime 通知 → Renderer 事件）。
-    pub cua_observations: Arc<crate::cua_observations::CuaObservations>,
+    pub cua_observations: Arc<crate::runtime_event_fanout::RuntimeEventFanout>,
+    pub plugin_ui_tool_results: Arc<crate::runtime_event_fanout::RuntimeEventFanout>,
 }
 
 /// 一次 runtime 调用的结果。
@@ -77,7 +78,14 @@ impl Base {
             preferences: Mutex::default(),
             dynamic_workflow_mode: Mutex::default(),
             runtime_state_applied: Mutex::default(),
-            cua_observations: Arc::new(crate::cua_observations::CuaObservations::default()),
+            cua_observations: Arc::new(crate::runtime_event_fanout::RuntimeEventFanout::new(
+                "v4/cua/permission-observation",
+                crate::runtime_event_fanout::cua_observation,
+            )),
+            plugin_ui_tool_results: Arc::new(crate::runtime_event_fanout::RuntimeEventFanout::new(
+                "v4/plugin-ui/tool-result",
+                crate::runtime_event_fanout::plugin_ui_tool_result,
+            )),
         }
     }
 
@@ -123,6 +131,7 @@ impl Base {
             return Ok(());
         }
         self.cua_observations.attach(instance).await;
+        self.plugin_ui_tool_results.attach(instance).await;
         let preferences = lock(&self.preferences).clone();
         if let Some(preferences) = preferences {
             let workspace = Self::workspace_ref(instance);

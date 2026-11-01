@@ -353,7 +353,7 @@ impl Hub {
         output.display = node_repl
             .then(|| crate::domain::tool_display::node_repl_images(&raw))
             .flatten()
-            .or_else(|| binding.display());
+            .or_else(|| binding.display_with_output(Some(&raw)));
         if node_repl
             && let Some(Some(broker)) = self.broker.get()
             && let Some(turn) = meta["turn_id"].as_str()
