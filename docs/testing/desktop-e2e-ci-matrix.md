@@ -80,7 +80,7 @@ ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
 三个作业都只连 `127.0.0.1`，不使用仓库 secrets。macOS 目标平台（`darwin-arm64` / `darwin-x64`）
 由 runner 架构推导；Windows 既无 Docker 也无原生 POSIX 目标，因此用镜像自带 WSL2 Ubuntu 作 Linux
 目标，远端 Rust runtime 由独立 `remote-rust-musl` 作业产出（不在 Windows 上交叉编译 musl）。
-三个作业跑同一份 spec 清单：`source-server-rust-first-connect`、
+三个作业跑同一份 spec 清单：`source-server-rust-install`（必须在空目标上先跑）、`source-server-rust-first-connect`、
 `source-server-rust-restart-recovery`、`source-server-rust-multi-window`，以及仍处
 `manual-review/pending` 的 `conversation-session-ssh-remote-project-create`（PROJECT-01，
 只通过 dispatch 实跑、不转正）。
@@ -89,6 +89,8 @@ run `41343996871` 补齐 Windows 首连（job `124961277623`，1 passed / 2m59s�
 run `41353627596` 清单扩展后三平台各 4 passed：Linux（job `124989308622`）、
 macOS（job `124989308551`）、Windows（job `124990489645`），首次在 CI 同时覆盖
 首连、重启恢复与双窗口共享。
+run `41355882063` 加入首次安装后各 5 passed：Linux（job `124995848070`）、macOS
+（job `124995848156`）、Windows（job `124997065666`）。
 
 ## 不在本矩阵内
 
