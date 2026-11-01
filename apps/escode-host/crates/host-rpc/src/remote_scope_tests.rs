@@ -158,6 +158,38 @@ async fn forwards_events_and_disposes_the_remote_listener() {
     assert_eq!(int_arg(&items[1]), id, "销毁的是同一个订阅");
 }
 
+/// EventListen 必须在 handler 返回时就进入远端出站队列。
+///
+/// macOS CI（run `41277156616`）上 `v4_frames_match_the_node_remote_oracle` 曾 5s 无帧超时：惰性建流让
+/// 紧随 listen 的 `subscribeConversationV4` 先到远端，远端立即投递、不重发的帧丢失。
+/// 这里不 poll 事件流，直接发一个 `call`，出站队列的第一帧必须是 EventListen。
+#[tokio::test]
+async fn event_listen_is_enqueued_before_a_following_call() {
+    let (client, mut outbound) = initialized_client(&[CHANNEL]);
+    let channel = channel_named(Arc::clone(&client), CHANNEL);
+    let handler = channel.event("onDidChange").expect("event forwarded");
+    let _stream: EventStream = handler(Wire::Array(vec![])).expect("listener stream");
+
+    let call = tokio::spawn(async move {
+        channel
+            .handler("getCapabilities")
+            .expect("method forwarded")(Wire::Array(vec![]))
+        .await
+    });
+    let (header, _arg) = next_request(&mut outbound).await;
+    let WireValue::Array(items) = &header else {
+        panic!("first request is an array: {header:?}");
+    };
+    assert_eq!(int_arg(&items[0]), 102, "首帧必须是 EventListen");
+    assert_eq!(string_arg(&items[3]), "onDidChange");
+    let (header, _arg) = next_request(&mut outbound).await;
+    let WireValue::Array(items) = &header else {
+        panic!("second request is an array: {header:?}");
+    };
+    assert_eq!(int_arg(&items[0]), 100, "随后才是 Promise 请求");
+    call.abort();
+}
+
 /// 远端错误保留 `name`/`message`，`data.code` 提到顶层（TS 客户端按 `code` 识别）。
 #[tokio::test]
 async fn preserves_remote_error_name_message_and_code() {

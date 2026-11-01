@@ -542,8 +542,24 @@ RPC（`source-server-management`）：
 | ---- | ------------------------------------------------------------------------------------------------------------------ |
 | 方法 | `RemoteChannelClient::call(channel, method, arg)`；返回值按 `WireValue`→`Wire` 转回                                |
 | 事件 | `listen(channel, event, arg)`；返回的流被丢弃（连接关闭/取消订阅）时 `dispose_listener`，不泄漏远端订阅            |
+| 事件序 | EventListen 必须在 handler 返回前写入远端出站队列（eager），保证先于紧随其后的 `call` 到达远端（见 2026-11-01 落地记录） |
 | 错误 | `RemoteCallError{name,message,data}` → `RpcError{name: 远端 name, message, extra.code: data.code}`；不吞错、不重试 |
 | 取消 | PromiseCancel 只中止本地等待任务；远端请求无取消帧时保持既有语义（与 TS `ChannelClient` 一致）                     |
+
+**落地记录（2026-11-01：EventListen 必须 eager 入队）**
+
+- 现象：macOS CI（`pnpm test:escode-host`，run `41277156616`）上 `v4_frames_match_the_node_remote_oracle`
+  在订阅阶段 5s 无帧后超时。
+- 根因：`remote_scope_listener::listener_stream` 用 `stream::unfold` 惰性创建，`client.listen(...)`
+  只在流第一次被 poll 时才发出 EventListen；而读循环对每个帧都 `tokio::spawn` 处理，紧随其后的
+  `subscribeConversationV4`（`call`）可以先被 poll 并写到远端。远端先收到 subscribe，立即投递的
+  帧（fixture 用 `setImmediate`，真实 server 同语义）此时没有监听者，continuous 链路不重发 → 帧永久丢失。
+- 修复：`RemoteChannelClient::listen_now` 在已 `Initialize` 时同步登记事件接收端并 `send_request`；
+  `event_handler` 在 handler 调用栈内（`dispatch` 的到达序）就用它建立流。未完成握手时才退回惰性路径。
+- 回归：`remote_scope_tests::event_listen_is_enqueued_before_a_following_call` 断言先构造事件流、
+  再发 `call`，出站队列的第一帧必须是 EventListen。
+- 顺序保证的边界：只保证「同一连接读循环里先到达的 listen 先入队」；`call` 的应答仍是异步的，
+  Host 不缓存/重放远端帧。
 
 **落地记录（2026-10-30）**
 
@@ -1282,6 +1298,21 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   Linux 目标机，S4-i 不因本条转绿而完成。
 - 2026-11-01 复跑（run `41269283544`，commit `f2598803`）：同一用例三平台再次全绿——ubuntu / macos /
   windows 的 `desktop e2e` 均 success；`app perf` 因后续推送触发并发取消（cancelled，非失败）。
+- 2026-11-01 `pnpm test:escode-host` 首次真正跑到 Windows/macOS（此前分片被 CLI 用例 fail-fast 或取消），
+  暴露并修复三处**夹具**缺陷（产品路径未改）：
+  1. `source_server_bootstrap_test_support::probe_stdout` 恒发 `kernel_ostype=Linux`，macOS 上
+     `Darwin` + `Linux` 被 `resolve_remote_platform` 判成 `linux-*`，于是去找
+     `manifest-linux-arm64.json`。改为按宿主平台发 `Darwin`/`Linux`。
+  2. `write_release` 没写 `node-pty/{platform}/spawn-helper`，而 `component_install` 在 `darwin-*`
+     上要求它，macOS 的 local-upload 用例全部落到「local release artifacts are incomplete」。
+     夹具补齐该 darwin 专属条目。
+  3. `source_server_identity_tests` 用 `temp.path()` 字面值比对 `canonicalServerRoot`；macOS 的
+     `tempfile` 在 `/var/folders/...`（`/private/var` 符号链接），远端脚本按 TS
+     `realpath(layout.serverRoot)` 写入物理路径。字段名即语义，测试改为比对 realpath。
+- 2026-11-01 Windows 专属：`source_server_client_ts` / `source_server_remote_scope_ts` 的
+  `workspace_root()` 裸 `canonicalize()` 在 Windows 回 `\\?\D:\...`（verbatim），把它当脚本参数交给
+  `node` 会被 `Module._findPath` 解析成 `D:`（`EISDIR`），整条跨语言对拍在 windows-latest 全红。
+  夹具按 `rust-windows-parity.md` 的规则去掉非 UNC 的 verbatim 前缀。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /

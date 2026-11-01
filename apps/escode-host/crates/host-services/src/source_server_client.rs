@@ -196,11 +196,37 @@ impl RemoteChannelClient {
         arg: Option<WireValue>,
     ) -> Result<(u32, mpsc::UnboundedReceiver<WireValue>)> {
         self.wait_initialized().await?;
+        Ok(self.register_listener(channel, event, arg))
+    }
+
+    /// 已 `Initialize` 时**同步**登记并发送 EventListen；未握手完成返回 `None`。
+    ///
+    /// 远端 scope 的事件转发必须在处理 listen 帧的同一调用栈里用它建流：Host 读循环对每个帧
+    /// 都 `tokio::spawn` 处理，惰性建流会让紧随其后的 `call`（如 `subscribeConversationV4`）
+    /// 先到远端；远端随后立刻投递、不重发的帧就永久丢失。见 §10.11 的 2026-11-01 记录。
+    pub fn listen_now(
+        &self,
+        channel: &str,
+        event: &str,
+        arg: Option<WireValue>,
+    ) -> Option<(u32, mpsc::UnboundedReceiver<WireValue>)> {
+        if self.lock().init != InitState::Ready {
+            return None;
+        }
+        Some(self.register_listener(channel, event, arg))
+    }
+
+    fn register_listener(
+        &self,
+        channel: &str,
+        event: &str,
+        arg: Option<WireValue>,
+    ) -> (u32, mpsc::UnboundedReceiver<WireValue>) {
         let id = self.next_id();
         let (tx, rx) = mpsc::unbounded_channel();
         self.lock().events.insert(id, tx);
         self.send_request(REQUEST_EVENT_LISTEN, id, channel, Some(event), arg);
-        Ok((id, rx))
+        (id, rx)
     }
 
     pub fn dispose_listener(&self, id: u32) {

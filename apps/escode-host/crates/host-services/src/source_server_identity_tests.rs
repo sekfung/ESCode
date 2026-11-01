@@ -107,12 +107,13 @@ mod unix {
         assert_eq!(value["product"], "escode-server");
         assert_eq!(value["schemaVersion"], 1);
         assert_eq!(value["installationId"], first.source_server_id);
+        // 修复：字段名即语义——TS `installationOwnership` 写 `realpath(layout.serverRoot)`，
+        // 远端脚本用 `pwd -P` 回物理路径。macOS 的 `tempfile` 在 `/var/folders/...`
+        // （`/private/var` 符号链接），与字面值比对必然不等；这里按同一语义比对 realpath。
+        let expected = std::fs::canonicalize(temp.path().join(".escode/server")).expect("realpath");
         assert_eq!(
             value["canonicalServerRoot"],
-            temp.path()
-                .join(".escode/server")
-                .to_string_lossy()
-                .as_ref()
+            expected.to_string_lossy().as_ref()
         );
     }
 

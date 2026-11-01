@@ -124,3 +124,38 @@ fn host_key_change_wins_over_install_error_codes() {
     );
     assert_eq!(install_error_code(&anyhow!("tar: unexpected EOF")), None);
 }
+
+/// 修复回归：夹具的探测输出必须让 `resolve_remote_platform` 得到宿主平台。
+/// macOS CI（run `41277156616`）上恒发 `kernel_ostype=Linux`，Darwin 被当成 WSL 判成 `linux-*`，
+/// 于是去找 `manifest-linux-arm64.json`，7 个 bootstrap/update 用例全红。
+#[test]
+fn probe_fixture_reports_the_host_platform() {
+    let environment = parse_environment(&probe_stdout(true)).expect("probe parses");
+    assert_eq!(environment.platform_arch, platform_arch());
+}
+
+/// 修复回归：release 夹具必须覆盖安装计划要求的所有源文件。
+/// `component_install` 在 `darwin-*` 上额外要求 `node-pty/{platform}/spawn-helper`；夹具漏写会让
+/// macOS 的 local-upload 静默退化成「local release artifacts are incomplete」。
+#[test]
+fn release_fixture_covers_every_planned_entry() {
+    let temp = tempfile::tempdir().expect("temp");
+    let release_dir = temp.path().join("release");
+    write_release(&release_dir, "darwin-arm64");
+    let assets = RemoteAssetsConfig {
+        release_dir: Some(release_dir.clone()),
+        cdn_base_urls: Vec::new(),
+        app_version: "3.15.2".to_owned(),
+    };
+    let manifest = resolve_manifest(&assets, "darwin-arm64").expect("manifest");
+    let plan = build_install_plan(&manifest).expect("plan");
+    for component in &plan.components {
+        for entry in &component.entries {
+            assert!(
+                release_dir.join(&entry.source_relative_path).exists(),
+                "release fixture is missing {}",
+                entry.source_relative_path
+            );
+        }
+    }
+}

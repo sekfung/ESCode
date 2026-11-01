@@ -64,6 +64,20 @@ fn listener_stream(
     event: &'static str,
     arg: Option<WireValue>,
 ) -> EventStream {
+    // 已 Initialize 时立刻登记并发出 EventListen：本函数在连接读循环里按帧到达序调用，
+    // 只有返回前把请求写进远端出站队列，才能保证它先于紧随其后的 `call`
+    // （如 `subscribeConversationV4`）到达远端；否则远端立即投递、不重发的帧会永久丢失
+    // （spec §10.11 的 2026-11-01 记录）。
+    if let Some((id, receiver)) = client.listen_now(channel, event, arg.clone()) {
+        return Box::pin(futures_util::stream::unfold(
+            ListenerState::Live {
+                guard: ListenerGuard { client, id },
+                receiver,
+            },
+            next_event,
+        ));
+    }
+    // 未完成握手：退回惰性路径，握手成功后再发 EventListen。
     Box::pin(futures_util::stream::unfold(
         ListenerState::Pending {
             client,
@@ -71,43 +85,46 @@ fn listener_stream(
             event,
             arg,
         },
-        |state| async move {
-            let mut state = state;
-            loop {
-                match state {
-                    ListenerState::Pending {
-                        client,
-                        channel,
-                        event,
-                        arg,
-                    } => match client.listen(channel, event, arg).await {
-                        Ok((id, receiver)) => {
-                            state = ListenerState::Live {
-                                guard: ListenerGuard {
-                                    client: Arc::clone(&client),
-                                    id,
-                                },
-                                receiver,
-                            };
-                        }
-                        Err(error) => {
-                            escode_host_control::logging::warn(
-                                "source-server",
-                                format!("remote listen {channel}.{event} failed: {error:#}"),
-                            );
-                            return None;
-                        }
-                    },
-                    ListenerState::Live {
-                        guard,
-                        mut receiver,
-                    } => {
-                        return receiver.recv().await.map(|value| {
-                            (Wire::from(value), ListenerState::Live { guard, receiver })
-                        });
-                    }
-                }
-            }
-        },
+        next_event,
     ))
+}
+
+async fn next_event(state: ListenerState) -> Option<(Wire, ListenerState)> {
+    let mut state = state;
+    loop {
+        match state {
+            ListenerState::Pending {
+                client,
+                channel,
+                event,
+                arg,
+            } => match client.listen(channel, event, arg).await {
+                Ok((id, receiver)) => {
+                    state = ListenerState::Live {
+                        guard: ListenerGuard {
+                            client: Arc::clone(&client),
+                            id,
+                        },
+                        receiver,
+                    };
+                }
+                Err(error) => {
+                    escode_host_control::logging::warn(
+                        "source-server",
+                        format!("remote listen {channel}.{event} failed: {error:#}"),
+                    );
+                    return None;
+                }
+            },
+            ListenerState::Live {
+                guard,
+                mut receiver,
+            } => {
+                return receiver
+                    .recv()
+                    .await
+                    .map(|value| (Wire::from(value), ListenerState::Live { guard, receiver }));
+            }
+        }
+    }
 }

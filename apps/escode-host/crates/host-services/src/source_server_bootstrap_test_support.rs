@@ -130,6 +130,15 @@ pub(super) fn write_release(release_dir: &Path, platform: &str) {
         "pty",
         false,
     );
+    // `component_install` 在 `darwin-*` 上还要求 `spawn-helper`；夹具缺它会让 macOS 的
+    // local-upload 用例全部落到「local release artifacts are incomplete」。
+    if platform.starts_with("darwin-") {
+        write(
+            &release_dir.join(format!("node-pty/{platform}/spawn-helper")),
+            "spawn-helper",
+            true,
+        );
+    }
     write(
         &release_dir.join(format!("glm/{platform}/zcode.cjs")),
         "glm",
@@ -163,13 +172,21 @@ pub(super) fn probe_stdout(tools: bool) -> String {
     } else {
         "Linux"
     };
+    // 修复：`kernel_ostype` 取 `/proc/sys/kernel/ostype`，macOS 上不存在（真实探测输出为空）。
+    // 之前恒发 `Linux`，`resolve_remote_platform` 会把 Darwin+Linux 判成 `linux-*`
+    // （WSL 语义），macOS 用例于是去找 `manifest-linux-arm64.json` 而全部失败。
+    let kernel = if cfg!(target_os = "macos") {
+        ""
+    } else {
+        "Linux"
+    };
     let arch = if cfg!(target_arch = "aarch64") {
         "aarch64"
     } else {
         "x86_64"
     };
     format!(
-        "platform={platform}\narch={arch}\nkernel_ostype=Linux\nhome=/home/dev\ndownload={download}\ntar=tar\nsha256={sha}\n"
+        "platform={platform}\narch={arch}\nkernel_ostype={kernel}\nhome=/home/dev\ndownload={download}\ntar=tar\nsha256={sha}\n"
     )
 }
 

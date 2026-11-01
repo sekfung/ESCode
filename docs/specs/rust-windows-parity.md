@@ -157,6 +157,20 @@ storage 根（`resolvePath(configResult.config.storage.dir)` → `cli/artifacts`
 `runtime::tests::data_dir_keeps_the_requested_spelling_like_node_path_resolve`（软链接路径必须原样保留；
 用旧 realpath 实现运行该用例会得到目标路径并失败）。
 
+## 测试夹具同样禁止把 verbatim 路径交给子进程（2026-11-01）
+
+Windows 上 `pnpm test:escode-host` 首次真正执行时，`source_server_client_ts` / `source_server_remote_scope_ts`
+的 10 个跨语言对拍用例全红：`Error: EISDIR: illegal operation on a directory, lstat 'D:'`，同时日志里
+`spawned remote transport "node"` 表明子进程确实启动了。根因是夹具的 `workspace_root()` 裸用
+`canonicalize()`，在 Windows 得到 `\\?\D:\a\ESCode\...`；该值作为脚本参数传给 `node` 时被
+`Module._findPath`/`resolveMainPath` 当成 UNC 形态解析出主机名 `D:`，于是 `lstat("D:")` 报 EISDIR。
+产品路径上没有这个问题（各域 realpath 收敛处已剥离前缀，如 `host-services/src/git/mod.rs` 的 `strip_verbatim`），
+但夹具直接 `std::fs::canonicalize`。
+
+规则：**夹具产出的路径凡是要进入子进程参数、协议帧或比较，一律先剥离非 UNC 的 `\\?\` 前缀**
+（与上表 `realpath 形态` 同一规则，`crates/host-rpc/tests/support/git_repo.rs` 已有同款处理）。
+两个文件的 `workspace_root()` 已按此归一。
+
 ## 原生 MSVC 全量验收（2026-10-02，Windows 11 Pro x64，rustc 1.99 / MSVC 2022 Build Tools，Node 24.15）
 
 `pnpm test:escode-cli-rust`（`ESCODE_TEST_SERIAL=1`）在 `e228eda`：**339 用例，331 通过、0 失败、8 跳过**，Rust 单测全部通过。

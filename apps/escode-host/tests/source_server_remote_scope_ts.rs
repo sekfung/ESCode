@@ -31,11 +31,21 @@ const TASK_CHANNEL: &str = "escode-task";
 const LOCAL_CHANNEL: &str = "setting";
 
 fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .canonicalize()
-        .expect("workspace root")
+        .expect("workspace root");
+    // 修复：Windows 的 `canonicalize` 回 `\\?\D:\...`（verbatim 前缀），把它当脚本参数交给 `node`
+    // 会被 `Module._findPath` 解析成主机 `D:`（EISDIR），windows-latest 的跨语言对拍因此全红。
+    // 这里剥离非 UNC 的 verbatim 前缀，得到与 Node `realpath` 一致的 `D:\...`
+    // （docs/specs/rust-windows-parity.md「测试夹具同样禁止把 verbatim 路径交给子进程」）。
+    #[cfg(windows)]
+    let root = match root.to_str().and_then(|text| text.strip_prefix(r"\\?\")) {
+        Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
+        _ => root,
+    };
+    root
 }
 
 fn fixture_command(extra_env: &[(String, String)]) -> TransportCommand {
