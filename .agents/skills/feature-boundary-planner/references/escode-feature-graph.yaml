@@ -1051,8 +1051,8 @@ nodes:
         file: "packages/services/src/providers/api/nodeApiClient.ts"
       - symbol: "createLocalServices"
         file: "packages/services/src/node.ts"
-      - symbol: "createRemoteWorkspaceServiceCollection"
-        file: "packages/desktop/src/host/remoteWorkspaceServiceCollection.ts"
+      - symbol: "createHostApiNetworkTransport"
+        file: "packages/services/src/providers/api/nodeApiNetwork.ts"
     invariants:
       - "AppSettings is the only Host app-managed proxy, No Proxy, and custom CA authority; ambient shell proxy and CA variables remain sanitized."
       - "The first phase injects a request-scoped transport into NodeApiClient and never installs a process-global dispatcher."
@@ -2653,7 +2653,6 @@ nodes:
         file: "packages/ui/src/hooks/useWorkspaceServices.tsx"
       - symbol: "useModelSelectionServiceView"
         file: "packages/ui/src/hooks/useModelSelectionView.ts"
-      - file: "packages/desktop/src/host/remoteWorkspaceServiceCollection.ts"
 
   - id: "service.subagents"
     kind: "service"
@@ -3053,8 +3052,8 @@ nodes:
         file: "packages/services/src/providers/api/nodeApiClient.ts"
       - symbol: "createLocalServices"
         file: "packages/services/src/node.ts"
-      - symbol: "createRemoteWorkspaceServiceCollection"
-        file: "packages/desktop/src/host/remoteWorkspaceServiceCollection.ts"
+      - symbol: "createHostApiNetworkTransport"
+        file: "packages/services/src/providers/api/nodeApiNetwork.ts"
 
   - id: "service.desktop-browser-tab-residency"
     kind: "service"
@@ -3087,8 +3086,6 @@ nodes:
     codeSeeds:
       - symbol: "IPromptAttachmentTransferService"
         file: "packages/services/src/prompt-attachment-transfer/promptAttachmentTransfer.ts"
-      - symbol: "createRemotePromptAttachmentTransferService"
-        file: "packages/desktop/src/host/promptAttachmentTransferService.ts"
 
   - id: "persistence.automation-record"
     kind: "persistence"
@@ -3840,8 +3837,8 @@ nodes:
     docs:
       - "docs/architecture/r1-single-window-host-refactor.md"
     codeSeeds:
-      - symbol: "createWindowRemoteConnectionRegistry"
-        file: "packages/desktop/src/host/windowRemoteConnectionRegistry.ts"
+      - symbol: "SourceServerConnections"
+        file: "apps/escode-host/crates/host-services/src/source_server_connections.rs"
       - symbol: "createRemoteWorkspaceSessionManager"
         file: "packages/desktop/src/main/desktopRemoteSessions.ts"
 
@@ -3960,7 +3957,7 @@ nodes:
     codeSeeds:
       - file: "packages/services/test/nodeApiClient.test.ts"
       - file: "packages/services/test/nodeApiClientEndpoint.test.ts"
-      - file: "packages/desktop/src/host/remoteWorkspaceServiceCollection.ts"
+      - file: "packages/services/test/nodeApiNetwork.test.ts"
 
   - id: "evidence.embedded-browser-responsive-viewport-tests"
     kind: "evidence"
