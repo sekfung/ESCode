@@ -126,6 +126,13 @@ async fn fixture() -> Fixture {
         "[remote \"origin\"]\n\turl = https://h/o/runtime\n",
     )
     .unwrap();
+    // Bug 根因：默认 `wiki.retrieval.timeoutMs` 是 3000ms，慢 runner 上首次检索（打开库 +
+    // 扫描索引）会超时并让本轮 fail-open 不注入，用例随后因 `injected[0]` 越界失败。
+    // 2026-11-01 rust-runtime-ci `test (windows-latest, 1/3)` 连续两次（nextest 重试）实测
+    // 5s 级别的检索超时；放宽到 30s 只是测试预算，产品默认仍是 3000ms。
+    let config = project.path().join(".escode/config.json");
+    std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+    std::fs::write(&config, r#"{"wiki":{"retrieval":{"timeoutMs":30000}}}"#).unwrap();
     let doc = project.path().join("docs/standards.md");
     std::fs::create_dir_all(doc.parent().unwrap()).unwrap();
     std::fs::write(&doc, "# Shop Standards\n\n## Pagination\n\nList endpoints must use cursor pagination; offset pagination is forbidden.\n").unwrap();
