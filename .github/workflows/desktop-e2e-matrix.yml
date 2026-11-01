@@ -25,7 +25,7 @@ on:
         default: ""
         type: string
       ssh:
-        description: "额外运行 SSH 远端 project 用例（自建 Ubuntu 24.04 sshd 容器）"
+        description: "额外运行 SSH 远端 project 用例（Linux 容器目标 + macOS 本机 sshd 目标）"
         required: false
         default: false
         type: boolean
@@ -166,6 +166,70 @@ jobs:
         if: always()
         with:
           name: desktop-e2e-ssh-remote
+          path: |
+            packages/desktop/.e2e-artifacts
+            packages/desktop/.e2e-home
+          if-no-files-found: warn
+
+  # SSH 远端 project 用例（macOS 客户端 + darwin 远端）：macOS runner 没有 Docker，
+  # 目标即 runner 自身——专用用户 + 本机 sshd + darwin-<arch> 远端 release，仍然不依赖
+  # 外部服务器或仓库 secrets。远端平台按 runner 架构推导，避免绑定 arm64/x64 某一代镜像。
+  ssh-remote-project-macos:
+    name: desktop e2e (macos-latest, ssh remote)
+    if: github.event_name == 'workflow_dispatch' && inputs.ssh
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-host
+          key: e2e-ssh-macos
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: build Rust Host (debug)
+        run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # 直接调 wdio（不经 test:e2e 的 pretest）时 e2e-report 的 node 产物不会自动构建。
+      - name: build e2e report node entry
+        run: pnpm --filter @escode/e2e-report build:node
+      - name: start local ssh target
+        run: |
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
+          workspace="/Users/escode-e2e/workspace"
+          bash scripts/e2e/start-ssh-e2e-server-macos.sh 2222 "$password" "$workspace"
+          echo "ESCODE_E2E_SSH_WORKSPACE_PATH=$workspace" >> "$GITHUB_ENV"
+          if [ "$(uname -m)" = "arm64" ]; then remote_platform=darwin-arm64; else remote_platform=darwin-x64; fi
+          echo "ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS=$remote_platform" >> "$GITHUB_ENV"
+          echo "ESCODE_REMOTE_ASSET_PLATFORMS=$remote_platform" >> "$GITHUB_ENV"
+      - name: run SSH remote project E2E
+        env:
+          ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
+          ESCODE_E2E_SSH_HOST: 127.0.0.1
+          ESCODE_E2E_SSH_PORT: "2222"
+          ESCODE_E2E_SSH_USERNAME: escode-e2e
+        run: |
+          pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
+            --spec ./test/e2e/conversation-session/manual-review/pending/conversation-session-ssh-remote-project-create.test.ts
+      - name: dump SSH target log
+        if: always()
+        run: sudo cat /tmp/escode-e2e-sshd.log 2>&1 | tail -200 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-e2e-ssh-remote-macos
           path: |
             packages/desktop/.e2e-artifacts
             packages/desktop/.e2e-home

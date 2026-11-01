@@ -13,12 +13,12 @@ Host，**不**证明 GUI 交互可用。
 
 ## 用例清单
 
-| #   | spec                                                                                      | 覆盖的验收点                                                                                          | 备注                                                         |
-| --- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 1   | `./test/e2e/smoke.test.ts`                                                                | 默认启动进入可交互工作区：V4 session pane 与 composer 同时可见                                        | 无 provider；主界面可用性最小门禁                            |
-| 2   | `./test/e2e/infrastructure/session-lifecycle.test.ts`                                     | 每轮 WebDriver current handle 绑定真实 renderer page target，URL 不是 `chrome-error://`               | 排除白屏/绑错窗口类假绿                                      |
-| 3   | `./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts` | 本地窗口只由一个 `escode-host-rust-host` 服务、无 Node utility Host；renderer reload 后 Host pid 不变 | 阶段 3 的 Host 拓扑断言；`ESCODE_RUST_HOST` 未设即 Rust 模式 |
-| 4   | `./test/e2e/conversation-session/source-server-rust-server-direct.test.ts`                 | 真实本地 `escode-server`：首连 → App 重启恢复 → 断线原位重连 → 双窗口共享，且无 `escode-host-remote-*` | Source Server 远程链路（§12.6.7-4/5/6）；server 由 worker 内 fixture 拉起，不依赖 SSH/账号 |
+| #   | spec                                                                                      | 覆盖的验收点                                                                                           | 备注                                                                                       |
+| --- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1   | `./test/e2e/smoke.test.ts`                                                                | 默认启动进入可交互工作区：V4 session pane 与 composer 同时可见                                         | 无 provider；主界面可用性最小门禁                                                          |
+| 2   | `./test/e2e/infrastructure/session-lifecycle.test.ts`                                     | 每轮 WebDriver current handle 绑定真实 renderer page target，URL 不是 `chrome-error://`                | 排除白屏/绑错窗口类假绿                                                                    |
+| 3   | `./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts` | 本地窗口只由一个 `escode-host-rust-host` 服务、无 Node utility Host；renderer reload 后 Host pid 不变  | 阶段 3 的 Host 拓扑断言；`ESCODE_RUST_HOST` 未设即 Rust 模式                               |
+| 4   | `./test/e2e/conversation-session/source-server-rust-server-direct.test.ts`                | 真实本地 `escode-server`：首连 → App 重启恢复 → 断线原位重连 → 双窗口共享，且无 `escode-host-remote-*` | Source Server 远程链路（§12.6.7-4/5/6）；server 由 worker 内 fixture 拉起，不依赖 SSH/账号 |
 
 命令（CI 与本地一致）：
 
@@ -61,13 +61,24 @@ ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
 
 ## 覆盖矩阵（阶段 3 验收）
 
-| 平台           | 桌面 GUI 可用             | Host 拓扑                         | 远程 Rust 链路（server-direct）              | App 级性能                                                  |
-| -------------- | ------------------------- | --------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| 平台           | 桌面 GUI 可用             | Host 拓扑                         | 远程 Rust 链路（server-direct）                 | App 级性能                                                  |
+| -------------- | ------------------------- | --------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
 | ubuntu-latest  | smoke + session-lifecycle | Rust Host 单进程、reload pid 不变 | 首连/重启恢复/原位重连/双窗口，零 Node 远程进程 | 首段 + 4 路流式 + 多 workspace/优雅退出（Node/Rust 各一次） |
-| windows-latest | smoke + session-lifecycle | 同上                              | 同上                                          | —（读数只与同平台历史比较，暂只在 Linux 采集）              |
-| macos-latest   | smoke + session-lifecycle | 同上                              | 同上                                          | —                                                           |
+| windows-latest | smoke + session-lifecycle | 同上                              | 同上                                            | —（读数只与同平台历史比较，暂只在 Linux 采集）              |
+| macos-latest   | smoke + session-lifecycle | 同上                              | 同上                                            | —                                                           |
 
 **未覆盖**：Host/network 分角色 CPU（当前是全进程树口径）、性能阈值判定（只积累趋势）。
+
+### SSH 远端目标（仅 `workflow_dispatch` 且勾选 `ssh`）
+
+| 作业                       | 客户端 | 远端                       | 目标准备                                                                     |
+| -------------------------- | ------ | -------------------------- | ---------------------------------------------------------------------------- |
+| `ssh-remote-project`       | ubuntu | Linux（Ubuntu 24.04 容器） | `scripts/e2e/start-ssh-e2e-server.sh`，root + password + `linux-x64` 资产    |
+| `ssh-remote-project-macos` | macos  | macOS（runner 本机 sshd）  | `scripts/e2e/start-ssh-e2e-server-macos.sh`，专用用户 + `darwin-<arch>` 资产 |
+
+两个作业都只连 `127.0.0.1`，不使用仓库 secrets；macOS 目标平台的 `darwin-arm64` /
+`darwin-x64` 由 runner 架构推导，随 `ESCODE_REMOTE_ASSET_PLATFORMS` 传给 `prepare:remote-assets`。
+Windows 客户端仍缺 POSIX 目标（runner 无 Docker，需 WSL 或外部主机），未纳入本矩阵。
 
 ## 不在本矩阵内
 

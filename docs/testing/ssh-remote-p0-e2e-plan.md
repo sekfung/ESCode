@@ -115,6 +115,11 @@ Ubuntu 24.04 + password SSH
 - 远端 release 由 wdio `onPrepare` 的 `ensureSshRemoteReleaseAssets` 从本仓库
   `prepare:remote-assets` 产物注入；作业预装 `musl-tools` 与 `x86_64-unknown-linux-musl`。
 - 运行预算：SSH 用例超过 mocha 默认 120s，作业设置 `ESCODE_E2E_MANUAL_REVIEW_HOLD_MS=1800000`。
+- 2026-11-02 补 macOS 客户端：`desktop e2e matrix` 新增 `ssh-remote-project-macos` 作业，
+  用 `scripts/e2e/start-ssh-e2e-server-macos.sh` 在 runner 上建专用用户（`escode-e2e`）并拉起
+  监听 `127.0.0.1:2222` 的 sshd（密码登录、`AllowUsers` 限定该用户），远端平台取
+  `darwin-arm64`/`darwin-x64`，`ESCODE_REMOTE_ASSET_PLATFORMS` 同步后用同一 spec 运行。
+  这条覆盖 macOS 客户端的 SSH 首连链路，不涉及外部主机，也不使用仓库 secrets。
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。
