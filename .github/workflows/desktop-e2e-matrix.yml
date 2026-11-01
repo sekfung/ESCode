@@ -43,6 +43,10 @@ env:
   ESCODE_TEST_EXIT_MS: "15000"
   # 矩阵只跑正式目录下的 spec，不收 manual-review/pending。
   ESCODE_E2E_MAX_INSTANCES: "1"
+  # `reloadElectronSessionSafely` 会在同一 worker 内重建 WebDriver session：慢 runner 上
+  # 新 Electron 启动 + chromedriver 握手实测超过 30s 默认值（macOS/ubuntu 偶发裸 Timeout，
+  # 三次推送各命中一次）。放宽到 120s 仍保留挂起边界，避免又回到数分钟不可中断的等待。
+  ESCODE_E2E_WEBDRIVER_REQUEST_TIMEOUT_MS: "120000"
   ESCODE_E2E_SPEC: >-
     ${{ inputs.specs != '' && inputs.specs ||
     './test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-lifecycle.test.ts,./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts,./test/e2e/conversation-session/source-server-rust-server-direct.test.ts' }}

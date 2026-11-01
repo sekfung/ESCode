@@ -1270,6 +1270,11 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   说明 libuv 短路径与目录分隔符两处修复成立；ubuntu 该用例失败（`2m 2s`，裸 `Timeout`，无阶段信息），
   同 commit 本机 Linux 连续复跑通过（最近一次 `1 passing / 18.7s`）。同一用例在不同平台上分别通过、
   ubuntu 偶发超时，按 flaky 处理，不据此判定产品回归。
+- 2026-11-01 第四轮 CI（run `41266592976`，commit `dbe4bb91`）：windows、ubuntu 通过，macOS 失败。
+  阶段日志显示最后停留在 `restart-recovery`：`reloadElectronSessionSafely` 里的 `reloadSession()` 重建
+  WebDriver session 时超过 30s 默认 `connectionRetryTimeout`，WDIO 抛裸 `Timeout`。三次推送里
+  ubuntu/macOS 各命中一次、彼此不重叠，按同一根因（慢 runner + session 重建）处理。矩阵 job 现设
+  `ESCODE_E2E_WEBDRIVER_REQUEST_TIMEOUT_MS=120000`（仍保留挂起边界），第五轮验证。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
