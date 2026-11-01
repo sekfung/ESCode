@@ -131,8 +131,11 @@ Ubuntu 24.04 + password SSH
 - 2026-11-02 Windows 实跑进展：run `41340564228`（job `124950642203`）WSL sshd 就绪、
   远端 release 准备完成、SSH 认证成功，失败点是目录选择器初始目录未就绪（30s 轮询内
   `directory-browser-path` 一直为空）。根因是 Rust Host 用 `std::path` 处理远端 POSIX 路径，
-  Windows 下 `/root` 被判成相对路径并归一成 `\root`；修复见 spec §11.11。改后需再跑一次
-  `workflow_dispatch`（`ssh=true`）确认 Windows 作业转绿。
+  Windows 下 `/root` 被判成相对路径并归一成 `\root`；修复见 spec §11.11。
+  修复后实跑 run `41343996871`：Windows SSH 作业（job `124961277623`）`SSH-P0-PROJECT-01`
+  1 passed / 2m59s，同 run 8 个作业全部 green（三平台 curated 矩阵、Linux/macOS/Windows
+  SSH、musl runtime、app perf）。Windows 仍只覆盖单例首连；多窗口与 App 重启恢复用例
+  只在 Linux 执行。
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。

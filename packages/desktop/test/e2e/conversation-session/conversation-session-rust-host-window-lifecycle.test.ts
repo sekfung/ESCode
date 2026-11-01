@@ -34,16 +34,35 @@ describe(`${CASE_MARKER}: Rust Host 窗口生命周期`, () => {
     const hostPid = rustHosts[0]!.pid;
 
     await browser.execute(() => window.location.reload());
-    await browser.waitUntil(
-      () =>
-        browser.execute(() =>
-          Boolean(
-            document.querySelector('[data-testid="task-settings-button"]') ||
-            document.querySelector('[data-testid="onboarding-page"]'),
+    try {
+      await browser.waitUntil(
+        () =>
+          browser.execute(() =>
+            Boolean(
+              document.querySelector('[data-testid="task-settings-button"]') ||
+              document.querySelector('[data-testid="onboarding-page"]'),
+            ),
           ),
-        ),
-      { timeout: 60_000, interval: 500, timeoutMsg: "reload 后工作区没有恢复" },
-    );
+        { timeout: 60_000, interval: 500, timeoutMsg: "reload 后工作区没有恢复" },
+      );
+    } catch (error) {
+      // Windows runner 上曾偶发整窗 60s 未出现任一锚点；没有页面快照无法区分慢启动与
+      // 恢复链路真的失败，下次复现时直接带上可见 testid 与正文。
+      const snapshot = await browser
+        .execute(() => ({
+          visibleTestIds: Array.from(document.querySelectorAll("[data-testid]"))
+            .filter((element) => (element as HTMLElement).getClientRects().length > 0)
+            .map((element) => element.getAttribute("data-testid"))
+            .slice(0, 40),
+          bodyText: (document.body.innerText ?? "").slice(0, 800),
+        }))
+        .catch(() => null);
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)} [visible testids: ${
+          snapshot?.visibleTestIds.join(", ") ?? "unavailable"
+        }] [body: ${snapshot?.bodyText.replaceAll("\n", " | ") ?? "unavailable"}]`,
+      );
+    }
 
     const afterReload = await readHostProcesses();
     expect(afterReload).toEqual([{ name: "escode-host-rust-host", pid: hostPid }]);
