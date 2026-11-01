@@ -85,3 +85,32 @@ fn base_url_normalization_strips_trailing_slashes_but_keeps_query() {
     );
     assert_eq!(normalize_base_url("not a url"), None);
 }
+
+#[test]
+fn lookahead_rules_follow_javascript_semantics() {
+    // 历史 Built-in 发布过 `.*glm-4\.6(?!v).*`（把视觉型号排除在 Messages 规则外）。
+    // 旧实现用 `regex` crate：编译失败 → 整条规则永不命中，GLM-4.6 与 GLM-4.6V 会拿到
+    // 同一份（错误的）配置。这里钉住与 TS `new RegExp` 一致的匹配结果。
+    let rules = builtin_rules(&json!({
+        "modelRules":[
+            {"modelMatch":".*glm-4\\.6(?!v).*","config":{"properties":{"contextWindow":1}}},
+            {"modelMatch":".*glm-4\\.6v.*","config":{"properties":{"contextWindow":2}}},
+        ],
+    }));
+    let refs: Vec<&Rule> = rules.iter().collect();
+    let resolve_for = |model_id: &str| {
+        resolve(
+            &refs,
+            &ResolveInput {
+                model_id,
+                ..input()
+            },
+        )
+    };
+    assert_eq!(resolve_for("glm-4.6")["properties"]["contextWindow"], 1);
+    assert_eq!(
+        resolve_for("GLM-4.6-Flash")["properties"]["contextWindow"],
+        1
+    );
+    assert_eq!(resolve_for("glm-4.6v")["properties"]["contextWindow"], 2);
+}

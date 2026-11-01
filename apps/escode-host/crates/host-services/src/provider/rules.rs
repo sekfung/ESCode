@@ -1,7 +1,7 @@
 //! Model 规则引擎（TS `ModelConfigRules`：`composeEffective` / `resolve` / 手动规则清理）。
 
+use escode_cli_domain::rule_match::RuleMatcher;
 use escode_host_control::logging;
-use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value, json};
 
 use super::overlay::{Kind, overlay};
@@ -20,18 +20,16 @@ pub enum RuleKind {
 pub struct Rule {
     pub kind: RuleKind,
     pub value: Value,
-    model_match: Option<Option<Regex>>,
-    api_match: Option<Option<Regex>>,
-    url_match: Option<Option<Regex>>,
+    model_match: Option<Option<RuleMatcher>>,
+    api_match: Option<Option<RuleMatcher>>,
+    url_match: Option<Option<RuleMatcher>>,
 }
 
-/// JS `new RegExp("^(?:" + pattern + ")$", flags)`；Rust `regex` 不支持的写法（前瞻/反向引用）→ `None`，该规则永不命中。
-fn compile(rule: &Value, key: &str, ignore_case: bool) -> Option<Option<Regex>> {
+/// JS `new RegExp("^(?:" + pattern + ")$", flags)`；仍需拒绝真正非法的写法（→ `None`，该规则永不命中）。
+fn compile(rule: &Value, key: &str, ignore_case: bool) -> Option<Option<RuleMatcher>> {
     let pattern = rule.get(key)?.as_str()?;
     Some(
-        RegexBuilder::new(&format!("^(?:{pattern})$"))
-            .case_insensitive(ignore_case)
-            .build()
+        RuleMatcher::new(pattern, ignore_case)
             .map_err(|error| {
                 logging::warn(
                     "provider",
@@ -243,7 +241,7 @@ pub fn resolve(rules: &[&Rule], input: &ResolveInput<'_>) -> Value {
             }
             continue;
         }
-        let matches = |regex: &Option<Option<Regex>>, value: &str| -> bool {
+        let matches = |regex: &Option<Option<RuleMatcher>>, value: &str| -> bool {
             matches!(regex, Some(Some(re)) if re.is_match(value))
         };
         if !matches(&rule.model_match, input.model_id) {

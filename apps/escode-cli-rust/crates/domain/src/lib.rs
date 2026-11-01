@@ -79,6 +79,9 @@ pub mod question;
 mod question_answer;
 pub mod rewind_branch;
 pub mod row_page;
+pub mod rule_match;
+#[cfg(test)]
+mod rule_match_tests;
 pub mod runtime_env;
 pub mod saved_workflow;
 pub mod schema_order;

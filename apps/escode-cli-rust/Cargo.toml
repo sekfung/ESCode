@@ -68,6 +68,9 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 ignore = "0.4"
 globset = "0.4"
 regex = "1"
+# Provider 模型规则按 TS `new RegExp` 语义匹配：`regex` 无前瞻/后顾/反向引用，
+# 历史 Built-in 的 `(?!v)` 规则会被整条丢弃或让 Registry 解析失败（rust-u2-providers.md §5）。
+fancy-regex = "0.20"
 rmcp = { version = "3.4", default-features = false, features = [
   "client",
   "transport-async-rw",

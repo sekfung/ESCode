@@ -71,9 +71,9 @@ pub(super) fn ids(v: &Value) -> Vec<String> {
 pub(super) struct Rule {
     pub(super) value: Value,
     pub(super) manual: bool,
-    pub(super) model: Option<regex::Regex>,
-    pub(super) api: Option<regex::Regex>,
-    pub(super) url: Option<regex::Regex>,
+    pub(super) model: Option<escode_cli_domain::rule_match::RuleMatcher>,
+    pub(super) api: Option<escode_cli_domain::rule_match::RuleMatcher>,
+    pub(super) url: Option<escode_cli_domain::rule_match::RuleMatcher>,
 }
 pub(super) fn rules(config: &Value, personal: bool) -> Result<Vec<Rule>> {
     let mut result = vec![];
@@ -90,13 +90,16 @@ pub(super) fn rules(config: &Value, personal: bool) -> Result<Vec<Rule>> {
     };
     for group in groups {
         for rule in array(&config[*group]) {
-            let regex = |key: &str, insensitive: bool| -> Result<Option<regex::Regex>> {
+            // 与 Host 共用 `RuleMatcher`（JS 方言，含前瞻/后顾/反向引用）：此前用 `regex`
+            // 会让带前瞻的规则让整份 Registry 解析失败，而 TS 能正常命中。
+            let regex = |key: &str,
+                         insensitive: bool|
+             -> Result<Option<escode_cli_domain::rule_match::RuleMatcher>> {
                 rule[key]
                     .as_str()
                     .map(|pattern| {
-                        Ok(regex::RegexBuilder::new(&format!("^(?:{pattern})$"))
-                            .case_insensitive(insensitive)
-                            .build()?)
+                        escode_cli_domain::rule_match::RuleMatcher::new(pattern, insensitive)
+                            .map_err(|error| anyhow::anyhow!("invalid rule {key}: {error}"))
                     })
                     .transpose()
             };
@@ -170,3 +173,7 @@ pub(super) fn valid_model(v: &Value) -> bool {
                         == a.len()
             })
 }
+
+#[cfg(test)]
+#[path = "registry_config_tests.rs"]
+mod registry_config_tests;

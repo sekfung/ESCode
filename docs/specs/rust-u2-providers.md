@@ -48,7 +48,7 @@
 
 ## 5. 风险
 
-- zod 错误文案（`issues[].message`）要逐字对齐，只能靠差分语料覆盖；正则方言（JS 与 Rust `regex` 的回溯/前瞻差异）在 `modelMatch/apiTypeMatch/baseUrlMatch` 上是真实风险，Rust CLI 现用 `regex` crate，遇到前瞻/反向引用会整条规则失败（TS 可用）。
+- zod 错误文案（`issues[].message`）要逐字对齐，只能靠差分语料覆盖；正则方言在 `modelMatch/apiTypeMatch/baseUrlMatch` 上曾与 JS 不同（Rust `regex` 无前瞻/反向引用，规则会整条失效）；2026-11-01 起两侧统一改用 `fancy-regex`（见登记差异 2）。
 - `compileModelOptionMap` 是一门小 DSL（`@escode/model-option-map`），Rust 侧已有 `domain::option_map`；P1 必须确认两者对“合法/非法”的判定一致。
 
 ## 6. P1 交付记录与登记差异
@@ -66,7 +66,18 @@
 **登记差异（不修）**：
 
 1. **叶子值域校验粒度**：TS 对 Built-in / Personal 文件整体 zod 严格校验，叶子值非法则整份文件失败；Rust 只在“键集合 / 版本 / 唯一性 / 组”层面拒绝整份文件，叶子非法的单个 Provider/Model 由完整性判定排除出 Registry。
-2. **正则方言**：规则里的 `modelMatch/apiTypeMatch/baseUrlMatch` 用 Rust `regex`（无前瞻/反向引用）；不支持的写法使该规则永不命中并 warn（TS 会按 JS 方言命中）。
+2. **正则方言**：`modelMatch/apiTypeMatch/baseUrlMatch` 统一按 TS `new RegExp("^(?:pattern)$", flags)` 语义匹配，实现是
+   `escode-cli-domain` 的 `RuleMatcher`（`fancy-regex`，支持前瞻/后顾/反向引用，含可变长后顾）。已修
+   （2026-11-01）：此前用 `regex` crate，`.*glm-4\.6(?!v).*` 这类历史上随 Built-in 发布过的规则在 Host 侧被整条丢弃
+   （`rule pattern unsupported` warn 后永不命中），CLI 侧则让整份 Registry 解析失败；两者都与 TS 不一致。
+   残留差异：回溯预算耗尽时 `fancy-regex` 返回错误，两侧都按“不命中”处理（Host 记 warn），JS 会算完；
+   `\d`/`\w` 等字符类仍按 Unicode 语义（JS 是 ASCII）。差分与单测见 `rules_tests.rs` 的
+   `lookahead_rules_follow_javascript_semantics` 与 `rule_match` crate 单测。
+   证据（2026-11-01）：`packages/desktop/test/rustHostProvider.test.ts` 用真实 Built-in + 15 组 Personal
+   场景复跑通过；`cargo test -p escode-cli-domain --lib rule_match`（4 例）、
+   `cargo test -p escode-cli-model --lib registry_config`（2 例）、
+   `cargo test -p escode-host-services --lib provider::rules`（5 例）通过；Host 侧
+   `x86_64-pc-windows-gnu` 交叉 `cargo check` 通过。
 3. **option map 判定**：TS 以 `compileModelOptionMap` 编译判定；Rust 用 `escode_cli_domain::option_map::evaluate` 以代表值试算（解析或试算失败即不合格）。
 4. **URL 校验**：zod `url()` 对应 `url::Url::parse`（WHATWG），边缘写法可能不同。
 5. **Personal 读取不规范化重写**（§4.2 决策）；变更检测基于“解析后再序列化”的内容指纹，而不是 TS 的规范编码 SHA-256。
