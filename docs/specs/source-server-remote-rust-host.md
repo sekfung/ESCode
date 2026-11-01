@@ -1260,6 +1260,12 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   （`C:\Users\RUNNER~1\...`），server 对 workspace 做递归 `fs.watch`，libuv 用短名目录与 OS 回报的
   长名前缀比较不一致即断言退出。`local-escode-server.ts` 改为先 `realpath(tmpdir())` 再拼子目录，
   同时不受 macOS `\var` → `\private\var` 符号链接影响；这是测试环境路径，不是产品缺陷。
+- 2026-11-01 第二轮 CI（run `41262565326`，commit `e4baa971`）：realpath 修复生效，libuv 崩溃消失；
+  macOS 该用例通过，ubuntu 通过；windows 在 `select-directory` 阶段失败——远端目录选择辅助
+  （`source-server-rust-remote.ts`）只按 `/` 切父目录，Windows 目标路径 `C:\...` 的
+  `lastIndexOf("/")` 为 -1，父路径退化成整条路径去掉末字符，永远找不到目标目录。已改为同时接受
+  反斜杠与 `/` 分隔符并保留盘符根 `C:\`；本机 Linux 复跑 `desktop-e2e-20261101-021944-470`（1 passing / 18.9s）。
+  windows 通过结果待第三轮 CI 确认。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
   `wait-workspace-ready` / `wait-remote-session` / `restart-recovery` / `disconnect-reconnect` /
   `second-window` / `assert-zero-node-host`），失败时错误信息带阶段名；`after` 钩子改为 `server?.stop()`，

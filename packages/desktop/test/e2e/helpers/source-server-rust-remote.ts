@@ -80,10 +80,15 @@ export async function selectRemoteDirectoryByPath(
     },
   );
 
-  const normalizedPath = workspacePath.replace(/\/+$/, "") || "/";
-  const lastSlash = normalizedPath.lastIndexOf("/");
-  const parentPath = lastSlash === 0 ? "/" : normalizedPath.slice(0, lastSlash);
-  const directoryName = normalizedPath.slice(lastSlash + 1);
+  // 远端目录浏览器按 Server 所在平台展示路径：Windows 目标给的是 `C:\...`。旧实现只按 `/`
+  // 切分，Windows 上 lastSeparator 恒为 -1，父路径退化成“去掉末字符的整条路径”，于是永远
+  // 找不到目标目录（CI windows job 实测）。这里同时接受两种分隔符，并保留盘符根 `C:\`。
+  const normalizedPath = workspacePath.replace(/[\\/]+$/, "") || "/";
+  const lastSeparator = Math.max(normalizedPath.lastIndexOf("/"), normalizedPath.lastIndexOf("\\"));
+  const rawParent =
+    lastSeparator <= 0 ? normalizedPath.slice(0, 1) : normalizedPath.slice(0, lastSeparator);
+  const parentPath = /^[A-Za-z]:$/.test(rawParent) ? `${rawParent}\\` : rawParent;
+  const directoryName = normalizedPath.slice(lastSeparator + 1);
   if (!directoryName) {
     throw new Error(`${caseMarker}: 暂不支持选择根目录`);
   }
