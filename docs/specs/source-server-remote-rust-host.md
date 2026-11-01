@@ -1244,6 +1244,14 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
 
 未完成（S4 退出条件仍不满足）：
 
+- 2026-11-01：三平台桌面矩阵新增 `source-server-rust-server-direct.test.ts`（worker 内拉起真实
+  `escode-server`，走 Rust Host 的 HTTP/WS 远程链路）。它为 Windows/macOS 提供 server transport 的
+  主链证据（首连、App 重启恢复、断线原位重连、双窗口共享、零 Node 远程进程），fixture 用稳定端口
+  代理隔离后端重启，避免 Windows 同端口 TIME_WAIT 造成的测试环境差异。该用例**不替代**下面三条
+  SSH 主链：SSH 链路需要对应平台可达的目标机，仍待补。
+  本机 Linux x64 复跑：单跑 `desktop-e2e-20261101-005906-288`（1 passing / 18.6s），按 CI 默认
+  四条清单合跑 `desktop-e2e-20261101-010134-706`（4 passing / 1m08s）；Windows/macOS 的 CI 实跑
+  结果在 push 后登记。
 - 2026-11-01 删除 Node 远程路径（S5-f-5）后，Linux x64 上按本 runbook 复跑的三条主链均已通过：
   - 首次安装 + 显式更新：`source-server-rust-install.test.ts`，
     `desktop-e2e-20261101-000342-581`（`1 passing (5m 22s)`；空目标 `needs-install` →

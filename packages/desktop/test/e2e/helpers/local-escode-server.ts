@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, rm } from "node:fs/promises";
-import { createServer } from "node:net";
+import { connect, createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -32,12 +32,17 @@ export interface LocalESCodeServer {
 /**
  * 真实 `escode-server` fixture（spec §12.6.7-4/5/6）：Desktop E2E 必须连接真实 HTTP/WS 服务，
  * 不能用 in-process fake 代替，否则 Rust Host 的 info 探测、capability 与帧泵都没有被覆盖。
+ *
+ * 客户端（Rust Host）连的是稳定的代理端口，后端 server 进程每次重启换一个内部端口：
+ * 「断线 → 原位重连」对客户端仍然成立（URL/端口/身份不变），但不再依赖各平台
+ * “进程退出后立刻复用监听端口”的行为——Windows 上 TIME_WAIT 会让同端口重建绑定失败，
+ * 那是测试环境差异，不是 Desktop 的恢复语义。
  */
 export async function startLocalESCodeServer(
   options: LocalESCodeServerOptions = {},
 ): Promise<LocalESCodeServer> {
   const entry = await resolveServerEntry();
-  const port = options.port ?? (await allocateFreePort());
+  const publicPort = options.port ?? (await allocateFreePort());
   const workspacePath =
     options.workspacePath ?? join(tmpdir(), `escode-e2e-server-${randomUUID()}`, "workspace");
   const dataBaseDir =
@@ -48,15 +53,65 @@ export async function startLocalESCodeServer(
   await mkdir(workspacePath, { recursive: true });
   await mkdir(dataBaseDir, { recursive: true });
 
-  const url = `http://127.0.0.1:${port}`;
+  const url = `http://127.0.0.1:${publicPort}`;
   let child: ChildProcess | null = null;
+  let backendPort: number | null = null;
+  let proxy: Server | null = null;
+  const proxiedSockets = new Set<Socket>();
+
+  function trackSocket(socket: Socket): void {
+    proxiedSockets.add(socket);
+    socket.once("close", () => proxiedSockets.delete(socket));
+  }
+
+  async function startProxy(): Promise<void> {
+    const server = createServer((client) => {
+      trackSocket(client);
+      client.on("error", () => client.destroy());
+      const target = backendPort;
+      if (target === null) {
+        // 后端停机期间接受连接后立刻断开，让客户端按“服务不可用”处理并在恢复后重连。
+        client.destroy();
+        return;
+      }
+      const upstream = connect(target, "127.0.0.1");
+      trackSocket(upstream);
+      upstream.on("error", () => {
+        client.destroy();
+        upstream.destroy();
+      });
+      client.on("error", () => upstream.destroy());
+      client.pipe(upstream).pipe(client);
+    });
+    await new Promise<void>((settle, reject) => {
+      server.once("error", reject);
+      server.listen(publicPort, "127.0.0.1", () => settle());
+    });
+    proxy = server;
+  }
+
+  function destroyProxiedSockets(): void {
+    for (const socket of proxiedSockets) {
+      socket.destroy();
+    }
+    proxiedSockets.clear();
+  }
+
+  async function stopProxy(): Promise<void> {
+    const server = proxy;
+    proxy = null;
+    if (!server) return;
+    destroyProxiedSockets();
+    await new Promise<void>((settle) => server.close(() => settle()));
+  }
 
   async function launch(): Promise<void> {
+    backendPort = await allocateFreePort();
     child = spawn(process.execPath, [entry], {
       cwd: dirname(entry),
       env: {
         ...process.env,
-        PORT: String(port),
+        PORT: String(backendPort),
         HOST: "127.0.0.1",
         ESCODE_SERVER_HOST: "127.0.0.1",
         ESCODE_SERVER_AUTH_TOKEN: token,
@@ -111,15 +166,22 @@ export async function startLocalESCodeServer(
   async function stopChild(): Promise<void> {
     const running = child;
     child = null;
-    if (!running || running.exitCode !== null) return;
-    const exited = new Promise<void>((settle) => running.once("exit", () => settle()));
-    running.kill("SIGTERM");
-    const forced = setTimeout(() => running.kill("SIGKILL"), 5_000);
-    forced.unref?.();
-    await exited;
-    clearTimeout(forced);
+    backendPort = null;
+    if (running && running.exitCode === null) {
+      const exited = new Promise<void>((settle) => running.once("exit", () => settle()));
+      running.kill("SIGTERM");
+      const forced = setTimeout(() => running.kill("SIGKILL"), 5_000);
+      forced.unref?.();
+      // 立刻断开代理连接：客户端不必等到 OS 回收管道才发现服务端已下线。
+      destroyProxiedSockets();
+      await exited;
+      clearTimeout(forced);
+      return;
+    }
+    destroyProxiedSockets();
   }
 
+  await startProxy();
   await launch();
 
   return {
@@ -127,11 +189,12 @@ export async function startLocalESCodeServer(
     token,
     workspacePath,
     serverId,
-    port,
+    port: publicPort,
     stopProcess: stopChild,
     startProcess: launch,
     async stop() {
       await stopChild();
+      await stopProxy();
       await rm(dataBaseDir, { recursive: true, force: true });
       await rm(workspacePath, { recursive: true, force: true });
     },

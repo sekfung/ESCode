@@ -45,7 +45,7 @@ env:
   ESCODE_E2E_MAX_INSTANCES: "1"
   ESCODE_E2E_SPEC: >-
     ${{ inputs.specs != '' && inputs.specs ||
-    './test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-lifecycle.test.ts,./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts' }}
+    './test/e2e/smoke.test.ts,./test/e2e/infrastructure/session-lifecycle.test.ts,./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts,./test/e2e/conversation-session/source-server-rust-server-direct.test.ts' }}
 
 jobs:
   e2e:
@@ -87,6 +87,10 @@ jobs:
       - run: node scripts/build-desktop-agent-cli.mjs
       - name: build Rust Host (debug)
         run: cargo build --locked --manifest-path apps/escode-host/Cargo.toml
+      # source-server-rust-server-direct 在 worker 内拉起真实 escode-server（HTTP/WS +
+      # provider-provisioning channel），需要 packages/server/dist/entry-http.js 在场。
+      - name: build escode-server
+        run: pnpm --filter @escode/server build
       # onPrepare 会先跑 build:no-runtime-assets（tsup + vite），再启动 Electron。
       - name: run curated desktop E2E
         run: pnpm --filter @escode/desktop test:e2e:serial
