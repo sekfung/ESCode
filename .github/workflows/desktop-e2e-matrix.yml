@@ -165,6 +165,7 @@ jobs:
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
           # wdio `--spec` 不接受逗号分隔（会当成单个文件）；多 spec 走配置读取的 env。
           ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-install.test.ts,
             ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
             ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
             ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
@@ -236,6 +237,7 @@ jobs:
           ESCODE_E2E_SSH_USERNAME: escode-e2e
           ESCODE_E2E_SSH_WORKSPACE_PATHS: /Users/escode-e2e/workspace,/Users/escode-e2e/workspace-2
           ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-install.test.ts,
             ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
             ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
             ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
@@ -370,6 +372,7 @@ jobs:
           ESCODE_E2E_SSH_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_REMOTE_ASSET_PLATFORMS: linux-x64
           ESCODE_E2E_SPEC: >-
+            ./test/e2e/conversation-session/source-server-rust-install.test.ts,
             ./test/e2e/conversation-session/source-server-rust-first-connect.test.ts,
             ./test/e2e/conversation-session/source-server-rust-restart-recovery.test.ts,
             ./test/e2e/conversation-session/source-server-rust-multi-window.test.ts,
