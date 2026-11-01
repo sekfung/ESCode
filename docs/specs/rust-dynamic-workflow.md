@@ -284,3 +284,16 @@ Agent / SendMessage、无定时任务端口的 Cron\*）。验收：`escode-cli-
 - 修复（宿主 `workflow-host-settle-wait.ts`）：宿主的 stop（模型 StopWorkflowRun 与用户停止同一入口）在 cancel 成功后
   等该 run 的 `runSettled` 行写出再应答。宿主输出按行有序，Rust 先收到通知、再收到工具结果，同一步边界确定地并入通知。
   等待以结算事件为准，上限 5 秒只防 run 永不结算时卡住停止（届时照常应答）。
+
+## AmendWorkflow 差分待观测（2026-11-01）
+
+- 现象（CI，run `41288521627` 的 `test (ubuntu-latest, 3/3)`，commit `3f804de1`）：
+  `escode-cli-rust-amend-workflow.test.ts` 的「Node and Rust amend a settled workflow run the same way」跑了 92.6s，
+  在 `observe("rust")` 内抛 `TypeError: Cannot read properties of undefined (reading 'replaceAll')`。
+- 已确认：断言前的等待循环是「最多等 90s 让请求数到 6」；到点后不报缺失直接继续，`lastUser(requests[5])` 拿到
+  `undefined` 才崩在 `scrub`。所以这条 `TypeError` 只说明 **Rust 侧第 6 个请求（修订 run 结算后的完成通知续跑）
+  没在 90s 内出现**，不是产品断言差异。
+- 未确认：下一次 run（`41291112308`，commit `7e42e766`，相对失败 commit 只有文档差异）该用例通过，本机 Linux
+  也连跑 3/3 通过（约 10s）；暂时按慢 runner 时序处理，不据此改产品；
+  若再次复现，先查「修订 run 结算通知在 AmendWorkflow 工具结果之后到达时是否被丢弃」，并把等待循环改成
+  「到点即失败并打印 `requests.length` 与最后一条消息」。
