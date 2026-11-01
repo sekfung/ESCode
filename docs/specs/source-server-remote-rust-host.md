@@ -1607,8 +1607,9 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`
-  或 `ESCODE_RUST_HOST=0` 远程分支。Desktop `kind: "server"` 直连仍使用 Host 内 `connectServerRemote`
-  与 Provider Provisioning，但必须在文档中列明所有者与测试，且不得反向成为 SSH/WSL/Docker 的回退。
+  或 `ESCODE_RUST_HOST=0` 远程分支。Desktop `kind: "server"` 直连已按 §12.6 迁到 Rust Host；Node Host
+  的 `connectServerRemote` 与 Provider Provisioning 处理端已于 S5-f-5 删除，不得反向成为任何 transport
+  的 Node 回退。
 - 文档、技能、脚本无失效引用；§7 的 S5 项标记完成并记录证据 run id。
 
 ### 12.6 S5-f：`kind: "server"` 直连迁到 Rust Host（设计，2026-11-01）
@@ -1886,3 +1887,34 @@ provider provisioning unsupported: capability-unavailable
   `expected false to be true`，修复后通过。真实 server 探针（同上脚本）对 `/ws/host` 与 `/ws` 都返回
   `provider-provisioning-target: true`。随后重跑 §12.6.7-4/5/6 的 Desktop E2E：artifact
   `desktop-e2e-20261031-225816-501`，`1 passing (18.9s)`（本机 Linux x64）。
+
+**S5-f-6 实现记录（2026-11-01，Node Host 远程 facade 残留审计与清理）**
+
+目标：S5-f-5 删除 per-window Node Host 远程路径后，复核 §12.1 第 3/5 项残留是否仍可达；不可达的
+远程 facade 一并删除，避免「没有调用方」的代码继续被误认为生产路径。
+
+- 可达性审计（`rg` / `git show` 证据）：
+  - `createReportingRemoteESCodeTaskService` 的唯一生产调用点（`host/index.ts` 初始化）只传
+    `{ reportRunningPromptCount: false }`，`taskRealtimePort` / `materializePromptAttachments` 没有调用方。
+  - 于是 `shouldWrapSendPrompt` 恒为 false，`sendPrompt` 包装从未安装：`mirrorRemotePrompt`、
+    `prepareRemotePromptParams`、`beginWorkspaceTask` / `finishWorkspaceTask` 与
+    `untrackedPromptRpcCount` 都是不可达的远端镜像分支。
+  - `git show daaa2043 -- packages/desktop/src/host/index.ts` 显示该提交删除了
+    `taskRealtimePort: activeSessionRealtimePort ?? undefined` 这一唯一消费点；此后
+    `createTaskRealtimeBridgeForHostInit` 创建的 bridge 只在退出时 dispose，不再被任何服务使用。
+- 删除：
+  - `packages/desktop/src/host/index.ts`：上述 prompt 镜像分支、`isRemoteMirrorableStreamEvent`、
+    `activeSessionRealtimePort` 及其两处 dispose。
+  - `packages/desktop/src/host/taskRealtimeBridge.ts` 与 `packages/desktop/test/taskRealtimeBridge.test.ts`；
+    `packages/services/src/session/sessionRealtimePort.ts` 及 `@escode/services` 的
+    `SessionRealtimePort` 导出（仅该 bridge 使用）。
+  - `hostRemoteWorkspaceProxyState.ts` 的 `getTaskMeta` / `trackTaskReady` /
+    `disposeTaskReadySubscription`（只服务于已删除的镜像分支）。
+- 保留：`createReportingRemoteESCodeTaskService` 仍负责 task meta 记忆、`session-route-announce` 与
+  `workspace_session_message_send_requested` 转发（main `taskRealtimeBus` 的会话消息路由依赖它们）；
+  main 侧 `TaskRealtimeBus` 与 `HostMessageTypes.TaskRealtimeDeliver` 等协议面继续供 Rust Host 使用。
+- 验证（2026-11-01，本机 Linux x64）：`pnpm typecheck` 通过；`pnpm lint` 0 error / 196 条存量 warning；
+  `pnpm architecture:check --changed` OK；`pnpm verify:pre-push` 1572 files / 13867 passed / 27 skipped；
+  `pnpm check:escode-host` 通过。Node 本地 Host 冒烟：`ESCODE_RUST_HOST=0` 下
+  `conversation-session-conversation-workspace.test.ts` 通过（artifact
+  `desktop-e2e-20261101-003047-392`，退出日志 `killing host process (local-1)` 确认走 Node Host）。

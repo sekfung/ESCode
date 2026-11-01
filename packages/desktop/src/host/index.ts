@@ -57,10 +57,7 @@ import {
   isRemoteWorkspaceIdentity,
   resolveWorkspaceKey,
   formatModelPickerValue,
-  type ESCodePromptAttachment,
-  type ESCodeStreamEvent,
   type ESCodeTaskMeta,
-  type TaskStreamMirrorableEvent,
   type TraceId,
   type ESCodeTaskMode,
   type WindowHostAttachmentScope,
@@ -74,7 +71,6 @@ import {
   rejectUnavailableAttachedServicePort,
 } from "./hostMessagePortGuard.js";
 import { wrapElectronPort } from "./electronPort.js";
-import { createTaskRealtimeBridgeForHostInit } from "./taskRealtimeBridge.js";
 import { resolveRpcLogLevel } from "./rpcLogLevel.js";
 import { createHostWorkspaceTaskTracker } from "./hostWorkspaceTaskTracker.js";
 import { createHostRemoteWorkspaceProxyState } from "./hostRemoteWorkspaceProxyState.js";
@@ -595,10 +591,9 @@ const cuaOperationStateReporter = {
   },
 } satisfies NonNullable<Parameters<typeof createLocalServices>[0]>["cuaOperationStateReporter"];
 
-let untrackedPromptRpcCount = 0;
 function reportHostRunningTaskCount(): void {
   runtimeTaskReporter.onRunningTaskCountChanged({
-    runningTaskCount: workspaceTaskTracker.getTotalRunningTaskCount() + untrackedPromptRpcCount,
+    runningTaskCount: workspaceTaskTracker.getTotalRunningTaskCount(),
   });
 }
 
@@ -623,25 +618,7 @@ function isESCodeTaskMeta(value: unknown): value is ESCodeTaskMeta {
   );
 }
 
-function isRemoteMirrorableStreamEvent(
-  event: ESCodeStreamEvent,
-): event is TaskStreamMirrorableEvent {
-  return event.type !== "task_stream_mirror_batch" && event.type !== "task_snapshot_updated";
-}
-
-function createReportingRemoteESCodeTaskService<T extends object>(
-  service: T,
-  options?: {
-    reportRunningPromptCount?: boolean;
-    taskRealtimePort?: ReturnType<typeof createTaskRealtimeBridgeForHostInit>;
-    materializePromptAttachments?: (params: {
-      taskId: string;
-      traceId: TraceId;
-      content: string;
-      attachments?: ESCodePromptAttachment[];
-    }) => Promise<{ content: string; attachments?: ESCodePromptAttachment[] }>;
-  },
-): T {
+function createReportingESCodeTaskService<T extends object>(service: T): T {
   const workspaceProxyState = createHostRemoteWorkspaceProxyState();
 
   function forwardSessionMessageRequest(request: unknown): void {
@@ -678,7 +655,6 @@ function createReportingRemoteESCodeTaskService<T extends object>(
 
   function rememberTaskMeta(result: unknown): void {
     if (isESCodeTaskMeta(result)) {
-      workspaceProxyState.rememberTaskMeta(result);
       subscribeSessionMessageRequests(service, result);
       parentPort?.postMessage({
         type: HostResponseTypes.SessionRouteAnnounce,
@@ -713,133 +689,7 @@ function createReportingRemoteESCodeTaskService<T extends object>(
     rememberTaskMeta((result as { meta?: unknown }).meta);
   }
 
-  async function prepareRemotePromptParams(params: {
-    taskId: string;
-    traceId: TraceId;
-    content: string;
-    attachments?: ESCodePromptAttachment[];
-  }): Promise<{
-    taskId: string;
-    traceId: TraceId;
-    content: string;
-    attachments?: ESCodePromptAttachment[];
-  }> {
-    if (!options?.materializePromptAttachments) {
-      return params;
-    }
-    return {
-      ...params,
-      ...(await options.materializePromptAttachments(params)),
-    };
-  }
-
-  async function mirrorRemotePrompt(
-    target: T,
-    sendPrompt: (...args: unknown[]) => Promise<unknown>,
-    params: {
-      taskId: string;
-      traceId: TraceId;
-      content: string;
-      attachments?: ESCodePromptAttachment[];
-    },
-  ): Promise<unknown> {
-    const taskRealtimePort = options?.taskRealtimePort;
-    const meta = workspaceProxyState.getTaskMeta(params.taskId);
-    if (!taskRealtimePort || !meta) {
-      return sendPrompt.call(target, params);
-    }
-
-    const mirrorTarget = {
-      workspacePath: meta.workspacePath,
-      workspaceIdentity: meta.workspaceIdentity,
-      workspaceKey: resolveWorkspaceKey(meta),
-      taskId: params.taskId,
-      runId: params.traceId,
-      traceId: params.traceId,
-    };
-    const leaseResult = await taskRealtimePort
-      .acquireTaskRunLease(mirrorTarget)
-      .catch((error: unknown) => {
-        logger.warn("Remote runtime realtime lease failed:", error);
-        return null;
-      });
-    if (!leaseResult?.acquired) {
-      return sendPrompt.call(target, params);
-    }
-
-    taskRealtimePort.publishStreamOp(mirrorTarget, {
-      kind: "user_message",
-      messageId: `user-${params.traceId}`,
-      content: params.content,
-      attachments: params.attachments,
-      timestamp: Date.now(),
-    });
-
-    // 写路径（send/stop/交互回执）已收敛 v4 命令面；本镜像属**读路径**——
-    // taskRealtimePort → 远程 workspace relay → 远程 workspace
-    // escodeSessionStore 的整条消费链词表都是 ESCodeStreamEvent。两个方案的评估结论：
-    // a) relay 直接转发 v4 帧、远程 workspace消费 v4 store（正解）：需要重做 relay stream-op
-    //    协议 + 远程 workspace store；
-    // b) 帧→ESCodeStreamEvent 薄映射：等价复刻 adapter mapSessionEvent，
-    //    否决。
-    // 结论：本镜像保持 legacy 源不动。
-    const dynamicStreamEvent = Reflect.get(target, "onDynamicStreamEvent");
-    const streamDisposable =
-      typeof dynamicStreamEvent === "function"
-        ? dynamicStreamEvent.call(
-            target,
-            params.taskId,
-          )((event: ESCodeStreamEvent) => {
-            if (isRemoteMirrorableStreamEvent(event)) {
-              taskRealtimePort.publishStreamOp(mirrorTarget, {
-                kind: "stream_event",
-                event,
-              });
-            }
-          })
-        : null;
-
-    try {
-      return await sendPrompt.call(target, params);
-    } finally {
-      // 远端 escode-server 没有 desktop realtime port；由窗口 Host 内的
-      // remote facade 接管 lease 和 stream mirror，确保 UI 能持续收到远端会话流。
-      streamDisposable?.dispose();
-      taskRealtimePort.releaseTaskRunLease(mirrorTarget);
-    }
-  }
-
-  function finishWorkspaceTask(taskId: string, meta: ESCodeTaskMeta): void {
-    workspaceProxyState.disposeTaskReadySubscription(taskId);
-    workspaceTaskTracker.finish(taskId, meta);
-  }
-
-  function beginWorkspaceTask(target: T, taskId: string, meta: ESCodeTaskMeta): boolean {
-    const started = workspaceTaskTracker.begin(taskId, meta);
-    if (!started) {
-      return false;
-    }
-    const onDynamicTaskReady = Reflect.get(target, "onDynamicTaskReady");
-    if (typeof onDynamicTaskReady !== "function") {
-      workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote ESCode task service does not expose onDynamicTaskReady");
-    }
-    const subscribe = onDynamicTaskReady.call(target, taskId);
-    if (typeof subscribe !== "function") {
-      workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote ESCode task ready event is not subscribable");
-    }
-    workspaceProxyState.trackTaskReady(
-      taskId,
-      meta,
-      (listener) => subscribe(listener),
-      () => finishWorkspaceTask(taskId, meta),
-    );
-    return true;
-  }
-
-  // remote workspace 的 ESCode Agent manager 跑在远端 server，desktop main 不能直接看到
-  // `handles` 状态。sendPrompt Promise 只是远端 ACK，必须等待 task ready 才能允许回收 workspace。
+  // 本地 Host 只做 task meta 记忆与 session 路由公告，不再代理远端 workspace 的 runtime 状态。
   return new Proxy(service, {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver);
@@ -887,73 +737,7 @@ function createReportingRemoteESCodeTaskService<T extends object>(
           return result;
         };
       }
-      const shouldWrapSendPrompt =
-        options?.reportRunningPromptCount !== false ||
-        Boolean(options?.taskRealtimePort) ||
-        Boolean(options?.materializePromptAttachments);
-      if (property !== "sendPrompt" || typeof value !== "function" || !shouldWrapSendPrompt) {
-        return value;
-      }
-
-      return async (...args: unknown[]) => {
-        let trackedTask: { taskId: string; meta: ESCodeTaskMeta; started: boolean } | undefined;
-        let tracksOnlyRpcLifetime = false;
-        try {
-          const params = args[0];
-          if (
-            typeof params === "object" &&
-            params !== null &&
-            typeof (params as { taskId?: unknown }).taskId === "string" &&
-            typeof (params as { traceId?: unknown }).traceId === "string" &&
-            typeof (params as { content?: unknown }).content === "string"
-          ) {
-            const promptParams = params as {
-              taskId: string;
-              traceId: TraceId;
-              content: string;
-              attachments?: ESCodePromptAttachment[];
-            };
-            const taskMeta = workspaceProxyState.getTaskMeta(promptParams.taskId) as
-              | ESCodeTaskMeta
-              | undefined;
-            if (taskMeta) {
-              trackedTask = {
-                taskId: promptParams.taskId,
-                meta: taskMeta,
-                started: beginWorkspaceTask(target, promptParams.taskId, taskMeta),
-              };
-            } else if (options?.reportRunningPromptCount !== false) {
-              // task meta 缺失时无法安全伪造 workspace identity；仅保留 ACK 期间的 Host 退出诊断，
-              // 不让该 fallback 参与 workspace runtime 的释放裁决。
-              tracksOnlyRpcLifetime = true;
-              untrackedPromptRpcCount += 1;
-              reportHostRunningTaskCount();
-            }
-            const preparedParams = await prepareRemotePromptParams(promptParams);
-            return await mirrorRemotePrompt(
-              target,
-              value.bind(target) as (...promptArgs: unknown[]) => Promise<unknown>,
-              preparedParams,
-            );
-          }
-          if (options?.reportRunningPromptCount !== false) {
-            tracksOnlyRpcLifetime = true;
-            untrackedPromptRpcCount += 1;
-            reportHostRunningTaskCount();
-          }
-          return await value.apply(target, args);
-        } catch (error) {
-          if (trackedTask?.started) {
-            finishWorkspaceTask(trackedTask.taskId, trackedTask.meta);
-          }
-          throw error;
-        } finally {
-          if (tracksOnlyRpcLifetime) {
-            untrackedPromptRpcCount = Math.max(0, untrackedPromptRpcCount - 1);
-            reportHostRunningTaskCount();
-          }
-        }
-      };
+      return value;
     },
   });
 }
@@ -1044,7 +828,6 @@ const hostResourceUsageResponder = createHostResourceUsageResponder({
   getAgentService: () => activeServices?.getOptional(IESCodeAgentService),
   postMessage: (message) => parentPort?.postMessage(message),
 });
-let activeSessionRealtimePort: ReturnType<typeof createTaskRealtimeBridgeForHostInit> = null;
 let hasDisposedHostResources = false;
 let disposeHostResourcesInFlight: Promise<HostShutdownResult> | null = null;
 
@@ -1328,11 +1111,6 @@ async function disposeHostResources(reason: string): Promise<HostShutdownResult>
     }
     cronAutomationRepo.close();
 
-    if (activeSessionRealtimePort) {
-      activeSessionRealtimePort.dispose();
-      activeSessionRealtimePort = null;
-    }
-
     const servicesToDispose = activeServices;
     activeServices = null;
     const shutdownResult = await runHostShutdownPhases(
@@ -1393,10 +1171,6 @@ function disposeHostResourcesBestEffort(reason: string): void {
     }
   }
 
-  if (activeSessionRealtimePort) {
-    activeSessionRealtimePort.dispose();
-    activeSessionRealtimePort = null;
-  }
 }
 
 process.once("SIGTERM", () => {
@@ -1705,7 +1479,6 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
         ),
       initializeServices: async () => {
         logger.info("initializing local services");
-        activeSessionRealtimePort = createTaskRealtimeBridgeForHostInit(msg, parentPort);
         // 旧 Team 补组织必须与网络代理读取共用同一个 Setting 实例及写队列。
         // 只注入 service 会跳过默认装配分支，导致缺组织的升级用户永远无法恢复连接。
         const { service: settingService, prepareLegacyAccountConnections } =
@@ -1756,12 +1529,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
         });
         const escodeTaskService = services.getOptional(IESCodeTaskService);
         if (escodeTaskService) {
-          const reportingESCodeTaskService = createReportingRemoteESCodeTaskService(
-            escodeTaskService,
-            {
-              reportRunningPromptCount: false,
-            },
-          );
+          const reportingESCodeTaskService = createReportingESCodeTaskService(escodeTaskService);
           services.register(IESCodeTaskService, reportingESCodeTaskService);
         }
         hasDisposedHostResources = false;
