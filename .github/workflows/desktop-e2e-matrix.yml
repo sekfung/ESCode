@@ -148,6 +148,7 @@ jobs:
           echo "ESCODE_E2E_SSH_PASSWORD=$password" >> "$GITHUB_ENV"
           bash scripts/e2e/start-ssh-e2e-server.sh 2222 "$password" /root/workspace
       - name: run SSH remote project E2E
+        shell: bash
         env:
           ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
           ESCODE_E2E_SSH_HOST: 127.0.0.1
@@ -332,6 +333,7 @@ jobs:
           repo_wsl="/mnt/$(cygpath -w "$PWD" | sed -e 's|\\|/|g' -e 's|^\([A-Za-z]\):|\L\1|')"
           wsl -d Ubuntu-22.04 -u root -- bash "$repo_wsl/scripts/e2e/start-ssh-e2e-server-wsl.sh" "$password" /root/workspace
       - name: run SSH remote project E2E
+        shell: bash
         env:
           ESCODE_E2E_MANUAL_REVIEW_HOLD_MS: "1800000"
           ESCODE_E2E_SSH_HOST: 127.0.0.1
