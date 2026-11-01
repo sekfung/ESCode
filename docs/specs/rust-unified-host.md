@@ -526,9 +526,13 @@ owner 锁 + exit 75、跨进程 `file_lock.rs`、Windows 代码页解码、crede
 
 1. [x] 修越界并让 `pnpm check:escode-cli-rust` 回绿（已完成，15+ 文件拆分）。
 2. [x] 更新 `docs/rust-migration.md` 的过期表述（Rust 已默认，与 `rust-release-rollback.md` 对齐）。
-3. rust-toolchain pin + clippy deny 清单已完成（CI 三平台同步 1.95.0）；`deny.toml` 待 cargo-deny 接入。
+3. [x] rust-toolchain pin + clippy deny 清单已完成（CI 三平台同步 1.95.0）；`deny.toml` 已接入
+       `rust-runtime-ci` 的 `checks` 作业（Linux 上对 CLI 与 Host 两个 workspace 跑 cargo-deny）。
 4. [x] App 级 perf harness 骨架（三配置 A/B、交错、双口径）——`scripts/bench-escode-app.mjs` 完成，`--self-test` PASS；**真实 A/B 基线已跑**（3 轮交错：App 工作集 A 1419.6 / B 1293.6 MiB，B 不劣于 A），报告 `docs/reports/rust-app-perf-baseline-2026-10-14.md`。
-5. P0：catch_panic 已完成（红/绿验证）；投递层 `subscriptions.rs` 测试兜底、进程树三补丁、unwrap 热点清理——待做。
+5. [x] P0 四项完成：catch_panic（红/绿验证）、投递层 `subscriptions.rs` 测试兜底
+       （`runtime_consistency.rs::subscription_delivery_snapshot_pause_resume_close_and_replace`）、
+       进程树三补丁、unwrap 热点清理；逐项证据见本文件「阶段 0」与
+       `docs/reports/rust-unwrap-baseline-2026-10-14.md`。
 6. [x] 差分垂直切片 + 差异账本第一轮（2026-10-14）——`scripts/diff-escode-cli-rust-parity.mjs`（含 `-capture`/`-diff`/`-report`）与 `docs/reports/rust-difference-ledger-2026-10-14.md`；稳定复跑 3 次、负向验证通过（去掉一条基线指纹即判失败）、CI bench job 三平台接入（拦新差异）。
 7. [x] M 系列真偏移收敛（2026-10-14）：模型请求字段名与 `tool_choice` 已与 TS/AI SDK 对齐（model_protocol.rs；parity 复跑两侧请求体一致，三处 TS 断言按 oracle 更新）。
 8. [x] C-1/C-2 部分收敛（2026-10-14）：遥测事实与后续 ack 带 `memoryEnabled`、偏好请求提前到创建期发起；createSession ack 与请求位置登记为已批准。剩余 T-3（ARMS 埋点，随阶段 2 P2）与 T-4（投递层）见账本。
