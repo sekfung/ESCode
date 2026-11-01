@@ -1324,6 +1324,17 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   `read-text-parity`）在补 Windows 录制 golden 后通过。
   **这不改变 S4-i 结论**：SSH 三条主链（首装/更新/重启恢复）仍需 Windows/macOS 可达的 Linux
   目标机，CI 的 SSH job 固定 `ubuntu-latest`。
+- 2026-11-01 复发的 e2e flake（与产品无关，未修）：`source-server-rust-server-direct` 在
+  `restart-recovery` 阶段约 2 分钟后以裸 `Timeout` 失败（run `41282629303` 首次、`41285070206`
+  再次；两次都只有 ubuntu/macOS 命中，windows 通过；同 commit rerun 通过）。日志证据：App 正常退出
+  （`app-quit … exiting prepared app`、`RESULT null`）后紧接着
+  `Kill driver process with PID …` 与 `WebDriverError: invalid session id`，随后一条在飞的
+  `executeScript` 取不到 `/json/version`（`fetch failed`），直到
+  `ESCODE_E2E_WEBDRIVER_REQUEST_TIMEOUT_MS=120000` 到期。即 ChromeDriver 随 App 退出被回收，
+  而 `reloadElectronSessionSafely` 依赖它继续存活来 `reloadSession()`。
+- 待办（需先对齐边界，本轮未改）：在 `reloadElectronSessionSafely` 里给 `reloadSession()` 加一次
+  有界重试（重试前确认 driver 存活），或换成不依赖 driver 存活的重建方式。该 helper 被全部 e2e
+  共用，改它等于改变所有重启类用例的失败语义。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
