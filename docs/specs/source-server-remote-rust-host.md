@@ -167,7 +167,7 @@ Host 解析 release ──► 校验 compatibility ──► 安装 ──► �
 | S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                                                                                                                                                                             |
 | S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                                                                                                                                                                    |
 | S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）                                                                                                                                                        |
-| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零 `escode-host-remote-*` 断言已在 Linux 首连/多窗口/重启恢复/server 直连各主链通过，Windows/macOS 主链待补） |
+| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零 `escode-host-remote-*` 断言：`kind:"server"` 直连已三平台通过（run `41268279642`），SSH 首连/多窗口/重启恢复仅 Linux，Windows/macOS 待补） |
 
 ## 8. 非目标
 
@@ -1275,6 +1275,11 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   WebDriver session 时超过 30s 默认 `connectionRetryTimeout`，WDIO 抛裸 `Timeout`。三次推送里
   ubuntu/macOS 各命中一次、彼此不重叠，按同一根因（慢 runner + session 重建）处理。矩阵 job 现设
   `ESCODE_E2E_WEBDRIVER_REQUEST_TIMEOUT_MS=120000`（仍保留挂起边界），第五轮验证。
+- 2026-11-01 第五轮 CI（run `41268279642`，commit `939350f8`）：**三平台桌面矩阵全绿**——
+  ubuntu / windows / macos 的 `source-server-rust-server-direct.test.ts` 全部通过，覆盖真实
+  `escode-server` 首连、App 重启恢复、断线原位重连、双窗口共享与零 `escode-host-remote-*`。
+  这是 server transport 的跨平台主链证据；SSH 三条主链（首装/更新/重启恢复）仍缺对应平台可达的
+  Linux 目标机，S4-i 不因本条转绿而完成。
 - 诊断补强：阶段标记同时打到 worker 日志（`[SOURCE_SERVER_RUST_SERVER_DIRECT] stage=<name>`），
   下一轮 ubuntu 失败可直接定位卡住的阶段。
 - 排查能力：用例新增阶段标记（`seed-profile` / `open-profile` / `select-directory` /
