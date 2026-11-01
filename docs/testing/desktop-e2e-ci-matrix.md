@@ -86,7 +86,9 @@ ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
 只通过 dispatch 实跑、不转正）。
 2026-11-02 实跑 `41328043234`：Linux 与 macOS SSH 作业均通过（当时只有 PROJECT-01）；
 run `41343996871` 补齐 Windows 首连（job `124961277623`，1 passed / 2m59s），同轮 8 个作业全绿。
-多窗口与重启恢复的 macOS/Windows 覆盖随本次清单扩展进入 dispatch 验证。
+run `41353627596` 清单扩展后三平台各 4 passed：Linux（job `124989308622`）、
+macOS（job `124989308551`）、Windows（job `124990489645`），首次在 CI 同时覆盖
+首连、重启恢复与双窗口共享。
 
 ## 不在本矩阵内
 

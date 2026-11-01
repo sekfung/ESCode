@@ -134,8 +134,13 @@ Ubuntu 24.04 + password SSH
   Windows 下 `/root` 被判成相对路径并归一成 `\root`；修复见 spec §11.11。
   修复后实跑 run `41343996871`：Windows SSH 作业（job `124961277623`）`SSH-P0-PROJECT-01`
   1 passed / 2m59s，同 run 8 个作业全部 green（三平台 curated 矩阵、Linux/macOS/Windows
-  SSH、musl runtime、app perf）。Windows 仍只覆盖单例首连；多窗口与 App 重启恢复用例
-  只在 Linux 执行。
+  SSH、musl runtime、app perf）。
+- 2026-11-02 三平台覆盖补齐：三个 SSH 作业统一跑
+  `source-server-rust-first-connect`、`source-server-rust-restart-recovery`、
+  `source-server-rust-multi-window` 与 PROJECT-01。run `41353627596` 三平台各 4 passed
+  （Linux job `124989308622`、macOS job `124989308551`、Windows job `124990489645`）。
+  注意事项：wdio `--spec` 不拆分逗号，多 spec 走 `ESCODE_E2E_SPEC`；formal spec 读
+  `ESCODE_E2E_SSH_WORKSPACE_PATHS`（复数），macOS 需指向 `/Users/escode-e2e/workspace`。
 - 2026-10-30 已修：Main 的 `bindRemoteWorkspaceSessionContext` 只返回 `void`，Renderer 拿不到
   权威 `workspaceIdentity`，首次选目录后抛错并回收 session。修复后远端 workspace 可正常打开
   （identity、conversation 订阅、`workspace/readPresentation` 均成功）。

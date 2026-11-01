@@ -167,7 +167,7 @@ Host 解析 release ──► 校验 compatibility ──► 安装 ──► �
 | S2   | Rust Host 的 SourceServerRegistry、Connection Profile、状态/展示名 | 本地不受影响；远程只读面可用（2026-10-30 已落地）                                                                                                                                                                                                                                                                                                                                                                                                               |
 | S3   | 目录绑定、runtime 实例、continuous 投递                            | 首连/断线/重启恢复 E2E（Linux 已通过；Windows/macOS 待补）                                                                                                                                                                                                                                                                                                                                                                                                      |
 | S4   | 更新、迁移、恢复策略                                               | 更新失败显式报错；迁移报告可读（Linux E2E 已通过；Windows/macOS 待补）                                                                                                                                                                                                                                                                                                                                                                                          |
-| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零 `escode-host-remote-*` 断言：`kind:"server"` 直连已连续两轮三平台通过（run `41268279642`、`41269283544`），SSH 首连：Linux（job `124960188757`）、macOS（run `41328043234`，runner 本机 sshd + darwin-arm64 远端）、Windows（run `41343996871`，job `124961277623`，WSL2 sshd + linux-x64 远端）均已通过；多窗口/重启恢复仍只在 Linux 覆盖） |
+| S5   | 删除 per-window Node Host 远程路径                                 | 三平台 E2E 全绿；无静默回退（S5-a/S5-b 已完成；S5-f-1~f-5 已删除 Node Host 远程 handler/文件/共享协议项，§12.6；零 `escode-host-remote-*` 断言：`kind:"server"` 直连已连续两轮三平台通过（run `41268279642`、`41269283544`），SSH 三平台各 4 例（首连 / 重启恢复 / 双窗口共享 / PROJECT-01）：Linux（job `124989308622`）、macOS（job `124989308551`）、Windows（job `124990489645`）在 run `41353627596` 同时 4 passed；Windows 首个首连证据为 job `124961277623`） |
 
 ## 8. 非目标
 
@@ -1271,6 +1271,13 @@ S4-f 完成（2026-10-31）：迁移统计 owner 落在 `SourceServerConnections
   SSH、musl runtime 与 app perf）。同轮 Linux SSH 作业 `124960188757`、macOS SSH 作业
   `124960188825` 亦 green。Windows 侧该轮仍为单例首连；多窗口/重启恢复用例
   尚未在 Windows/macOS 执行。
+- 2026-11-02 三平台 SSH 覆盖补齐：三个 SSH 作业改用同一份 `ESCODE_E2E_SPEC` 清单
+  （first-connect / restart-recovery / multi-window / PROJECT-01），并按目标设置
+  `ESCODE_E2E_SSH_WORKSPACE_PATHS`。run `41353627596`：Linux（job `124989308622`）、
+  macOS（job `124989308551`）、Windows（job `124990489645`）均 4 passed，三平台首次在
+  CI 上同时覆盖重启恢复与双窗口共享。踩坑记录：wdio `--spec` 不拆分逗号（会当成单文件），
+  多 spec 必须走 `ESCODE_E2E_SPEC`；formal spec 读复数 workspace 变量，macOS 目标没有
+  `/root`，缺省值会让目录选择器 `scandir '/root'` 失败。
 
 平台审计结论（静态）：
 
