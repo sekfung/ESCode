@@ -241,6 +241,33 @@ spec 引用行号漂移：`rust-u2-tasks-index.md` §6.1 的 TS 行号整体偏 
 | `rust-u2-host-skeleton.md:148,150,175` | CI interop、失败回退、双 Host 状态互操作                                | 相应改为单向读入夹具、显式失败、过渡期格式兼容                                                                                           |
 | `AGENTS.md:61`                         | window-scoped Local Host                                                | 见上表建议                                                                                                                               |
 
+#### 漂移清理记录（2026-11-01 复核）
+
+本节表格是 2026-10-18 的快照，行号与部分结论已随代码演进失效。以下逐项复核，只登记已用源码/测试
+证实的结论；未确认或需要产品决策的项保留原状。
+
+- 已修：`rust-u1-runtime-lib.md` §3.4 的 `RuntimeOptions` 补 `config` 与 `legacy_import`，
+  实例根事件顺序按 `src/embed.rs` 重写（`startup/storageState` checking/ready、导入失败保留原库）。
+- 已修：`rust-u2-host-skeleton.md` 的 `file` 域行删掉“`searchWorkspaceFiles` 三法未实现”，
+  改为指向已交付的 `domains_file_index.rs` / `rust-u2-file-index.md`（6 个索引/搜索/ignore 方法，
+  `FileIndexService` + `.escodeignore` 指纹 + 60s TTL）。
+- 已修：`rust-unified-host.md` §7 第 3、5 条（cargo-deny 已接入 `rust-runtime-ci` 的 `checks`；
+  P0 四项完成）。
+- 已成立：`rust-u1-runtime-lib.md` “收口后非测试代码只剩两处直接调用”——全 workspace 非测试代码的裸
+  `tokio::spawn` / `tokio::task::spawn_blocking` 只剩 `core-api/src/scope.rs`（Spawner 实现本身）与
+  `state/src/storage.rs`（`Store::open` 的 SQLite actor）；tools 内 4 处裸调用全在 `*_tests.rs`，
+  生产路径的并发都经 `Spawner::spawn_blocking`。
+- 已成立：settings 坏文件回退。`host-services/src/settings.rs::default_settings()` 返回 TS
+  `appSettingsSchema.parse({})` 的完整默认对象（文件显式值优先），与本报告“Rust 返回 `{}`”不同。
+- 已成立：H1.6 进程级收口断言。`apps/escode-host/tests/host_entry.rs` 的 `shutdown()` 读取
+  `ControlMessage::Stopped { residual }` 并断言 `residual.is_empty()`。
+- 已失效的引用：`rust-u2-host-skeleton.md` 两个 `## 8` 已改为 §8/§9；本报告按行号引用的其它小节
+  已整体位移，后续以小节标题定位。`rust-unified-host-handoff-2026-10-15.md` 的统计数字（51 channel /
+  619 成员 / 101 passed / `createTask` 未实现）由该文件首段“以本段与评审报告为准”覆盖，不再单独维护。
+- 未处理：`AGENTS.md:61` “每个窗口使用一个 window-scoped Local Host”与“一个 App 一个 Rust Host”
+  的目标措辞冲突，需产品确认目标形态后再改；`rust-u2-tasks-index.md` §6.1 的行号引用随
+  `escodeTaskServiceAdapter.ts` 漂移，建议改用函数名定位（未改代码，避免无关改动）。
+
 ## 7. 上线阻塞项
 
 ### 阻塞“切到唯一 Rust Host”

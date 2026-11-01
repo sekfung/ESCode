@@ -121,6 +121,13 @@ pub struct RuntimeOptions {
     pub cwd: PathBuf,                    // Host 提交的 workspace 路径（不 realpath）
     pub workspace_identity: Option<String>,
     pub data_dir: Option<PathBuf>,       // 缺省按 env 快照解析（与 CLI 相同规则）
+    pub config: Option<PathBuf>,         // 静态模型配置（同 CLI `--config`）；Host 通常改由 Registry 环境文件供给
+    pub legacy_import: LegacyImport,     // TS 历史导入策略；默认 Disabled，Host 首启传 Implicit
+}
+pub enum LegacyImport {
+    Disabled,                            // 不导入（默认）
+    Implicit,                            // 按 legacy_paths::resolve(None, cwd, true) 自动发现
+    Explicit(PathBuf),                   // 显式来源；不存在即失败
 }
 pub struct Embedded {
     pub io: EmbeddedIo,
@@ -136,8 +143,10 @@ pub fn spawn(options: RuntimeOptions) -> Embedded;
 ```
 spawn() ──► 构造 EnvSnapshot + Spawner ──► INSTANCE.scope(根未来)
    根未来：resolve_workspace(用 RuntimeOptions) → lock_workspace(进程内登记表 → 文件锁)
-        → Store::open → （无 TS 导入：embed 假定存储已就绪/由调用方控制）
-        → build_engine(实例 Spawner 经 RuntimePorts 注入 Engine 与 WorkspaceTools)
+        → Store::open → set_model_usage_sink(本实例库) → 出站 startup/storageState(checking)
+        → legacy_import 启用时 import_history（语义与 CLI 同源；失败发 failed 并保留原库）
+        → 出站 startup/storageState(ready)
+        → build_engine(config.as_ref(), 实例 Spawner 经 RuntimePorts 注入 Engine 与 WorkspaceTools)
         → engine.serve(MemoryLink streams, cancel)
    关闭：调用方 drop EmbeddedIo / cancel.cancel() → serve 收口（同 stdio 语义）
         → drop store → tasks.drain(grace) → task 返回 Result

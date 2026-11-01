@@ -7,9 +7,8 @@
 //! `readdir` 的第二排序键是 `localeCompare`：用 ICU4X 复现 ICU 默认 collation，locale 按 Node
 //! 的环境解析规则取（见 `collation.rs`），不是码点序近似。
 //!
-//! 未实现（各附原因，`--` 为运行时缺口可见）：
-//! - `searchWorkspaceFiles` / `listWorkspaceFilesRange` / `workspaceFileListLength`：需 Host 侧
-//!   文件索引（`.escodeignore` 指纹、60s TTL 缓存与分块打包）。
+//! 工作区索引 / 搜索 / `.escodeignore` 六法在 `domains_file_index`（`docs/specs/rust-u2-file-index.md`），
+//! 含 `.escodeignore` 指纹、60s TTL 缓存与分块打包；本文件不重复注册这些成员。
 
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
