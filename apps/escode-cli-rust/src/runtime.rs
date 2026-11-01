@@ -46,7 +46,11 @@ pub async fn resolve_workspace(
     }
     let data_dir = resolve_data_dir(data_dir)?;
     tokio::fs::create_dir_all(&data_dir).await?;
-    let db = data_dir.join("rust-sessions.sqlite");
+    // `databaseId` 是状态键：同一数据目录经不同写法（macOS `/var` 与 `/private/var`）打开时必须同 id，
+    // 所以库文件仍走 realpath；而 data_dir 本身拼进模型可见的 artifact 路径，保持调用方写法。
+    let db = escode_cli_host::realpath(&data_dir)
+        .await?
+        .join("rust-sessions.sqlite");
     // 身份使用 Host 提交的路径，不把 macOS /var -> /private/var 的 realpath 改写成新工作区。
     let identity = escode_cli_host::workspace_identity(identity.as_deref(), &requested_cwd);
     Ok(Workspace {

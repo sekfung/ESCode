@@ -151,7 +151,8 @@ storage 根（`resolvePath(configResult.config.storage.dir)` → `cli/artifacts`
 
 处理：`apps/escode-cli-rust/src/runtime.rs` 的 `resolve_data_dir` 改用
 `escode_cli_plugins::lexical_path::resolve`（Node `path.resolve` 语义），data_dir 不再 realpath。
-状态键、锁文件与文件实体比较仍用 `escode_cli_host::realpath`；与上表「模型可见路径一律词法解析」同一规则，
+状态键、锁文件与文件实体比较仍用 `escode_cli_host::realpath`（`databaseId` 仍是 realpath 后库路径的
+哈希，`embed_memory_link` 用它证 RuntimeOptions env/cwd 解析）；与上表「模型可见路径一律词法解析」同一规则，
 只是这次是数据目录里的 artifact 路径。回归
 `runtime::tests::data_dir_keeps_the_requested_spelling_like_node_path_resolve`（软链接路径必须原样保留；
 用旧 realpath 实现运行该用例会得到目标路径并失败）。
