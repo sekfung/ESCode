@@ -152,6 +152,8 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 
 - 不验证 macOS 公证 / Windows 签名（当前发布未签名）；不替代上文「Host 实现切换矩阵」的
   Node → Rust → Node 演练，也不替代 S4-i 的远程 Source Server 主链。
+- 演练用的 base/head 安装包仍带 Node runtime 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，因此只证明
+  「安装/升级/降级」这条安装器链路，不等于删除 Node runtime 所需的「Rust-only 三平台发行门禁」。
 - 实现入口：`scripts/ci-install-desktop.mjs --version-drill <base-artifacts> <head-artifacts>`。
 
 **实跑证据（2026-11-02，四平台全绿）**

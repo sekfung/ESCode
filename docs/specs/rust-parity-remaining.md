@@ -68,7 +68,7 @@ Windows/macOS 仍待对应 runner。
 2026-10-31 冻结 golden 门禁复跑：`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict`
 只启动 Rust，Linux x64 退出码 0；frames 10 条已批准 / 0 open / 0 欠账 / 0 新差异，storageProgress 1 条、
 modelRequests 1 条为已批准，workspaceFiles 0。CI 已使用 `--golden`，并在平台欠账基线为空时追加
-`--strict`（Linux 已满足；macOS/Windows 需在各自 runner 重录并逐条登记后转 strict）。
+`--strict`（2026-11-01 起三平台均已启用，见下条与 [rust-unified-host.md](rust-unified-host.md) §4.6）。
 
 2026-11-01 平台归一化与响应面拆分：冻结 golden 的已批准差异按双侧 SHA-256 钉住，但提示词字节数
 （`"chars"`）与 `<ROOT>` 后的路径分隔符是平台事实，导致 macOS/Windows 上同一已批准差异因 sha 不同被判为
@@ -80,6 +80,14 @@ rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 欠账�
 `41270183483`，commit `57179fa0`）：`bench (ubuntu-latest / macos-latest / windows-latest)` 全部 success，
 其中 macOS/Windows 均以 `--golden --strict` 运行并判定 parity（同样 0 欠账、0 新差异），跨平台 golden
 strict 门禁就此转绿。
+
+当前门禁形态（2026-11-02 复核）：
+`packages/services/tests/escode-cli-rust-golden.ts` 的 `nodeOracle` 只读写冻结 golden，未录制时缺文件直接失败，
+不会启动 Node；`.github/workflows/rust-runtime-ci.yml` 的平台解析步骤要求 golden 存在，并在
+`scripts/diff-escode-cli-rust-parity.baseline.<platform>.json` 为空时自动追加 `--strict`。三份平台欠账基线
+（`darwin-arm64` / `linux-x64` / `win32-x64` 的 `session-baseline`）均为空数组，因此三平台 CI 实际都跑
+`--golden --strict`。删除 Node runtime 的前置条件「差分套件完全依赖冻结 golden，不再启动 Node oracle，
+并切到 `--strict`」据此已满足；录制新 golden 仍需 `record cli goldens` workflow，不在 CI 里回退到实时 Node。
 
 2026-11-01 CI 跨平台 test 分片三处失败的处置（run `41270183483`，commit `57179fa0`）：
 
