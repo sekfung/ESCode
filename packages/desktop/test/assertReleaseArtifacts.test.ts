@@ -154,4 +154,40 @@ describe("release artifact hygiene", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("accepts Rust-only artifacts only without the Node agent bundle", async () => {
+    const root = await mkdtemp(join(tmpdir(), "escode-rust-only-release-gate-"));
+    try {
+      const build = async (name: string, files: string[]) => {
+        const dist = join(root, name);
+        const app = join(dist, "app-src");
+        mkdirSync(app, { recursive: true });
+        writeFileSync(join(app, "main.js"), "a();");
+        const resources = join(dist, "linux-unpacked", "resources");
+        mkdirSync(join(resources, "glm"), { recursive: true });
+        await createPackage(app, join(resources, "app.asar"));
+        for (const file of files) writeFileSync(join(resources, "glm", file), "");
+        writeFileSync(join(dist, "ESCode-1.0.0-linux-x64.deb"), "");
+        return dist;
+      };
+      const silent = { log: () => undefined };
+      const env = { ESCODE_ENV: "production", ESCODE_BUNDLE_NODE_AGENT: "0" };
+      const rustOnly = await build("rust-only", ["escode-cli-rust", "plugin-host.cjs"]);
+      expect(() =>
+        assertReleaseArtifacts({ distDir: rustOnly, env, logger: silent }),
+      ).not.toThrow();
+
+      const stale = await build("stale", ["escode-cli-rust", "plugin-host.cjs", "zcode.cjs"]);
+      expect(() => assertReleaseArtifacts({ distDir: stale, env, logger: silent })).toThrow(
+        /Rust-only package contains Node agent bundle/,
+      );
+
+      const missingHost = await build("missing-host", ["escode-cli-rust"]);
+      expect(() => assertReleaseArtifacts({ distDir: missingHost, env, logger: silent })).toThrow(
+        /missing standalone plugin host/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
