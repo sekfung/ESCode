@@ -29,6 +29,9 @@ export async function startAgent(
   cli: string,
   providerEnv: Record<string, string> = {},
 ) {
+  const trace = (message: string) => {
+    if (process.env.ESCODE_FIXTURE_TRACE) process.stderr.write(`[background:agent] ${message}\n`);
+  };
   const events = new Events<any>();
   const approvals = new Events<any>();
   const notifications = new Events<any>();
@@ -67,14 +70,24 @@ export async function startAgent(
       ESCODE_STORAGE_DIR: data,
       LANG: "en_US.UTF-8",
       ...(process.env.ESCODE_FIXTURE_TRACE
-        ? { ESCODE_FIXTURE_TRACE: process.env.ESCODE_FIXTURE_TRACE }
+        ? {
+            ESCODE_FIXTURE_TRACE: process.env.ESCODE_FIXTURE_TRACE,
+            ESCODE_LOG_LEVEL: "debug",
+            ESCODE_LOG_DIR: join(data, "logs"),
+          }
         : {}),
       ...providerEnv,
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  child.on("error", (error) => trace(`child error ${String(error)}`));
+  child.on("exit", (code, signal) => trace(`child exit code=${code} signal=${signal}`));
   const transport = new ESCodeStdioTransport(child, {
     onStderrLine: (line) => process.stderr.write(line + "\n"),
+  });
+  transport.onMessage((message) => {
+    const method = (message as { method?: string }).method ?? "response";
+    trace(`recv ${method} bytes=${JSON.stringify(message).length}`);
   });
   const client = new ESCodeProtocolClient(transport, {
     requireStorageStartup: true,

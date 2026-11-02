@@ -1,7 +1,7 @@
 import { verifySamplingDatabase } from "./mcp-apps-host-fixture/sampling-database.mjs";
 import { build } from "esbuild";
 import { realpathSync } from "node:fs";
-import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,19 @@ sentinel.exec(
 );
 sentinel.close();
 await writeFile(join(output, "plugin-sentinel.txt"), "preserve-plugin-files\n");
+// Agent 夹具在 Windows 上曾出现主线程长时间无响应；失败时把受限日志转储到作业输出，
+// 避免只能依赖 5 分钟看门狗。日志里只有方法名/错误，不包含用户数据。
+async function dumpAgentLogs() {
+  const dir = join(output, "agent-data", "logs");
+  try {
+    for (const entry of (await readdir(dir, { recursive: true })).filter((name) =>
+      name.endsWith(".log"),
+    )) {
+      const text = await readFile(join(dir, entry), "utf8");
+      process.stderr.write(`--- agent log ${entry} (tail) ---\n${text.slice(-20_000)}\n`);
+    }
+  } catch {}
+}
 // Agent bundle 必须来自本次源码；否则 Electron 用新代码、stdio 却测到旧 dist。
 if (
   !process.argv.includes("--retention-only") &&
@@ -252,18 +265,22 @@ for (const mode of modes) {
       { env, stdio: "inherit" },
     );
     const watchdog = setTimeout(
-      () => {
+      async () => {
         child.kill("SIGKILL");
+        await dumpAgentLogs();
         reject(new Error(`Electron fixture timed out (${mode})`));
       },
       // 后台场景包含三次冷启动 capturer 握手与同窗空闲 guest 隔离，macOS runner 实测超过 3 分钟。
       mode === "background" ? (process.env.ESCODE_PHOTOCRAFT_SERVER ? 600_000 : 300_000) : 90_000,
     );
     child.on("error", reject);
-    child.on("exit", (code) => {
+    child.on("exit", async (code) => {
       clearTimeout(watchdog);
       if (code === 0) accept();
-      else reject(new Error(`Electron fixture failed (${mode}): ${code}`));
+      else {
+        await dumpAgentLogs();
+        reject(new Error(`Electron fixture failed (${mode}): ${code}`));
+      }
     });
   });
 }
