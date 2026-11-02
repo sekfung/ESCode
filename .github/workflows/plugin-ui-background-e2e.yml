@@ -44,6 +44,11 @@ jobs:
           node-version: 24.18.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # pnpm v10 默认不执行依赖的 postinstall；与 unit-tests 作业同口径，显式安装 Electron 二进制。
+      - name: install Electron binary
+        run: |
+          node node_modules/electron/install.js
+          node -e "require('electron')"
       - run: node scripts/build-desktop-agent-cli.mjs
       - name: run background E2E
         run: node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only
