@@ -124,6 +124,12 @@ export async function startModel(root: string, cli: string) {
     res.end("data: [DONE]\n\n");
   });
   server.on("connection", (socket) => socket.on("error", () => undefined));
+  // Agent 在启动探测阶段可能提前关闭连接，HTTP 默认 clientError 处理会再销毁 socket；
+  // 夹具显式收尾，避免连接重置冒泡成 Electron main 的未捕获异常。
+  server.on("clientError", (_error, socket) => {
+    if (socket.writable) socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+    else socket.destroy();
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
   const builtin = join(root, "fixture-builtin.json"),

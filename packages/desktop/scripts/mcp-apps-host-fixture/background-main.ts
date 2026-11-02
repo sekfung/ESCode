@@ -18,10 +18,19 @@ const fatalFile = join(root, "fixture-fatal.log");
 // Electron main 的未捕获异常默认可能弹出原生错误框，CI 上无人关闭会表现为主线程静默挂起。
 // 先同步落盘再退出，确保失败原因能从作业产物中读到。
 function recordFatal(kind: string, error: unknown) {
+  const details =
+    error && typeof error === "object"
+      ? (() => {
+          const value = error as NodeJS.ErrnoException & { address?: string; port?: number };
+          return ` code=${value.code ?? ""} errno=${value.errno ?? ""} syscall=${
+            value.syscall ?? ""
+          } address=${value.address ?? ""} port=${value.port ?? ""}`;
+        })()
+      : "";
   try {
     appendFileSync(
       fatalFile,
-      `${new Date().toISOString()} ${kind} step=${currentStep} ${String(
+      `${new Date().toISOString()} ${kind} step=${currentStep}${details} ${String(
         error instanceof Error ? (error.stack ?? error.message) : error,
       )}\n`,
       "utf8",
@@ -29,10 +38,28 @@ function recordFatal(kind: string, error: unknown) {
   } catch {}
 }
 process.on("uncaughtException", (error) => {
+  // Windows 上 Agent 启动阶段会提前关闭本地 HTTP/MCP 探测连接，Node 可能把 socket 的
+  // ECONNRESET 留成未捕获异常；它不属于被测协议链路，记录后继续，避免夹具整体退出。
+  if (
+    error &&
+    typeof error === "object" &&
+    (error as NodeJS.ErrnoException).code === "ECONNRESET"
+  ) {
+    recordFatal("connectionReset", error);
+    return;
+  }
   recordFatal("uncaughtException", error);
   process.exit(1);
 });
 process.on("unhandledRejection", (reason) => {
+  if (
+    reason &&
+    typeof reason === "object" &&
+    (reason as NodeJS.ErrnoException).code === "ECONNRESET"
+  ) {
+    recordFatal("connectionResetRejection", reason);
+    return;
+  }
   recordFatal("unhandledRejection", reason);
   process.exit(1);
 });
