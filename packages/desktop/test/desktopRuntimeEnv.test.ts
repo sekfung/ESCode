@@ -266,6 +266,26 @@ function expectRuntimePath(actualPath: string | undefined, expectedPath: string)
   expect(actualPath).toBe(realpathSync(expectedPath));
 }
 
+describe("desktopRuntimeEnv hasBundledAgentRuntime", () => {
+  it("accepts Rust-only, Node-only and full runtimes, and rejects an empty package", async () => {
+    const { hasBundledAgentRuntime } = await import("../src/main/desktopRuntimeEnv.js");
+
+    expect(
+      hasBundledAgentRuntime({ rustBinary: "/glm/escode-cli-rust", nodeBundle: undefined }),
+    ).toBe(true);
+    expect(hasBundledAgentRuntime({ rustBinary: undefined, nodeBundle: "/glm/zcode.cjs" })).toBe(
+      true,
+    );
+    expect(
+      hasBundledAgentRuntime({
+        rustBinary: "/glm/escode-cli-rust",
+        nodeBundle: "/glm/zcode.cjs",
+      }),
+    ).toBe(true);
+    expect(hasBundledAgentRuntime({ rustBinary: undefined, nodeBundle: undefined })).toBe(false);
+  });
+});
+
 describe("desktopRuntimeEnv resolveRemoteAssetDirs", () => {
   beforeEach(() => {
     vi.resetModules();

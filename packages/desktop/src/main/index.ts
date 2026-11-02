@@ -147,6 +147,7 @@ import {
   buildRustHostProviderEnv,
   buildRustHostRuntimeEnv,
   loadHostProcessEnvFromLocalFiles,
+  hasBundledAgentRuntime,
   resolveBundledAgentRuntimePaths,
   resolveRemoteAssetDirs,
   resolveRustHostRemoteAssets,
@@ -1379,17 +1380,16 @@ function logWindowsBundledRuntimeIntegrityDiagnostic() {
     return;
   }
 
-  // Bugfix：此前检查的是已不再随包的原生 escode-agent，每次启动都误报 glm 缺失。
-  // 改为检查 Electron Node 执行的 zcode.cjs：它是 Rust 失败时的兜底 runtime，必须随包；
-  // Rust 二进制可按 ESCODE_BUNDLE_RUST_AGENT=0 不打包，不计入完整性缺失，路径由 Host 启动日志如实记录。
-  const { nodeBundle } = resolveBundledAgentRuntimePaths();
-  if (nodeBundle) {
+  // Bugfix：此前只检查 Electron Node 执行的 zcode.cjs，Rust-only 产物因此每次启动都误报资源缺失。
+  // Agent runtime 是否可用由 Host 解析并记录；这里只要求 Rust 与 Node bundle 至少存在一种。
+  const runtime = resolveBundledAgentRuntimePaths();
+  if (hasBundledAgentRuntime(runtime)) {
     return;
   }
 
   // bundled runtime 缺失启动阶段只静默落日志，便于在用户日志里确认安装资源是否已损坏。
   logger.warn(
-    `[startup] Windows bundled runtime missing node bundle (glm/zcode.cjs) resources=${JSON.stringify(
+    `[startup] Windows bundled agent runtime missing (glm/escode-cli-rust[.exe], glm/zcode.cjs) resources=${JSON.stringify(
       snapshotWindowsPackagedResources(process.resourcesPath),
     )}`,
   );

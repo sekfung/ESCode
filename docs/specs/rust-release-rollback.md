@@ -215,6 +215,8 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
    agent bundle 的 Node → Rust → Node 回退演练，改为执行 Rust-only 安装、Host 启动与安装包会话门禁。
 5. `ci-install-desktop.mjs` 在 Linux 上按 `resources/glm/escode-cli-rust` 反查 `glm` 目录，兼容已移除
    `zcode.cjs` 的产物；Rust-only 安装阶段只要求 Rust 二进制。
+6. Windows 打包态启动诊断以「至少存在一种随包 agent runtime」为完整：Rust-only 有 Rust 二进制、
+   无 Node bundle 时不报警；仅 Rust 与 Node 两者都缺失时才记录资源损坏警告。
 
 边界：该开关只负责「产物不含 Node agent bundle」。把 `ESCODE_BUNDLE_NODE_AGENT=0` 设为发布默认、删除 TS CLI、
 本地 Node Host 路径与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，仍需三平台 Rust-only 安装/升级/回滚演练与

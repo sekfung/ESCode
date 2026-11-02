@@ -472,6 +472,13 @@ export function resolveBundledAgentRuntimePaths(): {
   };
 }
 
+export function hasBundledAgentRuntime(runtime: {
+  rustBinary: string | undefined;
+  nodeBundle: string | undefined;
+}): boolean {
+  return Boolean(runtime.rustBinary || runtime.nodeBundle);
+}
+
 function resolveHostProcessBinaryEnv(
   envVar: string,
   hostProcessLocalEnv: Record<string, string>,
