@@ -88,7 +88,8 @@ Web / 手机 / remote 的不支持回退与 continuous / replayable 边界不变
 `background-main.ts` 与 `managedEnvironment` / `agent` / `model` / `managed-renderer` 的后台夹具钩子。
 Linux Xvfb 已跑通双窗口 admission、后台冷启动非零尺寸与内部帧；隐藏 guest 的 rAF 断言依赖
 Chromium Viz capturer，裸 Xvfb 持续报 `UnknownVizError`，完整隐藏执行改由
-`.github/workflows/plugin-ui-background-e2e.yml` 的 macOS 作业重跑。主进程的
+`.github/workflows/plugin-ui-background-e2e.yml` 的 macOS 作业执行：run `41397940014`
+（2026-11-02）已全绿，覆盖双窗口 admission、三种冷启动/最小化、隐藏执行、离屏期限保留与删除释放。主进程的
 `PluginSandboxExecutionActive` 活动租约（含加载期早到请求与旧 owner/initId 拒绝）由
 `packages/desktop/test/pluginSandboxExecution.test.ts` 覆盖。
 
