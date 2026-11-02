@@ -31,8 +31,12 @@ env:
 
 jobs:
   background:
-    name: plugin ui background e2e (macos-latest)
-    runs-on: macos-latest
+    name: plugin ui background e2e (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
