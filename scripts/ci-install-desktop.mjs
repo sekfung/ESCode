@@ -42,7 +42,10 @@ const capture = (command, args) => {
 };
 
 /** 安装某个目录里的桌面安装包，返回该次安装后的可执行文件与 glm 目录。 */
-function installFrom(dir) {
+function installFrom(sourceDir) {
+  // 演练从仓库根目录传入相对路径；`apt-get install drill/base/x.deb` 会把参数当成包名
+  // （`E: Unable to locate package drill/base`），必须用绝对路径。
+  const dir = resolve(sourceDir);
   if (process.platform === "win32") {
     const installer = pick(".exe", dir);
     const target = join(temp, "escode-install");
@@ -279,8 +282,8 @@ if (versionDrill) {
     }
   };
   const runStage = async (label, dir, hostAssertion) => {
-    const installed = installFrom(dir);
-    assertInstalled(installed, label);
+    ({ app, glm } = installFrom(dir));
+    assertInstalled({ app, glm }, label);
     const hash = sha256(installed.app);
     await launchApp({ hostAssertion, launchCwd: drillCwd, label, env: drillEnv });
     assertSettings(label);
