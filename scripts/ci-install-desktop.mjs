@@ -91,7 +91,7 @@ function installFrom(sourceDir) {
 }
 
 function assertInstalled({ app, glm }, label = "install") {
-  for (const path of [app, glm, join(glm, "zcode.cjs")]) {
+  for (const path of [app, glm, join(glm, "zcode.cjs"), join(dirname(glm), "app.asar")]) {
     if (!existsSync(path)) throw new Error(`${label}: installed path missing: ${path}`);
   }
   console.log(`${label}: installed app: ${app}\n${label}: installed glm: ${glm}`);
@@ -284,7 +284,11 @@ if (versionDrill) {
   const runStage = async (label, dir, hostAssertion) => {
     ({ app, glm } = installFrom(dir));
     assertInstalled({ app, glm }, label);
-    const hash = sha256(app);
+    // 覆盖安装的证据必须取每次构建都会变化的载荷：Electron 启动器在 base/head 之间通常
+    // 完全相同（同一 Electron 版本），用它比较会误报「没有替换」（run 41386625407 的
+    // mac-* 与 linux-x64）。app.asar 才是应用代码本体。
+    const hash = sha256(join(dirname(glm), "app.asar"));
+    console.log(`${label}: app.asar sha256 ${hash}`);
     await launchApp({ hostAssertion, launchCwd: drillCwd, label, env: drillEnv });
     assertSettings(label);
     // 下一次安装前等旧实例彻底退出，避免 Windows 单实例锁 / DB owner 锁串扰。
@@ -294,11 +298,11 @@ if (versionDrill) {
   const baseHash = await runStage("version drill 1/3 base", baseDir, "any");
   const headHash = await runStage("version drill 2/3 head", headDir, "rust");
   if (headHash === baseHash) {
-    throw new Error("version drill did not replace the application executable on upgrade");
+    throw new Error("version drill did not replace the application payload on upgrade");
   }
   const downgradedHash = await runStage("version drill 3/3 downgrade", baseDir, "any");
   if (downgradedHash !== baseHash) {
-    throw new Error("version drill did not restore the base executable on downgrade");
+    throw new Error("version drill did not restore the base payload on downgrade");
   }
   console.log("version upgrade/downgrade drill passed: base → head → base, settings preserved");
 }
