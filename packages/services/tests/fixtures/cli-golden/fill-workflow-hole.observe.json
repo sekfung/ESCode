@@ -1,0 +1,12 @@
+{
+  "createResult": "The workflow script compiled cleanly and the run started in the background with ID: dwfrun-<uuid>. It is still running — you will be notified with the final output when it completes. Do not wait for it or poll it with TaskOutput; continue with other work unless the user asked you to wait. The script is saved at .escode/workflow-drafts/hole-run.dwf.ts; to revise it later, edit that file and pass `path` to AmendWorkflow.",
+  "fillResult": "The fill joined run dwfrun-<uuid> at hole \"裁决\" (hole#cbdb9d6d); the branch parked there has resumed and the run keeps going in the background. It added no phases. The run's draft .escode/workflow-drafts/hole-run.dwf.ts now holds the effective script: edit that file and pass `path` to AmendWorkflow for any later revision. Do not wait for the run or poll it with TaskOutput; you will be notified when it completes.",
+  "permissions": [
+    {
+      "toolName": "CreateWorkflow",
+      "kinds": ["allowOnce", "allowAlways", "deny", "custom"]
+    }
+  ],
+  "requestCount": 5,
+  "schemaErrors": []
+}

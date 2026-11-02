@@ -131,6 +131,12 @@ impl Engine {
                 let _ = reply.send(PermissionOutcome::allow());
                 Ok(())
             }
+            // TS `checkAlwaysAsk` 的工作流 owner 规则：本会话发起的 run（且不是用户亲手停下）
+            // 修订 / 补全时不再弹窗。位于 headless broker 之前，与 Node 的权限服务 allow 同序。
+            crate::domain::permission::Behavior::Ask if owned_workflow_run(&tool, &input) => {
+                let _ = reply.send(PermissionOutcome::allow());
+                Ok(())
+            }
             // `-p` 没有审批面：Node createHeadlessPermissionBroker 只放行工作流创建 / 修订，其余按 deny broker 拒绝。
             crate::domain::permission::Behavior::Ask if self.headless_permissions => {
                 if HEADLESS_AUTO_APPROVED.contains(&tool.as_str()) {
@@ -315,5 +321,54 @@ impl Engine {
         self.project_rules = Some(Ruleset::from_json(&json));
         self.project_rules_json = Some(json);
         true
+    }
+}
+
+/// TS `isAmendWorkflowOwnedPredecessor` / `isFillWorkflowHoleOwnedRun`：宿主的 `resolveInput` 把
+/// journal 里的 run 归属折进 `predecessor` / `hole` 事实块，权限服务只读这些位，不信模型自报。
+fn owned_workflow_run(tool: &str, input: &Value) -> bool {
+    match tool {
+        "AmendWorkflow" => {
+            let predecessor = &input["predecessor"];
+            predecessor["owned_by_this_session"].as_bool() == Some(true)
+                && predecessor["stop_reason"].as_str() != Some("user")
+        }
+        "FillWorkflowHole" => input["hole"]["owned_by_this_session"].as_bool() == Some(true),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::owned_workflow_run;
+    use serde_json::json;
+
+    #[test]
+    fn owned_workflow_fill_follows_the_hole_fact() {
+        assert!(owned_workflow_run(
+            "FillWorkflowHole",
+            &json!({"hole": {"owned_by_this_session": true}})
+        ));
+        assert!(!owned_workflow_run(
+            "FillWorkflowHole",
+            &json!({"hole": {"owned_by_this_session": false}})
+        ));
+        assert!(!owned_workflow_run("FillWorkflowHole", &json!({})));
+    }
+
+    #[test]
+    fn owned_workflow_amend_requires_a_session_run_not_stopped_by_the_user() {
+        assert!(owned_workflow_run(
+            "AmendWorkflow",
+            &json!({"predecessor": {"owned_by_this_session": true}})
+        ));
+        assert!(!owned_workflow_run(
+            "AmendWorkflow",
+            &json!({"predecessor": {"owned_by_this_session": true, "stop_reason": "user"}})
+        ));
+        assert!(!owned_workflow_run(
+            "AmendWorkflow",
+            &json!({"predecessor": {"owned_by_this_session": false}})
+        ));
     }
 }

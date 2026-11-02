@@ -251,6 +251,8 @@ Agent / SendMessage、无定时任务端口的 Cron\*）。验收：`escode-cli-
 **M3 进度（2026-10-02）**：
 
 - 已落地（各带差分）：AmendWorkflow（修订本会话 run 套用 TS workflowOwner 免确认；确认选项为会话级免确认 + Refine）；
+  FillWorkflowHole（宿主 `resolveInput` 回填 `hole.owned_by_this_session`，权限 owner 在 headless / 交互确认之前放行；
+  差分 `escode-cli-rust-fill-workflow-hole.test.ts` 断言只有 CreateWorkflow 弹窗）；
   升级问答（run 服务 `onRunEvent` → 宿主用 core `buildWorkflowRunProgressNotification` 生成 escalation / stall 通知 →
   `runNotice`）；TaskStop 停止 run（宿主实现 TS 后台控制端口的 `local_dynamic_workflow` 分支）；ResumeWorkflowRun 与 actor
   重水化（`resumeFromStore` → `actor.resume`）。
