@@ -134,20 +134,17 @@ impl Engine {
         // onDemand 会话在激活前不带工作流工具（v3.15.1）。
         history.turn.dynamic_workflow = self.dynamic_workflow_visible(id);
         // ListModels 的目录（第 6 期）：每轮取一次注册表视图（工具调用时不再现读）。
-        history.turn.model_catalog = self
-            .registry
-            .as_ref()
-            .map(|registry| {
-                let mut catalog = registry.model_catalog();
-                for entry in &mut catalog {
-                    // 工作流宿主的模型名解析与 ListModels 同源；`current` 是会话选择那一刻的事实。
-                    entry["current"] = (entry["providerId"].as_str()
-                        == Some(current_provider.as_str())
-                        && entry["modelId"].as_str() == Some(current_model.as_str()))
-                    .into();
-                }
-                catalog
-            });
+        history.turn.model_catalog = self.registry.as_ref().map(|registry| {
+            let mut catalog = registry.model_catalog();
+            for entry in &mut catalog {
+                // 工作流宿主的模型名解析与 ListModels 同源；`current` 是会话选择那一刻的事实。
+                entry["current"] = (entry["providerId"].as_str()
+                    == Some(current_provider.as_str())
+                    && entry["modelId"].as_str() == Some(current_model.as_str()))
+                .into();
+            }
+            catalog
+        });
         history.turn.wiki = self.wiki.clone();
         // ListWorkflowRuns 的项目键：会话工作目录（TS `context.workingDirectory`）。
         history.turn.cwd = Some(self.workspace_path.clone());

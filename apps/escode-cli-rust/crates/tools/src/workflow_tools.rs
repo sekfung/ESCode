@@ -89,10 +89,7 @@ pub(crate) async fn execute(
     if let Some(models) = model_catalog {
         params["models"] = Value::Array(models.to_vec());
     }
-    let request = tools.workflow_host.request(
-        "tool.execute",
-        params,
-    );
+    let request = tools.workflow_host.request("tool.execute", params);
     let reply = tokio::select! {
         reply = request => reply?,
         _ = cancel.cancelled() => {

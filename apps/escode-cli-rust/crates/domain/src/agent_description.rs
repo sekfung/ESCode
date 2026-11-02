@@ -1,5 +1,5 @@
 //! Agent 工具的 provider 描述（TS `buildAgentProviderDescription`）与 agent 目录通告
-//! （TS `collectAgentListingAttachment`）。文案来自生成资产（dynamicWorkflowEnabled=false）。
+//! （TS `collectAgentListingAttachment`）。基础文案来自生成资产，动态工作流那一行按本会话灰度结论追加。
 //! 见 docs/specs/rust-tool-surface.md 与 docs/specs/rust-v3.15.1-drift.md。
 
 use std::sync::OnceLock;
@@ -23,13 +23,21 @@ fn template() -> &'static Value {
     })
 }
 
-/// Agent 工具的静态 provider 描述（v3.15.1 起不再内嵌 profile 列表，目录改由
+/// Agent 工具的 provider 描述（v3.15.1 起不再内嵌 profile 列表，目录改由
 /// [`listing_delta`] 以 `<system-reminder>` 通告；两个搜索分支逐字相同）。
-pub fn description() -> String {
-    template()["description"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned()
+///
+/// TS `createAgentToolEntry` 用 `includeDynamicWorkflow !== false` 决定是否保留最后那条
+/// CreateWorkflow 强制说明；Rust 的灰度门结论（`TurnFacts.dynamic_workflow`）已经同时决定
+/// 工作流工具是否可见，这里必须用同一个事实，避免把模型指向不存在的工具。
+pub fn description(dynamic_workflow_enabled: bool) -> String {
+    let base = template()["description"].as_str().unwrap_or_default();
+    if !dynamic_workflow_enabled {
+        return base.to_owned();
+    }
+    format!(
+        "{base}\n{}",
+        template()["workflowBullet"].as_str().unwrap_or_default()
+    )
 }
 
 /// TS `formatAgentProfileForPrompt`：`- name: description (Tools: …)`。
@@ -241,8 +249,19 @@ mod tests {
             "- custom: custom agent (Tools: Read)"
         );
         assert_eq!(line("bare", "project", None, &[][..]), "- bare: bare agent");
-        assert!(!description().contains("- general-purpose"));
-        assert!(description().contains("<system-reminder>"));
+        assert!(!description(false).contains("- general-purpose"));
+        assert!(description(false).contains("<system-reminder>"));
+    }
+
+    #[test]
+    fn workflow_bullet_follows_the_dynamic_workflow_gate() {
+        let disabled = description(false);
+        assert!(!disabled.contains("CreateWorkflow"));
+        let enabled = description(true);
+        assert!(enabled.starts_with(&disabled));
+        assert!(enabled.ends_with(
+            "- If the user explicitly asks for a workflow (\"use a workflow\", \"使用 workflow\", \"用工作流\", or any phrasing naming workflow/工作流 as the means), the CreateWorkflow tool is mandatory: do not use this tool instead, however small the task."
+        ));
     }
 
     #[test]

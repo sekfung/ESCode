@@ -58,18 +58,34 @@ async function observe(kind: "node" | "rust") {
         },
         { parse: (value: unknown) => value } as any,
       );
-    // 缺省（Host 未调用）即关闭：显式关闭与缺省走同一条读法。
+    const surface = (start: number) => {
+      const tools = requests[start]?.tools ?? [];
+      return {
+        names: tools
+          .map((tool: any) => tool.function.name)
+          .filter((name: string) => !name.startsWith("mcp__")),
+        agentDescription:
+          tools.find((tool: any) => tool.function.name === "Agent")?.function.description ?? "",
+      };
+    };
+    // 每次策略切换后新建会话，分别观察开 / 关两态：工作流工具与 Agent 描述必须一起变。
     const enabled = await ask(true);
+    const enabledStart = requests.length;
+    const enabledId = await h.create();
+    await h.subscribe(`conversation/${enabledId}`, "fixture-desktop-enabled");
+    await h.command(h.envelope("sendText", enabledId, { text: "hello", mode: "yolo" }));
+    await h.completed(enabledId);
+    const enabledSurface = surface(enabledStart);
+    // 缺省（Host 未调用）即关闭：显式关闭与缺省走同一条读法。
     const disabled = await ask(false);
-    const id = await h.create();
-    await h.subscribe(`conversation/${id}`);
-    await h.command(h.envelope("sendText", id, { text: "hello", mode: "yolo" }));
-    await h.completed(id);
+    const disabledStart = requests.length;
+    const disabledId = await h.create();
+    await h.subscribe(`conversation/${disabledId}`, "fixture-desktop-disabled");
+    await h.command(h.envelope("sendText", disabledId, { text: "hello", mode: "yolo" }));
+    await h.completed(disabledId);
+    const disabledSurface = surface(disabledStart);
     await h.close();
-    const names = (requests[0]?.tools ?? [])
-      .map((tool: any) => tool.function.name)
-      .filter((name: string) => !name.startsWith("mcp__"));
-    return { enabled, disabled, names, workspace: h.workspace };
+    return { enabled, disabled, enabledSurface, disabledSurface, workspace: h.workspace };
   } finally {
     await f.close();
   }
@@ -89,12 +105,20 @@ test("dynamic workflow policy and tool surface match Node", async () => {
     assert.equal(observed.enabled.workspace.workspaceKey, observed.workspace);
   }
   for (const name of WORKFLOW_TOOLS) {
-    assert.ok(!node.names.includes(name), `${name} 应在关闭态下架：${JSON.stringify(node.names)}`);
     assert.ok(
-      !rust.names.includes(name),
-      `${name} 不应在 Rust 侧出现：${JSON.stringify(rust.names)}`,
+      !node.disabledSurface.names.includes(name),
+      `${name} 应在关闭态下架：${JSON.stringify(node.disabledSurface.names)}`,
+    );
+    assert.ok(
+      !rust.disabledSurface.names.includes(name),
+      `${name} 不应在 Rust 侧出现：${JSON.stringify(rust.disabledSurface.names)}`,
     );
   }
   // 模型看到的工具名在关闭态逐字一致（Rust 不注册未实现的工作流工具）。
-  assert.deepEqual(rust.names, node.names);
+  assert.deepEqual(rust.disabledSurface.names, node.disabledSurface.names);
+  // Agent 描述随灰度门增删 CreateWorkflow 那一行，开 / 关两态都要与 Node 逐字一致。
+  assert.match(node.enabledSurface.agentDescription, /CreateWorkflow tool is mandatory/);
+  assert.doesNotMatch(node.disabledSurface.agentDescription, /CreateWorkflow/);
+  assert.deepEqual(rust.enabledSurface, node.enabledSurface);
+  assert.deepEqual(rust.disabledSurface, node.disabledSurface);
 });
