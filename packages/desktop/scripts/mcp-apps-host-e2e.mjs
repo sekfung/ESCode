@@ -56,7 +56,8 @@ if (
           `@escode/${name}`,
           name === "cli" ? "build:desktop-agent" : "build",
         ],
-        { stdio: "inherit" },
+        // Windows 的 .cmd 入口需要 shell；否则 Node 24 直接 EINVAL。
+        { stdio: "inherit", shell: process.platform === "win32" },
       );
       child.on("error", reject);
       child.on("exit", (code) =>
