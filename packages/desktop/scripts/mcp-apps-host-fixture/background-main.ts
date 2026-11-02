@@ -11,11 +11,32 @@ import { clickHostPoint } from "./pointer-input.js";
 
 const [root, profile, node, cli] = process.argv.slice(2) as [string, string, string, string];
 let currentStep = "boot";
+let progressSequence = 0;
+const progressFile = join(root, "fixture-progress.json");
+// Windows runner 上曾出现 stdout 与计时器同时静默、只能靠外层看门狗超时的情况。
+// 把阶段额外写到文件，外层超时后可直接读取最后活动点，不依赖日志管道是否仍然通畅。
+function writeProgress(heartbeat: boolean) {
+  void writeFile(
+    progressFile,
+    JSON.stringify({
+      pid: process.pid,
+      sequence: ++progressSequence,
+      heartbeat,
+      step: currentStep,
+      updatedAt: new Date().toISOString(),
+    }),
+    "utf8",
+  ).catch(() => undefined);
+}
 function step(message: string) {
   currentStep = message;
+  writeProgress(false);
   process.stdout.write(`[background] ${message}\n`);
 }
-setInterval(() => process.stdout.write(`[background] waiting at: ${currentStep}\n`), 15_000);
+setInterval(() => {
+  writeProgress(true);
+  process.stdout.write(`[background] waiting at: ${currentStep}\n`);
+}, 15_000);
 // Xvfb 等无窗口管理器环境下 minimize() 不会生效；退化为 hide() 以复现 owner document hidden。
 function minimizeWindow(win: BrowserWindow) {
   win.minimize();

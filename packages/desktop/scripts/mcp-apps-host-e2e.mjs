@@ -267,6 +267,12 @@ for (const mode of modes) {
     const watchdog = setTimeout(
       async () => {
         child.kill("SIGKILL");
+        try {
+          const progress = JSON.parse(
+            await readFile(join(output, "fixture-progress.json"), "utf8"),
+          );
+          process.stderr.write(`--- fixture progress ---\n${JSON.stringify(progress, null, 2)}\n`);
+        } catch {}
         await dumpAgentLogs();
         reject(new Error(`Electron fixture timed out (${mode})`));
       },

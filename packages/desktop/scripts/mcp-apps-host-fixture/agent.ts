@@ -60,11 +60,37 @@ export async function startAgent(
   const port = (control.address() as { port: number }).port;
   const data = join(root, "agent-data");
   await mkdir(data, { recursive: true });
+  // 修复：Windows 下只传 PATH 会让 Node/MCP 子进程缺少系统目录、临时目录和命令解释器信息，
+  // Windows runner 上曾出现 session/create 在 runtime preferences 回包后无响应。这里只补
+  // 运行时必需的系统变量，不展开完整 process.env，避免把 API key、认证和 Electron 标志带进夹具。
+  const windowsSystemEnv =
+    process.platform === "win32"
+      ? {
+          TEMP: process.env.TEMP,
+          TMP: process.env.TMP,
+          SystemRoot: process.env.SystemRoot,
+          windir: process.env.windir,
+          ComSpec: process.env.ComSpec,
+          PATHEXT: process.env.PATHEXT,
+          USERPROFILE: process.env.USERPROFILE,
+          APPDATA: process.env.APPDATA,
+          LOCALAPPDATA: process.env.LOCALAPPDATA,
+          PROGRAMDATA: process.env.PROGRAMDATA,
+          PROGRAMFILES: process.env.PROGRAMFILES,
+          "PROGRAMFILES(X86)": process.env["PROGRAMFILES(X86)"],
+          COMMONPROGRAMFILES: process.env.COMMONPROGRAMFILES,
+          HOMEDRIVE: process.env.HOMEDRIVE,
+          HOMEPATH: process.env.HOMEPATH,
+          NUMBER_OF_PROCESSORS: process.env.NUMBER_OF_PROCESSORS,
+          PROCESSOR_ARCHITECTURE: process.env.PROCESSOR_ARCHITECTURE,
+        }
+      : {};
   // 不继承 API key、真实用户认证及 Electron Node 标志，模型测试也只通过显式传入的隔离配置访问本地 fixture。
   const child = spawn(node, [cli, "app-server"], {
     cwd: data,
     env: {
       PATH: process.env.PATH,
+      ...windowsSystemEnv,
       ESCODE_DATA_BASE_DIR: data,
       ESCODE_SESSION_DB: join(data, "session.sqlite"),
       ESCODE_STORAGE_DIR: data,
@@ -74,6 +100,7 @@ export async function startAgent(
             ESCODE_FIXTURE_TRACE: process.env.ESCODE_FIXTURE_TRACE,
             ESCODE_LOG_LEVEL: "debug",
             ESCODE_LOG_DIR: join(data, "logs"),
+            ESCODE_LOG_CONSOLE: "1",
           }
         : {}),
       ...providerEnv,
