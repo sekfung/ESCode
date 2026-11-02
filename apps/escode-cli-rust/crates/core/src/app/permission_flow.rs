@@ -13,6 +13,8 @@ pub(super) struct WaitingPermission {
     pub session: String,
     pub run: String,
     pub call_id: String,
+    /// 工具名：确认窗只对 CreateWorkflow / AmendWorkflow 应用 `answer.content` 中的设置调整。
+    pub tool: String,
     /// 「总是允许」要写入的项目规则（allowAlways 应答时落库）。
     pub suggested: Vec<Rule>,
     pub reply: oneshot::Sender<PermissionOutcome>,
@@ -241,6 +243,7 @@ impl Engine {
                 session: id.to_owned(),
                 run: run.to_owned(),
                 call_id,
+                tool: tool.to_owned(),
                 suggested,
                 reply,
             },

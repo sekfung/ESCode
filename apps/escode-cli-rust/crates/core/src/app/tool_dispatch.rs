@@ -216,6 +216,7 @@ pub(super) async fn execute(
         name,
         &mut call,
         workflow_skill_loaded,
+        turn.model_catalog.as_deref(),
     )
     .await?
     {
@@ -344,6 +345,8 @@ pub(super) async fn execute(
                         &args,
                         &selection_json,
                         &turn.mode,
+                        turn.model_catalog.as_deref(),
+                        outcome.input_adjustments.as_ref(),
                         cancel,
                     )
                     .await =>

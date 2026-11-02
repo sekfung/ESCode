@@ -30,7 +30,11 @@ const steps = [
   call("cw-1", "CreateWorkflow", { script, name: "count-txt" }),
 ];
 
-async function observe(kind: "node" | "rust") {
+async function observe(
+  kind: "node" | "rust",
+  adjustments?: Record<string, unknown>,
+  expectRun = true,
+) {
   const root = await mkdtemp(join(tmpdir(), `escode-create-workflow-${kind}-`));
   const requests: any[] = [];
   const respond = (req: any, res: any) => {
@@ -41,7 +45,9 @@ async function observe(kind: "node" | "rust") {
       event(res, step);
       end(res, "tool_calls");
     } else {
-      event(res, { content: requests.length === steps.length + 1 ? "waiting" : "done" });
+      event(res, {
+        content: expectRun && requests.length === steps.length + 1 ? "waiting" : "done",
+      });
       end(res, "stop");
     }
   };
@@ -96,12 +102,18 @@ async function observe(kind: "node" | "rust") {
             permissions.push({
               toolName: p.payload.toolName,
               kinds: p.payload.options.map((o: Message) => o.kind),
+              ...(adjustments === undefined
+                ? {}
+                : { adjustable: p.payload.detail?.adjustable_settings }),
             });
             const once = p.payload.options.find((o: Message) => /allow.?once/i.test(o.kind));
             void h.command(
               h.envelope("resolveInteraction", id, {
                 interactionId: p.interactionId,
-                answer: { optionId: once.optionId },
+                answer: {
+                  optionId: once.optionId,
+                  ...(adjustments === undefined ? {} : { content: adjustments }),
+                },
               }),
             );
           }
@@ -111,7 +123,7 @@ async function observe(kind: "node" | "rust") {
     await h.command(h.envelope("sendText", id, { text: "count the txt files", mode: "yolo" }));
     // 等第二轮（后台完成通知）的模型请求与它的收尾。
     const deadline = Date.now() + 60_000;
-    while (requests.length < steps.length + 2 && Date.now() < deadline) {
+    while (requests.length < steps.length + (expectRun ? 2 : 1) && Date.now() < deadline) {
       await new Promise((done) => setTimeout(done, 100));
     }
     await h.completed(id);
@@ -158,11 +170,15 @@ async function observe(kind: "node" | "rust") {
     const notification = notificationRequest?.messages
       ?.filter((m: any) => m.role === "user")
       .at(-1)?.content;
+    const notificationText =
+      typeof notification === "string"
+        ? notification
+        : notification === undefined
+          ? null
+          : JSON.stringify(notification);
     return {
-      createResult: scrub(String(createResult)),
-      notification: scrub(
-        typeof notification === "string" ? notification : JSON.stringify(notification),
-      ),
+      createResult: createResult === undefined ? null : scrub(String(createResult)),
+      notification: notificationText === null ? null : scrub(notificationText),
       permissions,
       requestCount: requests.length,
       workflowRuns: scrubState(workflowRuns),
@@ -191,6 +207,35 @@ test("Node and Rust run a CreateWorkflow script in the background the same way",
   assert.deepEqual(node.deltaWorkflowRuns, node.workflowRuns);
   assert.deepEqual(node.opKinds, ["workflowRun.updated"]);
   assert.equal(node.patchCarriedRuns, false);
+  for (const key of Object.keys(node)) {
+    assert.deepEqual((rust as any)[key], (node as any)[key], key);
+  }
+});
+
+test("Node and Rust apply workflow settings adjusted in the permission window", async () => {
+  const adjustments = { max_concurrency: 2, subagent_model: "personal:fixture/model-b" };
+  const node = await nodeOracle("adjusted", () => observe("node", adjustments));
+  const rust = await canonical(await observe("rust", adjustments));
+  assert.deepEqual(node.schemaErrors, []);
+  assert.equal(node.permissions[0].adjustable?.subagent_model, true);
+  assert.equal(node.permissions[0].adjustable?.concurrency_ceiling, "<concurrency>");
+  assert.match(node.createResult, /user adjusted the settings in the confirmation window/i);
+  assert.match(node.createResult, /personal:fixture\/model-b/i);
+  assert.match(node.createResult, /at most 2 subagents run at once/i);
+  for (const key of Object.keys(node)) {
+    assert.deepEqual((rust as any)[key], (node as any)[key], key);
+  }
+});
+
+test("Node and Rust reject an unusable model adjustment before starting the run", async () => {
+  const adjustments = { subagent_model: "missing/model" };
+  const node = await nodeOracle("adjust-failed", () => observe("node", adjustments, false));
+  const rust = await canonical(await observe("rust", adjustments, false));
+  assert.deepEqual(node.schemaErrors, []);
+  assert.equal(node.permissions.length, 1);
+  assert.match(String(node.createResult), /workflow_subagent_model_unresolved/);
+  assert.match(String(node.createResult), /<tool_use_error>/);
+  assert.equal(node.workflowRuns, null);
   for (const key of Object.keys(node)) {
     assert.deepEqual((rust as any)[key], (node as any)[key], key);
   }

@@ -289,6 +289,8 @@ pub struct ModelOutput {
 pub struct PermissionOutcome {
     pub allowed: bool,
     pub denial: Option<String>,
+    /// 确认窗里实际生效的入参调整（CreateWorkflow / AmendWorkflow）；其它工具与拒绝应答为 None。
+    pub input_adjustments: Option<Value>,
 }
 
 impl PermissionOutcome {
@@ -296,12 +298,21 @@ impl PermissionOutcome {
         Self {
             allowed: true,
             denial: None,
+            input_adjustments: None,
+        }
+    }
+    pub fn allow_with_adjustments(input_adjustments: Option<Value>) -> Self {
+        Self {
+            allowed: true,
+            denial: None,
+            input_adjustments,
         }
     }
     pub fn deny(content: String) -> Self {
         Self {
             allowed: false,
             denial: Some(content),
+            input_adjustments: None,
         }
     }
 }

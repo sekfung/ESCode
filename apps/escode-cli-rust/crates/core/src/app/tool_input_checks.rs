@@ -12,6 +12,7 @@ pub(super) async fn prepare(
     name: &str,
     call: &mut Value,
     skill_loaded: bool,
+    model_catalog: Option<&[Value]>,
 ) -> Result<Option<crate::contract::ToolOutput>> {
     let Ok(args) =
         serde_json::from_str::<Value>(call["function"]["arguments"].as_str().unwrap_or(""))
@@ -19,7 +20,7 @@ pub(super) async fn prepare(
         return Ok(None);
     };
     match tools
-        .prepare_tool(session, name, &args, skill_loaded)
+        .prepare_tool(session, name, &args, skill_loaded, model_catalog)
         .await?
     {
         None => Ok(None),

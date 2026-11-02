@@ -39,6 +39,7 @@ impl Engine {
         // `/goal` 的标题 sidecar 不等主轮次（TS control-only turn 边界即启动）。
         self.start_goal_title(id);
         let session = self.sessions.get_mut(id).context("Session unavailable")?;
+        let (current_provider, current_model) = (session.provider.clone(), session.model.clone());
         let estimated = session.active_context_tokens();
         let run_id = session.run_id.clone().context("Run reservation required")?;
         self.begin_execution(id, &run_id, &turn_id_for_facts, &payload);
@@ -136,7 +137,17 @@ impl Engine {
         history.turn.model_catalog = self
             .registry
             .as_ref()
-            .map(|registry| registry.model_catalog());
+            .map(|registry| {
+                let mut catalog = registry.model_catalog();
+                for entry in &mut catalog {
+                    // 工作流宿主的模型名解析与 ListModels 同源；`current` 是会话选择那一刻的事实。
+                    entry["current"] = (entry["providerId"].as_str()
+                        == Some(current_provider.as_str())
+                        && entry["modelId"].as_str() == Some(current_model.as_str()))
+                    .into();
+                }
+                catalog
+            });
         history.turn.wiki = self.wiki.clone();
         // ListWorkflowRuns 的项目键：会话工作目录（TS `context.workingDirectory`）。
         history.turn.cwd = Some(self.workspace_path.clone());

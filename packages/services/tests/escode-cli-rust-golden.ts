@@ -63,6 +63,8 @@ export function canonical<T>(value: T, parentKey?: string): T {
         .map(([key, item]) => {
           // CPU 派生的并发上限随 runner 核数变化；Node/Rust 两侧同法归一为占位符。
           if (key === "concurrencyCeiling" || key === "ceiling") return [key, "<concurrency>"];
+          // 确认窗回填的默认并发随 runner 核数变化；与其余 concurrency 事实同法归一。
+          if (key === "concurrency_ceiling") return [key, "<concurrency>"];
           if (parentKey === "concurrency" && key === "cap") return [key, "<concurrency>"];
           if (parentKey === "caps" && key === "maxConcurrency") return [key, "<concurrency>"];
           if (key === "x-client-language" || key === "x-client-timezone" || key === "x-os-version")

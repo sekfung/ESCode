@@ -64,21 +64,10 @@ impl ToolPort for WorkspaceTools {
     async fn workflow_run(&self, method: &str, params: Value) -> Result<Value> {
         self.workflow_host.request(method, params).await
     }
+    #[rustfmt::skip]
     #[allow(clippy::too_many_arguments)]
-    async fn execute_workflow(
-        &self,
-        session: &str,
-        call_id: &str,
-        name: &str,
-        args: &Value,
-        selection: &Value,
-        mode: &str,
-        cancel: &CancellationToken,
-    ) -> Option<Result<ToolOutput>> {
-        super::workspace_tools_misc::execute_workflow(
-            self, session, call_id, name, args, selection, mode, cancel,
-        )
-        .await
+    async fn execute_workflow(&self, session: &str, call_id: &str, name: &str, args: &Value, selection: &Value, mode: &str, model_catalog: Option<&[Value]>, input_adjustments: Option<&Value>, cancel: &CancellationToken) -> Option<Result<ToolOutput>> {
+        super::workspace_tools_misc::execute_workflow(self, session, call_id, name, args, selection, mode, model_catalog, input_adjustments, cancel).await
     }
     async fn workflow_actor_event(&self, actor_session: &str, event: Value) {
         self.workflow_host.notify(
@@ -228,14 +217,9 @@ impl ToolPort for WorkspaceTools {
     ) -> Result<Value> {
         super::tool_port_plugins::operation(method, params, cancel).await
     }
-    async fn prepare_tool(
-        &self,
-        session: &str,
-        name: &str,
-        args: &Value,
-        skill_loaded: bool,
-    ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
-        super::workspace_tools_misc::prepare_tool(self, session, name, args, skill_loaded).await
+    #[rustfmt::skip]
+    async fn prepare_tool(&self, session: &str, name: &str, args: &Value, skill_loaded: bool, model_catalog: Option<&[Value]>) -> Result<Option<std::result::Result<(Value, bool), String>>> {
+        super::workspace_tools_misc::prepare_tool(self, session, name, args, skill_loaded, model_catalog).await
     }
     async fn plugin_suggested_reference(
         &self,

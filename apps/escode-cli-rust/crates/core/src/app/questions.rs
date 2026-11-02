@@ -107,13 +107,18 @@ impl Engine {
                 .context("Permission option required")?;
             let feedback = c.payload["answer"]["freeText"].as_str();
             let waiting_parent = self.sessions[id].parent_id.clone();
+            let adjustments = workflow_adjustments(&waiting.tool, &c.payload["answer"]["content"]);
             let outcome = match option {
-                "allowOnce" | "allowSession" => crate::contract::PermissionOutcome::allow(),
+                "allowOnce" | "allowSession" => {
+                    crate::contract::PermissionOutcome::allow_with_adjustments(adjustments.clone())
+                }
                 "allowAlways" => {
                     let rules = waiting.suggested.clone();
                     let merged = self.merge_allow_always(id, &rules).await;
                     if merged {
-                        crate::contract::PermissionOutcome::allow()
+                        crate::contract::PermissionOutcome::allow_with_adjustments(
+                            adjustments.clone(),
+                        )
                     } else {
                         crate::contract::PermissionOutcome::deny(
                             crate::domain::permission_options::denied_content(None),
@@ -130,7 +135,7 @@ impl Engine {
                             item["mode"] = "yolo".into();
                         }
                     }
-                    crate::contract::PermissionOutcome::allow()
+                    crate::contract::PermissionOutcome::allow_with_adjustments(adjustments.clone())
                 }
                 "deny" => crate::contract::PermissionOutcome::deny(
                     crate::domain::permission_options::denied_content(feedback),
@@ -234,4 +239,12 @@ impl Engine {
         self.activate_question_head(id);
         Ok(deltas)
     }
+}
+
+/// 确认窗里的设置调整只属于 CreateWorkflow / AmendWorkflow 的放行应答；拒绝 / Refine 以及其它工具
+/// 一律忽略 `answer.content`（TS `withWorkflowSettingsAdjustment`）。
+fn workflow_adjustments(tool: &str, content: &Value) -> Option<Value> {
+    matches!(tool, "CreateWorkflow" | "AmendWorkflow")
+        .then(|| content.as_object().map(|_| content.clone()))
+        .flatten()
 }

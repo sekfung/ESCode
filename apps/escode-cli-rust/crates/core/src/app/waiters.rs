@@ -60,6 +60,7 @@ mod tests {
                 session: session.into(),
                 run: "run".into(),
                 call_id: format!("call-{session}"),
+                tool: "CreateWorkflow".into(),
                 suggested: Vec::<Rule>::new(),
                 reply,
             },

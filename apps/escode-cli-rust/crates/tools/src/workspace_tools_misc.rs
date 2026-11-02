@@ -16,6 +16,8 @@ pub(super) async fn execute_workflow(
     args: &Value,
     selection: &Value,
     mode: &str,
+    model_catalog: Option<&[Value]>,
+    input_adjustments: Option<&Value>,
     cancel: &CancellationToken,
 ) -> Option<Result<ToolOutput>> {
     if super::workflow_tools::ACTOR_TOOLS.contains(&name) {
@@ -28,7 +30,16 @@ pub(super) async fn execute_workflow(
     }
     Some(
         super::workflow_tools::execute(
-            tools, session, call_id, name, args, selection, mode, cancel,
+            tools,
+            session,
+            call_id,
+            name,
+            args,
+            selection,
+            mode,
+            model_catalog,
+            input_adjustments,
+            cancel,
         )
         .await,
     )
@@ -73,6 +84,7 @@ pub(super) async fn prepare_tool(
     name: &str,
     args: &Value,
     skill_loaded: bool,
+    model_catalog: Option<&[Value]>,
 ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
     let (cwd, analyzer) = (&tools.workspace_path, &tools.analyzer);
     match name {
@@ -83,9 +95,16 @@ pub(super) async fn prepare_tool(
             super::eval_workflow_snippet::prepare(cwd, args, skill_loaded, analyzer).await
         }
         name if super::workflow_host::TOOLS.contains(&name) => {
-            return super::workflow_tools::prepare(tools, session, name, args, skill_loaded)
-                .await
-                .map(Some);
+            return super::workflow_tools::prepare(
+                tools,
+                session,
+                name,
+                args,
+                skill_loaded,
+                model_catalog,
+            )
+            .await
+            .map(Some);
         }
         _ => return Ok(None),
     }

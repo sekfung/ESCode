@@ -1,0 +1,20 @@
+{
+  "createResult": "<tool_use_error>workflow_subagent_model_unresolved: the subagent model the user chose in the confirmation window cannot be used now. No configured model matches `missing/model`. Available models:\npersonal:fixture/model-a [current]\npersonal:fixture/model-b\n\nPass one of these ids, or call ListModels. Nothing was started; ask the user which model to use.</tool_use_error>",
+  "notification": null,
+  "permissions": [
+    {
+      "toolName": "CreateWorkflow",
+      "kinds": ["allowOnce", "allowAlways", "deny", "custom"],
+      "adjustable": {
+        "subagent_model": true,
+        "concurrency_ceiling": "<concurrency>"
+      }
+    }
+  ],
+  "requestCount": 3,
+  "workflowRuns": null,
+  "deltaWorkflowRuns": null,
+  "opKinds": [],
+  "patchCarriedRuns": false,
+  "schemaErrors": []
+}

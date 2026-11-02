@@ -245,6 +245,7 @@ pub trait ToolPort: Send + Sync {
         _name: &str,
         _args: &Value,
         _skill_loaded: bool,
+        _model_catalog: Option<&[Value]>,
     ) -> Result<Option<std::result::Result<(Value, bool), String>>> {
         Ok(None)
     }
@@ -259,6 +260,8 @@ pub trait ToolPort: Send + Sync {
         _args: &Value,
         _selection: &Value,
         _mode: &str,
+        _model_catalog: Option<&[Value]>,
+        _input_adjustments: Option<&Value>,
         _cancel: &CancellationToken,
     ) -> Option<Result<crate::ToolOutput>> {
         None

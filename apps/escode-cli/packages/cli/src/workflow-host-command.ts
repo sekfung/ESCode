@@ -6,10 +6,13 @@
  * 协议（每行一个 JSON）：
  * - Rust → 宿主请求 `{id, method, params}`，宿主回 `{id, result}` 或 `{id, error}`（按 id 多路复用、可并发）：
  *   - `init {dbPath}`：打开 Rust 会话库（只碰 dwf_* 表）。
- *   - `tool.prepare {session, cwd, tool, input, skillLoaded}` → `{rejected: message}` 或 `{input, ask}`：
- *     TS executor 的 validateInput → resolveInput → prepareApproval 三段。
- *   - `tool.execute {session, cwd, tool, input, callId}` → `{content, data}` 或 `{content, isError, handlerFailure}`：
- *     validateInput + handler + formatModelContent。输出带 `backgroundTaskId` 时交给该会话的 TS 后台追踪器
+ *   - `tool.prepare {session, cwd, tool, input, skillLoaded, models?}` → `{rejected: message}` 或 `{input, ask}`：
+ *     TS executor 的 validateInput → resolveInput → prepareApproval 三段；models 供模型名解析。
+ *   - `tool.adjust {session, cwd, tool, input, adjustments, models?}` → `{rejected: message}` 或
+ *     `{input, applied}`：确认窗里的设置调整经 TS `applyInputAdjustments` 落进入参。
+ *   - `tool.execute {session, cwd, tool, input, callId, models?, inputAdjustments?}` → `{content, data}` 或
+ *     `{content, isError, handlerFailure}`：validateInput + handler + formatModelContent。输出带
+ *     `backgroundTaskId` 时交给该会话的 TS 后台追踪器
  *     （BackgroundTaskTracker + 运行时任务注册表），结算后发 `runSettled` 通知。
  *   - `tool.cancel {callId}`：中止在飞的 handler。
  *   - `session.close {session}`：停下该会话名下在飞的 run 并释放服务。
@@ -280,6 +283,8 @@ export async function runWorkflowHostCommand(): Promise<number> {
     runtimeTaskRegistry: tracking(params.session).registry,
     sessionId: params.session,
     hasLoadedSkill: (name: string) => params.skillLoaded === true && name === DYNAMIC_WORKFLOW_SKILL,
+    ...(Array.isArray(params.models) ? { modelCatalogPort: { listModels: () => params.models } } : {}),
+    ...(params.inputAdjustments === undefined ? {} : { inputAdjustments: params.inputAdjustments }),
     ...(params.callId === undefined ? {} : { toolCallId: params.callId }),
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
@@ -348,6 +353,19 @@ export async function runWorkflowHostCommand(): Promise<number> {
         // TS 权限服务的 workflowOwner 规则：修订本会话发起、且非用户停下的 run 免确认（阻断规则照常生效）。
         const owned = params.tool === "AmendWorkflow" && isAmendWorkflowOwnedPredecessor(input?.predecessor);
         return { input, ask: gate.gate === "ask" && !owned };
+      }
+      case "tool.adjust": {
+        const tool = entry(params.tool);
+        if (!tool.applyInputAdjustments) return { input: params.input, applied: undefined };
+        const outcome = tool.applyInputAdjustments(
+          params.input,
+          params.adjustments ?? {},
+          toolContext(params) as never,
+        );
+        if (outcome.result === false) {
+          return { rejected: outcome.message, errorCode: outcome.errorCode };
+        }
+        return { input: outcome.input, applied: outcome.applied };
       }
       case "tool.execute": {
         const tool = entry(params.tool);

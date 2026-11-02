@@ -15,20 +15,19 @@ pub(crate) async fn prepare(
     name: &str,
     args: &Value,
     skill_loaded: bool,
+    model_catalog: Option<&[Value]>,
 ) -> Result<Prepared> {
-    let reply = tools
-        .workflow_host
-        .request(
-            "tool.prepare",
-            json!({
-                "session": session,
-                "cwd": tools.workspace_path.to_string_lossy(),
-                "tool": name,
-                "input": args,
-                "skillLoaded": skill_loaded,
-            }),
-        )
-        .await?;
+    let mut params = json!({
+        "session": session,
+        "cwd": tools.workspace_path.to_string_lossy(),
+        "tool": name,
+        "input": args,
+        "skillLoaded": skill_loaded,
+    });
+    if let Some(models) = model_catalog {
+        params["models"] = Value::Array(models.to_vec());
+    }
+    let reply = tools.workflow_host.request("tool.prepare", params).await?;
     if let Some(message) = reply["rejected"].as_str() {
         return Ok(Err(message.to_owned()));
     }
@@ -44,20 +43,55 @@ pub(crate) async fn execute(
     args: &Value,
     selection: &Value,
     mode: &str,
+    model_catalog: Option<&[Value]>,
+    input_adjustments: Option<&Value>,
     cancel: &CancellationToken,
 ) -> Result<ToolOutput> {
-    let request = tools.workflow_host.request(
-        "tool.execute",
-        json!({
-            "selection": selection,
-            // v3.15.1：建 run 那一刻的会话权限模式记进 `run-launched`（TS run 服务的 permissionMode）。
-            "permissionMode": mode,
+    let mut input = args.clone();
+    let applied = if input_adjustments.is_some_and(|value| !value.is_null()) {
+        let mut params = json!({
             "session": session,
             "cwd": tools.workspace_path.to_string_lossy(),
             "tool": name,
-            "input": args,
-            "callId": call_id,
-        }),
+            "input": input,
+            "adjustments": input_adjustments,
+        });
+        if let Some(models) = model_catalog {
+            params["models"] = Value::Array(models.to_vec());
+        }
+        let reply = tools.workflow_host.request("tool.adjust", params).await?;
+        if let Some(message) = reply["rejected"].as_str() {
+            let mut output = ToolOutput::new(
+                format!("<tool_use_error>{message}</tool_use_error>"),
+                Value::Null,
+            );
+            output.failed = true;
+            return Ok(output);
+        }
+        input = reply["input"].clone();
+        reply["applied"].clone()
+    } else {
+        Value::Null
+    };
+    let mut params = json!({
+        "selection": selection,
+        // v3.15.1：建 run 那一刻的会话权限模式记进 `run-launched`（TS run 服务的 permissionMode）。
+        "permissionMode": mode,
+        "session": session,
+        "cwd": tools.workspace_path.to_string_lossy(),
+        "tool": name,
+        "input": input,
+        "callId": call_id,
+    });
+    if !applied.is_null() {
+        params["inputAdjustments"] = applied;
+    }
+    if let Some(models) = model_catalog {
+        params["models"] = Value::Array(models.to_vec());
+    }
+    let request = tools.workflow_host.request(
+        "tool.execute",
+        params,
     );
     let reply = tokio::select! {
         reply = request => reply?,
