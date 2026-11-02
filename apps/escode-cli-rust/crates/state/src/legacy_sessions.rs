@@ -220,6 +220,9 @@ pub(super) fn project(
                         Some("hidden" | "debug")
                     );
                 if visible || turn.is_empty() {
+                    // 修复：原先每轮都调用 attach_pending_rows 全量扫描 rows。turn 一旦确定就不会再变空，
+                    // 只有首轮之前产生的行可能缺 turnId；逐轮扫描会随历史增长退化为 O(rows²)。
+                    let first_turn = turn.is_empty();
                     super::legacy_projection::finalize_turn(
                         &mut session,
                         turn_header,
@@ -230,7 +233,9 @@ pub(super) fn project(
                     );
                     turn = mid.clone();
                     // 首轮之前的边界标记（如 ∅→X 模型标记）在 Node 中属于它之后的第一轮。
-                    super::legacy_projection::attach_pending_rows(&mut session, &turn);
+                    if first_turn {
+                        super::legacy_projection::attach_pending_rows(&mut session, &turn);
+                    }
                     if let Some((pid, part)) = pending_model.take() {
                         super::legacy_projection::model_marker(
                             &mut session,

@@ -3,7 +3,7 @@
 
 use crate::domain::session::Session;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Node 冷恢复的 createdAtSeq 是合成事件号：同一个 TurnStarted 产出的模型切换标记、
 /// turnHeader 与 userInput 共享事件号，其余行各由独立事件（流式开始/工具调度/时间线）创建。
@@ -50,6 +50,8 @@ pub(super) fn imported_sequences(session: &mut Session) {
 /// 只有全局最新 assistantText 且同轮存在可解析 realUser 来源时才可 retry。
 /// `bound` 是拥有持久 transcript message 身份的行下标（Node `messageIdByRowId`）。
 pub(super) fn imported_actions(session: &mut Session, bound: &[usize]) {
+    // 修复：bound 是切片，逐行 contains 在长会话中退化为 O(rows²)。先建集合，保持原有资格判定。
+    let bound: BTreeSet<usize> = bound.iter().copied().collect();
     let mut headers: BTreeMap<String, String> = BTreeMap::new();
     let mut latest_by_turn: BTreeMap<String, usize> = BTreeMap::new();
     for (index, row) in session.rows.iter().enumerate() {
