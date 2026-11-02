@@ -154,6 +154,31 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
   Node → Rust → Node 演练，也不替代 S4-i 的远程 Source Server 主链。
 - 实现入口：`scripts/ci-install-desktop.mjs --version-drill <base-artifacts> <head-artifacts>`。
 
+**实跑证据（2026-11-02，四平台全绿）**
+
+- base：`release` run `41365221620`（tag `v3.15.2`，`workflow_dispatch`），四平台 `desktop-<os>-<arch>` artifact。
+- head：`release` run `41365142237`（`dev` @ `eaa3e949`），四平台同名 artifact。
+- 演练：run `41387688296`（`dev` @ `c4ed38af`），`drill (mac-arm64)` `125092065485`、`drill (mac-x64)`
+  `125092065666`、`drill (win-x64)` `125092065784`、`drill (linux-x64)` `125092065840` 全部 success。
+  每步 `app.asar` sha256（base → head → 降级）：
+
+  | 平台      | base            | head            | 降级            |
+  | --------- | --------------- | --------------- | --------------- |
+  | mac-arm64 | `5ff1f955…e757` | `433b7ad3…a5f6` | `5ff1f955…e757` |
+  | mac-x64   | `63b9549a…40e8` | `31d298ba…d891` | `63b9549a…40e8` |
+  | win-x64   | `459ac7a9…b4db` | `3c87c7b8…1840` | `459ac7a9…b4db` |
+  | linux-x64 | `64ca5d5e…cd40` | `3d6d88ea…81d6` | `64ca5d5e…cd40` |
+
+  三次启动均到 `database-startup terminal { status: 'ready' }`；head 阶段断言包内 Rust Host 启动并 attach
+  renderer；每步后冻结设置（`locale`、`unknownFromNode.kept`）保持不变，四平台日志都以
+  `version upgrade/downgrade drill passed: base → head → base, settings preserved` 结束。
+
+- 前两次 dispatch 失败保留为根因证据：`41385073682`（apt 把相对路径当包名；演练模式 `app` 未赋值导致
+  `spawn(undefined)`）、`41385559746`（`sha256(installed.app)` 残留引用）。第三次 `41386625407`
+  只在 Windows 通过，暴露「启动器 exe 在 base/head 间相同」的第三处断言缺陷。
+- 操作约束：工作流文件已在默认分支 `main`（`d25e3f38`）；`workflow_dispatch` 的 `--ref dev` 决定
+  checkout 的脚本版本，因此持续修 `scripts/ci-install-desktop.mjs` 后重新 dispatch 即可，不必改 `main`。
+
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 
 `packages/services/tests/escode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）
