@@ -1,5 +1,6 @@
 import { verifySamplingDatabase } from "./mcp-apps-host-fixture/sampling-database.mjs";
 import { build } from "esbuild";
+import { realpathSync } from "node:fs";
 import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -10,6 +11,14 @@ import { DatabaseSync } from "node:sqlite";
 const require = createRequire(import.meta.url);
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(desktop, "../..");
+// 修复：Windows runner 的临时目录是 8.3 短路径（C:\Users\RUNNER~1\...）。Electron/Agent 子进程对短名
+// 目录 fs.watch 会触发 libuv 断言 `!_wcsnicmp(filename, dir, dirlen)` 崩溃；入口统一换成原生长路径，
+// 所有子进程继承同一份临时目录。
+if (process.platform === "win32") {
+  const longTemp = realpathSync.native(tmpdir());
+  process.env.TEMP = longTemp;
+  process.env.TMP = longTemp;
+}
 const output = await mkdtemp(join(tmpdir(), "escode-mcp-host-e2e-"));
 const fixture = join(desktop, "scripts/mcp-apps-host-fixture");
 const showcaseServer = process.env.ESCODE_SHOWCASE_SERVER;
