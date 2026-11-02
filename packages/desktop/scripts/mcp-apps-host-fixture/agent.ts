@@ -85,6 +85,13 @@ export async function startAgent(
   const transport = new ESCodeStdioTransport(child, {
     onStderrLine: (line) => process.stderr.write(line + "\n"),
   });
+  const send = transport.send.bind(transport);
+  transport.send = async (message) => {
+    const kind = (message as { method?: string }).method ?? "response";
+    trace(`send ${kind} bytes=${JSON.stringify(message).length}`);
+    await send(message);
+    trace(`send done ${kind}`);
+  };
   transport.onMessage((message) => {
     const method = (message as { method?: string }).method ?? "response";
     trace(`recv ${method} bytes=${JSON.stringify(message).length}`);
@@ -95,12 +102,18 @@ export async function startAgent(
   });
   client.onNotification((event) => notifications.emit(event));
   client.onRequest((request) => {
-    if (request.method === "session/requestRuntimePreferences")
-      void client.respond(request.id, {
-        nativeSearchEnhancementsEnabled: false,
-        memoryEnabled: false,
-      });
-    else if (request.method === "interaction/requestPermission") approvals.emit(request);
+    if (request.method === "session/requestRuntimePreferences") {
+      trace("responding runtime preferences");
+      void client
+        .respond(request.id, {
+          nativeSearchEnhancementsEnabled: false,
+          memoryEnabled: false,
+        })
+        .then(
+          () => trace("runtime preferences responded"),
+          (error) => trace(`runtime preferences respond failed ${String(error)}`),
+        );
+    } else if (request.method === "interaction/requestPermission") approvals.emit(request);
     else
       void client.respondError(request.id, -32601, `Unexpected fixture request: ${request.method}`);
   });
