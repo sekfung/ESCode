@@ -78,6 +78,11 @@ describe("release artifact hygiene", () => {
       writeFileSync(join(glm, "escode-cli-rust"), "");
       rmSync(join(glm, "zcode.cjs"));
       rmSync(join(glm, ".node-bundle-meta.json"));
+      expect(
+        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
+      ).toContain("missing standalone plugin host");
+
+      writeFileSync(join(glm, "plugin-host.cjs"), "");
       expect(findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true })).toEqual([]);
 
       rmSync(join(glm, "escode-cli-rust"));

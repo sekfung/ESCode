@@ -129,6 +129,8 @@ export const resolveBuildOptions = (args = [], env = process.env) => {
     // 专用构建必须保留原始符号和 source map，c8 才能回映到各 package 的 TS 源码。
     minify: desktopAgent && !e2eCoverage,
     sourcemap: e2eCoverage || !desktopAgent,
+    // 桌面 agent 额外产出 Rust-only 安装包使用的插件宿主入口；普通 CLI / SEA 不需要。
+    buildPluginHost: desktopAgent,
   };
 };
 
@@ -216,6 +218,7 @@ export const buildCli = async ({
   rootDirectory = projectRoot,
   minify = false,
   sourcemap = true,
+  buildPluginHost = false,
   env = process.env,
   version = readRootPackageVersion({
     root: rootDirectory,
@@ -223,7 +226,6 @@ export const buildCli = async ({
 } = {}) => {
   const cliVersion = await version;
   const outfile = resolve(cliDirectory, "dist/escode.cjs");
-  const sourcemapFile = `${outfile}.map`;
 
   await stageBuiltinProviderConfig({
     root: resolve(rootDirectory, "../.."),
@@ -231,7 +233,7 @@ export const buildCli = async ({
     env,
   });
 
-  await build({
+  const commonOptions = {
     banner: {
       js: "#!/usr/bin/env node",
     },
@@ -239,7 +241,6 @@ export const buildCli = async ({
     define: {
       __CLI_VERSION__: JSON.stringify(cliVersion),
     },
-    entryPoints: [resolve(cliDirectory, "src/main.ts")],
     // Ink 7 and yoga-layout use top-level await, so the CJS CLI bundle loads the TUI
     // through Node's native dynamic import path instead of forcing esbuild to lower it.
     // playwright-core 依赖运行时 package assets 与 require.resolve，相比内联 bundle 必须保持外置。
@@ -257,19 +258,33 @@ export const buildCli = async ({
     logLevel: "info",
     minify,
     metafile: true,
-    plugins: [createZodDedupePlugin({ expectedV4Version: await readZodBuildVersion() })],
-    outfile,
     platform: "node",
-    sourcemap,
     // target 取所有承载运行时里最低的 Node 版本：桌面用 Electron 内置 Node 24，
     // 远端 SSH 复用已部署的独立 Node v22.16 跑同一份 escode.cjs。降到 node22 保证这份产物
     // 在两端都不会用到目标运行时不支持的语法/特性。
     target: "node22",
     alias: resolveBuildAliases({ cliDirectory, rootDirectory }),
-  });
+  };
+  const zodVersion = await readZodBuildVersion();
+  const buildBundle = async ({ entryPoint, bundleOutfile }) => {
+    await build({
+      ...commonOptions,
+      entryPoints: [entryPoint],
+      outfile: bundleOutfile,
+      plugins: [createZodDedupePlugin({ expectedV4Version: zodVersion })],
+      sourcemap,
+    });
+    if (!sourcemap) {
+      await rm(`${bundleOutfile}.map`, { force: true });
+    }
+  };
 
-  if (!sourcemap) {
-    await rm(sourcemapFile, { force: true });
+  await buildBundle({ entryPoint: resolve(cliDirectory, "src/main.ts"), bundleOutfile: outfile });
+  if (buildPluginHost) {
+    await buildBundle({
+      entryPoint: resolve(cliDirectory, "src/plugin-host-entry.ts"),
+      bundleOutfile: resolve(cliDirectory, "dist/plugin-host.cjs"),
+    });
   }
 
   await chmod(outfile, executableFileMode);

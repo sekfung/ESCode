@@ -18,6 +18,12 @@ export interface ESCodeAgentRuntimeDescriptor {
   nodeBundleEntryFile: string;
   resolveNodeBundleSegments(): string[];
   /**
+   * Rust-only 安装包不携带完整 Node agent bundle 时，官方插件仍需要 `__escode-plugin-host`
+   * 的极小入口（plugin-host.cjs）。与 zcode.cjs 同放 resources/glm。
+   */
+  pluginHostEntryFile: string;
+  resolvePluginHostSegments(): string[];
+  /**
    * Rust runtime（apps/escode-cli-rust）的原生二进制名，与 Node bundle 同放 glm 资源目录。
    * 仅在 ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust 时被选用，默认 runtime 仍是 Node。
    */
@@ -43,6 +49,10 @@ export const ESCODE_AGENT_RUNTIME: ESCodeAgentRuntimeDescriptor = {
   nodeBundleEntryFile: "zcode.cjs",
   resolveNodeBundleSegments() {
     return [this.nodeBundleEntryFile];
+  },
+  pluginHostEntryFile: "plugin-host.cjs",
+  resolvePluginHostSegments() {
+    return [this.pluginHostEntryFile];
   },
   rustBinaryName: "escode-cli-rust",
   resolveRustBinarySegments(platform) {

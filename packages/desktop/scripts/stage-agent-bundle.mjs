@@ -12,13 +12,17 @@ import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node
 import { resolve } from "node:path";
 
 export const AGENT_BUNDLE_SOURCE_RELATIVE = "apps/escode-cli/packages/cli/dist/escode.cjs";
+export const PLUGIN_HOST_BUNDLE_SOURCE_RELATIVE =
+  "apps/escode-cli/packages/cli/dist/plugin-host.cjs";
 
 export function resolveAgentBundlePaths({ repoRoot, platformKey }) {
   const glmDir = resolve(repoRoot, "packages", "desktop", "bundled-agents", platformKey, "glm");
   return {
     cliBundlePath: resolve(repoRoot, AGENT_BUNDLE_SOURCE_RELATIVE),
+    pluginHostBundlePath: resolve(repoRoot, PLUGIN_HOST_BUNDLE_SOURCE_RELATIVE),
     glmDir,
     stagedBundlePath: resolve(glmDir, "zcode.cjs"),
+    stagedPluginHostPath: resolve(glmDir, "plugin-host.cjs"),
     stagedMetaPath: resolve(glmDir, ".node-bundle-meta.json"),
   };
 }
@@ -28,24 +32,46 @@ export function resolveAgentBundlePaths({ repoRoot, platformKey }) {
  * bundled-agents/<平台>/glm → resources/glm，本地工作树里上一次构建残留的原生二进制
  * （escode-agent / escode-acp 等）和旧 meta 会被一并打进安装包（CI 干净检出不会有，本地会）。
  */
-export function stageAgentBundle({ repoRoot, platformKey, log = console.log }) {
-  const { cliBundlePath, glmDir, stagedBundlePath, stagedMetaPath } = resolveAgentBundlePaths({
+export function stageAgentBundle({
+  repoRoot,
+  platformKey,
+  includeNodeAgent = true,
+  log = console.log,
+}) {
+  const {
+    cliBundlePath,
+    pluginHostBundlePath,
+    glmDir,
+    stagedBundlePath,
+    stagedPluginHostPath,
+    stagedMetaPath,
+  } = resolveAgentBundlePaths({
     repoRoot,
     platformKey,
   });
-  if (!existsSync(cliBundlePath)) {
+  if (includeNodeAgent && !existsSync(cliBundlePath)) {
     throw new Error(`[stage:agent-bundle] agent bundle 源产物不存在：${cliBundlePath}`);
+  }
+  if (!existsSync(pluginHostBundlePath)) {
+    throw new Error(
+      `[stage:agent-bundle] plugin host bundle 源产物不存在：${pluginHostBundlePath}`,
+    );
   }
   rmSync(glmDir, { recursive: true, force: true });
   mkdirSync(glmDir, { recursive: true });
-  copyFileSync(cliBundlePath, stagedBundlePath);
-  const meta = {
-    runtime: "electron-node",
-    entry: "zcode.cjs",
-    platform: platformKey,
-    source: AGENT_BUNDLE_SOURCE_RELATIVE,
-  };
-  writeFileSync(stagedMetaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf8");
-  log(`[stage:agent-bundle] staged ${stagedBundlePath}`);
-  return { stagedBundlePath, stagedMetaPath };
+  copyFileSync(pluginHostBundlePath, stagedPluginHostPath);
+  if (includeNodeAgent) {
+    copyFileSync(cliBundlePath, stagedBundlePath);
+    const meta = {
+      runtime: "electron-node",
+      entry: "zcode.cjs",
+      platform: platformKey,
+      source: AGENT_BUNDLE_SOURCE_RELATIVE,
+    };
+    writeFileSync(stagedMetaPath, `${JSON.stringify(meta, null, 2)}\n`, "utf8");
+    log(`[stage:agent-bundle] staged ${stagedBundlePath}`);
+  } else {
+    log(`[stage:agent-bundle] staged plugin host only (no Node agent bundle)`);
+  }
+  return { stagedBundlePath, stagedPluginHostPath, stagedMetaPath };
 }

@@ -202,15 +202,15 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 安装门禁只能证明「运行时删掉 `zcode.cjs` 仍可用」，不能证明产物本身已精简。产物级开关与门禁如下：
 
 1. `ESCODE_BUNDLE_NODE_AGENT=0` 让打包链路不再把 `zcode.cjs` / `.node-bundle-meta.json` 放进
-   `resources/glm`。`prepare:agent-bundle` 仍构建 CLI 与官方插件 runtime，并继续 stage 官方插件 seed、
-   `packages/bundled-skills`、`rea-runtime` 与 sharp/koffi 原生依赖——这些不是 Node agent bundle 的替代物，
-   而是 Rust runtime 首启 seed 与插件宿主需要的资产。
+   `resources/glm`，改为保留独立的 `plugin-host.cjs`。官方插件仍由 Electron-as-Node 执行
+   `__escode-plugin-host`，因此不能把插件宿主一起删掉。`prepare:agent-bundle` 仍构建 CLI 与官方插件
+   runtime，并继续 stage 官方插件 seed、`packages/bundled-skills`、`rea-runtime` 与 sharp/koffi 原生依赖。
 2. 该开关必须与 `ESCODE_BUNDLE_RUST_AGENT` 同时开启；两者同时关闭会让安装包没有任何 agent runtime，
    构建阶段直接失败，不产出无法启动的包。
 3. 产物断言在两个位置执行：`electron-builder.config.js` 的 `afterPack`（本地打包即失败）与
    `assert-release-artifacts.mjs`（release 产物门禁）。Rust-only 构建要求
-   `resources/glm/escode-cli-rust[.exe]` 存在，且 `resources/glm/zcode.cjs` 与 `.node-bundle-meta.json`
-   不存在；所有构建都要求至少存在一种 agent runtime。
+   `resources/glm/escode-cli-rust[.exe]` 与 `resources/glm/plugin-host.cjs` 存在，且
+   `resources/glm/zcode.cjs` 与 `.node-bundle-meta.json` 不存在；所有构建都要求至少存在一种 agent runtime。
 4. `release` 工作流的 `workflow_dispatch` 输入 `rust_only=true` 使用该开关构建四平台产物，并跳过依赖 Node
    agent bundle 的 Node → Rust → Node 回退演练，改为执行 Rust-only 安装、Host 启动与安装包会话门禁。
 5. `ci-install-desktop.mjs` 在 Linux 上按 `resources/glm/escode-cli-rust` 反查 `glm` 目录，兼容已移除

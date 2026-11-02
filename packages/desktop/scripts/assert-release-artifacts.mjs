@@ -49,6 +49,7 @@ export function findAgentRuntimeProblems(resourcesDir, { rustOnly = false } = {}
   const glmDir = join(resourcesDir, "glm");
   const nodeBundle = join(glmDir, "zcode.cjs");
   const nodeMeta = join(glmDir, ".node-bundle-meta.json");
+  const pluginHost = join(glmDir, "plugin-host.cjs");
   const rustBinaries = [join(glmDir, "escode-cli-rust"), join(glmDir, "escode-cli-rust.exe")];
   const hasRust = rustBinaries.some((path) => existsSync(path));
   const hasNode = existsSync(nodeBundle);
@@ -62,6 +63,9 @@ export function findAgentRuntimeProblems(resourcesDir, { rustOnly = false } = {}
   if (hasNode) problems.push(`Rust-only package contains Node agent bundle: ${nodeBundle}`);
   if (existsSync(nodeMeta)) {
     problems.push(`Rust-only package contains Node bundle metadata: ${nodeMeta}`);
+  }
+  if (!existsSync(pluginHost)) {
+    problems.push(`missing standalone plugin host: ${pluginHost}`);
   }
   return problems;
 }

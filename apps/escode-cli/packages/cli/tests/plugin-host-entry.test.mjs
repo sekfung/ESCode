@@ -144,3 +144,69 @@ export async function main() {
     }
   });
 }
+
+test("standalone plugin host bundle runs without importing Agent modules", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "escode-plugin-host-bundle-"));
+  const outfile = join(directory, "plugin-host.cjs");
+  const serverPath = join(directory, "server.mjs");
+  const blockedModules = new Set([
+    resolve(cliRoot, "src/run.ts"),
+    resolve(cliRoot, "src/provider-runtime-env.ts"),
+    resolve(cliRoot, "../core/dist/runtime.js"),
+    resolve(cliRoot, "../contracts/dist/index.js"),
+    resolve(cliRoot, "../../../../packages/shared/src/index.ts"),
+  ]);
+
+  try {
+    await writeFile(
+      serverPath,
+      `export async function main() {
+  process.stdout.write(JSON.stringify({
+    args: process.argv.slice(2),
+    nodeEnvRemoved: process.env.NODE_ENV === undefined,
+  }));
+}`,
+    );
+    await build({
+      alias: resolveBuildAliases(),
+      bundle: true,
+      entryPoints: [join(cliRoot, "src/plugin-host-entry.ts")],
+      external: resolveBuildExternal(),
+      format: "cjs",
+      keepNames: true,
+      minify: true,
+      metafile: true,
+      outfile,
+      platform: "node",
+      target: "node22",
+      plugins: [
+        createZodDedupePlugin({ expectedV4Version: await readZodBuildVersion() }),
+        {
+          name: "reject-agent-initialization",
+          setup(builder) {
+            builder.onLoad({ filter: /\.[jt]s$/ }, async ({ path }) => {
+              if (!blockedModules.has(path)) return undefined;
+              return {
+                contents: `throw new Error(${JSON.stringify(forbiddenEvaluation)});\n${await readFile(path, "utf8")}`,
+                loader: path.endsWith(".ts") ? "ts" : "js",
+              };
+            });
+          },
+        },
+      ],
+    });
+
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [outfile, "__escode-plugin-host", serverPath, "--prompt", "plugin argument"],
+      { env: { ...process.env, NODE_ENV: "untrusted" }, timeout: processTimeoutMs },
+    );
+    assert.equal(stderr, "");
+    assert.deepEqual(JSON.parse(stdout), {
+      args: ["--prompt", "plugin argument"],
+      nodeEnvRemoved: true,
+    });
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

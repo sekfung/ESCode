@@ -364,6 +364,7 @@ function assertPackagedAgentRuntimes(context) {
   );
   const nodeBundle = resolve(glmDir, "zcode.cjs");
   const nodeMeta = resolve(glmDir, ".node-bundle-meta.json");
+  const pluginHost = resolve(glmDir, "plugin-host.cjs");
   const hasRust = existsSync(rustBinary);
   const hasNode = existsSync(nodeBundle);
   if (!hasRust && !hasNode) {
@@ -386,6 +387,11 @@ function assertPackagedAgentRuntimes(context) {
   if (!hasRust) {
     throw new Error(
       `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 requires a bundled Rust agent: ${rustBinary}`,
+    );
+  }
+  if (!existsSync(pluginHost)) {
+    throw new Error(
+      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 requires the standalone plugin host: ${pluginHost}`,
     );
   }
 }

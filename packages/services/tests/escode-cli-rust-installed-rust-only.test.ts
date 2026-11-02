@@ -14,6 +14,7 @@ const glm = process.env.ESCODE_INSTALLED_GLM;
 const exe = process.platform === "win32" ? ".exe" : "";
 const rust = glm ? join(glm, `escode-cli-rust${exe}`) : "";
 const nodeBundle = glm ? join(glm, "zcode.cjs") : "";
+const pluginHost = glm ? join(glm, "plugin-host.cjs") : "";
 
 test(
   "installed package runs a session with only the Rust runtime",
@@ -24,6 +25,10 @@ test(
       existsSync(nodeBundle),
       false,
       "Rust-only gate expects resources/glm/zcode.cjs to be removed",
+    );
+    assert.ok(
+      existsSync(pluginHost),
+      `Rust-only gate expects the standalone plugin host at ${pluginHost}`,
     );
     const root = await mkdtemp(join(tmpdir(), "escode-installed-rust-only-"));
     const f = await fixture({ root, binary: rust, registry: true, mode: "yolo" });

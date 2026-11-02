@@ -116,7 +116,12 @@ function stageDevAgentBundle() {
 }
 
 async function runBootstrapWithRemoteBuild() {
-  if (existsSync(resolve(repoRoot, "apps/escode-cli/packages/cli/dist/escode.cjs"))) {
+  const cliDist = resolve(repoRoot, "apps/escode-cli/packages/cli/dist");
+  if (
+    existsSync(resolve(cliDist, "escode.cjs")) &&
+    // Rust-only 打包依赖独立插件宿主；旧产物没有它时必须重新构建，不能带着缺失继续 stage。
+    existsSync(resolve(cliDist, "plugin-host.cjs"))
+  ) {
     await stageBuiltinProviderConfig({
       root: repoRoot,
       env: pnpmRunEnv,

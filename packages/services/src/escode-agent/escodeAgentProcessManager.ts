@@ -31,6 +31,7 @@ import {
 import {
   findESCodeAgentRuntimeBinary,
   findESCodeAgentRuntimeNodeBundle,
+  findESCodePluginHostBundle,
   findESCodeAgentRustBinary,
 } from "../runtime-tools/providerRuntimeResolver.js";
 import { isEffectiveDevelopmentNodeEnv } from "#src/runtime-tools/nodeEnv.js";
@@ -498,9 +499,8 @@ function rustRuntimeArgs(args: string[], workspacePath: string): string[] {
 function rustPluginHostEnv(
   context: ESCodeAgentCommandResolverContext,
 ): Pick<ESCodeAgentCommand, "env"> {
-  const node =
-    resolveWorkspaceDevESCodeAgentCommand(context) ??
-    resolveElectronRuntimeESCodeAgentCommand(context);
+  const dev = resolveWorkspaceDevESCodeAgentCommand(context);
+  const node = dev ?? resolveElectronRuntimeESCodeAgentCommand(context);
   const entrypoint = node?.args?.[0];
   if (node && entrypoint?.endsWith(".cjs")) {
     return {
@@ -509,6 +509,19 @@ function rustPluginHostEnv(
         ESCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
       },
     };
+  }
+  // Rust-only 安装包没有 zcode.cjs：官方插件仍由同一个 Electron Node 执行独立 plugin-host.cjs。
+  // 开发态继续使用上面的源码 / dist 入口，避免固定到打包残留的 bundle。
+  if (!dev && process.versions.electron) {
+    const pluginHost = findESCodePluginHostBundle();
+    if (pluginHost) {
+      return {
+        env: {
+          ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+          ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHost,
+        },
+      };
+    }
   }
   return remotePluginHostEnv();
 }

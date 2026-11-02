@@ -12,7 +12,7 @@
 //
 // 远端（SSH/WSL/Docker）没有 Electron，仍走 prepare:remote-assets 的原生二进制，互不影响。
 
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -388,14 +388,7 @@ function assertOfficialPluginRuntime(plugin) {
 function stageBundle() {
   // 实现已抽到 stage-agent-bundle.mjs：dev 链（scripts/build-desktop-agent-cli.mjs）
   // 必须用同一份，否则 dev 会继续跑上一次打包留下的陈旧 agent。
-  stageAgentBundle({ repoRoot, platformKey });
-}
-
-function resetBundledAgentDirForRustOnly() {
-  // 与 stageAgentBundle 的清理语义保持一致：先删掉上次构建残留（含 zcode.cjs / meta / 旧原生二进制），
-  // 再让后续 stageOfficialPlugins 等步骤重建 Rust runtime 需要的资产。
-  rmSync(glmDir, { recursive: true, force: true });
-  console.log("[prepare:agent-bundle] skip Node agent bundle (ESCODE_BUNDLE_NODE_AGENT=0)");
+  stageAgentBundle({ repoRoot, platformKey, includeNodeAgent: shouldBundleNodeAgent });
 }
 
 function assertRustOnlyBundle() {
@@ -405,6 +398,12 @@ function assertRustOnlyBundle() {
     if (existsSync(path)) {
       throw new Error(`[prepare:agent-bundle] Rust-only bundle must not contain ${path}`);
     }
+  }
+  const pluginHost = join(glmDir, "plugin-host.cjs");
+  if (!existsSync(pluginHost)) {
+    throw new Error(
+      `[prepare:agent-bundle] Rust-only bundle is missing plugin host: ${pluginHost}`,
+    );
   }
 }
 
@@ -549,11 +548,7 @@ function stageKoffiForCuaPlugin() {
 // 必须先构建 CLI 依赖，再构建官方插件；开发机残留的 dist 曾掩盖这个顺序问题。
 buildCliBundle();
 buildOfficialPluginRuntimes();
-if (shouldBundleNodeAgent) {
-  stageBundle();
-} else {
-  resetBundledAgentDirForRustOnly();
-}
+stageBundle();
 stageOfficialPlugins();
 stageReaRuntime();
 stageBundledSkillPack();

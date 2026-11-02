@@ -147,7 +147,20 @@ export function findESCodeAgentRuntimeBinary(): string | null {
  */
 export function findESCodeAgentRuntimeNodeBundle(): string | null {
   const runtime = ESCODE_AGENT_RUNTIME;
-  const entrySegments = runtime.resolveNodeBundleSegments();
+  return findBundledGlmEntry(runtime.resolveNodeBundleSegments());
+}
+
+/**
+ * 查找 Rust-only 安装包的独立插件宿主入口（resources/glm/plugin-host.cjs）。
+ * 完整 Node agent bundle 被移除后，官方插件的 `__escode-plugin-host` 仍由它承载；
+ * 候选目录与 zcode.cjs 完全平行。
+ */
+export function findESCodePluginHostBundle(): string | null {
+  return findBundledGlmEntry(ESCODE_AGENT_RUNTIME.resolvePluginHostSegments());
+}
+
+function findBundledGlmEntry(entrySegments: string[]): string | null {
+  const runtime = ESCODE_AGENT_RUNTIME;
   const resourceSegments = [runtime.bundledResourceDir, ...entrySegments];
 
   // 与 findESCodeAgentRuntimeBinary 一致，打包后的 CJS bundle 里 import.meta.dirname 为 undefined，
