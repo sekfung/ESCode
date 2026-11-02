@@ -156,6 +156,22 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
   「安装/升级/降级」这条安装器链路，不等于删除 Node runtime 所需的「Rust-only 三平台发行门禁」。
 - 实现入口：`scripts/ci-install-desktop.mjs --version-drill <base-artifacts> <head-artifacts>`。
 
+### Rust-only 安装门禁（2026-11-02 设计）
+
+`--rust-only` 把安装包演练从「Rust Host 可选」推进到「不依赖 Node agent bundle」：
+
+1. 安装（或覆盖安装）后断言 `resources/glm/escode-cli-rust[.exe]` 存在，删除
+   `resources/glm/zcode.cjs`；若未来安装包已不含 Node bundle，则把「不存在」视为通过，不伪造删除成功。
+2. 用 `ESCODE_RUST_HOST=1` 启动真实安装包：数据库启动终态必须 `ready`，日志必须出现 Rust Host
+   `started` 与 renderer `attached`，且不得出现 per-window Node utility Host。
+3. `escode-cli-rust-installed-rust-only.test.ts` 只通过安装包内的 Rust 二进制创建会话、发送一轮输入并等待
+   完成；不加载 `zcode.cjs`，schema 错误必须为 0。
+4. `rust-version-drill.yml` 的 `rust_only=true` 把同一流程套到 base → head → 降级三个阶段；任一步
+   需要 Node agent bundle、启动失败或 Host 断言不符都直接失败，不跳过、不回退。
+
+边界：当前正式安装包仍带 Node bundle，因此本门禁先证明「移除 Node agent bundle 后应用仍可运行」；
+真正把 `zcode.cjs` 从打包产物删除仍需单独的打包开关与产物检查，不能把本门禁当成产物已精简的证据。
+
 **实跑证据（2026-11-02，四平台全绿）**
 
 - base：`release` run `41365221620`（tag `v3.15.2`，`workflow_dispatch`），四平台 `desktop-<os>-<arch>` artifact。

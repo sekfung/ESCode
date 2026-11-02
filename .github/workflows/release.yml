@@ -17,6 +17,7 @@ on:
       - packages/desktop/electron-builder.config.js
       - scripts/ci-install-desktop.mjs
       - packages/services/tests/escode-cli-rust-installed.test.ts
+      - packages/services/tests/escode-cli-rust-installed-rust-only.test.ts
   workflow_dispatch:
 
 permissions:
@@ -261,6 +262,20 @@ jobs:
             done
           fi
           exit "$status"
+      # Rust-only 门禁：删除包内 Node agent bundle 后，仍必须由 Rust Host + Rust runtime 启动并完成会话。
+      - name: launch installed package with Rust Host only
+        shell: bash
+        env:
+          ESCODE_RUST_HOST: "1"
+          ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
+        run: node scripts/ci-install-desktop.mjs --launch-only --rust-only
+      - name: Rust-only installed runtime session
+        shell: bash
+        env:
+          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.escode-cli-rust.json
+          ESCODE_TEST_EXIT_MS: "30000"
+          ESCODE_TEST_REQUEST_MS: "60000"
+        run: node --import tsx --test packages/services/tests/escode-cli-rust-installed-rust-only.test.ts
 
   publish:
     name: publish GitHub Release
