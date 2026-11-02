@@ -598,10 +598,12 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
 - 返回 meta + `initialSlashCommands`（快照 `slashCommands`，缺省 `[]`）。
 - **登记差异**：
   1. `v4Create`（Bot/host 路径）显式拒绝：`code = ESCODE_TASK_V4_CREATE_UNSUPPORTED`（bot 域尚未迁移）；
-  2. 新建任务的 grouped-view 置顶（TS `initializeGroupedTaskAtTop`）未实现——任务按普通新行出现；
-  3. 未显式通知 syncer / 广播 `workspace_config_options_update`：新建会话的 V4
+  2. 未显式通知 syncer / 广播 `workspace_config_options_update`：新建会话的 V4
      sessions-index 帧到达后自然收敛；UI 的配置事件由 escode-agent 订阅面提供；
-  4. 旧 picker `provider/model[$level]` 只支持主路径（自定义模型 payload 未解析）。
+  3. 旧 picker `provider/model[$level]` 只支持主路径（自定义模型 payload 未解析）。
+- **grouped-view 置顶**：索引同步后调用 `initialize_grouped_task_at_top`（TS `initializeGroupedTaskAtTop`）。
+  仅当任务可见（未删除 / 未归档 / 未置顶）、不在任何分组且尚无顶层排序时，写
+  `MIN(sort_order) - STEP`；重复调用幂等，cron 任务因同步时已归入固定分组而跳过。
 - `forkedFromTaskId`/`permissionScope` 在非 v4Create 路径与 TS 一样不参与 create 请求。
 
 ### 10.2 `resumeTask`
@@ -623,6 +625,7 @@ TS 适配器里这几个方法没有状态：`getWorkspaceProviderConfigFile` �
 
 - 端到端（真 embedded 实例）：
   - `createTask`（plan + modelSelection）→ 返回 `sess_*`、`initialSlashCommands`、索引可读；
+  - `createTask` 后 grouped 顶层排序出现新任务且只初始化一次；置顶 / 归档 / 已删除任务不写入；
   - `resumeTask`（thoughtLevel）→ 返回同一 taskId 的 meta；
   - `closeTask` → `getTaskMeta` 为空、`listSessions` 不再包含该会话。
 - 负向验证：①`closeTask` 不删索引 → 关闭用例失败；②`createTask` 不写索引 → 创建用例失败。

@@ -108,6 +108,55 @@ pub fn create_task_group(
     Ok(json!({"id": id, "title": title, "color": color, "createdAt": now, "updatedAt": now}))
 }
 
+/// TS `initializeGroupedTaskAtTopReady`：任务第一次以可见状态出现且不在任何分组时插到顶层。
+/// 重复回源不能再次分配最小 `sort_order`，否则较慢完成的旧任务会越过之后创建的新任务。
+pub fn initialize_grouped_task_at_top(
+    connection: &Connection,
+    workspace_key: &str,
+    task_id: &str,
+    now: i64,
+) -> Result<bool, TasksIndexError> {
+    transaction(connection, || {
+        let visible: Option<(i64, i64, i64)> = connection
+            .query_row(
+                "SELECT pinned, archived, deleted FROM tasks WHERE workspace_key = ?1 AND task_id = ?2",
+                params![workspace_key, task_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(sqlite)?;
+        let Some((pinned, archived, deleted)) = visible else {
+            return Ok(false);
+        };
+        if pinned != 0 || archived != 0 || deleted != 0 {
+            return Ok(false);
+        }
+        let existing_member: Option<i64> = connection
+            .query_row(
+                "SELECT 1 FROM task_group_members WHERE workspace_key = ?1 AND task_id = ?2 LIMIT 1",
+                params![workspace_key, task_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sqlite)?;
+        let node_key = task_order_node_key(workspace_key, task_id);
+        let existing_order: Option<i64> = connection
+            .query_row(
+                "SELECT 1 FROM task_group_view_node_orders WHERE node_type = 'task' AND node_key = ?1 LIMIT 1",
+                params![node_key],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sqlite)?;
+        if existing_member.is_some() || existing_order.is_some() {
+            return Ok(false);
+        }
+        let sort_order = next_top_sort_order(connection)?;
+        upsert_top_order(connection, "task", &node_key, sort_order, now)?;
+        Ok(true)
+    })
+}
+
 fn read_group(connection: &Connection, id: &str) -> Result<Option<Value>, TasksIndexError> {
     connection
         .query_row(

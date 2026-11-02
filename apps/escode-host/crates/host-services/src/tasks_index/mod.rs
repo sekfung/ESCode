@@ -217,6 +217,18 @@ impl TasksIndex {
         write::sync_task_meta(&self.connection, meta_object, options)
     }
 
+    /// TS `initializeGroupedTaskAtTop`：新建任务首次出现时插到 grouped 顶层（幂等）。
+    pub fn initialize_grouped_task_at_top(
+        &self,
+        workspace_path: &str,
+        workspace_identity: Option<&str>,
+        task_id: &str,
+        now: i64,
+    ) -> Result<bool, TasksIndexError> {
+        let workspace_key = workspace_key(workspace_path, workspace_identity);
+        write_groups::initialize_grouped_task_at_top(&self.connection, &workspace_key, task_id, now)
+    }
+
     /// TS `updateTaskState`。
     pub fn update_task_state(
         &self,

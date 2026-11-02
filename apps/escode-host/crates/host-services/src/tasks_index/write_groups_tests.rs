@@ -110,6 +110,82 @@ fn deleting_a_group_also_drops_its_top_level_order_atomically() {
     );
 }
 
+#[test]
+fn new_visible_tasks_initialize_grouped_order_once() {
+    let (_dir, index) = open();
+    assert!(
+        index
+            .initialize_grouped_task_at_top("/w", None, "t1", 200)
+            .unwrap()
+    );
+    assert_eq!(
+        orders(&index),
+        vec![("task".into(), r#"["/w","t1"]"#.into(), 1000)]
+    );
+    // 重复同步不能把旧任务再次插到新任务前面。
+    assert!(
+        !index
+            .initialize_grouped_task_at_top("/w", None, "t1", 300)
+            .unwrap()
+    );
+    assert!(
+        index
+            .initialize_grouped_task_at_top("/w", None, "t2", 400)
+            .unwrap()
+    );
+    assert_eq!(
+        orders(&index),
+        vec![
+            ("task".into(), r#"["/w","t2"]"#.into(), 0),
+            ("task".into(), r#"["/w","t1"]"#.into(), 1000),
+        ]
+    );
+}
+
+#[test]
+fn hidden_or_grouped_tasks_do_not_initialize_grouped_order() {
+    let (_dir, index) = open();
+    let connection = index.connection_for_tests();
+    connection
+        .execute("UPDATE tasks SET pinned = 1 WHERE task_id = 't1'", [])
+        .unwrap();
+    connection
+        .execute("UPDATE tasks SET archived = 1 WHERE task_id = 't2'", [])
+        .unwrap();
+    connection
+        .execute("UPDATE tasks SET deleted = 1 WHERE task_id = 't3'", [])
+        .unwrap();
+    for id in ["t1", "t2", "t3"] {
+        assert!(
+            !index
+                .initialize_grouped_task_at_top("/w", None, id, 1)
+                .unwrap()
+        );
+    }
+    assert!(orders(&index).is_empty());
+
+    // 恢复可见但已属于分组：成员关系优先，仍不写顶层 task 排序。
+    connection
+        .execute("UPDATE tasks SET archived = 0 WHERE task_id = 't2'", [])
+        .unwrap();
+    index.create_task_group("g1", None, None, 2).unwrap();
+    connection
+        .execute(
+            "INSERT INTO task_group_members (
+              group_id, workspace_key, workspace_path, workspace_identity, task_id,
+              sort_order, added_at, created_at, updated_at
+            ) VALUES ('g1', '/w', '/w', NULL, 't2', 1000, 2, 2, 2)",
+            [],
+        )
+        .unwrap();
+    assert!(
+        !index
+            .initialize_grouped_task_at_top("/w", None, "t2", 3)
+            .unwrap()
+    );
+    assert_eq!(orders(&index), vec![("group".into(), "g1".into(), 1000)]);
+}
+
 fn apply(
     index: &TasksIndex,
     top: Vec<TopNode>,

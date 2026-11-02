@@ -2,8 +2,8 @@
 //!
 //! 本片覆盖 UI 主路径：新建 session、复用 draft（必要时同步模型/思考强度）、自动化标记
 //! （`persistence: deferred` + 索引归属字段）、`task_created` 事件与 `initialSlashCommands`。
-//! 登记差异：`v4Create`（host 路径，尚未迁移）显式拒绝；新建任务的 grouped-view 置顶
-//! 与 syncer 显式通知未实现（V4 sessions-index 帧到达后自然收敛）。
+//! 登记差异：`v4Create`（host 路径，尚未迁移）显式拒绝；syncer 显式通知未实现
+//! （V4 sessions-index 帧到达后自然收敛）。
 
 use serde_json::{Value, json};
 
@@ -161,6 +161,25 @@ pub(crate) async fn create_task_impl(
                     .map_err(RpcError::from)?
             }
         };
+        // TS 在索引同步后把首次出现的任务插到 grouped 顶层；cron 任务此时已归入固定分组，不会重复插队。
+        let grouped_now = now_ms();
+        let grouped_workspace = workspace_path.clone();
+        let grouped_identity = identity.clone();
+        let grouped_task_id = session_id.clone();
+        context_ref(&context.read)
+            .run(move |index| {
+                index
+                    .initialize_grouped_task_at_top(
+                        &grouped_workspace,
+                        grouped_identity.as_deref(),
+                        &grouped_task_id,
+                        grouped_now,
+                    )
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            })
+            .await
+            .map_err(RpcError::from)?;
         context.read.targets.remember_indexed_meta(
             &session_id,
             &workspace_path,
@@ -184,6 +203,14 @@ pub(crate) async fn create_task_impl(
             .unwrap_or_else(|| json!([]));
         Ok(Wire::Object(result))
     }
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX)
+        })
 }
 
 async fn index_snapshot(

@@ -209,6 +209,29 @@ async fn create_task_creates_a_session_and_index_row() {
 
     call(
         &mut socket,
+        84,
+        "escode-task",
+        "listGroupedTaskViewStructure",
+        &Wire::Array(vec![Wire::Object(serde_json::json!({
+            "workspaceScopes": [{"workspacePath": workspace, "workspaceIdentity": workspace}]
+        }))]),
+    )
+    .await;
+    let Wire::Object(grouped) = read_response(&mut socket, 84).await else {
+        panic!("grouped view 应答应为对象")
+    };
+    assert!(
+        grouped["topLevelOrders"]
+            .as_array()
+            .is_some_and(|orders| orders.iter().any(|order| {
+                order["type"] == serde_json::json!("task")
+                    && order["taskId"] == serde_json::json!(task_id)
+            })),
+        "createTask 应把新任务插到 grouped 顶层: {grouped}"
+    );
+
+    call(
+        &mut socket,
         83,
         "escode-task",
         "closeTask",
