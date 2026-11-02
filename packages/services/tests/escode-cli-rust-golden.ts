@@ -50,7 +50,9 @@ export function canonical<T>(value: T, parentKey?: string): T {
           /(?:\/bin\/)?bash: (?:第 \d+ 行：|line \d+:)?\s*cd: missing-dir: .*/g,
           "<shell>: cd: missing-dir: <error>",
         )
-        .replace(/(?:\/bin\/)?bash: line \d+:/g, "<shell>:") as T
+        .replace(/(?:\/bin\/)?bash: line \d+:/g, "<shell>:")
+        // 默认并发由 runner 核数派生，也会出现在确认窗结果文案里；与 concurrency 字段同法归一。
+        .replace(/\(the default is \d+\)/g, "(the default is <concurrency>)") as T
     );
   }
   // JSON 把数组里的 undefined 写成 null；两侧同法归一（对象键仍按旧语义丢弃 undefined）。
