@@ -1,0 +1,56 @@
+# 安装包版本升级 / 降级演练（docs/specs/rust-release-rollback.md「安装包版本升级 / 降级演练」）。
+# 前置：先用 release 工作流分别构建 base（旧 tag）与 head（当前分支）的安装包 artifact，
+# 再把两个 run id 传给本工作流。本工作流不重新构建，避免与发布产物分叉。
+name: rust version drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_run_id:
+        description: "release run id that produced the base (older) installers"
+        required: true
+        type: string
+      head_run_id:
+        description: "release run id that produced the head (current) installers"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  drill:
+    name: drill (${{ matrix.os }}-${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: win, arch: x64, runner: windows-latest }
+          - { os: mac, arch: arm64, runner: macos-latest }
+          - { os: mac, arch: x64, runner: macos-15-intel }
+          - { os: linux, arch: x64, runner: ubuntu-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: linux display
+        if: matrix.os == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: drill/base
+          run-id: ${{ inputs.base_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: drill/head
+          run-id: ${{ inputs.head_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - name: install, upgrade and downgrade
+        shell: bash
+        run: node scripts/ci-install-desktop.mjs --version-drill drill/base drill/head

@@ -113,6 +113,40 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 2. `Rust storage stays readable after the process exits`
    - `rust-sessions.sqlite` 在进程退出后可直接读取，结构化事实（mode 等）确实落盘。
 
+## 安装包版本升级 / 降级演练（2026-11-02）
+
+发布门槛里的「三平台安装、升级、回滚」不能只靠 runtime 切换演练：安装器覆盖旧版本、复用同一数据目录、
+再降级回旧版本，是发布链路独立的失败面。本节把它固定为 `workflow_dispatch` 演练。
+
+**输入与来源**
+
+- 两次 `release` 工作流实跑：一个 `base`（例如 tag `v3.15.1`）与一个 `head`（当前 `dev`），各自产出
+  `desktop-<os>-<arch>` 安装包 artifact；演练不重新构建，避免与发布产物分叉。注意 `v3.15.1` 早于
+  Rust Host 默认翻转，base 启动按 Node Host 语义断言，head 按 Rust Host 断言。
+- 演练工作流 `rust-version-drill.yml` 通过 `base_run_id` / `head_run_id` 下载两套 artifact，矩阵与
+  release 的 desktop 一致：`win-x64` / `mac-arm64` / `mac-x64` / `linux-x64`。
+
+**步骤（每平台复用同一 HOME、userData 与数据目录）**
+
+1. 安装 base 安装包并启动：数据库启动终态必须 `ready`；冻结设置夹具的已知值在启动后保持不变。
+2. 用 head 安装包覆盖安装到同一路径：安装器退出码为 0；应用可执行文件 sha256 必须变化；再次启动需
+   `ready`、包内 Rust Host 启动并 attach renderer、不得出现 Node utility 窗口 Host，设置值保持不变。
+3. 再用 base 安装包覆盖安装（降级）：安装器退出码为 0；可执行文件 sha256 必须回到 base 的值；
+   启动仍要求 `ready` 且设置值不变。
+
+**失败语义**
+
+- 任一步安装失败、启动未 `ready`、Host 断言不符、可执行文件 hash 未按预期变化或设置值被改写，演练直接
+  失败；不允许用重试掩盖安装器或迁移问题。
+- 若未来版本引入不可降级的存储迁移，降级步骤必须按产品契约显式失败，并记录为「降级不支持」；不能把
+  失败改成跳过。
+
+**边界**
+
+- 不验证 macOS 公证 / Windows 签名（当前发布未签名）；不替代上文「Host 实现切换矩阵」的
+  Node → Rust → Node 演练，也不替代 S4-i 的远程 Source Server 主链。
+- 实现入口：`scripts/ci-install-desktop.mjs --version-drill <base-artifacts> <head-artifacts>`。
+
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 
 `packages/services/tests/escode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）

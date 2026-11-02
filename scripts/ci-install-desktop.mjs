@@ -7,6 +7,7 @@
 // - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
 //   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   copyFileSync,
@@ -23,11 +24,11 @@ const source = resolve(process.argv.slice(2).find((arg) => !arg.startsWith("--")
 const temp = process.env.RUNNER_TEMP ?? resolve(".ci-install");
 // --launch-only 与切换演练都直接 mkdtemp；本地默认目录可能尚未创建。
 mkdirSync(temp, { recursive: true });
-const pick = (suffix) => {
-  const files = readdirSync(source);
+const pick = (suffix, dir = source) => {
+  const files = readdirSync(dir);
   const found = files.find((name) => name.endsWith(suffix));
-  if (!found) throw new Error(`No *${suffix} in ${source}: ${files.join(", ")}`);
-  return join(source, found);
+  if (!found) throw new Error(`No *${suffix} in ${dir}: ${files.join(", ")}`);
+  return join(dir, found);
 };
 const run = (command, args, options = {}) => {
   const result = spawnSync(command, args, { stdio: "inherit", ...options });
@@ -40,6 +41,59 @@ const capture = (command, args) => {
   return result.stdout;
 };
 
+/** 安装某个目录里的桌面安装包，返回该次安装后的可执行文件与 glm 目录。 */
+function installFrom(dir) {
+  if (process.platform === "win32") {
+    const installer = pick(".exe", dir);
+    const target = join(temp, "escode-install");
+    // NSIS 约定：/D= 必须是最后一个参数且不加引号（runner 临时目录不含空格）。
+    run(installer, ["/S", `/D=${target}`]);
+    const exe = readdirSync(target).find(
+      (name) => name.endsWith(".exe") && !/^uninstall/i.test(name),
+    );
+    if (!exe) throw new Error(`No application executable in ${target}`);
+    return { app: join(target, exe), glm: join(target, "resources", "glm") };
+  }
+  if (process.platform === "darwin") {
+    const dmg = pick(".dmg", dir);
+    const mount = join(temp, "escode-dmg");
+    mkdirSync(mount, { recursive: true });
+    run("hdiutil", ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, dmg]);
+    try {
+      const bundle = readdirSync(mount).find((name) => name.endsWith(".app"));
+      if (!bundle) throw new Error(`No .app in ${dmg}`);
+      const target = join(temp, bundle);
+      run("ditto", [join(mount, bundle), target]);
+      const macos = join(target, "Contents", "MacOS");
+      const name = basename(bundle, ".app");
+      return {
+        app: join(macos, existsSync(join(macos, name)) ? name : readdirSync(macos)[0]),
+        glm: join(target, "Contents", "Resources", "glm"),
+      };
+    } finally {
+      run("hdiutil", ["detach", mount]);
+    }
+  }
+  const deb = pick(".deb", dir);
+  // 版本升级/降级演练会用旧安装包覆盖新版本；apt 缺省拒绝降级。
+  run("sudo", ["apt-get", "install", "-y", "--allow-downgrades", deb]);
+  const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
+  const entry = capture("dpkg", ["-L", pkg])
+    .split("\n")
+    .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
+  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
+  const glm = dirname(entry);
+  const base = dirname(dirname(glm));
+  return { app: join(base, pkg), glm };
+}
+
+function assertInstalled({ app, glm }, label = "install") {
+  for (const path of [app, glm, join(glm, "zcode.cjs")]) {
+    if (!existsSync(path)) throw new Error(`${label}: installed path missing: ${path}`);
+  }
+  console.log(`${label}: installed app: ${app}\n${label}: installed glm: ${glm}`);
+}
+
 let app;
 let glm;
 if (launchOnly) {
@@ -51,50 +105,12 @@ if (launchOnly) {
       "--launch-only requires ESCODE_INSTALLED_APP and ESCODE_INSTALLED_GLM from a previous install",
     );
   }
-} else if (process.platform === "win32") {
-  const installer = pick(".exe");
-  const target = join(temp, "escode-install");
-  // NSIS 约定：/D= 必须是最后一个参数且不加引号（runner 临时目录不含空格）。
-  run(installer, ["/S", `/D=${target}`]);
-  const exe = readdirSync(target).find(
-    (name) => name.endsWith(".exe") && !/^uninstall/i.test(name),
-  );
-  if (!exe) throw new Error(`No application executable in ${target}`);
-  app = join(target, exe);
-  glm = join(target, "resources", "glm");
-} else if (process.platform === "darwin") {
-  const dmg = pick(".dmg");
-  const mount = join(temp, "escode-dmg");
-  mkdirSync(mount, { recursive: true });
-  run("hdiutil", ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, dmg]);
-  try {
-    const bundle = readdirSync(mount).find((name) => name.endsWith(".app"));
-    if (!bundle) throw new Error(`No .app in ${dmg}`);
-    const target = join(temp, bundle);
-    run("ditto", [join(mount, bundle), target]);
-    const macos = join(target, "Contents", "MacOS");
-    const name = basename(bundle, ".app");
-    app = join(macos, existsSync(join(macos, name)) ? name : readdirSync(macos)[0]);
-    glm = join(target, "Contents", "Resources", "glm");
-  } finally {
-    run("hdiutil", ["detach", mount]);
-  }
+} else if (process.argv.includes("--version-drill")) {
+  // 版本演练在下面单独执行两次安装；这里不做默认安装。
 } else {
-  const deb = pick(".deb");
-  run("sudo", ["apt-get", "install", "-y", deb]);
-  const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
-  const entry = capture("dpkg", ["-L", pkg])
-    .split("\n")
-    .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
-  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
-  glm = dirname(entry);
-  const base = dirname(dirname(glm));
-  app = join(base, pkg);
+  ({ app, glm } = installFrom(source));
+  assertInstalled({ app, glm });
 }
-for (const path of [app, glm, join(glm, "zcode.cjs")]) {
-  if (!existsSync(path)) throw new Error(`Installed path missing: ${path}`);
-}
-console.log(`installed app: ${app}\ninstalled glm: ${glm}`);
 
 // 启动检查：主进程在超时时间内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
 // Bugfix：之前只看进程存活，数据库启动失败（如 unsupported_runtime）时应用仍停在错误页不退出，作业照样通过。
@@ -133,7 +149,7 @@ const assertNodeHostLaunch = (output) => {
 };
 
 /** 启动一次安装包；同一 home/cwd 复用可验证切换前后状态未被破坏。 */
-async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
+async function launchApp({ expectRustHost, hostAssertion, launchCwd, label, env = {} }) {
   console.log(`[installed] launch ${label}`);
   return await new Promise((done, fail) => {
     const [command, args] =
@@ -213,11 +229,13 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
         `application stayed up for ${STARTUP_TIMEOUT_MS / 1000}s with database startup ready`,
       );
       try {
-        assertRustHostLaunch(output, expectRustHost);
-        if (!expectRustHost && label.startsWith("drill")) assertNodeHostLaunch(output);
-        if (expectRustHost) {
+        const expectedHost =
+          hostAssertion ?? (expectRustHost ? "rust" : label.startsWith("drill") ? "node" : "any");
+        if (expectedHost === "rust") assertRustHostLaunch(output, true);
+        if (expectedHost === "node") assertNodeHostLaunch(output);
+        if (expectedHost === "rust") {
           console.log("packaged Rust Host started and attached the renderer");
-        } else if (label.startsWith("drill")) {
+        } else if (expectedHost === "node") {
           console.log("packaged Node utility window Host started (expected in fallback mode)");
         }
       } catch (error) {
@@ -227,6 +245,59 @@ async function launchApp({ expectRustHost, launchCwd, label, env = {} }) {
       void finish();
     }, STARTUP_TIMEOUT_MS);
   });
+}
+
+// 安装包版本升级 / 降级演练（docs/specs/rust-release-rollback.md「安装包版本升级 / 降级演练」）：
+// base 安装包 → head 覆盖安装 → base 覆盖安装（降级），三次启动复用同一 HOME / userData / 数据目录。
+const versionDrill = process.argv.includes("--version-drill");
+if (versionDrill) {
+  const dirs = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+  const [baseDir, headDir] = dirs;
+  if (!baseDir || !headDir) {
+    throw new Error("--version-drill requires <base-artifacts> <head-artifacts>");
+  }
+  const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+  const drillHome = mkdtempSync(join(temp, "escode-version-home-"));
+  const drillCwd = mkdtempSync(join(temp, "escode-version-cwd-"));
+  const drillUserData = mkdtempSync(join(temp, "escode-version-user-data-"));
+  const settingsDir = join(drillHome, ".escode", "v2");
+  mkdirSync(settingsDir, { recursive: true });
+  const settingsFile = join(settingsDir, "setting.json");
+  copyFileSync(resolve("packages/services/tests/fixtures/settings-frozen.json"), settingsFile);
+  const drillEnv = {
+    HOME: drillHome,
+    USERPROFILE: drillHome,
+    ESCODE_DESKTOP_USER_DATA_DIR: drillUserData,
+    ESCODE_DESKTOP_SESSION_DATA_DIR: join(drillUserData, "session"),
+    // v3.15.1 早于 Rust Host 默认翻转，会忽略该变量；head 用它确定 Rust Host 断言。
+    ESCODE_RUST_HOST: "1",
+  };
+  const assertSettings = (stage) => {
+    const after = JSON.parse(readFileSync(settingsFile, "utf8"));
+    if (after.locale !== "zh-CN" || after.unknownFromNode?.kept !== true) {
+      throw new Error(`version drill corrupted settings after ${stage} (locale=${after.locale})`);
+    }
+  };
+  const runStage = async (label, dir, hostAssertion) => {
+    const installed = installFrom(dir);
+    assertInstalled(installed, label);
+    const hash = sha256(installed.app);
+    await launchApp({ hostAssertion, launchCwd: drillCwd, label, env: drillEnv });
+    assertSettings(label);
+    // 下一次安装前等旧实例彻底退出，避免 Windows 单实例锁 / DB owner 锁串扰。
+    await sleep(2_000);
+    return hash;
+  };
+  const baseHash = await runStage("version drill 1/3 base", baseDir, "any");
+  const headHash = await runStage("version drill 2/3 head", headDir, "rust");
+  if (headHash === baseHash) {
+    throw new Error("version drill did not replace the application executable on upgrade");
+  }
+  const downgradedHash = await runStage("version drill 3/3 downgrade", baseDir, "any");
+  if (downgradedHash !== baseHash) {
+    throw new Error("version drill did not restore the base executable on downgrade");
+  }
+  console.log("version upgrade/downgrade drill passed: base → head → base, settings preserved");
 }
 
 // 阶段 3 的四平台切换 + 回退演练：Node Host → Rust Host → Node Host，复用同一 home/cwd。
@@ -269,7 +340,7 @@ if (hostSwitchDrill) {
     await sleep(2_000);
   }
   console.log("host switch and rollback drill passed: node → rust → node, settings preserved");
-} else {
+} else if (!versionDrill) {
   await launchApp({
     expectRustHost: expectRustHostEnv,
     launchCwd: mkdtempSync(join(temp, "escode-launch-")),
@@ -277,7 +348,7 @@ if (hostSwitchDrill) {
   });
 }
 
-if (process.env.GITHUB_ENV) {
+if (app && glm && process.env.GITHUB_ENV) {
   appendFileSync(
     process.env.GITHUB_ENV,
     `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n`,
