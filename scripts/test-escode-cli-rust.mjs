@@ -157,6 +157,7 @@ if (primary) {
     "scripts/generate-escode-cli-rust-websearch-corpus.mjs",
     "scripts/generate-escode-cli-rust-mcp-oauth-corpus.mjs",
     "scripts/generate-escode-cli-rust-mcp-official-auth-corpus.mjs",
+    "scripts/generate-escode-cli-rust-mcp-tool-ui-corpus.mjs",
     "scripts/generate-escode-cli-rust-saved-workflow-corpus.mjs",
     "scripts/generate-escode-cli-rust-saved-workflow-store-corpus.mjs",
     "scripts/generate-escode-cli-rust-saved-workflow-tool-corpus.mjs",

@@ -1,0 +1,1210 @@
+{
+ "constants": {
+  "contentMaxBytes": 32768,
+  "maxNameChars": 256,
+  "resourceUriMaxChars": 2048,
+  "structuredContentMaxBytes": 65536,
+  "surfaceIdMaxChars": 128,
+  "widgetMetaMaxBytes": 16384
+ },
+ "meta": [
+  {
+   "label": "no-meta",
+   "meta": {},
+   "descriptor": null
+  },
+  {
+   "label": "null-meta",
+   "meta": null,
+   "descriptor": null
+  },
+  {
+   "label": "non-object-meta",
+   "meta": "ui://server",
+   "descriptor": null
+  },
+  {
+   "label": "ui-array-meta",
+   "meta": {
+    "ui": []
+   },
+   "descriptor": null
+  },
+  {
+   "label": "spec-resource-uri",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "trimmed-resource-uri",
+   "meta": {
+    "ui": {
+     "resourceUri": "  ui://server/padded.html\t"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/padded.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "legacy-flat-resource-uri",
+   "meta": {
+    "ui/resourceUri": "ui://legacy/index.html"
+   },
+   "descriptor": {
+    "resourceUri": "ui://legacy/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "openai-output-template",
+   "meta": {
+    "openai/outputTemplate": "ui://alias/index.html"
+   },
+   "descriptor": {
+    "resourceUri": "ui://alias/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "resource-uri-priority",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://spec/index.html"
+    },
+    "ui/resourceUri": "ui://legacy/index.html",
+    "openai/outputTemplate": "ui://alias/index.html"
+   },
+   "descriptor": {
+    "resourceUri": "ui://spec/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "invalid-spec-falls-back-to-legacy",
+   "meta": {
+    "ui": {
+     "resourceUri": "https://example.com/index.html"
+    },
+    "ui/resourceUri": "ui://legacy"
+   },
+   "descriptor": {
+    "resourceUri": "ui://legacy",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "invalid-all-sources",
+   "meta": {
+    "ui": {
+     "resourceUri": ""
+    },
+    "ui/resourceUri": "ui://",
+    "openai/outputTemplate": 42
+   },
+   "descriptor": {
+    "resourceUri": "ui://",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "resource-uri-too-long",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+   },
+   "descriptor": null
+  },
+  {
+   "label": "resource-uri-max-length",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "visibility-app-only",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "visibility": [
+      "app"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "visibility-dedup-keeps-order",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "visibility": [
+      "app",
+      "model",
+      "app"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "app",
+     "model"
+    ]
+   }
+  },
+  {
+   "label": "visibility-unknown-only",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "visibility": [
+      "bogus"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "visibility-non-array",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "visibility": "model"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "visibility-mixed",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "visibility": [
+      1,
+      "model",
+      true,
+      "app"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "display-mode-inline",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "inline"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "preferredDisplayMode": "inline"
+   }
+  },
+  {
+   "label": "display-mode-fullscreen",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "fullscreen"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "preferredDisplayMode": "fullscreen"
+   }
+  },
+  {
+   "label": "display-mode-pip",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "pip"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "preferredDisplayMode": "pip"
+   }
+  },
+  {
+   "label": "display-mode-invalid",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "INLINE"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "csp-modern",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "csp": {
+      "connectDomains": [
+       "https://api.example.com",
+       "wss://socket.example.com"
+      ],
+      "resourceDomains": [
+       "https://cdn.example.com:8443"
+      ]
+     }
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "csp": {
+     "connectDomains": [
+      "https://api.example.com",
+      "wss://socket.example.com"
+     ],
+     "resourceDomains": [
+      "https://cdn.example.com:8443"
+     ]
+    }
+   }
+  },
+  {
+   "label": "csp-modern-dedup-and-invalid",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "csp": {
+      "connectDomains": [
+       "https://api.example.com/",
+       "https://api.example.com",
+       "http://127.0.0.1:7777",
+       "http://localhost:7777",
+       "https://user:pass@example.com",
+       "https://example.com?query=1",
+       "https://example.com#hash",
+       "https://example.com/path",
+       "ftp://example.com",
+       "not a url",
+       42
+      ]
+     }
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "csp": {
+     "connectDomains": [
+      "https://api.example.com",
+      "http://127.0.0.1:7777"
+     ]
+    }
+   }
+  },
+  {
+   "label": "csp-legacy-camel-and-snake",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/widgetCSP": {
+     "connectDomains": [
+      "https://camel.example.com"
+     ],
+     "resource_domains": [
+      "https://snake.example.com"
+     ],
+     "frameDomains": []
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "csp": {
+     "connectDomains": [
+      "https://camel.example.com"
+     ],
+     "resourceDomains": [
+      "https://snake.example.com"
+     ],
+     "frameDomains": []
+    }
+   }
+  },
+  {
+   "label": "csp-modern-wins-over-legacy",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "csp": {
+      "connectDomains": [
+       "https://modern.example.com"
+      ]
+     }
+    },
+    "openai/widgetCSP": {
+     "connectDomains": [
+      "https://legacy.example.com"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "csp": {
+     "connectDomains": [
+      "https://modern.example.com"
+     ]
+    }
+   }
+  },
+  {
+   "label": "csp-unknown-keys-only",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/widgetCSP": {
+     "scriptDomains": [
+      "https://x"
+     ]
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "prefers-border-true",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "prefersBorder": true
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "prefersBorder": true
+   }
+  },
+  {
+   "label": "prefers-border-false",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "prefersBorder": false
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "prefersBorder": false
+   }
+  },
+  {
+   "label": "prefers-border-legacy",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/widgetPrefersBorder": true
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "prefersBorder": true
+   }
+  },
+  {
+   "label": "prefers-border-modern-false-wins",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "prefersBorder": false
+    },
+    "openai/widgetPrefersBorder": true
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "prefersBorder": false
+   }
+  },
+  {
+   "label": "surface-valid",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "board-1.2_3"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "surface": "board-1.2_3"
+   }
+  },
+  {
+   "label": "surface-trimmed",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "  board  "
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "surface": "board"
+   }
+  },
+  {
+   "label": "surface-leading-symbol",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "-board"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "surface-too-long",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "surface-invalid-char",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "board/1"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ]
+   }
+  },
+  {
+   "label": "show-inline-true",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "showInline": true
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "showInline": true
+   }
+  },
+  {
+   "label": "show-inline-false",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "showInline": false
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "showInline": false
+   }
+  },
+  {
+   "label": "show-inline-legacy",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    },
+    "openai/widgetShowCodexWidgetInline": true
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/index.html",
+    "visibility": [
+     "model",
+     "app"
+    ],
+    "showInline": true
+   }
+  },
+  {
+   "label": "full-descriptor",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/app.html",
+     "visibility": [
+      "app"
+     ],
+     "prefersBorder": true,
+     "surface": "panel",
+     "showInline": true,
+     "csp": {
+      "connectDomains": [
+       "https://api.example.com"
+      ]
+     }
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "fullscreen"
+    }
+   },
+   "descriptor": {
+    "resourceUri": "ui://server/app.html",
+    "visibility": [
+     "app"
+    ],
+    "preferredDisplayMode": "fullscreen",
+    "csp": {
+     "connectDomains": [
+      "https://api.example.com"
+     ]
+    },
+    "prefersBorder": true,
+    "surface": "panel",
+    "showInline": true
+   }
+  }
+ ],
+ "displayUi": [
+  {
+   "label": "no-ui-meta",
+   "meta": {},
+   "serverName": "plain",
+   "pluginId": "plain",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "plain",
+    "toolName": "tool"
+   }
+  },
+  {
+   "label": "descriptor-only",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  },
+  {
+   "label": "structured-content-within-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "structuredContent": {
+     "html": "<p>ok</p>",
+     "title": "Board"
+    }
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "structuredContent": "{\"html\":\"<p>ok</p>\",\"title\":\"Board\"}"
+    }
+   }
+  },
+  {
+   "label": "structured-content-over-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "repeat": [
+    {
+     "field": "structuredContent",
+     "char": "a",
+     "times": 65536
+    }
+   ],
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "truncated": true,
+     "truncatedBytes": 65538
+    }
+   }
+  },
+  {
+   "label": "widget-meta-over-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "repeat": [
+    {
+     "field": "_meta",
+     "char": "b",
+     "times": 16384
+    }
+   ],
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "truncated": true,
+     "truncatedBytes": 16386
+    }
+   }
+  },
+  {
+   "label": "widget-meta-within-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "_meta": {
+     "theme": "dark"
+    }
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "widgetMeta": "{\"theme\":\"dark\"}"
+    }
+   }
+  },
+  {
+   "label": "content-array-within-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "content": [
+     {
+      "text": "hello",
+      "type": "text"
+     }
+    ]
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "content": "[{\"text\":\"hello\",\"type\":\"text\"}]"
+    }
+   }
+  },
+  {
+   "label": "content-non-array-is-skipped",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "content": {
+     "text": "x"
+    }
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  },
+  {
+   "label": "content-over-budget",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "repeat": [
+    {
+     "field": "content",
+     "char": "c",
+     "times": 32768
+    }
+   ],
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "truncated": true,
+     "truncatedBytes": 32795
+    }
+   }
+  },
+  {
+   "label": "two-fields-truncated-add-up",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "repeat": [
+    {
+     "field": "structuredContent",
+     "char": "a",
+     "times": 65536
+    },
+    {
+     "field": "content",
+     "char": "c",
+     "times": 32768
+    }
+   ],
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "truncated": true,
+     "truncatedBytes": 98333
+    }
+   }
+  },
+  {
+   "label": "is-error-true",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "isError": true,
+    "structuredContent": {
+     "code": 7
+    }
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "structuredContent": "{\"code\":7}",
+     "isError": true
+    }
+   }
+  },
+  {
+   "label": "is-error-false",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "isError": false
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  },
+  {
+   "label": "non-object-output",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": "text output",
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  },
+  {
+   "label": "surface-and-show-inline-only-when-true",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "panel",
+     "showInline": false
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": {
+    "structuredContent": {
+     "rows": 1
+    }
+   },
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "structuredContent": "{\"rows\":1}",
+     "surface": "panel"
+    }
+   }
+  },
+  {
+   "label": "surface-and-show-inline-projected",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "surface": "panel",
+     "showInline": true
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "surface": "panel",
+     "showInline": true
+    }
+   }
+  },
+  {
+   "label": "preferred-display-mode-and-border",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "prefersBorder": false
+    },
+    "openai/ui": {
+     "preferredModelDisplayMode": "pip"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "preferredDisplayMode": "pip",
+     "prefersBorder": false
+    }
+   }
+  },
+  {
+   "label": "csp-projected",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html",
+     "csp": {
+      "connectDomains": [
+       "https://api.example.com"
+      ]
+     }
+    }
+   },
+   "serverName": "server",
+   "pluginId": "server",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "server",
+     "resourceUri": "ui://server/index.html",
+     "csp": {
+      "connectDomains": [
+       "https://api.example.com"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "label": "blank-plugin-id-drops-ui",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "   ",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool"
+   }
+  },
+  {
+   "label": "namespaced-plugin-server",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "plugin:acme:srv",
+   "pluginId": "acme",
+   "pluginIdSource": "server",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "plugin:acme:srv",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "acme",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  },
+  {
+   "label": "long-plugin-id-truncated",
+   "meta": {
+    "ui": {
+     "resourceUri": "ui://server/index.html"
+    }
+   },
+   "serverName": "server",
+   "pluginId": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+   "output": null,
+   "display": {
+    "kind": "mcp_tool",
+    "serverName": "server",
+    "toolName": "tool",
+    "ui": {
+     "pluginId": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+     "resourceUri": "ui://server/index.html"
+    }
+   }
+  }
+ ]
+}

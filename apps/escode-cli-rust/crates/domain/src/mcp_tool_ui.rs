@@ -31,7 +31,11 @@ pub fn normalize_meta(meta: &Value) -> Option<Value> {
     if let Some(mode) = preferred {
         descriptor.insert("preferredDisplayMode".into(), mode.into());
     }
-    if let Some(csp) = read_csp(ui, meta["openai/widgetCSP"].as_object()) {
+    // 修复：现代 CSP 在 `_meta.ui.csp`（TS `readCsp(asRecord(ui?.csp), ...)`）。这里过去把 `ui`
+    // 本身当成 CSP 容器，`connectDomains` 永远读不到，只有 `openai/widgetCSP` 别名生效——
+    // 声明在规范位置的工具在 Rust runtime 下丢失 CSP 放行（差分语料 `csp-modern` / `csp-projected`）。
+    let modern_csp = ui.and_then(|ui| ui.get("csp")).and_then(Value::as_object);
+    if let Some(csp) = read_csp(modern_csp, meta["openai/widgetCSP"].as_object()) {
         descriptor.insert("csp".into(), csp);
     }
     let prefers_border = read_bool(ui.and_then(|ui| ui.get("prefersBorder")))
@@ -52,7 +56,7 @@ pub fn normalize_meta(meta: &Value) -> Option<Value> {
 
 /// 行级 `display.ui`：描述符 + 本次结果的结构化数据（超限整段省略并记账，不产生半截 JSON）。
 pub fn display_ui(descriptor: &Value, plugin_id: &str, output: Option<&Value>) -> Option<Value> {
-    let plugin_id = bound_text(plugin_id, MAX_NAME_CHARS)?;
+    let plugin_id = bound_name(plugin_id, MAX_NAME_CHARS)?;
     let resource_uri = read_resource_uri(&descriptor["resourceUri"])?;
     let mut ui = Map::new();
     ui.insert("pluginId".into(), plugin_id.into());
@@ -248,7 +252,10 @@ fn read_origin_list(value: Option<&Value>) -> Option<Vec<String>> {
             origins.push(origin);
         }
     }
-    (!origins.is_empty()).then_some(origins)
+    // 修复：TS `readOriginList` 只要值本身是数组就返回（可空），空数组因此会在 CSP 里保留成
+    // `frameDomains: []`；这里过去把空列表当成「没声明」丢掉，同一工具在 Rust/Node 下的
+    // `display.ui.csp` 不一致（差分语料 `csp-legacy-camel-and-snake`）。
+    Some(origins)
 }
 
 fn normalize_origin(value: &Value) -> Option<String> {
@@ -277,6 +284,24 @@ fn bound_text(value: &str, max_chars: usize) -> Option<String> {
     (!trimmed.is_empty() && trimmed.chars().count() <= max_chars).then(|| trimmed.to_owned())
 }
 
+/// 展示名限长：超长按字符截断，与 TS `boundMcpDisplayText`（`trimmed.slice(0, maxChars)`）一致。
+///
+/// 修复：pluginId 过去复用 `bound_text`，超长时整体返回 None，`display.ui` 缺失使
+/// `pluginUiRowPolicy` 不建卡；同一工具在 Node runtime 下会截断成 256 字符并正常建卡，
+/// 形成 Rust/TS 差分（语料 `long-plugin-id-truncated`）。TS 的 slice 按 UTF-16 码元截断，
+/// Rust 按字符截断；本仓库 pluginId 来自 ASCII 插件 id，两者一致。
+fn bound_name(value: &str, max_chars: usize) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.chars().take(max_chars).collect())
+}
+
 #[cfg(test)]
 #[path = "mcp_tool_ui_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "mcp_tool_ui_corpus_tests.rs"]
+mod corpus_tests;

@@ -41,9 +41,13 @@ fn optional_fields_follow_openai_aliases_and_surface_pattern() {
     assert_eq!(descriptor["prefersBorder"], true);
     assert_eq!(descriptor["surface"], "board-1");
     assert_eq!(descriptor["showInline"], true);
+    // 与 TS `readOriginList` 一致：数组存在即保留，`resource_domains` 全为非法 origin 时是空数组。
     assert_eq!(
         descriptor["csp"],
-        json!({"connectDomains":["https://api.example.com","http://127.0.0.1:7777"]})
+        json!({
+            "connectDomains":["https://api.example.com","http://127.0.0.1:7777"],
+            "resourceDomains":[]
+        })
     );
     let bad_surface =
         normalize_meta(&json!({"ui":{"resourceUri":"ui://s","surface":"-bad"}})).unwrap();

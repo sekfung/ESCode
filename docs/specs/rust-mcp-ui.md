@@ -177,10 +177,28 @@ sampling    → 账本容量/并发校验 → pin 实例 → 模型调用 → �
      根本没有 `display.ui`，UI 的 `pluginUiRowPolicy` 因此不建卡——这条也是前台卡片路径的前提。
    - Rust Host：`runtime_event_fanout`（由 `cua_observations` 泛化）按 strict 形状校验、只接受本地
      workspace，并注册 `escode-agent.onDynamicPluginUiToolResult`；`IMPLEMENTED` 438。
-     尚未完成：本仓库没有覆盖「无工具卡后台创建」的 E2E 入口（`mcp-apps-host-e2e.mjs` 只有
-     managed 系列，没有 `--background-only`），也没有包含声明 `_meta.ui` 的 MCP 工具的差分
-     golden，因此当前证据是两侧单测（domain 8、tools 105、host-rpc 202 + contract 3、
-     core 18、bootstrap 4）而非端到端。
+     `_meta.ui` 差分 golden 已在 §5.6 补齐；仍缺「无工具卡后台创建」的 E2E 入口
+     （`mcp-apps-host-e2e.mjs` 只有 managed 系列，没有 `--background-only`），因此后台创建
+     当前证据是两侧单测（domain 10、tools 105、host-rpc 202 + contract 3、core 18、
+     bootstrap 4）而非端到端。
+
+6. **`_meta.ui` 差分 golden 已落地（2026-11-02）**。此前只有两侧手写单测，Rust 与 TS 对同一份
+   `_meta` 的输出从未逐条比对。现在由
+   `scripts/generate-escode-cli-rust-mcp-tool-ui-corpus.mjs` 调用 TS
+   `normalizeMcpToolUiMeta` / `createMcpToolDisplay` 生成
+   `apps/escode-cli-rust/crates/domain/tests/fixtures/mcp_tool_ui_corpus.json`
+   （描述符 40 例、行级 `display.ui` 20 例），`mcp_tool_ui_corpus_tests.rs` 逐条比对；
+   `--check` 已接入 `scripts/test-escode-cli-rust.mjs`，与其它 TS oracle 语料同一道防漂移门禁。
+   - 超预算载荷不进仓库：语料只存 `repeat` 计划，两边用同一份构造重建，期望值仍来自 TS，
+     包含 `truncatedBytes` 的累加结果。
+   - 语料只断言语义相等：Rust `serde_json::to_string` 排序键，JS `JSON.stringify` 保持插入序，
+     键序差异属于既有实现差异，本差分不覆盖；载荷也只用整数与字符串，避开 `1.0` / `-0` 的格式差异。
+   - 差分先暴露并修复了三处 Rust/TS 不一致：
+     1. `_meta.ui.csp`：Rust 过去把 `ui` 本身当成 CSP 容器，规范位置 `ui.csp.connectDomains`
+        永远读不到，只有 `openai/widgetCSP` 别名生效。
+     2. 空 origin 数组：Rust 当作「未声明」丢弃，TS 保留 `resourceDomains: []` 这类空列表。
+     3. pluginId 超 256 字符：Rust 整体丢弃 `display.ui`（`pluginUiRowPolicy` 因此不建卡），
+        TS 截断到 256 字符后正常建卡。
 
 ## 6. 验收命令
 
