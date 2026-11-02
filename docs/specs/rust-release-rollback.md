@@ -120,9 +120,12 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 
 **输入与来源**
 
-- 两次 `release` 工作流实跑：一个 `base`（例如 tag `v3.15.1`）与一个 `head`（当前 `dev`），各自产出
-  `desktop-<os>-<arch>` 安装包 artifact；演练不重新构建，避免与发布产物分叉。注意 `v3.15.1` 早于
-  Rust Host 默认翻转，base 启动按 Node Host 语义断言，head 按 Rust Host 断言。
+- 两次 `release` 工作流实跑：一个 `base`（上一发布 tag，当前为 `v3.15.2`）与一个 `head`（当前 `dev`），
+  各自产出 `desktop-<os>-<arch>` 安装包 artifact；演练不重新构建，避免与发布产物分叉。两次构建必须
+  使用相同的 `ESCODE_ENV=production` 身份（tag `v3.15.1` 的 release 工作流尚未固定该变量，会产出
+  Preview/TEST 安装包，不能作为同应用升级基线）。base 与 head 版本号相同（例如都是 `3.15.2`）时，
+  演练验证的是「上一发布 → 当前构建」的覆盖升级；版本号递增后同一流程直接适用。
+- base 若早于 Rust Host 默认翻转，不强制 Host 断言；head 必须启动包内 Rust Host 并 attach renderer。
 - 演练工作流 `rust-version-drill.yml` 通过 `base_run_id` / `head_run_id` 下载两套 artifact，矩阵与
   release 的 desktop 一致：`win-x64` / `mac-arm64` / `mac-x64` / `linux-x64`。
 

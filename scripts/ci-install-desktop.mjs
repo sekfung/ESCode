@@ -76,7 +76,7 @@ function installFrom(dir) {
   }
   const deb = pick(".deb", dir);
   // 版本升级/降级演练会用旧安装包覆盖新版本；apt 缺省拒绝降级。
-  run("sudo", ["apt-get", "install", "-y", "--allow-downgrades", deb]);
+  run("sudo", ["apt-get", "install", "-y", "--allow-downgrades", "--reinstall", deb]);
   const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
