@@ -23,8 +23,9 @@
   开启时主会话与子代理都不暴露 Glob/Grep。
 - **描述**：由 `scripts/generate-escode-cli-rust-tool-schemas.mjs` 从 TS 生成 embedded 分支下的 provider 描述
   （`crates/tools/src/tool_surface.json`，Agent 模板在 `crates/domain/src/agent_description_template.json`）；Bash 用 `createBashProviderDescription`（默认 120000 / 最大 600000 ms，与 Rust 超时策略一致）。
-- **Agent 描述**：生成 TS `buildAgentProviderDescription` 的头尾模板（`dynamicWorkflowEnabled=false`，Rust 不支持工作流），
-  Rust 按当前 profile 目录渲染 `- name: description (Tools: …)`；内置 Explore 用 TS embedded 分支的工具文案，
+- **Agent 描述**：生成 TS `buildAgentProviderDescription` 的基础模板（`dynamicWorkflowEnabled=false`），并单独导出灰度开启时
+  追加的 `workflowBullet`；生成器用「开启 vs 关闭」的差集提取该行，避免维护第二份文案。Rust 按会话灰度结论决定是否追加，
+  再按当前 profile 目录渲染 `- name: description (Tools: …)`；内置 Explore 用 TS embedded 分支的工具文案，
   其余 profile 用自身 tools 去掉 disallowedTools。删除 Rust 自拟的 catalog 段。
 - **顺序**：TS `orderProviderVisibleToolContracts`——参考集合内的工具按 `localeCompare` 排序在前（生成资产 `providerOrder`），其余（SendMessage、MCP 等）保持原顺序在后。
 - **Bash prelude**：会话 shell 为 posix 或 git-bash 时，把 TS `buildEmbeddedSearchPreludeContent` 同等内容写入

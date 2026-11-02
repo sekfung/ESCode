@@ -168,6 +168,15 @@ const agentDescriptions = Object.fromEntries(
 );
 if (agentDescriptions.embedded !== agentDescriptions.direct)
   throw new Error("Agent description now depends on the search branch");
+// 灰度开启时 TS 会在基础描述末尾追加一条工作流 bullet；Rust 按会话灰度结论自行追加，
+// 因此生成资产必须同时带上这一行。用「开启 vs 关闭」的差集提取，避免生成器维护第二份文案。
+const agentDescriptionWithWorkflow = createAgentToolEntry().metadata.description;
+const workflowBulletPrefix = `${agentDescriptions.embedded}\n`;
+if (!agentDescriptionWithWorkflow.startsWith(workflowBulletPrefix))
+  throw new Error("Agent workflow bullet is no longer appended to the base description");
+const workflowBullet = agentDescriptionWithWorkflow.slice(workflowBulletPrefix.length);
+if (!workflowBullet || workflowBullet.includes("\n"))
+  throw new Error("Unexpected Agent workflow bullet shape");
 const listingProbe = { name: "probe", description: "probe", source: "user", systemPrompt: "" };
 const collectListing = (activeAgents, entries = []) =>
   collectAgentListingAttachment({
@@ -294,6 +303,7 @@ for (const [file, data] of [
     "../domain/agent_description_template.json",
     {
       description: agentDescriptions.embedded,
+      workflowBullet,
       listing: agentListing,
       exploreTools: {
         embedded: agentTemplate.embedded.exploreTools,
