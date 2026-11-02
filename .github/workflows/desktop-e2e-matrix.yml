@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-14]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -189,9 +189,9 @@ jobs:
   # 目标即 runner 自身——专用用户 + 本机 sshd + darwin-<arch> 远端 release，仍然不依赖
   # 外部服务器或仓库 secrets。远端平台按 runner 架构推导，避免绑定 arm64/x64 某一代镜像。
   ssh-remote-project-macos:
-    name: desktop e2e (macos-latest, ssh remote)
+    name: desktop e2e (macos-14, ssh remote)
     if: github.event_name == 'workflow_dispatch' && inputs.ssh
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
