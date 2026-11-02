@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 import { createServer, type Socket } from "node:net";
 import { createInterface } from "node:readline";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -60,6 +61,24 @@ export async function startAgent(
   const port = (control.address() as { port: number }).port;
   const data = join(root, "agent-data");
   await mkdir(data, { recursive: true });
+  // 修复：Windows 的 stdout/stderr 管道写是同步的。把 Agent 调试日志原样转到 CI 管道，
+  // 当日志量较大或单行过长时可能反压主进程并让双方互等；Windows 下改为落盘，失败时由
+  // 外层 dumpAgentLogs 读取尾部，Mac/Linux 保持实时输出。
+  const stderrLogPath = join(data, "agent-stderr.log");
+  const stderrLog =
+    process.platform === "win32" ? createWriteStream(stderrLogPath, { flags: "a" }) : undefined;
+  stderrLog?.on("error", () => undefined);
+  let stderrBytes = 0;
+  const forwardAgentStderr = (line: string) => {
+    if (!stderrLog) {
+      process.stderr.write(line + "\n");
+      return;
+    }
+    // 防止异常刷屏把 E2E 临时目录写爆；超过上限后只保留前 32MB。
+    if (stderrBytes >= 32 * 1024 * 1024) return;
+    stderrBytes += Buffer.byteLength(line, "utf8") + 1;
+    stderrLog.write(line + "\n");
+  };
   // 修复：Windows 下只传 PATH 会让 Node/MCP 子进程缺少系统目录、临时目录和命令解释器信息，
   // Windows runner 上曾出现 session/create 在 runtime preferences 回包后无响应。这里只补
   // 运行时必需的系统变量，不展开完整 process.env，避免把 API key、认证和 Electron 标志带进夹具。
@@ -110,7 +129,7 @@ export async function startAgent(
   child.on("error", (error) => trace(`child error ${String(error)}`));
   child.on("exit", (code, signal) => trace(`child exit code=${code} signal=${signal}`));
   const transport = new ESCodeStdioTransport(child, {
-    onStderrLine: (line) => process.stderr.write(line + "\n"),
+    onStderrLine: forwardAgentStderr,
   });
   const send = transport.send.bind(transport);
   transport.send = async (message) => {
@@ -260,6 +279,7 @@ export async function startAgent(
     async close() {
       await transport.disposeAndWait();
       client.dispose();
+      stderrLog?.end();
       for (const socket of sockets.values()) socket.destroy();
       await new Promise<void>((resolve) => control.close(() => resolve()));
     },

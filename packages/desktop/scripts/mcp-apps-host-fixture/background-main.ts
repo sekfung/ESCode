@@ -2,6 +2,7 @@
 import { app, protocol, type BrowserWindow, type WebContents } from "electron";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { appendFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PLUGIN_SANDBOX_PRIVILEGED_SCHEME } from "../../src/main/pluginSandbox/index.js";
@@ -13,6 +14,28 @@ const [root, profile, node, cli] = process.argv.slice(2) as [string, string, str
 let currentStep = "boot";
 let progressSequence = 0;
 const progressFile = join(root, "fixture-progress.json");
+const fatalFile = join(root, "fixture-fatal.log");
+// Electron main 的未捕获异常默认可能弹出原生错误框，CI 上无人关闭会表现为主线程静默挂起。
+// 先同步落盘再退出，确保失败原因能从作业产物中读到。
+function recordFatal(kind: string, error: unknown) {
+  try {
+    appendFileSync(
+      fatalFile,
+      `${new Date().toISOString()} ${kind} step=${currentStep} ${String(
+        error instanceof Error ? (error.stack ?? error.message) : error,
+      )}\n`,
+      "utf8",
+    );
+  } catch {}
+}
+process.on("uncaughtException", (error) => {
+  recordFatal("uncaughtException", error);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  recordFatal("unhandledRejection", reason);
+  process.exit(1);
+});
 // Windows runner 上曾出现 stdout 与计时器同时静默、只能靠外层看门狗超时的情况。
 // 把阶段额外写到文件，外层超时后可直接读取最后活动点，不依赖日志管道是否仍然通畅。
 function writeProgress(heartbeat: boolean) {

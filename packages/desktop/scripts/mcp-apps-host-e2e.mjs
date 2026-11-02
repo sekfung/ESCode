@@ -38,6 +38,17 @@ await writeFile(join(output, "plugin-sentinel.txt"), "preserve-plugin-files\n");
 // Agent 夹具在 Windows 上曾出现主线程长时间无响应；失败时把受限日志转储到作业输出，
 // 避免只能依赖 5 分钟看门狗。日志里只有方法名/错误，不包含用户数据。
 async function dumpAgentLogs() {
+  for (const path of [
+    join(output, "agent-data", "agent-stderr.log"),
+    join(output, "fixture-fatal.log"),
+  ]) {
+    try {
+      const text = await readFile(path, "utf8");
+      process.stderr.write(
+        `--- ${path.slice(output.length + 1)} (tail) ---\n${text.slice(-40_000)}\n`,
+      );
+    } catch {}
+  }
   const dir = join(output, "agent-data", "logs");
   try {
     for (const entry of (await readdir(dir, { recursive: true })).filter((name) =>
@@ -46,6 +57,12 @@ async function dumpAgentLogs() {
       const text = await readFile(join(dir, entry), "utf8");
       process.stderr.write(`--- agent log ${entry} (tail) ---\n${text.slice(-20_000)}\n`);
     }
+  } catch {}
+}
+async function dumpProgress() {
+  try {
+    const progress = JSON.parse(await readFile(join(output, "fixture-progress.json"), "utf8"));
+    process.stderr.write(`--- fixture progress ---\n${JSON.stringify(progress, null, 2)}\n`);
   } catch {}
 }
 // Agent bundle 必须来自本次源码；否则 Electron 用新代码、stdio 却测到旧 dist。
@@ -267,12 +284,7 @@ for (const mode of modes) {
     const watchdog = setTimeout(
       async () => {
         child.kill("SIGKILL");
-        try {
-          const progress = JSON.parse(
-            await readFile(join(output, "fixture-progress.json"), "utf8"),
-          );
-          process.stderr.write(`--- fixture progress ---\n${JSON.stringify(progress, null, 2)}\n`);
-        } catch {}
+        await dumpProgress();
         await dumpAgentLogs();
         reject(new Error(`Electron fixture timed out (${mode})`));
       },
@@ -284,6 +296,7 @@ for (const mode of modes) {
       clearTimeout(watchdog);
       if (code === 0) accept();
       else {
+        await dumpProgress();
         await dumpAgentLogs();
         reject(new Error(`Electron fixture failed (${mode}): ${code}`));
       }
