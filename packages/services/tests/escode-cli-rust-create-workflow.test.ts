@@ -199,7 +199,9 @@ test("Node and Rust run a CreateWorkflow script in the background the same way",
     console.log(JSON.stringify({ node: node.permissions, rust: rust.permissions }));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：Node 侧确实后台启动、确认一次、结算后用完成通知续跑。
+  assert.ok(node.createResult);
   assert.match(node.createResult, /background/i);
+  assert.ok(node.notification);
   assert.match(node.notification, /<task-notification>/);
   assert.match(node.notification, /&quot;count&quot;: 2/);
   assert.equal(node.permissions.length, 1);
@@ -219,6 +221,7 @@ test("Node and Rust apply workflow settings adjusted in the permission window", 
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.permissions[0].adjustable?.subagent_model, true);
   assert.equal(node.permissions[0].adjustable?.concurrency_ceiling, "<concurrency>");
+  assert.ok(node.createResult);
   assert.match(node.createResult, /user adjusted the settings in the confirmation window/i);
   assert.match(node.createResult, /personal:fixture\/model-b/i);
   assert.match(node.createResult, /at most 2 subagents run at once/i);
