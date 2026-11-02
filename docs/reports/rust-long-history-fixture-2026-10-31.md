@@ -91,6 +91,26 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
 50k 轮首次导入约 27.6 分钟；相对 20k 轮，轮数为 2.5 倍而导入耗时约 6.5 倍，呈超线性增长。
 二次打开仍为 1.7s（约为 Node 10.3s 的 1/6.0），单页读取保持毫秒级。
 
+### 导入超线性修复后复测（2026-11-02）
+
+根因不是 SQLite 全表扫描：`message(session_id, sequence, time_created, id)` 与
+`part(message_id, sequence, time_created, id)` 均有索引，查询计划为 `SEARCH ... USING INDEX`。
+两处二次复杂度在投影收口：
+
+- `legacy_sessions` 在每个新轮次都调用 `attach_pending_rows` 全量扫描 `rows` 修正空 `turnId`；
+  `turn` 一旦确定就不会再变空，只有首轮之前产生的行需要补，逐轮扫描为 O(rows²)。
+- `legacy_row_post::imported_actions` 对 `bound: &[usize]` 逐行做 `contains`，长会话同样为 O(rows²)。
+
+修复后仍用同一份 20k / 50k TS 源库、release 二进制和全新 data dir 复测：
+
+| 规模 | 修复前首次打开 | 修复后首次打开 | 修复后二次打开 |
+| ---- | -------------: | -------------: | -------------: |
+| 20k  |         253246 |           4101 |            814 |
+| 50k  |        1654037 |           9706 |           1792 |
+
+首次打开从约 4.2 / 27.6 分钟降到 4.1 / 9.7 秒；50k/20k 首次打开比值从 6.5 降到 2.4（轮数比 2.5），
+恢复近线性。`rows` 单页仍为 6-8ms，`escode-cli-rust-cold-rows.test.ts` 的冷导入逐行对拍保持通过。
+
 ## 读法
 
 - 大历史冷进程打开：Rust 二次打开约为 Node 的 1/5.8；首次打开包含一次性导入，仍约为 1/3.3。
@@ -105,7 +125,7 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
 - 20000 轮 / 39 MiB 的 release 二次打开为 742ms（Node 5082ms，约 1/6.8）；一次性导入 253s 仍随轮数线性增长，
   是当前唯一明显长尾。单页读取仍为毫秒级。
 - 50000 轮 / 98 MiB 的 release 二次打开为 1704ms（Node 10256ms，约 1/6.0），单页读取仍为毫秒级；
-  一次性导入增至约 27.6 分钟。导入耗时相对轮数超线性（2.5 倍轮数约 6.5 倍耗时），是当前最值得修复的长尾。
+  一次性导入修复前约 27.6 分钟、修复后 9.7 秒，已恢复近线性（见上节）。
 
 ## 仍缺
 

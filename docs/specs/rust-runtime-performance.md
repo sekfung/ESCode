@@ -116,13 +116,19 @@ Linux x64 本机结果：Node 二次打开 p50 2073ms、Rust 358ms；首次打�
 5/20ms；下一轮 mock 首输出 553/166ms。Rust 使用 debug 二进制，只用于同机相对比较。
 
 2000 轮 / 3 次交错（TS 库 4.1 MiB）：Node 首次/二次打开 2567/2343ms，Rust 7643/623ms；
-`rows` 200 行 5/22ms；下一轮 mock 首输出 1330/551ms。一次性导入随历史线性增长，二次打开仍明显快于 Node。
+`rows` 200 行 5/22ms；下一轮 mock 首输出 1330/551ms。二次打开仍明显快于 Node。
 
 10000 轮 / 1 次（TS 库 18.65 MiB，`ESCODE_BENCH_SKIP_TURN=1` 只测打开与分页）：Node 首次/二次打开
 3898/3678ms，Rust 222148/1748ms；`rows` 200 行 5/22ms。10k 轮已超过 mock provider 的上下文窗口，
 该规模不测下一轮，不能据此推断真实供应商长尾。
 同一库的 release 二进制：Node 首次/二次打开 3890/3762ms，Rust 61838/409ms；`rows` 200 行 6/5ms。
 debug 的 222s 首次打开主要是一次性 TS 导入，release 降至 62s；稳态二次打开约 0.41s。
+
+2026-11-02 的 20k/50k 复测发现一次性导入并非线性：`legacy_sessions` 每轮全量扫描 `rows` 补空
+`turnId`、`legacy_row_post::imported_actions` 逐行线性查找 `bound`，两处均为 O(rows²)。修复后
+同一份源库的首次打开从 20k 253s / 50k 1654s 降到 4.1s / 9.7s（详见
+[大活跃历史离线基线](../reports/rust-long-history-fixture-2026-10-31.md)）。导入投影必须保持按
+会话 / 消息 / part / 行线性推进，禁止在轮次或行循环内重扫全部 `rows`。
 
 完整方法、读法和仍缺口径见 [大活跃历史离线基线](../reports/rust-long-history-fixture-2026-10-31.md)。
 真实供应商、流式稳定阶段 RPC 长尾和 Windows/macOS 原生测量仍未完成。
