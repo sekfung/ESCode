@@ -1,5 +1,6 @@
-// Agent bundle 的暂存动作：把 apps/escode-cli/packages/cli/dist/escode.cjs 放进
-// bundled-agents/<平台>/glm，并写 meta。
+// Agent bundle 的暂存动作：把 apps/escode-cli/packages/cli/dist/{escode,plugin-host}.cjs
+// 放进 bundled-agents/<平台>/glm。Rust-only 模式只暂存 plugin-host.cjs（官方插件宿主），
+// 不写 Node agent bundle 与 meta（docs/specs/rust-release-rollback.md）。
 //
 // dev 与打包**必须**用同一份暂存实现。
 // 只有打包链（prepare-agent-node-bundle.mjs）会暂存是不够的，dev 链

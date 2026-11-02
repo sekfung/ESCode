@@ -113,8 +113,9 @@ sequenceDiagram
   `app.isPackaged` 时向 Host 注入 `ESCODE_DESKTOP_PACKAGED=1`，解析器据此跳过开发入口探测（默认选择、Node 回退链与插件宿主 env
   三处同口径），打包态的 runtime 选择与 cwd 无关。
 - 打包：`ESCODE_BUNDLE_RUST_AGENT` 默认开启（`=0` 关闭时安装包只含 Node，须同时设置 `ESCODE_AGENT_SERVER_RUNTIME=node`，否则启动报错）。
-  `ESCODE_BUNDLE_NODE_AGENT=0` 可产出不含 `resources/glm/zcode.cjs` 的 Rust-only 安装包；两者同时关闭会在构建期报错
-  （见 rust-release-rollback.md「Rust-only 打包产物开关」）。
+  `ESCODE_BUNDLE_NODE_AGENT=0` 可产出不含 `resources/glm/zcode.cjs` 的 Rust-only 安装包，并保留
+  `plugin-host.cjs` 继续承载官方插件；两者同时关闭会在构建期报错（见 rust-release-rollback.md
+  「Rust-only 打包产物开关」）。
 - 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖默认选 Rust、二进制缺失报错、开发态 / 显式 node / 非桌面安装包保持 Node。
 
 ## 远程环境使用 Rust（2026-10-12，用户决定）

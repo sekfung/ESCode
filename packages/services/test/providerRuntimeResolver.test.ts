@@ -6,6 +6,8 @@ import {
   buildCleanEnv,
   resolveProviderConfigDir,
   findBinary,
+  findESCodeAgentRuntimeNodeBundle,
+  findESCodePluginHostBundle,
 } from "../src/runtime-tools/providerRuntimeResolver.js";
 import { setDataBaseDir } from "../src/paths.js";
 
@@ -52,6 +54,21 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     expect(realpathSync(findBinary("glm")!)).toBe(
       realpathSync(join(glmRepoDir, "packages", "cli", "src", "main.ts")),
     );
+  });
+
+  it("Rust-only 包能在 glm 目录发现独立插件宿主", () => {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-plugin-host-resolver-"));
+    createdDirs.push(sandboxRoot);
+    const glm = join(sandboxRoot, "bundled-agents", `${process.platform}-${process.arch}`, "glm");
+    mkdirSync(glm, { recursive: true });
+    writeFileSync(join(glm, "plugin-host.cjs"), "module.exports = {};\n");
+    process.env.HOME = sandboxRoot;
+    process.chdir(sandboxRoot);
+
+    expect(realpathSync(findESCodePluginHostBundle()!)).toBe(
+      realpathSync(join(glm, "plugin-host.cjs")),
+    );
+    expect(findESCodeAgentRuntimeNodeBundle()).toBeNull();
   });
 
   it("desktop dev cwd 在 packages/desktop 时仍会发现仓库相邻的 escode-cli", () => {
