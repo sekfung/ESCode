@@ -221,7 +221,7 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       本轮同时修复了 `yazl`/`buffer-crc32` 打包闭包、Node settings 未知键丢弃、drill userData
       单实例隔离与 RUSTSEC-2026-0386（tokio 1.53.3）。
 - [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
-      `--record`/`--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
+      `--record`/`--golden`/`--live-node` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
       （三平台已录制；`rust-runtime-ci.yml` 只跑 `--golden` 阻塞门禁，缺失 golden 直接失败，
       欠账基线为空的平台自动追加 `--strict`——2026-10-31 Linux 已启用；2026-10-26 修复
       `currentDate` 未归一导致的 golden 次日失效；2026-11-01 跨月复跑补上 WebSearch 工具描述
@@ -266,8 +266,10 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   §5 的 ≤2.5 MiB 与 ≤0.2 s 初始目标，原因与口径差异记在验收报告 §5.2，作为后续独立工作包。
 - parity golden：`record-cli-goldens.yml` 负责 CLI parity 录制（先落盘 golden → 冻结本平台欠账
   基线 → 只跑 Rust 的 `--golden` 验证）。`--record` 必写 `<platform>-<arch>` 文件，欠账基线也按
-  平台分文件（Windows 帧批次与 Linux 不同）。`rust-runtime-ci.yml` 已切为 golden-only：平台 golden
-  缺失直接失败（不再实时启动 Node oracle）；平台欠账基线为空时自动追加 `--strict`。
+  平台分文件（Windows 帧批次与 Linux 不同）。差分脚本不带模式参数时默认按 `--golden` 运行，只有
+  显式 `--record` 或 `--live-node` 才会启动 Node；`--live-node` 用于删除 Node 前的最后一次实时双跑
+  演练，不写 golden。`rust-runtime-ci.yml` 已切为 golden-only：平台 golden 缺失直接失败（不再实时
+  启动 Node oracle）；平台欠账基线为空时自动追加 `--strict`。
   2026-10-31：`session-baseline` 的 7 条 T-4 帧批次/顺序差异已按 `index + 双侧 sha256` 登记为
   approved，Linux x64 基线清空并在 `--golden --strict` 下通过；macOS/Windows 需按各自 runner 的
   帧顺序重录/登记后再转 strict。macOS/Windows golden 由对应 runner 录制并已入库（run `40281946953`）。

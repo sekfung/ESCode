@@ -88,9 +88,11 @@ rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 欠账�
 其中 macOS/Windows 均以 `--golden --strict` 运行并判定 parity（同样 0 欠账、0 新差异），跨平台 golden
 strict 门禁就此转绿。
 
-当前门禁形态（2026-11-02 复核）：
+当前门禁形态（2026-11-03 复核并收紧默认模式）：
 `packages/services/tests/escode-cli-rust-golden.ts` 的 `nodeOracle` 只读写冻结 golden，未录制时缺文件直接失败，
-不会启动 Node；`.github/workflows/rust-runtime-ci.yml` 的平台解析步骤要求 golden 存在，并在
+不会启动 Node；`scripts/diff-escode-cli-rust-parity.mjs` 不带模式参数时按 `--golden` 运行，只有显式
+`--record` 或 `--live-node` 才启动 Node，避免删除 Node 后默认差分悄悄回退到实时 oracle。
+`.github/workflows/rust-runtime-ci.yml` 的平台解析步骤要求 golden 存在，并在
 `scripts/diff-escode-cli-rust-parity.baseline.<platform>.json` 为空时自动追加 `--strict`。三份平台欠账基线
 （`darwin-arm64` / `linux-x64` / `win32-x64` 的 `session-baseline`）均为空数组，因此三平台 CI 实际都跑
 `--golden --strict`。删除 Node runtime 的前置条件「差分套件完全依赖冻结 golden，不再启动 Node oracle，
