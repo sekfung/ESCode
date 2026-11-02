@@ -217,6 +217,8 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
    `zcode.cjs` 的产物；Rust-only 安装阶段只要求 Rust 二进制。
 6. Windows 打包态启动诊断以「至少存在一种随包 agent runtime」为完整：Rust-only 有 Rust 二进制、
    无 Node bundle 时不报警；仅 Rust 与 Node 两者都缺失时才记录资源损坏警告。
+7. 版本演练要移除 base/降级安装包里的 Node bundle。Linux apt 安装目录 `/opt/ESCode` 归 root，
+   `zcode.cjs` / `.node-bundle-meta.json` 的删除在普通用户 EACCES 时走 `sudo`，避免失败或半剥离产物。
 
 边界：该开关只负责「产物不含 Node agent bundle」。把 `ESCODE_BUNDLE_NODE_AGENT=0` 设为发布默认、删除 TS CLI、
 本地 Node Host 路径与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，仍需三平台 Rust-only 安装/升级/回滚演练与

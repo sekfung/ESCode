@@ -115,12 +115,26 @@ function assertInstalled({ app, glm }, label = "install", { rustOnly: requireRus
   console.log(`${label}: installed app: ${app}\n${label}: installed glm: ${glm}`);
 }
 
+function removePackagedFile(path, label) {
+  if (!existsSync(path)) return false;
+  try {
+    rmSync(path);
+  } catch (error) {
+    // Bugfix：Linux apt 安装目录 /opt/ESCode 归 root，普通 runner 用户删除旧包的 zcode.cjs 会 EACCES；
+    // 版本演练的 base/降级阶段是旧安装包，必须显式提权，不能留下半剥离产物。
+    if (process.platform !== "linux" || error?.code !== "EACCES") throw error;
+    run("sudo", ["rm", "-f", path]);
+  }
+  console.log(`${label}: removed ${path}`);
+  return true;
+}
+
 function stripNodeAgentBundle(glmDir, label) {
   const nodeBundle = join(glmDir, "zcode.cjs");
-  if (existsSync(nodeBundle)) {
-    rmSync(nodeBundle);
-    console.log(`${label}: removed Node agent bundle ${nodeBundle}`);
-  } else {
+  const nodeMeta = join(glmDir, ".node-bundle-meta.json");
+  const removedBundle = removePackagedFile(nodeBundle, label);
+  const removedMeta = removePackagedFile(nodeMeta, label);
+  if (!removedBundle && !removedMeta) {
     console.log(`${label}: Node agent bundle already absent`);
   }
   if (!existsSync(rustBinaryPath(glmDir))) {
