@@ -94,7 +94,12 @@ export async function startAgent(
   };
   transport.onMessage((message) => {
     const method = (message as { method?: string }).method ?? "response";
-    trace(`recv ${method} bytes=${JSON.stringify(message).length}`);
+    const params = (message as { params?: Record<string, unknown> }).params;
+    const state =
+      method === "startup/storageState" && params
+        ? ` phase=${String(params.phase)} sequence=${String(params.sequence)} elapsedMs=${String(params.elapsedMs)} error=${String(params.errorCode ?? "")}`
+        : "";
+    trace(`recv ${method} bytes=${JSON.stringify(message).length}${state}`);
   });
   const client = new ESCodeProtocolClient(transport, {
     requireStorageStartup: true,
