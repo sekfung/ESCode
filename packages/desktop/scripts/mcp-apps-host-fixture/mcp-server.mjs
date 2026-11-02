@@ -6,6 +6,9 @@ const [port, htmlPath, sourceArgument] = process.argv.slice(2);
 // managed-delayed 只改变 initialize 时序，对窗口/会话仍是 managed。
 const source = sourceArgument === "managed-delayed" ? "managed" : sourceArgument;
 const control = connect(Number(port), "127.0.0.1");
+// 父进程先关闭控制连接时（会话删除/Agent 退出），客户端 socket 会报 ECONNRESET；
+// 夹具进程直接退出，避免未处理错误掩盖真正的 E2E 断言。
+control.on("error", () => process.exit(0));
 const sendEvent = (event) => control.write(JSON.stringify({ source, ...event }) + "\n");
 const respond = (id, result) =>
   process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");

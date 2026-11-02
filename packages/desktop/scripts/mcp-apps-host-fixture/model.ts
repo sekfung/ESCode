@@ -17,9 +17,23 @@ export async function startModel(root: string, cli: string) {
   const aborted = new Events<string>();
   const releases = new Map<string, () => void>();
   const server = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const body = JSON.parse(Buffer.concat(chunks).toString());
+    // 修复：Agent 在 Windows 上退出或取消请求时，本地模型连接会以 ECONNRESET 关闭。
+    // 旧实现把这个错误留在 HTTP request/socket 上，异常会冒泡到 Electron main；
+    // 夹具这里只终止当前请求，不把连接级故障升级成进程级失败。
+    req.on("error", () => undefined);
+    res.on("error", () => undefined);
+    let body: any;
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = JSON.parse(Buffer.concat(chunks).toString());
+    } catch {
+      if (!res.headersSent && !res.destroyed) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "fixture provider request failed" } }));
+      }
+      return;
+    }
     const plan = plans.shift();
     const tool = body.tools?.find((t: any) =>
       t.function?.name.endsWith(`__${plan?.toolName ?? "page_edit"}`),
@@ -109,6 +123,7 @@ export async function startModel(root: string, cli: string) {
     );
     res.end("data: [DONE]\n\n");
   });
+  server.on("connection", (socket) => socket.on("error", () => undefined));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
   const builtin = join(root, "fixture-builtin.json"),
