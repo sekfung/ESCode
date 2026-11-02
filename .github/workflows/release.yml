@@ -59,8 +59,10 @@ jobs:
           - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, exe: "" }
           - { target: x86_64-pc-windows-msvc, os: windows-latest, exe: .exe }
           - { target: aarch64-pc-windows-msvc, os: windows-latest, exe: .exe }
-          - { target: x86_64-apple-darwin, os: macos-latest, exe: "" }
-          - { target: aarch64-apple-darwin, os: macos-latest, exe: "" }
+          # macOS 托管 runner 的 latest 池偶发持续排队并被平台取消；固定 macos-14（arm64），
+          # x64 目标仍沿用既有的交叉构建方式。
+          - { target: x86_64-apple-darwin, os: macos-14, exe: "" }
+          - { target: aarch64-apple-darwin, os: macos-14, exe: "" }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -111,8 +113,8 @@ jobs:
       matrix:
         include:
           - { os: win, arch: x64, runner: windows-latest }
-          - { os: mac, arch: arm64, runner: macos-latest }
-          - { os: mac, arch: x64, runner: macos-latest }
+          - { os: mac, arch: arm64, runner: macos-14 }
+          - { os: mac, arch: x64, runner: macos-14 }
           - { os: linux, arch: x64, runner: ubuntu-latest }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
@@ -213,7 +215,7 @@ jobs:
       matrix:
         include:
           - { os: win, arch: x64, runner: windows-latest }
-          - { os: mac, arch: arm64, runner: macos-latest }
+          - { os: mac, arch: arm64, runner: macos-14 }
           # x64 安装包在原生 Intel runner 上验证（不经 Rosetta）。
           - { os: mac, arch: x64, runner: macos-15-intel }
           - { os: linux, arch: x64, runner: ubuntu-latest }

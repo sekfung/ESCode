@@ -32,7 +32,7 @@ jobs:
       matrix:
         include:
           - { os: win, arch: x64, runner: windows-latest }
-          - { os: mac, arch: arm64, runner: macos-latest }
+          - { os: mac, arch: arm64, runner: macos-14 }
           - { os: mac, arch: x64, runner: macos-15-intel }
           - { os: linux, arch: x64, runner: ubuntu-latest }
     runs-on: ${{ matrix.runner }}
