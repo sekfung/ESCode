@@ -82,7 +82,14 @@ Web / 手机 / remote 的不支持回退与 continuous / replayable 边界不变
 | Web / remote             | 不创建本地沙箱，不产生额外订阅                                                        |
 
 入口：`node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only`；
-既有生命周期与回退使用 `--managed-only`。真实插件验证直接使用未修改的 PhotoCraft 0.2.2：
+既有生命周期与回退使用 `--managed-only`。
+
+当前检出的 `mcp-apps-host-e2e.mjs` 没有 `--background-only` / `--photocraft-background-only`：这两个入口在上游
+`upstream/main`（`mcp-apps-host-fixture/background-main.ts` 及配套夹具），本仓库 v3.15.1 移植时随整份脚本回退丢失
+（`git log -S` 在本地分支无记录）。补回前后台创建的证据是两侧单测，不是本仓库的 Electron 端到端结果；
+移植需要同时带回 `managedEnvironment` / `agent` / `model` / `managed-renderer` 的后台夹具钩子。
+
+真实插件验证直接使用未修改的 PhotoCraft 0.2.2：
 `ESCODE_PHOTOCRAFT_SERVER=/path/to/photocraft/dist/server.mjs node packages/desktop/scripts/mcp-apps-host-e2e.mjs --photocraft-background-only`。
 macOS Electron 已验证：宿主先最小化再首次创建插件、后台初始化与编辑、跨离屏期限保留和恢复截图 `photocraft-restored.png`。
 测试外壳的白底不是插件成功证据，必须结合实际命令结果和恢复截图；该夹具不覆盖商店安装路径。

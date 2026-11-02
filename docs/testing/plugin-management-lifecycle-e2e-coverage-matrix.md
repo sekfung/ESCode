@@ -210,6 +210,10 @@ PLM-LC-018/019/020：`plugins/manual-review/pending/plugin-localization-creator.
 Web/remote 不支持回退、runtime 失效、内联滚动与页面保留沿用 `--managed-only`。
 Windows/Linux、真实手机和其它第三方插件需独立验证。
 
+`--background-only` / `--photocraft-background-only` 在本仓库当前检出的脚本里不存在（上游
+`upstream/main` 的 `background-main.ts` 在 v3.15.1 移植时丢失）。表格里这两行的通过记录来自上游实现，
+不代表本仓库现状；补回入口前后台创建只剩单测证据。
+
 `PLM-UI-CONNECTION-READY`：`--managed-only` 控制真实 MCP initialize 完成顺序，验证生产
 React 面板等待连接后自动运行、无错误闪现和重复实例。2026-10-16 macOS Electron 专项通过；未晋升 CI。
 独立 worktree 使用标准命令整组回归，`managed` 27 项、`managed-empty` 1 项、`interaction` 1 项全部通过，

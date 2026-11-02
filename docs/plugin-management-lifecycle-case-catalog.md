@@ -153,6 +153,10 @@ PLM-LC-018（管理列表本地化）、PLM-LC-019（双入口创建插件草稿
 `PLM-UI-VISIBILITY`：收起侧栏、切换标签、离开聊天页及切换工作区时，保活卡片不显示独立插件浮层，不拦住宿主点击；插件双帧工作和内存编辑状态继续保留，返回复用同一 guest。初始隐藏不得绑定展示锚点。入口 `--managed-only`，深浅主题；宿主页面可见性另用桌面/手机壳组件回归验证。
 
 受控 Electron 回归入口：`node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only`。
+
+该入口在本仓库当前检出的脚本中缺失（上游 `upstream/main` 的 `background-main.ts` 未随 v3.15.1 移植带回）。
+补回前本节的 Electron 结论只代表上游实现，本仓库以后台创建相关单测为准。
+
 无卡片冷启动、隐藏但仍挂载的 tab、握手后的多帧初始化、窗口最小化执行、session 空闲时内部工作继续、
 同窗空闲 guest 隔离、离屏期限保留内存、删除释放，详见 [后台执行契约](plugin-ui-background-execution.md)。
 设置 `ESCODE_PHOTOCRAFT_SERVER` 指向构建后的 PhotoCraft `dist/server.mjs`，使用
