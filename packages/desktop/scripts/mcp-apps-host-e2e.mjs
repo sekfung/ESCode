@@ -47,7 +47,8 @@ if (
   ]) {
     await new Promise((accept, reject) => {
       const child = spawn(
-        "pnpm",
+        // Windows 的 pnpm 入口是 .cmd，直接 spawn("pnpm") 会 ENOENT。
+        process.platform === "win32" ? "pnpm.cmd" : "pnpm",
         [
           "--dir",
           join(root, "apps/escode-cli"),
