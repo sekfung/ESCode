@@ -52,7 +52,7 @@ async function dumpAgentLogs() {
   const dir = join(output, "agent-data", "logs");
   try {
     for (const entry of (await readdir(dir, { recursive: true })).filter((name) =>
-      name.endsWith(".log"),
+      /\.(log|jsonl)$/.test(name),
     )) {
       const text = await readFile(join(dir, entry), "utf8");
       process.stderr.write(`--- agent log ${entry} (tail) ---\n${text.slice(-20_000)}\n`);

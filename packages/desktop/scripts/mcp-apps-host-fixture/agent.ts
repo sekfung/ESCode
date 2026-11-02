@@ -39,6 +39,10 @@ export async function startAgent(
   const sockets = new Map<string, Socket>();
   const socketSources = new Map<Socket, string>();
   const control = createServer((socket) => {
+    // 修复：MCP 子进程在 Windows 上异常退出时，控制连接会以 ECONNRESET 关闭。
+    // 之前没有 socket error 监听，异常会冒泡到 Electron main 的默认异常处理并表现为静默挂起；
+    // 这里只记录连接级故障，让协议 transport 的 child exit/close 继续走正常失败路径。
+    socket.on("error", (error) => trace(`control socket error ${String(error)}`));
     createInterface({ input: socket }).on("line", (line) => {
       const event = JSON.parse(line);
       socketSources.set(socket, event.source);
@@ -57,6 +61,7 @@ export async function startAgent(
       }
     });
   });
+  control.on("error", (error) => trace(`control server error ${String(error)}`));
   await new Promise<void>((resolve) => control.listen(0, "127.0.0.1", resolve));
   const port = (control.address() as { port: number }).port;
   const data = join(root, "agent-data");
