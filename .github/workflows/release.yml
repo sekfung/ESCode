@@ -29,6 +29,13 @@ on:
 permissions:
   contents: write
 
+# 同一 ref 的 release 运行串行化：push 与 workflow_dispatch 会同时申请多个 macOS runner，
+# GitHub 托管 macOS 并发受限时会把排队/运行中的作业取消（本仓库 2026-11-02 的 mac-arm64
+# 桌面与 rust runtime 作业因此被反复取消）。排队而不取消正在运行的发布，避免发布互相抢占。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   # 正式版：生产后端、正式身份与生产内置配置（未设置时按 test 处理，会产出 "ESCode Preview" 与 _TEST 后缀）。
   ESCODE_ENV: production
