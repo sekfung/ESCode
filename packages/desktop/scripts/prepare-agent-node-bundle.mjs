@@ -12,8 +12,8 @@
 //
 // 远端（SSH/WSL/Docker）没有 Electron，仍走 prepare:remote-assets 的原生二进制，互不影响。
 
-import { cpSync, existsSync, mkdirSync } from "node:fs";
-import { basename, dirname, resolve } from "node:path";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { runCommand } from "../../../scripts/spawn-command.mjs";
@@ -78,6 +78,9 @@ const arch = normalizeArch(process.env.ESCODE_TARGET_ARCH || "") || process.arch
 const platformKey = `${platform}-${arch}`;
 
 const glmDir = resolve(desktopRoot, "bundled-agents", platformKey, "glm");
+// Rust-only 产物（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
+// 插件 seed、技能包、REA 与 sharp/koffi 仍要 stage，只跳过 Node agent bundle 本身。
+const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
 // zcode.cjs / .node-bundle-meta.json 的落点由 stage-agent-bundle.mjs 自己解析（同源）。
 // node_repl 宿主抽成独立包
 // @escode/node-repl-host 之后，browser-use 不再产出 dist/mcp/server.js，CUA 资产
@@ -388,6 +391,23 @@ function stageBundle() {
   stageAgentBundle({ repoRoot, platformKey });
 }
 
+function resetBundledAgentDirForRustOnly() {
+  // 与 stageAgentBundle 的清理语义保持一致：先删掉上次构建残留（含 zcode.cjs / meta / 旧原生二进制），
+  // 再让后续 stageOfficialPlugins 等步骤重建 Rust runtime 需要的资产。
+  rmSync(glmDir, { recursive: true, force: true });
+  console.log("[prepare:agent-bundle] skip Node agent bundle (ESCODE_BUNDLE_NODE_AGENT=0)");
+}
+
+function assertRustOnlyBundle() {
+  if (shouldBundleNodeAgent) return;
+  for (const name of ["zcode.cjs", ".node-bundle-meta.json"]) {
+    const path = join(glmDir, name);
+    if (existsSync(path)) {
+      throw new Error(`[prepare:agent-bundle] Rust-only bundle must not contain ${path}`);
+    }
+  }
+}
+
 function stageOfficialPlugins() {
   for (const plugin of officialPluginPackages) {
     const sourceRoot = resolve(repoRoot, plugin.relativePath);
@@ -529,9 +549,14 @@ function stageKoffiForCuaPlugin() {
 // 必须先构建 CLI 依赖，再构建官方插件；开发机残留的 dist 曾掩盖这个顺序问题。
 buildCliBundle();
 buildOfficialPluginRuntimes();
-stageBundle();
+if (shouldBundleNodeAgent) {
+  stageBundle();
+} else {
+  resetBundledAgentDirForRustOnly();
+}
 stageOfficialPlugins();
 stageReaRuntime();
 stageBundledSkillPack();
 stageKoffiForCuaPlugin();
 stageSharpForNodeReplPlugin();
+assertRustOnlyBundle();

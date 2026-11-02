@@ -35,6 +35,14 @@ const shouldPrepareMacosWindowBounds = target.os === "darwin";
 // 此时安装包只含 Node runtime，桌面端自动用 Node。
 const shouldPrepareRustAgent = process.env.ESCODE_BUNDLE_RUST_AGENT !== "0";
 const shouldPrepareRustHost = process.env.ESCODE_BUNDLE_RUST_HOST !== "0";
+// Rust-only 产物开关（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
+// prepare:agent-bundle 仍负责插件 seed / 技能包 / REA 与原生依赖，只跳过 Node agent bundle 本身的暂存。
+const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
+if (!shouldBundleNodeAgent && !shouldPrepareRustAgent) {
+  throw new Error(
+    "ESCODE_BUNDLE_NODE_AGENT=0 requires ESCODE_BUNDLE_RUST_AGENT!=0; the package would have no agent runtime",
+  );
+}
 const localRuntimeScripts = [
   "prepare:agent-bundle",
   ...(shouldPrepareRustAgent ? ["prepare:rust-agent"] : []),

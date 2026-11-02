@@ -6,13 +6,13 @@
 
 App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode-agent/escodeAgentProcessManager.ts`）：
 
-| 变量                            | 作用                                                                                                                                                                                                                                      |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ESCODE_AGENT_SERVER_COMMAND`   | Agent 可执行文件；指向 Rust 二进制即启用 Rust runtime                                                                                                                                                                                     |
-| `ESCODE_AGENT_SERVER_RUNTIME`   | `escode-cli-rust`：有 `ESCODE_AGENT_SERVER_COMMAND` 时用该命令，否则用随包 `resources/glm/escode-cli-rust[.exe]`（缺失则回退 Node 并告警）；均附加 `--cwd <workspacePath>` 与 process 存储握手。`node`：显式使用 Node（回退）。其他值报错 |
-| `ESCODE_AGENT_SERVER_ARGS_JSON` | 附加参数；Rust 模式下不允许自带 `--cwd`（Host 注入）                                                                                                                                                                                      |
+| 变量                            | 作用                                                                                                                                                                                                                                    |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ESCODE_AGENT_SERVER_COMMAND`   | Agent 可执行文件；指向 Rust 二进制即启用 Rust runtime                                                                                                                                                                                   |
+| `ESCODE_AGENT_SERVER_RUNTIME`   | `escode-cli-rust`：有 `ESCODE_AGENT_SERVER_COMMAND` 时用该命令，否则用随包 `resources/glm/escode-cli-rust[.exe]`（缺失直接报错，不回退）；均附加 `--cwd <workspacePath>` 与 process 存储握手。`node`：显式使用 Node（回退）。其他值报错 |
+| `ESCODE_AGENT_SERVER_ARGS_JSON` | 附加参数；Rust 模式下不允许自带 `--cwd`（Host 注入）                                                                                                                                                                                    |
 
-未设置这些变量（或设为 `node`）时，Host 启动随包分发的 Node CLI——这就是回退路径。随包 Rust 二进制由 `ESCODE_BUNDLE_RUST_AGENT=1` 的打包流程产出（见 rust-packaging.md），默认不随包。
+打包态未设置这些变量时默认启动随包 Rust 二进制；只有显式 `ESCODE_AGENT_SERVER_RUNTIME=node` 才走 Node 回退。随包 Rust 二进制由 `ESCODE_BUNDLE_RUST_AGENT` 控制（默认随包，`0` 关闭；见 rust-packaging.md）。
 
 ## 回退步骤（可执行）
 
@@ -196,6 +196,29 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
   只在 Windows 通过，暴露「启动器 exe 在 base/head 间相同」的第三处断言缺陷。
 - 操作约束：工作流文件已在默认分支 `main`（`d25e3f38`）；`workflow_dispatch` 的 `--ref dev` 决定
   checkout 的脚本版本，因此持续修 `scripts/ci-install-desktop.mjs` 后重新 dispatch 即可，不必改 `main`。
+
+### Rust-only 打包产物开关（2026-11-02 设计）
+
+安装门禁只能证明「运行时删掉 `zcode.cjs` 仍可用」，不能证明产物本身已精简。产物级开关与门禁如下：
+
+1. `ESCODE_BUNDLE_NODE_AGENT=0` 让打包链路不再把 `zcode.cjs` / `.node-bundle-meta.json` 放进
+   `resources/glm`。`prepare:agent-bundle` 仍构建 CLI 与官方插件 runtime，并继续 stage 官方插件 seed、
+   `packages/bundled-skills`、`rea-runtime` 与 sharp/koffi 原生依赖——这些不是 Node agent bundle 的替代物，
+   而是 Rust runtime 首启 seed 与插件宿主需要的资产。
+2. 该开关必须与 `ESCODE_BUNDLE_RUST_AGENT` 同时开启；两者同时关闭会让安装包没有任何 agent runtime，
+   构建阶段直接失败，不产出无法启动的包。
+3. 产物断言在两个位置执行：`electron-builder.config.js` 的 `afterPack`（本地打包即失败）与
+   `assert-release-artifacts.mjs`（release 产物门禁）。Rust-only 构建要求
+   `resources/glm/escode-cli-rust[.exe]` 存在，且 `resources/glm/zcode.cjs` 与 `.node-bundle-meta.json`
+   不存在；所有构建都要求至少存在一种 agent runtime。
+4. `release` 工作流的 `workflow_dispatch` 输入 `rust_only=true` 使用该开关构建四平台产物，并跳过依赖 Node
+   agent bundle 的 Node → Rust → Node 回退演练，改为执行 Rust-only 安装、Host 启动与安装包会话门禁。
+5. `ci-install-desktop.mjs` 在 Linux 上按 `resources/glm/escode-cli-rust` 反查 `glm` 目录，兼容已移除
+   `zcode.cjs` 的产物；Rust-only 安装阶段只要求 Rust 二进制。
+
+边界：该开关只负责「产物不含 Node agent bundle」。把 `ESCODE_BUNDLE_NODE_AGENT=0` 设为发布默认、删除 TS CLI、
+本地 Node Host 路径与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，仍需三平台 Rust-only 安装/升级/回滚演练与
+P1 残余项收敛后再单独确认。
 
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 

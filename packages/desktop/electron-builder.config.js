@@ -50,6 +50,9 @@ const targetPlatform = getTargetPlatform();
 // 代码和完整供应链保留在显式 opt-in 后，便于未来恢复而不影响当前发布流程。
 const shouldPackageWindowsBrowserImportHelper =
   targetPlatform.os === "win32" && process.env.ESCODE_ENABLE_WINDOWS_BROWSER_IMPORT === "1";
+// Rust-only 产物开关（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
+// 此处按最终 resources 复核，避免 extraResources 的目录缺失只告警、产出一个没有 agent runtime 的包。
+const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
 const builtinProviderConfig = await loadBuiltinProviderConfig();
 const desktopProductIdentity = resolveDesktopProductIdentity({
   ...process.env,
@@ -349,6 +352,40 @@ function assertPackagedBundledRemoteAssets(context) {
       `[electron-builder] packaged remote-assets incomplete (${targetPlatform.key}): ` +
         `${missingPaths.join(", ")}。构建必须走 prepare:runtime-assets（内含 prepare:bundled-remote-assets），` +
         "且不能设置 ESCODE_SKIP_BUNDLED_REMOTE_ASSETS=1。",
+    );
+  }
+}
+
+function assertPackagedAgentRuntimes(context) {
+  const glmDir = resolve(resolvePackagedResourcesDir(context), "glm");
+  const rustBinary = resolve(
+    glmDir,
+    context.electronPlatformName === "win32" ? "escode-cli-rust.exe" : "escode-cli-rust",
+  );
+  const nodeBundle = resolve(glmDir, "zcode.cjs");
+  const nodeMeta = resolve(glmDir, ".node-bundle-meta.json");
+  const hasRust = existsSync(rustBinary);
+  const hasNode = existsSync(nodeBundle);
+  if (!hasRust && !hasNode) {
+    throw new Error(
+      `[electron-builder] packaged app has no agent runtime: expected one of ${rustBinary} or ${nodeBundle}. ` +
+        "Build must run prepare:runtime-assets with ESCODE_BUNDLE_RUST_AGENT or ESCODE_BUNDLE_NODE_AGENT enabled.",
+    );
+  }
+  if (shouldBundleNodeAgent) return;
+  if (hasNode) {
+    throw new Error(
+      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 but the package still contains ${nodeBundle}`,
+    );
+  }
+  if (existsSync(nodeMeta)) {
+    throw new Error(
+      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 but the package still contains ${nodeMeta}`,
+    );
+  }
+  if (!hasRust) {
+    throw new Error(
+      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 requires a bundled Rust agent: ${rustBinary}`,
     );
   }
 }
@@ -741,6 +778,9 @@ export default {
     runTimedSync("afterPack:assertPackagedCuaSharp", () => assertPackagedCuaSharp(context));
     runTimedSync("afterPack:assertPackagedCuaKoffi", () => assertPackagedCuaKoffi(context));
     runTimedSync("afterPack:assertPackagedCuaHelper", () => assertPackagedCuaHelper(context));
+    runTimedSync("afterPack:assertPackagedAgentRuntimes", () =>
+      assertPackagedAgentRuntimes(context),
+    );
     runTimedSync("afterPack:assertPackagedBundledRemoteAssets", () =>
       assertPackagedBundledRemoteAssets(context),
     );

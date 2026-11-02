@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   asarEntryPath,
   assertReleaseArtifacts,
+  findAgentRuntimeProblems,
   findNonReleaseArtifactNames,
   findSourcemapLeaks,
   hasSourceMappingUrl,
@@ -56,6 +57,36 @@ describe("release artifact hygiene", () => {
     expect(asarEntryPath("out\\main\\index.js")).toBe("app.asar/out/main/index.js");
     expect(asarEntryPath("/out/main/index.js")).toBe("app.asar/out/main/index.js");
     expect(asarEntryPath("out/main/index.js")).toBe("app.asar/out/main/index.js");
+  });
+
+  it("requires a Rust agent and rejects Node bundle files in Rust-only artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "escode-rust-only-artifacts-"));
+    try {
+      const glm = join(root, "resources", "glm");
+      mkdirSync(glm, { recursive: true });
+      writeFileSync(join(glm, "zcode.cjs"), "x();");
+      writeFileSync(join(glm, ".node-bundle-meta.json"), "{}");
+
+      expect(findAgentRuntimeProblems(join(root, "resources"))).toEqual([]);
+      expect(
+        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
+      ).toContain("missing Rust agent runtime");
+      expect(
+        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
+      ).toContain("Rust-only package contains Node agent bundle");
+
+      writeFileSync(join(glm, "escode-cli-rust"), "");
+      rmSync(join(glm, "zcode.cjs"));
+      rmSync(join(glm, ".node-bundle-meta.json"));
+      expect(findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true })).toEqual([]);
+
+      rmSync(join(glm, "escode-cli-rust"));
+      expect(findAgentRuntimeProblems(join(root, "resources")).join("\n")).toContain(
+        "missing agent runtime",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("builds Rust runtimes stripped in the release profile", () => {

@@ -87,8 +87,12 @@ function installFrom(sourceDir) {
   const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
-    .find((line) => line.endsWith("/resources/glm/zcode.cjs"));
-  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm/zcode.cjs`);
+    .find(
+      (line) =>
+        line.endsWith("/resources/glm/zcode.cjs") ||
+        /\/resources\/glm\/escode-cli-rust(?:\.exe)?$/u.test(line),
+    );
+  if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm agent runtime`);
   const glm = dirname(entry);
   const base = dirname(dirname(glm));
   return { app: join(base, pkg), glm };
@@ -99,9 +103,14 @@ const rustBinaryPath = (glm) =>
 
 function assertInstalled({ app, glm }, label = "install", { rustOnly: requireRust = false } = {}) {
   const required = [app, glm, join(dirname(glm), "app.asar")];
-  required.push(requireRust ? rustBinaryPath(glm) : join(glm, "zcode.cjs"));
   for (const path of required) {
     if (!existsSync(path)) throw new Error(`${label}: installed path missing: ${path}`);
+  }
+  if (requireRust) {
+    const rust = rustBinaryPath(glm);
+    if (!existsSync(rust)) throw new Error(`${label}: installed path missing: ${rust}`);
+  } else if (!existsSync(join(glm, "zcode.cjs")) && !existsSync(rustBinaryPath(glm))) {
+    throw new Error(`${label}: installed package has no agent runtime under ${glm}`);
   }
   console.log(`${label}: installed app: ${app}\n${label}: installed glm: ${glm}`);
 }
