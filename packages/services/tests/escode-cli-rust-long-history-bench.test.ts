@@ -210,6 +210,11 @@ async function measure(kind: "node" | "rust", source: string) {
     const t1 = performance.now();
     const page = await h.rows(session);
     const pageMs = performance.now() - t1;
+    // 大历史测量必须确认分页确实返回了接口上限内的行；否则“打开很快”可能只是没有读到历史。
+    const pageRows = page.rows.length;
+    assert.ok(pageRows > 0, `${kind} returned an empty history page`);
+    assert.ok(pageRows <= 200, `${kind} returned ${pageRows} rows, above the 200-row page limit`);
+    if (turns >= 200) assert.equal(pageRows, 200, `${kind} did not fill the 200-row page`);
     return { h, openMs, pageMs, pageRows: page.rows.length };
   };
   try {
@@ -225,6 +230,8 @@ async function measure(kind: "node" | "rust", source: string) {
       console.log("STEP", kind, "opened2", Math.round(performance.now()));
     const h = second.h;
     if (skipTurn) {
+      // skipTurn 不经过 completed()，仍需在这里确认协议帧没有 schema 漂移。
+      assert.deepEqual(h.schemaErrors, []);
       await h.close();
       return {
         firstOpenMs: first.openMs,
@@ -355,6 +362,15 @@ test(
         ];
       }),
     );
-    console.log("LONG", JSON.stringify(summary));
+    console.log(
+      "LONG",
+      JSON.stringify({
+        platform: `${process.platform}-${process.arch}`,
+        node: process.version,
+        turns,
+        skipTurn,
+        samples: summary,
+      }),
+    );
   },
 );

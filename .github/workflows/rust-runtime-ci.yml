@@ -15,6 +15,17 @@ on:
         required: false
         default: '["ubuntu-latest","windows-latest","macos-latest"]'
         type: string
+      # 三平台大历史是测量作业，默认不跑，避免每次 push/PR 都为每个平台造数万轮历史。
+      long_history:
+        description: "跑三平台 20k 轮大历史基准（release，默认关闭）"
+        required: false
+        default: false
+        type: boolean
+      long_history_turns:
+        description: "大历史轮数（默认 20000）"
+        required: false
+        default: "20000"
+        type: string
 
 concurrency:
   group: rust-runtime-ci-${{ github.ref }}
@@ -241,3 +252,50 @@ jobs:
         with:
           name: parity-${{ matrix.os }}
           path: .escode-runtime/parity
+
+  # 三平台原生大历史测量（docs/specs/rust-ci.md）：真实 TS store 造 20k 轮历史，
+  # Node bundle 与 Rust release 各测首次/二次打开与 rows 单页。只手动开启；延迟只记录不设阈值。
+  bench-long-history:
+    name: bench-long-history (${{ matrix.os }})
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.long_history }}
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE", "$env:RUNNER_TEMP", "$env:TEMP", "$env:USERPROFILE\.cargo", "$env:LOCALAPPDATA\pnpm"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/escode-cli-rust
+          key: release
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      # 长历史用例同时启动 Node bundle 与 Rust release；干净检出没有 CLI 产物，先按桌面链路构建。
+      - run: node scripts/build-desktop-agent-cli.mjs
+      # 用例经 tsx 直接 import 服务源码，依赖包的 dist/*.d.ts 必须先存在（与 test:escode-cli-rust 同一组项目）。
+      - run: node node_modules/typescript/bin/tsc -b packages/rpc packages/provider packages/provider-node packages/shared packages/services
+      - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
+      - name: Native long-history benchmark
+        shell: bash
+        env:
+          ESCODE_BENCH_HISTORY_TURNS: ${{ inputs.long_history_turns || '20000' }}
+        run: node scripts/bench-escode-cli-rust-long-history.mjs bench-results/long-history
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-long-history-${{ matrix.os }}
+          path: bench-results/long-history

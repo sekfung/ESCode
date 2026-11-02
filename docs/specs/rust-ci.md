@@ -7,10 +7,11 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 
 ### `.github/workflows/rust-runtime-ci.yml`（push 到 main / dev / `feat/**`、PR、手动）
 
-| job               | runner                                        | 内容                                                                                                                                                             |
-| ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| checks            | ubuntu-latest / windows-latest / macos-latest | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`pnpm check:escode-host`、`typecheck`、`lint`、`architecture:check`；`cargo deny`（两个 workspace，仅 Linux） |
-| test (matrix × 3) | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`、`pnpm test:escode-host`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件                                     |
+| job                | runner                                        | 内容                                                                                                                                                                      |
+| ------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| checks             | ubuntu-latest / windows-latest / macos-latest | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`pnpm check:escode-host`、`typecheck`、`lint`、`architecture:check`；`cargo deny`（两个 workspace，仅 Linux）          |
+| test (matrix × 3)  | ubuntu-latest / windows-latest / macos-latest | `pnpm test:escode-cli-rust`、`pnpm test:escode-host`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件                                              |
+| bench-long-history | ubuntu-latest / windows-latest / macos-latest | 手动触发：20,000 轮真实 TS store 历史，Node bundle + Rust release 分别测量首次/二次打开与 `rows` 单页；断言分页 200 行、schema 错误为 0，结果写入 job summary 与 artifact |
 
 - checks 在三平台跑（2026-10-18 M1 复核修订，推翻同日“维持 ubuntu”的决定）：H0 要求门禁在 CI 三平台都跑；clippy 在 Windows/macOS 的 `cfg` 分支下需各自 lint，边界脚本/typecheck/lint/architecture 也需在 Windows 路径语义下验证。代价是 checks 作业时长约 ×3。`cargo deny` 只在 Linux 跑：`cargo-deny-action` 是 Docker action，且依赖图按全部目标平台解析，与宿主 OS 无关；Host 工作区同步启用（`apps/escode-host/deny.toml`，与 CLI 同一策略）。
 - 2026-11-01 fmt 覆盖修正：`check:escode-cli-rust` 的 `cargo fmt` 补 `--all`。此前不带 `--all` 只格式化 workspace 根包，各 crate 的格式问题只能靠 `check:escode-host` 的 `cargo fmt --all --check`（host 以 path 依赖引用 CLI crates）间接发现；同日用 `x86_64-pc-windows-gnu --all-targets -D warnings` 复查时发现并修复两处 Windows 专属 clippy 失败（仅 unix 使用的测试导入与辅助函数）。
@@ -20,6 +21,12 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - Windows runner 默认 MSVC 工具链，覆盖此前本机只能用 GNU 目标得出源码级结论的缺口；macOS runner 为 arm64。
 - `ESCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
 - `ELECTRON_SKIP_BINARY_DOWNLOAD=1`：测试不需要 Electron 运行时。
+- `bench-long-history` 只由 `workflow_dispatch` 的 `long_history=true` 启用，默认关闭，避免每次 push/PR 都为三平台生成大库；`long_history_turns` 可覆盖默认轮数（默认 20000）。
+  作业构建 Node bundle、Rust release 二进制后，以 `ESCODE_BENCH_FIXTURE=1`、`ESCODE_BENCH_ROUNDS=1`、`ESCODE_BENCH_SKIP_TURN=1`
+  运行 `escode-cli-rust-long-history-bench.test.ts`。默认 20,000 轮用于把造库与构建控制在 runner 预算内；更大规模（如 50,000 轮）只作为手动输入。
+- 大历史作业是**测量作业**，不是延迟阈值门禁：三平台 runner 的 CPU/磁盘差异很大，作业只要求两侧都完成、`rows` 返回 200 行且 schema 错误为 0；
+  首次/二次打开与分页耗时写入 `bench-results/long-history/summary.json`、`summary.md`、`output.log` 和 `$GITHUB_STEP_SUMMARY`，供发布前对比。
+  Windows 入口复用 `scripts/bench-escode-cli-rust-long-history.mjs` 的临时目录长路径归一化，避免 8.3 短路径在 Node/Rust 子进程间不一致。
 
 ### `.github/workflows/release.yml`（推送 `v*` 标签、手动，或 `feat/**` 上改动发布链路时）
 
