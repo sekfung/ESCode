@@ -1,7 +1,8 @@
 # 大活跃历史离线基线（2026-10-31）
 
 本文补齐 P1「性能长尾与真实工作负载」中可离线验证的**大活跃历史打开/分页/下一轮**部分。
-它不替代真实供应商、流式稳定阶段 RPC 长尾或 Windows/macOS 原生测量。
+它不替代真实供应商或流式稳定阶段 RPC 长尾。三平台原生测量已由 `rust-runtime-ci` 的
+`bench-long-history` 手动作业补齐（20,000 轮，见下文）。
 
 ## 方法
 
@@ -126,17 +127,34 @@ ESCODE_BENCH_FIXTURE=1 ESCODE_BENCH_HISTORY_TURNS=100000 ESCODE_BENCH_ROUNDS=1 \
   packages/services/tests/escode-cli-rust-long-history-bench.test.ts
 ```
 
-| 指标                     |          Node | Rust release |
-| ------------------------ | ------------: | -----------: |
-| 首次打开（Rust 含导入）  | 18990         |        18475 |
-| 二次打开                 | 18379         |         3059 |
-| rows 单页（200 行）      | 7             |            6 |
-| schemaErrors             |             0 |            0 |
+| 指标                    |  Node | Rust release |
+| ----------------------- | ----: | -----------: |
+| 首次打开（Rust 含导入） | 18990 |        18475 |
+| 二次打开                | 18379 |         3059 |
+| rows 单页（200 行）     |     7 |            6 |
+| schemaErrors            |     0 |            0 |
 
 Rust 首次导入相对 50k 为 1.9 倍（轮数 2.0 倍），二次打开为 1.7 倍，继续保持近线性；二次打开
 约为 Node 的 1/6.1。100k 源库导入后临时数据目录为 535 MiB，其中 `rust-sessions.sqlite` 339 MiB、
 保留的 `ts-backup-<uuid>.sqlite` 197 MiB；即成功导入后峰值磁盘约为源库的 2.6 倍。成功备份的
 保留/去重策略仍是 [rust-import-lifecycle.md](../specs/rust-import-lifecycle.md) 中的后续范围。
+
+### 三平台原生 20k 轮（2026-11-02，CI run 41446166592）
+
+`rust-runtime-ci` 新增手动作业 `bench-long-history`，在 GitHub 托管 runner 上为每个平台独立生成
+20,000 轮 TS 源库（约 39 MiB），再用 Node bundle 与 Rust release 二进制分别打开；单次运行
+`ESCODE_BENCH_ROUNDS=1`、`ESCODE_BENCH_SKIP_TURN=1`，首次打开包含 Rust 的一次性 TS 导入。
+三平台均返回 200 行分页，协议 schema 错误均为 0，下一次请求按设计跳过。
+
+| runner      | 首次打开 Node / Rust | 二次打开 Node / Rust | rows 单页 Node / Rust |
+| ----------- | -------------------: | -------------------: | --------------------: |
+| Linux x64   |       3939 / 3449 ms |        3845 / 509 ms |              4 / 4 ms |
+| macOS arm64 |       3639 / 2017 ms |        2750 / 263 ms |              7 / 2 ms |
+| Windows x64 |       5144 / 7339 ms |        4509 / 624 ms |              9 / 5 ms |
+
+首次打开仍包含一次性导入，Windows 上 Rust 首次打开反而比 Node 慢（7.3s vs 5.1s），不能把它当作稳态
+打开成本；二次打开三平台 Rust 均快于 Node（约 1/7.6、1/10.5、1/7.2）。分页读取两侧都在毫秒级，
+该作业只验证原生路径可完成，延迟数据用于发布前对比，不设平台间阈值。
 
 ## 读法
 
@@ -155,9 +173,11 @@ Rust 首次导入相对 50k 为 1.9 倍（轮数 2.0 倍），二次打开为 1.
   一次性导入修复前约 27.6 分钟、修复后 9.7 秒，已恢复近线性（见上节）。
 - 100000 轮 / 196 MiB 的 Rust 首次导入 18.5s、二次打开 3.1s（Node 19.0s / 18.4s），单页 6-7ms；
   导入耗时相对 50k 为 1.9 倍，与轮数增长一致。
+- 三平台原生 20k 轮：Linux / macOS / Windows 的 Rust 二次打开分别为 509 / 263 / 624ms，Node 为
+  3845 / 2750 / 4509ms；首次打开含一次性导入，Windows 上 Rust 首次打开慢于 Node，稳态打开仍约为
+  Node 的 1/7.2。
 
 ## 仍缺
 
 - 真实 TS runtime / 真实供应商的下一轮与流式稳定阶段 RPC 长尾。
-- Windows/macOS 原生大历史测量（当前只有 Linux x64）。
 - 真实安装库与真实用户大库。真实用户小库只读演练已通过（1 会话 / 21 轮，行种类/整行哈希/附件/todo 全匹配，原库哈希不变）；100k 合成库及其磁盘占用已测，但成功备份保留/去重策略仍需产品确认。

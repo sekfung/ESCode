@@ -96,6 +96,11 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - 36323437572（提交 f1c902a，Windows）：目标标题差分中一次 `v4/command` 超过测试客户端固定的 5s 请求上限，
   日志无法区分是哪一侧；重跑该任务通过，按偶发记录。若再现，先定位慢的一侧，不直接调大超时。
 
+- 2026-11-02（41446166592，提交 3b3c4c1c）：新增 `bench-long-history` 首跑，Linux x64 / macOS arm64 /
+  Windows x64 的 20k 轮作业均 success，整个 workflow 也 success。三平台 `rows` 均为 200 行、协议 schema 错误为 0；Rust 二次打开
+  509 / 263 / 624ms，Node 3845 / 2750 / 4509ms。各平台日志、`summary.json` 与 `summary.md` 作为
+  `bench-long-history-<runner>` artifact 上传。
+
 ## 发布链路实测（2026-09-25，run 36099990554，分支触发，未发布）
 
 - 6 个 Rust runtime 目标全部构建成功（每个压缩包约 7–8 MB，附 sha256）。

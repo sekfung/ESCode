@@ -135,5 +135,11 @@ debug 的 222s 首次打开主要是一次性 TS 导入，release 降至 62s；�
 二次打开约为 Node 的 1/6.1。导入后临时数据目录 535 MiB（Rust 库 339 MiB + 保留的 TS 备份 197 MiB），
 约为源库的 2.6 倍，成功备份保留/去重策略仍需单独确认。
 
+2026-11-02 三平台原生 20k 轮（run `41446166592`，`bench-long-history` 手动作业，Node v24.18.0 +
+Rust release，单次、跳过下一轮）：Linux x64 / macOS arm64 / Windows x64 的 Rust 二次打开分别为
+509 / 263 / 624ms，Node 为 3845 / 2750 / 4509ms；首次打开（Rust 含一次性导入）为 3449 / 2017 / 7339ms
+对 3939 / 3639 / 5144ms；`rows` 单页 4/2/5ms 对 4/7/9ms。三平台均返回 200 行且 schema 错误为 0。
+Windows 首次打开 Rust 慢于 Node 是一次性导入成本，稳态仍约为 Node 的 1/7.2；延迟只记录，不设平台间阈值。
+
 完整方法、读法和仍缺口径见 [大活跃历史离线基线](../reports/rust-long-history-fixture-2026-10-31.md)。
-真实供应商、流式稳定阶段 RPC 长尾和 Windows/macOS 原生测量仍未完成。
+真实供应商与流式稳定阶段 RPC 长尾仍未完成；三平台原生的 20k 轮基线已补齐。
