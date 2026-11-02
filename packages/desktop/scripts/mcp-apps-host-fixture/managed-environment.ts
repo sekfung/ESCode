@@ -216,6 +216,24 @@ export async function managedEnvironment(root: string, node: string, cli: string
         backgroundThrottling: mode.startsWith("background"),
       },
     });
+    if (process.env.ESCODE_FIXTURE_TRACE) {
+      for (const event of [
+        "did-start-navigation",
+        "did-start-loading",
+        "dom-ready",
+        "did-finish-load",
+        "did-stop-loading",
+        "did-fail-load",
+        "render-process-gone",
+        "preload-error",
+      ] as const)
+        win.webContents.on(event as never, (...args: any[]) => {
+          const detail = args
+            .filter((value) => typeof value === "string" || typeof value === "number")
+            .join(" ");
+          trace(`${event}${detail ? ` ${detail}` : ""}`);
+        });
+    }
     windows.push(win);
     modes.set(win.webContents.id, mode);
     scopes.set(win.webContents.id, scope);
@@ -234,8 +252,9 @@ export async function managedEnvironment(root: string, node: string, cli: string
       guests.set(win.webContents.id, guest);
       native.attachGuest({ guest, hostWebContents: win.webContents, sandboxId: pending.shift()! });
     });
-    trace("loading managed.html");
-    await win.loadFile(join(root, "managed.html"));
+    const html = join(root, "managed.html");
+    trace(`loading ${html}`);
+    await win.loadFile(html);
     trace("managed.html loaded");
     if (mode.endsWith("-minimized")) {
       // 已加载的宿主窗口先最小化，再发起首个插件请求，覆盖真实后台创建时序。

@@ -15,10 +15,7 @@ function step(message: string) {
   currentStep = message;
   process.stdout.write(`[background] ${message}\n`);
 }
-setInterval(
-  () => process.stdout.write(`[background] waiting at: ${currentStep}\n`),
-  15_000,
-).unref();
+setInterval(() => process.stdout.write(`[background] waiting at: ${currentStep}\n`), 15_000);
 // Xvfb 等无窗口管理器环境下 minimize() 不会生效；退化为 hide() 以复现 owner document hidden。
 function minimizeWindow(win: BrowserWindow) {
   win.minimize();
