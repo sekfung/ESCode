@@ -284,7 +284,7 @@ if (versionDrill) {
   const runStage = async (label, dir, hostAssertion) => {
     ({ app, glm } = installFrom(dir));
     assertInstalled({ app, glm }, label);
-    const hash = sha256(installed.app);
+    const hash = sha256(app);
     await launchApp({ hostAssertion, launchCwd: drillCwd, label, env: drillEnv });
     assertSettings(label);
     // 下一次安装前等旧实例彻底退出，避免 Windows 单实例锁 / DB owner 锁串扰。
