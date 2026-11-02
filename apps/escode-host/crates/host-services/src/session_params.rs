@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 ///
 /// **不从 Renderer 入参读取**（评审 A12）：TS 用 `{...params, ...flags}` 以 Host 判定值覆盖入参。
 /// 判定依赖服务端 client-config（对应域未迁移），在那之前一律关闭（缺省即 fail-closed，
-/// 见 docs/specs/rust-u2-agent-v4.md §6-6）。
+/// 见 docs/specs/rust-u2-agent-v4.md §6-5）。
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ToolGates {
     /// `Some(mode)` = 动态工作流已开启且带 mode（TS `isDynamicWorkflowModeEnabled(mode)`）。

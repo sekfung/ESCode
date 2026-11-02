@@ -84,7 +84,9 @@ async fn resolve(home: &std::path::Path, request: &Request) -> Value {
     let resolution = match crate::settings::read(home).await {
         Ok(settings) => json!({
             "status": "resolved",
-            "preferences": preferences(&settings, &request.scope),
+            // 远端 Agent 的 `subagents/readRuntimeConfig` 反向请求尚未经远端事件面接通；
+            // 本地 Host 不能替它读远端 workspace 的自定义 agent，因此这里保持关闭。
+            "preferences": preferences(&settings, &request.scope, false),
         }),
         Err(error) => json!({
             "status": "failed",
@@ -123,7 +125,7 @@ fn parse_request(event: &Value) -> Option<Request> {
 }
 
 /// TS `resolveSessionRuntimePreferences` + 结果 schema 的缺省值（本地与远端共用）。
-pub fn preferences(settings: &Value, scope: &str) -> Value {
+pub fn preferences(settings: &Value, scope: &str, subagent_runtime_config_enabled: bool) -> Value {
     let mut result = Map::new();
     result.insert(
         "askUserQuestionAutoResolutionEnabled".to_owned(),
@@ -146,11 +148,9 @@ pub fn preferences(settings: &Value, scope: &str) -> Value {
     {
         result.insert("integratedTerminalShell".to_owned(), shell);
     }
-    // TS 在本地 workspace 为 true（Host 能应答 `subagents/readRuntimeConfig`）。subagents 域未迁移前
-    // 回 false，runtime 退回内置子代理（登记差异：rust-u2-agent-v4.md §6-2）。
     result.insert(
         "subagentRuntimeConfigEnabled".to_owned(),
-        Value::Bool(false),
+        Value::Bool(subagent_runtime_config_enabled),
     );
     Value::Object(result)
 }
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn defaults_follow_the_ts_resolver() {
         assert_eq!(
-            preferences(&json!({}), "runtime-materialization"),
+            preferences(&json!({}), "runtime-materialization", false),
             json!({
                 "askUserQuestionAutoResolutionEnabled": true,
                 "nativeSearchEnhancementsEnabled": true,
@@ -218,6 +218,10 @@ mod tests {
                 "modelContextBudgetStrategy": "preflight-v1",
                 "subagentRuntimeConfigEnabled": false,
             })
+        );
+        assert_eq!(
+            preferences(&json!({}), "runtime-materialization", true)["subagentRuntimeConfigEnabled"],
+            true
         );
     }
 }

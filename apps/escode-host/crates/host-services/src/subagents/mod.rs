@@ -1,9 +1,7 @@
 //! `subagents` 域（docs/specs/rust-u2-subagents.md）。
 //!
-//! **本片交付 4/8**：目录解析 + 状态文件写入面（`disabledAgentIds` 与两张模型覆盖表）。
-//! 其余 4 个（`list` / `createAgent` / `updateAgent` / `deleteAgent`）依赖 markdown 解析与生成
-//! （`subagentMarkdown.ts` 435 行）、多来源发现（用户 / 工作区 / 插件清单）与 chokidar 式的
-//! 热重载作用域（`subagentConfigScope.ts` 343 行），是同一域里明显更大的另一半切片。
+//! **本片交付 9/9**：8 个 `subagents` channel 成员，以及 runtime 反向请求
+//! `subagents/readRuntimeConfig` 的完整快照读取。
 //!
 //! **所有写操作串行**（TS `enqueue` 的写队列）：读-改-写必须是一个整体，否则并发 setEnabled 会丢更新。
 
@@ -16,6 +14,7 @@ pub mod list;
 pub mod model_selection;
 pub mod model_value;
 pub mod profile;
+pub mod runtime_config;
 pub mod serialize;
 pub mod state;
 pub mod storage;

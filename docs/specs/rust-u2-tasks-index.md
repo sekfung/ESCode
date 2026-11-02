@@ -49,10 +49,10 @@ flowchart LR
 | 项       | 约定                                                                                                                                                                                                                                                                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 路径     | `join(getAppConfigDir(), "tasks-index.sqlite")` = `<dataBaseDir>/.escode/v2/tasks-index.sqlite`（dataBaseDir 由 Main 经 `rpcListen` 提交，见 u2 骨架 §6）                                                                                                                                                                                  |
-| 表       | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`tasks_schema_migration`、`schema_migration`                                                                                                                                               |
+| 表       | `tasks`、`task_groups`、`task_group_members`、`task_group_view_node_orders`、`task_group_workspace_bootstraps`、`automations`、`automation_runs`、`tasks_schema_migration`、`schema_migration`                                                                                                                                             |
 | 打开参数 | `PRAGMA busy_timeout = 5000`、`PRAGMA foreign_keys = ON`（Host 是长连接，与 TS `TaskIndexRepo` 的 5000ms 同；`prepareTasksIndexStorage` 的 25ms 只用于一次性启动准备）；迁移/维护期间的取锁等待上限 1h，且**分阶段上报**（`checking`/`waiting_for_lock`/`migrating`/`maintaining`/`committing`/`ready`，映射到 `startup/tasksState` 事件） |
 | DDL      | 复用 TS 的 `TASK_INDEX_SCHEMA` 文本（`schema-v1.ts`）+ 迁移 `0001_adopt_task_schema`/`0002_provider_selection`/`0003_official_glm_selection`；Rust 侧以 `include_str!` 引入同一份 DDL 文本并加 **checksum 哨兵**（对照质量报告 §4：`rust_*`/`dwf_*` DDL 无机器校验的欠账，本域不允许重演）                                                 |
-| 迁移对照 | 打开时读 `tasks_schema_migration` / `schema_migration`；Rust Host **只校验不迁移**，缺账本、多出未知 id 或 checksum 不符都以结构化错误拒绝，不重建、不半迁移                                                                                                                                                                                   |
+| 迁移对照 | 打开时读 `tasks_schema_migration` / `schema_migration`；Rust Host **只校验不迁移**，缺账本、多出未知 id 或 checksum 不符都以结构化错误拒绝，不重建、不半迁移                                                                                                                                                                               |
 | 并发     | 与 TS Host 交替运行时靠 SQLite 锁 + busy_timeout；本域不引入第二套锁（`host/file_lock.rs` 是文件锁，语义不同，不混用）                                                                                                                                                                                                                     |
 
 ### 3.1 启动准备（Rust Host 模式）
@@ -335,7 +335,7 @@ TS 真相源：`packages/services/src/escode-session/escodeSessionService.ts`（
 4. **`withApiRetryRuntime` 只有无状态部分**：进行中重试的跟踪依赖会话事件（`session.updated`/`streamRecovery.updated`），随事件源接入。
 5. **`resumeSession(broadcastSnapshot: false)` + model 时不改索引 model 列**（TS `syncTaskModel` → `updateTaskState`，S3）。
 6. **不做旧 app-server 兼容重试**（`getSessionCreateCompatFields`）：Rust Host 只驱动同版本内置 runtime，strict schema 一致。
-7. **工具面灰度关闭**：见 `rust-u2-agent-v4.md` §6-6。
+7. **工具面灰度关闭**：见 `rust-u2-agent-v4.md` §6-5。
 
 ## 6.6 S3a 侧栏状态写与 workspace 事件总线（2026-10-15，补记）
 

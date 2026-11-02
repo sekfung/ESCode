@@ -319,7 +319,7 @@ pub(crate) fn with_open_timing(
         "cliProcessState".to_owned(),
         json!(if timing.reused { "reused" } else { "spawned" }),
     );
-    // 账号 provider 同步屏障未迁移（登记差异 §6-3）：同步耗时恒为 0。
+    // 账号 provider 同步屏障未迁移（登记差异 §6-2）：同步耗时恒为 0。
     open.insert("providerRegistrySyncMs".to_owned(), json!(0));
     open.insert("taskMetaReadMs".to_owned(), json!(task_meta_read_ms));
     open.insert("cliRequestMs".to_owned(), json!(timing.cli_request_ms));

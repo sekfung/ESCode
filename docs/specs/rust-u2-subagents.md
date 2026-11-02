@@ -1,6 +1,6 @@
 # Rust 阶段 2：`subagents` 域（rust-unified-host.md 子 spec）
 
-> 状态：**8/8 已交付** · 2026-10-17（`list` + 目录解析 + 状态写入面 + 写三法）。
+> 状态：**9/9 已交付** · 2026-11-03（8 个 channel 成员 + runtime 反向请求 `readRuntimeConfig`）。
 > TS 真相源：`packages/services/src/subagents/`（`subagentsService.ts` 892、`subagentMarkdown.ts` 435、
 > `subagentConfigScope.ts` 343、`subagentRuntimeConfig.ts` 230、`subagentStorage.ts` 65）、
 > `packages/shared/src/subagents-types.ts`。
@@ -13,10 +13,11 @@
 | `setEnabled`                                  | `agents-state.json` 的 `disabledAgentIds`            | 已交付 |
 | `setBuiltInModelOverride`                     | `builtInModelSelectionOverrides`                     | 已交付 |
 | `setPluginAgentModelOverride`                 | `pluginAgentModelSelectionOverrides`                 | 已交付 |
-| `list`                                        | 内置 + 用户 + 工作区 + 插件 agent 的发现与运行优先级 | 待做   |
-| `createAgent` / `updateAgent` / `deleteAgent` | agent markdown 的序列化、写盘与禁用态迁移            | 待做   |
+| `list`                                        | 内置 + 用户 + 工作区 + 插件 agent 的发现与运行优先级 | 已交付 |
+| `createAgent` / `updateAgent` / `deleteAgent` | agent markdown 的序列化、写盘与禁用态迁移            | 已交付 |
+| `subagents/readRuntimeConfig`（反向请求）     | 用户 + 工作区的已解析运行时快照                      | 已交付 |
 
-**待做部分的前置**（本片已核实，都是 Host 本地能力、无上游缺口，但它们合起来构成明显更大的另一半）：
+**切片依据**（2026-10-17 已全部落地，详见 §6–§7）：
 
 - `subagentMarkdown.ts`（435 行）：frontmatter ↔ `SubAgentConfig` 的解析与序列化 + 一份 legacy 迁移；
 - 多来源发现：内置两个 agent、用户根、工作区根、**插件清单**（`.escode-plugin` / `.claude-plugin` /
@@ -240,3 +241,30 @@ workspace scope 的 projectPath 与 id、改名迁禁用态、撞名不动旧文
 **负向验证**（两项，均已恢复）：①`updateAgent` 不迁禁用态 → 「禁用态跟到新 id」失败；
 ②`createAgent` 允许覆盖 → 重名用例失败（第一版只改了写入方式、没去掉前置的存在性检查，负向验证发现
 它测不到覆盖，已补去掉检查）。
+
+## 7. runtime 配置快照 `subagents/readRuntimeConfig`（2026-11-03）
+
+**协议**：仅由 runtime 作为反向请求发起；参数 strict 为 `{sessionId: 非空}`，Host 用实例绑定的
+`workspace_path` 解析项目根，不能信任请求体里的路径。结果严格为以下二选一：
+
+- `{kind:"ready", profiles, builtInModelSelectionOverrides, pluginAgentModelSelectionOverrides}`；
+- `{kind:"built-in-fallback"}`。
+
+**数据来源与顺序**：用户根 `<storageRoot>/agents` → 工作区根 `<workspacePath>/.escode/agents`；
+每个根只扫第一层 `.md`/`.markdown`（大小写不敏感），按完整路径的 locale 排序。profile 复用
+`profile.rs` 的 runtime 解析口径（项目级不透传 `permissionMode`）。`disabledAgentIds` 只过滤
+`source === "user"` 的 `user:user:<lowername>`；项目级 profile 仍保留。状态文件缺失或坏 JSON
+沿用空状态。
+
+**失败边界**：单个 Markdown 缺字段/非法只跳过该文件；目录、状态或文件读取出现真实 IO 错误时
+整份回 `built-in-fallback`，不返回部分结果。runtime 只在会话初始化与每个普通父轮开始时读取一次，
+因此同一轮消费固定快照。
+
+**与 TS 的实现差异**：TS 用 chokidar scope 维护共享缓存并在后台增量发布；Rust 在当前请求内直接
+生成快照。线缆语义一致，差异只在内核（无后台 watcher、批次合并与 5s 首次等待），不会把部分读取
+发布给 runtime。
+
+**验证**：`runtime_config_tests` 覆盖用户+项目拼接、禁用态只作用于 user、项目权限模式被丢弃、
+状态覆盖透传、缺失根与坏 Markdown 仍为 ready、读取失败整份回退；`host-rpc` 的
+`runtime_requests` 用例覆盖反向请求路由、strict 参数拒绝，以及本地/远程 workspace 的
+`subagentRuntimeConfigEnabled` 开关。

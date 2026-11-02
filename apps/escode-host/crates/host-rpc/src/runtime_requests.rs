@@ -32,6 +32,10 @@ pub fn responder(
                 "session/requestRuntimePreferences" => {
                     runtime_preferences(&home, &request.identity, &request.params).await
                 }
+                "subagents/readRuntimeConfig" => {
+                    read_subagent_runtime_config(&home, &request.workspace_path, &request.params)
+                        .await
+                }
                 "interaction/requestProviderRuntimeHeaders" => {
                     Ok(provider_headers.request(request.params).await)
                 }
@@ -43,6 +47,39 @@ pub fn responder(
             }
         })
     })
+}
+
+async fn read_subagent_runtime_config(
+    home: &std::path::Path,
+    workspace_path: &str,
+    params: &Value,
+) -> Result<Value, HostError> {
+    if !valid_subagent_runtime_config_params(params) {
+        return Err(HostError {
+            code: -32602,
+            message: "Invalid subagent runtime config request".to_owned(),
+        });
+    }
+    Ok(
+        escode_host_services::subagents::runtime_config::read_runtime_config(
+            home,
+            workspace_path,
+            &crate::collation::compare_names,
+        )
+        .await,
+    )
+}
+
+/// TS `escodeSubagentsReadRuntimeConfigParamsSchema`（strict：只允许非空 sessionId）。
+fn valid_subagent_runtime_config_params(params: &Value) -> bool {
+    let Some(record) = params.as_object() else {
+        return false;
+    };
+    record.keys().all(|key| key == "sessionId")
+        && record
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .is_some_and(|session_id| !session_id.trim().is_empty())
 }
 
 async fn browser_execute(main_broker: &MainBrokerSlot, params: &Value) -> Result<Value, HostError> {
@@ -117,8 +154,16 @@ fn parse_params(params: &Value) -> Option<&str> {
 }
 
 /// TS `resolveSessionRuntimePreferences` + 结果 schema 的缺省值。
-pub(crate) fn preferences(settings: &Value, scope: &str, _identity: &str) -> Value {
-    escode_host_services::source_server_runtime_preferences::preferences(settings, scope)
+pub(crate) fn preferences(settings: &Value, scope: &str, identity: &str) -> Value {
+    // TS 仅允许本地 workspace 读取 Host 的自定义子代理快照；远程 workspace 由远端
+    // Agent 自己的来源负责，不能把本地解析结果误当成远端事实。
+    let subagent_runtime_config_enabled =
+        !crate::window_controller::is_remote_workspace_identity(identity.trim());
+    escode_host_services::source_server_runtime_preferences::preferences(
+        settings,
+        scope,
+        subagent_runtime_config_enabled,
+    )
 }
 
 #[cfg(test)]
@@ -177,9 +222,57 @@ mod tests {
                 "nativeSearchEnhancementsEnabled": true,
                 "memoryEnabled": false,
                 "modelContextBudgetStrategy": "preflight-v1",
-                "subagentRuntimeConfigEnabled": false,
+                "subagentRuntimeConfigEnabled": true,
             })
         );
+        assert_eq!(
+            preferences(
+                &json!({}),
+                "runtime-materialization",
+                "remote:ssh:host:22:user:/w"
+            )["subagentRuntimeConfigEnabled"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn subagent_runtime_config_reads_the_bound_workspace_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        let workspace = dir.path().join("workspace");
+        let agent_root = home.join(".escode").join("agents");
+        std::fs::create_dir_all(&agent_root).unwrap();
+        std::fs::write(
+            agent_root.join("reviewer.md"),
+            "---\nname: reviewer\ndescription: Review\n---\nReview the change.",
+        )
+        .unwrap();
+        let responder = responder(
+            home,
+            crate::provider_headers::ProviderHeaders::new(),
+            Arc::new(std::sync::OnceLock::new()),
+        );
+        let answer = responder(HostRequest {
+            identity: workspace.to_string_lossy().into_owned(),
+            workspace_path: workspace.to_string_lossy().into_owned(),
+            method: "subagents/readRuntimeConfig".to_owned(),
+            params: json!({"sessionId": "session-a"}),
+        })
+        .await
+        .expect("snapshot");
+        assert_eq!(answer["kind"], json!("ready"), "{answer}");
+        assert_eq!(answer["profiles"][0]["name"], json!("reviewer"));
+
+        let error = responder(HostRequest {
+            identity: workspace.to_string_lossy().into_owned(),
+            workspace_path: workspace.to_string_lossy().into_owned(),
+            method: "subagents/readRuntimeConfig".to_owned(),
+            params: json!({"sessionId": "session-a", "workspacePath": "/other"}),
+        })
+        .await
+        .expect_err("strict params");
+        assert_eq!(error.code, -32602);
+        assert_eq!(error.message, "Invalid subagent runtime config request");
     }
 
     #[test]
