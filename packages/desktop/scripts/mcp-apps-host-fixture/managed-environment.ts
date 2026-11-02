@@ -10,8 +10,14 @@ import { startModel } from "./model.js";
 import { evaluateGuest } from "./guest-evaluation.js";
 
 export async function managedEnvironment(root: string, node: string, cli: string) {
+  const trace = (message: string) => {
+    if (process.env.ESCODE_FIXTURE_TRACE) process.stdout.write(`[background:env] ${message}\n`);
+  };
+  trace("starting model");
   const model = await startModel(root, cli);
+  trace("model ready; starting agent");
   const agent = await startAgent(root, node, cli, model.env);
+  trace("agent started");
   const events = new Events<any>();
   const windows: BrowserWindow[] = [];
   const modes = new Map<number, string>();
@@ -19,12 +25,14 @@ export async function managedEnvironment(root: string, node: string, cli: string
   const gates = new Map<string, Promise<void>>();
   const handles = new Map<number, any>();
   const guests = new Map<number, WebContents>();
+  trace("installing plugin sandbox host");
   const native = installPluginSandboxHost({
     rendererDir: root,
     aliasDir: root,
     preloadPath: join(root, "guest.cjs"),
     logger: { warn: (message) => process.stderr.write(`${String(message)}\n`) },
   });
+  trace("plugin sandbox host installed");
   const wire = (p: any) => {
     const {
       workspacePath,
@@ -193,6 +201,11 @@ export async function managedEnvironment(root: string, node: string, cli: string
     throw new Error(`Unexpected managed service call ${method}`);
   });
   async function createWindow(scope: any, mode = "local") {
+    const trace = (message: string) => {
+      if (process.env.ESCODE_FIXTURE_TRACE)
+        process.stdout.write(`[background:window] ${mode}: ${message}\n`);
+    };
+    trace("creating");
     const win = new BrowserWindow({
       show: mode.startsWith("background"),
       width: 1000,
@@ -221,7 +234,9 @@ export async function managedEnvironment(root: string, node: string, cli: string
       guests.set(win.webContents.id, guest);
       native.attachGuest({ guest, hostWebContents: win.webContents, sandboxId: pending.shift()! });
     });
+    trace("loading managed.html");
     await win.loadFile(join(root, "managed.html"));
+    trace("managed.html loaded");
     if (mode.endsWith("-minimized")) {
       // 已加载的宿主窗口先最小化，再发起首个插件请求，覆盖真实后台创建时序。
       await win.webContents.executeJavaScript("window.fixturePaused");
@@ -235,6 +250,7 @@ export async function managedEnvironment(root: string, node: string, cli: string
       await win.webContents.executeJavaScript("window.startFixture()");
     }
     await win.webContents.executeJavaScript("window.harnessReady");
+    trace("harness ready");
     if (mode !== "local" && mode !== "sampling") return win;
     await evaluateGuest(
       guests.get(win.webContents.id)!,

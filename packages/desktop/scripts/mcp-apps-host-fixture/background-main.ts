@@ -10,6 +10,15 @@ import { evaluateGuest } from "./guest-evaluation.js";
 import { clickHostPoint } from "./pointer-input.js";
 
 const [root, profile, node, cli] = process.argv.slice(2) as [string, string, string, string];
+let currentStep = "boot";
+function step(message: string) {
+  currentStep = message;
+  process.stdout.write(`[background] ${message}\n`);
+}
+setInterval(
+  () => process.stdout.write(`[background] waiting at: ${currentStep}\n`),
+  15_000,
+).unref();
 // Xvfb 等无窗口管理器环境下 minimize() 不会生效；退化为 hide() 以复现 owner document hidden。
 function minimizeWindow(win: BrowserWindow) {
   win.minimize();
@@ -23,15 +32,20 @@ app.on("window-all-closed", () => {});
 app
   .whenReady()
   .then(async () => {
+    step("creating environment");
     const env = await managedEnvironment(root, node, cli);
+    step("environment ready");
     const results: Record<string, boolean | string> = {};
     try {
       if (!process.env.ESCODE_PHOTOCRAFT_ONLY) {
         const admitted: Array<{ win: BrowserWindow; guest: WebContents }> = [];
         // 先打开外壳但没有任何会话卡片/订阅，再让真实模型调用返回 UI 工具结果。
         for (const source of ["admission-first", "admission-second"]) {
+          step(`${source}: create ui session`);
           const scope = await env.agent.uiSession(join(root, source), source);
+          step(`${source}: create window`);
           const win = await env.createWindow(scope, "background-admission");
+          step(`${source}: send tool command`);
           const ui = (code: string) => win.webContents.executeJavaScript(code);
           assert.equal(env.guests.has(win.webContents.id), false);
           assert.equal(
@@ -53,13 +67,17 @@ app
               modelSelection: env.model.selection,
             },
           });
+          step(`${source}: waiting executed`);
           await env.agent.events.wait(
             (e) => e.source === source && e.type === "executed" && e.key === source,
           );
           assert.equal(env.guests.has(win.webContents.id), false);
           env.agent.release(source, source);
+          step(`${source}: waiting registered`);
           await env.events.wait((e) => e.type === "registered" && e.owner === win.webContents.id);
+          step(`${source}: waiting running phase`);
           await ui("window.waitManagedPhase('running')");
+          step(`${source}: waiting fixture ready`);
           await env.evalPage(win, "window.fixtureReady");
           const guest = env.guests.get(win.webContents.id)!;
           assert.equal((await ui("window.managedState()")).visible, false);
@@ -70,6 +88,7 @@ app
           await ui("window.expireOffscreen()");
           assert.equal(guest.isDestroyed(), false);
           await ui("window.revealBackgroundPage()");
+          step(`${source}: revealed`);
           assert.equal(env.guests.get(win.webContents.id), guest);
           assert.deepEqual(await env.evalPage(win, "window.unsavedDocument"), {
             layers: [1, 2, 3],
@@ -82,10 +101,12 @@ app
           );
           // 保留两份同插件实例，确认第二份创建不会关闭第一份。
           admitted.push({ win, guest });
+          step(`${source}: pass`);
           process.stdout.write(
             `PASS ${source}: real tool result with no card/subscription, background frames, retention and reveal\n`,
           );
         }
+        step("releasing admitted windows");
         assert.equal(env.countGuests(), 2);
         // 两个窗口独立释放；并行等待生产 keep-warm 到期，不串行增加测试时限。
         await Promise.all(
@@ -107,8 +128,11 @@ app
         results.independentSessionsRetainedAndReleased = true;
 
         for (const mode of ["background-cold", "background-hidden", "background-cold-minimized"]) {
+          step(`${mode}: create session`);
           const coldScope = await env.agent.session(join(root, mode), "background");
+          step(`${mode}: create window`);
           const cold = await env.createWindow(coldScope, mode);
+          step(`${mode}: fixture ready`);
           const coldUi = (code: string) => cold.webContents.executeJavaScript(code);
           const coldPage = (code: string) => env.evalPage(cold, code);
           await coldPage("window.fixtureReady");

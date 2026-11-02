@@ -66,6 +66,9 @@ export async function startAgent(
       ESCODE_SESSION_DB: join(data, "session.sqlite"),
       ESCODE_STORAGE_DIR: data,
       LANG: "en_US.UTF-8",
+      ...(process.env.ESCODE_FIXTURE_TRACE
+        ? { ESCODE_FIXTURE_TRACE: process.env.ESCODE_FIXTURE_TRACE }
+        : {}),
       ...providerEnv,
     },
     stdio: ["pipe", "pipe", "pipe"],
@@ -89,13 +92,19 @@ export async function startAgent(
       void client.respondError(request.id, -32601, `Unexpected fixture request: ${request.method}`);
   });
   // 真实编辑器的长轮询为 20 秒，不能套夹具普通 RPC 的 15 秒期限（上游同款修正）。
-  const call = (method: string, params: unknown) =>
-    client.request<any>(
+  const call = async (method: string, params: unknown) => {
+    if (process.env.ESCODE_FIXTURE_TRACE)
+      process.stdout.write(`[background:agent] call ${method}\n`);
+    const result = await client.request<any>(
       method as never,
       params,
       undefined,
       method === "mcp/uiCallTool" ? { timeoutMs: 180_000 } : undefined,
     );
+    if (process.env.ESCODE_FIXTURE_TRACE)
+      process.stdout.write(`[background:agent] call ${method} done\n`);
+    return result;
+  };
   return {
     call,
     client,

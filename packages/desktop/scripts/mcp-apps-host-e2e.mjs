@@ -216,6 +216,11 @@ const modes =
 for (const mode of modes) {
   await new Promise((accept, reject) => {
     const env = { ...process.env };
+    if (
+      process.argv.includes("--background-only") ||
+      process.argv.includes("--photocraft-background-only")
+    )
+      env.ESCODE_FIXTURE_TRACE = "1";
     if (process.argv.includes("--photocraft-background-only")) {
       if (!env.ESCODE_PHOTOCRAFT_SERVER)
         throw new Error("Set ESCODE_PHOTOCRAFT_SERVER to the built PhotoCraft dist/server.mjs");
