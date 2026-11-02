@@ -170,6 +170,8 @@ export const PlatformChannels = {
   /** renderer → main：释放插件 UI 沙箱（关闭 ports、撤 protocol handler、清 partition） */
   PluginSandboxDispose: "escode:plugin-sandbox-dispose",
   PluginSandboxCopyImage: "escode:plugin-sandbox-copy-image",
+  /** renderer → main：为不可见插件 UI 页面保持可逆的后台 capturer 活动 */
+  PluginSandboxExecutionActive: "escode:plugin-sandbox-execution-active",
   /** renderer → main：一次性消费插件 UI 沙箱 guest 的用户手势 token */
   PluginSandboxConsumeUserGesture: "escode:plugin-sandbox-consume-user-gesture",
   /** renderer → main：查询自身 webContents id，作为沙箱登记的 owner */

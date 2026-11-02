@@ -84,10 +84,13 @@ Web / 手机 / remote 的不支持回退与 continuous / replayable 边界不变
 入口：`node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only`；
 既有生命周期与回退使用 `--managed-only`。
 
-当前检出的 `mcp-apps-host-e2e.mjs` 没有 `--background-only` / `--photocraft-background-only`：这两个入口在上游
-`upstream/main`（`mcp-apps-host-fixture/background-main.ts` 及配套夹具），本仓库 v3.15.1 移植时随整份脚本回退丢失
-（`git log -S` 在本地分支无记录）。补回前后台创建的证据是两侧单测，不是本仓库的 Electron 端到端结果；
-移植需要同时带回 `managedEnvironment` / `agent` / `model` / `managed-renderer` 的后台夹具钩子。
+`--background-only` / `--photocraft-background-only` 已在本仓库补齐（2026-11-02），同时带回
+`background-main.ts` 与 `managedEnvironment` / `agent` / `model` / `managed-renderer` 的后台夹具钩子。
+Linux Xvfb 已跑通双窗口 admission、后台冷启动非零尺寸与内部帧；隐藏 guest 的 rAF 断言依赖
+Chromium Viz capturer，裸 Xvfb 持续报 `UnknownVizError`，完整隐藏执行改由
+`.github/workflows/plugin-ui-background-e2e.yml` 的 macOS 作业重跑。主进程的
+`PluginSandboxExecutionActive` 活动租约（含加载期早到请求与旧 owner/initId 拒绝）由
+`packages/desktop/test/pluginSandboxExecution.test.ts` 覆盖。
 
 真实插件验证直接使用未修改的 PhotoCraft 0.2.2：
 `ESCODE_PHOTOCRAFT_SERVER=/path/to/photocraft/dist/server.mjs node packages/desktop/scripts/mcp-apps-host-e2e.mjs --photocraft-background-only`。

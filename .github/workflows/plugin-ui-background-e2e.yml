@@ -1,0 +1,49 @@
+# 插件 UI 后台执行 E2E：验证无卡片/无订阅时的真实工具结果准入、隐藏 guest 保留与删除释放。
+#
+# 为什么需要独立作业：该链路依赖 Chromium 的隐藏页面 capturer。裸 Xvfb 无合成器时
+# capturePage 会持续报 UnknownVizError，无法证明隐藏页面的 rAF 仍在推进；macOS runner
+# 有真实窗口会话，是这条用例可复现的最低成本环境。
+name: plugin ui background e2e
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "packages/desktop/scripts/mcp-apps-host-e2e.mjs"
+      - "packages/desktop/scripts/mcp-apps-host-fixture/**"
+      - "packages/desktop/src/main/pluginSandbox/**"
+      - "packages/desktop/src/preload/pluginSandbox/**"
+      - "packages/desktop/src/main/browserView/browserScreenshotActivityController.ts"
+      - "packages/ui/src/plugin-ui/**"
+      - "packages/shared/src/mcp-apps/**"
+      - ".github/workflows/plugin-ui-background-e2e.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: plugin-ui-background-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ESCODE_TEST_REQUEST_MS: "60000"
+
+jobs:
+  background:
+    name: plugin ui background e2e (macos-latest)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/build-desktop-agent-cli.mjs
+      - name: run background E2E
+        run: node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only

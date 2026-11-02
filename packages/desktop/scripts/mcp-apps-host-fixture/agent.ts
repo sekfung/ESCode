@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createServer, type Socket } from "node:net";
 import { createInterface } from "node:readline";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ESCodeProtocolClient } from "../../../services/src/escode-agent/escodeProtocolClient.js";
 import { ESCodeStdioTransport } from "../../../services/src/escode-agent/escodeStdioTransport.js";
@@ -88,7 +88,14 @@ export async function startAgent(
     else
       void client.respondError(request.id, -32601, `Unexpected fixture request: ${request.method}`);
   });
-  const call = (method: string, params: unknown) => client.request<any>(method as never, params);
+  // 真实编辑器的长轮询为 20 秒，不能套夹具普通 RPC 的 15 秒期限（上游同款修正）。
+  const call = (method: string, params: unknown) =>
+    client.request<any>(
+      method as never,
+      params,
+      undefined,
+      method === "mcp/uiCallTool" ? { timeoutMs: 180_000 } : undefined,
+    );
   return {
     call,
     client,
@@ -139,6 +146,48 @@ export async function startAgent(
         pluginId: "fixture",
         serverName,
         ...(demo ? { resourceUri: demo.resourceUri } : {}),
+      };
+    },
+    async uiSession(
+      workspacePath: string,
+      source: string,
+      demo?: { serverScript: string; resourceUri: string; surface: string },
+    ) {
+      // PLM-UI-BACKGROUND-ADMISSION：工具必须来自插件 MCP server（plugin:<id>:<server>），
+      // 才能覆盖 pluginId 归一化与“无卡片、无 conversation 订阅”的窗口级接收器路径。
+      const pluginRoot = join(workspacePath, "editor-plugin");
+      await mkdir(join(pluginRoot, ".escode-plugin"), { recursive: true });
+      await writeFile(
+        join(pluginRoot, ".escode-plugin", "plugin.json"),
+        JSON.stringify({
+          name: "background-editor",
+          mcpServers: {
+            editor: {
+              command: node,
+              args: demo
+                ? [demo.serverScript]
+                : [join(root, "mcp-server.mjs"), String(port), join(root, "widget.html"), source],
+            },
+          },
+        }),
+      );
+      await writeFile(
+        join(workspacePath, "escode.json"),
+        JSON.stringify({ plugins: { dirs: [pluginRoot] } }),
+      );
+      const workspace = { workspacePath, workspaceKey: workspacePath };
+      const response = await call("session/create", {
+        workspace,
+        mode: "yolo",
+        persistence: "deferred",
+        titleGenerationEnabled: false,
+      });
+      return {
+        workspace,
+        sessionId: response.session.sessionId,
+        pluginId: "background-editor@inline",
+        serverName: "plugin:background-editor:editor",
+        ...(demo ? { resourceUri: demo.resourceUri, surface: demo.surface } : {}),
       };
     },
     async close() {

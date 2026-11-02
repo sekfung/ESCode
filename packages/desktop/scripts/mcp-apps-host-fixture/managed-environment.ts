@@ -23,6 +23,7 @@ export async function managedEnvironment(root: string, node: string, cli: string
     rendererDir: root,
     aliasDir: root,
     preloadPath: join(root, "guest.cjs"),
+    logger: { warn: (message) => process.stderr.write(`${String(message)}\n`) },
   });
   const wire = (p: any) => {
     const {
@@ -78,6 +79,23 @@ export async function managedEnvironment(root: string, node: string, cli: string
     },
   });
   agent.client.onNotification((event) => {
+    if (event.method === "v4/plugin-ui/tool-result") {
+      // 后台创建入口：把 Agent 的成功 MCP UI 工具结果转成窗口通知，由生产
+      // attachPluginUiToolResults 接收；夹具不订阅 conversation，也不挂工具卡。
+      for (const win of windows) {
+        if (win.isDestroyed()) continue;
+        const scope = scopes.get(win.webContents.id);
+        if (scope?.sessionId === event.params.sessionId)
+          win.webContents.send("fixture-notification", {
+            kind: "ui-result",
+            value: {
+              ...event.params,
+              workspacePath: scope.workspace.workspacePath,
+            },
+          });
+      }
+      return;
+    }
     if (event.method !== "v4/conversation/frame") return;
     for (const win of windows) {
       if (
@@ -94,7 +112,7 @@ export async function managedEnvironment(root: string, node: string, cli: string
       scope: {
         ...scope.workspace,
         sessionId: scope.sessionId,
-        scope: { kind: "surface", surfaceId: "same" },
+        scope: { kind: "surface", surfaceId: scope.surface ?? "same" },
       },
       presentation: {
         pluginId: scope.pluginId,
@@ -176,13 +194,13 @@ export async function managedEnvironment(root: string, node: string, cli: string
   });
   async function createWindow(scope: any, mode = "local") {
     const win = new BrowserWindow({
-      show: false,
+      show: mode.startsWith("background"),
       width: 1000,
       height: 700,
       webPreferences: {
         preload: join(root, "preload.cjs"),
         webviewTag: true,
-        backgroundThrottling: false,
+        backgroundThrottling: mode.startsWith("background"),
       },
     });
     windows.push(win);
@@ -204,6 +222,18 @@ export async function managedEnvironment(root: string, node: string, cli: string
       native.attachGuest({ guest, hostWebContents: win.webContents, sandboxId: pending.shift()! });
     });
     await win.loadFile(join(root, "managed.html"));
+    if (mode.endsWith("-minimized")) {
+      // 已加载的宿主窗口先最小化，再发起首个插件请求，覆盖真实后台创建时序。
+      await win.webContents.executeJavaScript("window.fixturePaused");
+      win.minimize();
+      // Xvfb 没有窗口管理器时 minimize() 不会生效；退化为 hide() 以复现 owner document hidden。
+      if (!win.isMinimized()) win.hide();
+      await win.webContents
+        .executeJavaScript(`document.hidden || new Promise(resolve=>document.addEventListener('visibilitychange',function changed(){
+        if(document.hidden){document.removeEventListener('visibilitychange',changed);resolve()}
+      }))`);
+      await win.webContents.executeJavaScript("window.startFixture()");
+    }
     await win.webContents.executeJavaScript("window.harnessReady");
     if (mode !== "local" && mode !== "sampling") return win;
     await evaluateGuest(

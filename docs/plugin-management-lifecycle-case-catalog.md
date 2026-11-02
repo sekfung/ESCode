@@ -154,8 +154,11 @@ PLM-LC-018（管理列表本地化）、PLM-LC-019（双入口创建插件草稿
 
 受控 Electron 回归入口：`node packages/desktop/scripts/mcp-apps-host-e2e.mjs --background-only`。
 
-该入口在本仓库当前检出的脚本中缺失（上游 `upstream/main` 的 `background-main.ts` 未随 v3.15.1 移植带回）。
-补回前本节的 Electron 结论只代表上游实现，本仓库以后台创建相关单测为准。
+该入口已于 2026-11-02 在本仓库补齐（含 `background-main.ts` 及配套夹具）。Linux Xvfb
+已验证双窗口 admission、冷启动非零尺寸与内部帧；隐藏 guest rAF 依赖 Viz capturer，裸 Xvfb
+报 `UnknownVizError`，完整隐藏执行由 `.github/workflows/plugin-ui-background-e2e.yml` 的
+macOS 作业重跑；加载期活动租约与旧 owner/initId 拒绝由
+`packages/desktop/test/pluginSandboxExecution.test.ts` 覆盖。
 
 无卡片冷启动、隐藏但仍挂载的 tab、握手后的多帧初始化、窗口最小化执行、session 空闲时内部工作继续、
 同窗空闲 guest 隔离、离屏期限保留内存、删除释放，详见 [后台执行契约](plugin-ui-background-execution.md)。

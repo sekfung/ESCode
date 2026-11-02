@@ -177,10 +177,13 @@ sampling    → 账本容量/并发校验 → pin 实例 → 模型调用 → �
      根本没有 `display.ui`，UI 的 `pluginUiRowPolicy` 因此不建卡——这条也是前台卡片路径的前提。
    - Rust Host：`runtime_event_fanout`（由 `cua_observations` 泛化）按 strict 形状校验、只接受本地
      workspace，并注册 `escode-agent.onDynamicPluginUiToolResult`；`IMPLEMENTED` 438。
-     `_meta.ui` 差分 golden 已在 §5.6 补齐；仍缺「无工具卡后台创建」的 E2E 入口
-     （`mcp-apps-host-e2e.mjs` 只有 managed 系列，没有 `--background-only`），因此后台创建
-     当前证据是两侧单测（domain 10、tools 105、host-rpc 202 + contract 3、core 18、
-     bootstrap 4）而非端到端。
+     `_meta.ui` 差分 golden 已在 §5.6 补齐；「无工具卡后台创建」的 E2E 入口也已补回
+     （`mcp-apps-host-e2e.mjs --background-only` 与 `background-main.ts`，2026-11-02）。
+     Linux Xvfb 已验证 admission 双窗口准入、冷启动非零尺寸与内部帧；隐藏 guest 的 rAF
+     依赖 Viz capturer，裸 Xvfb 报 `UnknownVizError`，完整隐藏执行由
+     `.github/workflows/plugin-ui-background-e2e.yml` 的 macOS 作业重跑。两侧单测
+     （domain 10、tools 105、host-rpc 202 + contract 3、core 18、bootstrap 4）继续作为
+     协议与投影层的细粒度门禁。
 
 6. **`_meta.ui` 差分 golden 已落地（2026-11-02）**。此前只有两侧手写单测，Rust 与 TS 对同一份
    `_meta` 的输出从未逐条比对。现在由
