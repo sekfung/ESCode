@@ -111,6 +111,33 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
 首次打开从约 4.2 / 27.6 分钟降到 4.1 / 9.7 秒；50k/20k 首次打开比值从 6.5 降到 2.4（轮数比 2.5），
 恢复近线性。`rows` 单页仍为 6-8ms，`escode-cli-rust-cold-rows.test.ts` 的冷导入逐行对拍保持通过。
 
+### 100000 轮 / 196 MiB（2026-11-02，只测打开与分页）
+
+复用同一 seed 逻辑生成的 100,000 轮 TS 源库（205,651,968 字节）与 release 二进制，分别用全新
+data dir 测 Rust、用同一源库测 Node。基准用例在 5 万轮以上自动把请求/进程退出上限放宽到 120s/60s；
+`ESCODE_BENCH_SEED_DB` 可直接复用源库。结果与下面的手工复测一致，Rust 首次打开包含一次性导入：
+
+```bash
+ESCODE_BENCH_FIXTURE=1 ESCODE_BENCH_HISTORY_TURNS=100000 ESCODE_BENCH_ROUNDS=1 \
+  ESCODE_BENCH_SKIP_TURN=1 ESCODE_BENCH_SEED_DB=/tmp/escode-long-seed-9Dgakh/ts.sqlite \
+  ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust \
+  TSX_TSCONFIG_PATH=packages/services/tests/tsconfig.escode-cli-rust.json \
+  node --import tsx --test --test-timeout=1800000 --test-force-exit \
+  packages/services/tests/escode-cli-rust-long-history-bench.test.ts
+```
+
+| 指标                     |          Node | Rust release |
+| ------------------------ | ------------: | -----------: |
+| 首次打开（Rust 含导入）  | 18990         |        18475 |
+| 二次打开                 | 18379         |         3059 |
+| rows 单页（200 行）      | 7             |            6 |
+| schemaErrors             |             0 |            0 |
+
+Rust 首次导入相对 50k 为 1.9 倍（轮数 2.0 倍），二次打开为 1.7 倍，继续保持近线性；二次打开
+约为 Node 的 1/6.1。100k 源库导入后临时数据目录为 535 MiB，其中 `rust-sessions.sqlite` 339 MiB、
+保留的 `ts-backup-<uuid>.sqlite` 197 MiB；即成功导入后峰值磁盘约为源库的 2.6 倍。成功备份的
+保留/去重策略仍是 [rust-import-lifecycle.md](../specs/rust-import-lifecycle.md) 中的后续范围。
+
 ## 读法
 
 - 大历史冷进程打开：Rust 二次打开约为 Node 的 1/5.8；首次打开包含一次性导入，仍约为 1/3.3。
@@ -126,9 +153,11 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
   是当前唯一明显长尾。单页读取仍为毫秒级。
 - 50000 轮 / 98 MiB 的 release 二次打开为 1704ms（Node 10256ms，约 1/6.0），单页读取仍为毫秒级；
   一次性导入修复前约 27.6 分钟、修复后 9.7 秒，已恢复近线性（见上节）。
+- 100000 轮 / 196 MiB 的 Rust 首次导入 18.5s、二次打开 3.1s（Node 19.0s / 18.4s），单页 6-7ms；
+  导入耗时相对 50k 为 1.9 倍，与轮数增长一致。
 
 ## 仍缺
 
 - 真实 TS runtime / 真实供应商的下一轮与流式稳定阶段 RPC 长尾。
 - Windows/macOS 原生大历史测量（当前只有 Linux x64）。
-- 真实安装库与 10 万轮级/真实用户大库；磁盘容量/备份保留策略的实测。
+- 真实安装库与真实用户大库；100k 合成库及其磁盘占用已测，但成功备份保留/去重策略仍需产品确认。

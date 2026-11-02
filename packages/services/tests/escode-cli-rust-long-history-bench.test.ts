@@ -15,6 +15,12 @@ const providerId = process.env.ESCODE_BENCH_PROVIDER_ID;
 const fixtureMode = process.env.ESCODE_BENCH_FIXTURE === "1";
 const turns = Number(process.env.ESCODE_BENCH_HISTORY_TURNS ?? 300);
 const rounds = Number(process.env.ESCODE_BENCH_ROUNDS ?? 5);
+// 10 万轮级库导入后需要刷新较大的 SQLite 文件；普通用例的 4s 退出上限会把正常关闭误杀成 SIGKILL。
+// 冷打开本身也可能超过默认 5s 的协议请求上限；两个上限只对 opt-in 的大库基准放宽。
+if (turns >= 50_000) {
+  process.env.ESCODE_TEST_EXIT_MS ??= "60000";
+  process.env.ESCODE_TEST_REQUEST_MS ??= "120000";
+}
 // 数万轮的大库会超过 mock provider 的上下文窗口；该模式只测冷打开与分页，不发下一轮。
 const skipTurn = process.env.ESCODE_BENCH_SKIP_TURN === "1";
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
@@ -300,7 +306,8 @@ test(
   },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), "escode-long-seed-"));
-    const source = join(dir, "ts.sqlite");
+    // 大库重跑可复用已经由 TS store 生成的源库，避免每次重跑都花数分钟造同样的数据。
+    const source = process.env.ESCODE_BENCH_SEED_DB ?? join(dir, "ts.sqlite");
     if (fixtureMode) {
       benchProviderId = "personal:fixture";
       benchModelId = "model-a";
@@ -312,7 +319,7 @@ test(
       benchProviderId = "personal:bench";
       benchModelId = process.env.ESCODE_BENCH_MODEL ?? Object.keys(provider.models ?? {})[0]!;
     }
-    await seed(source, benchProviderId, benchModelId);
+    if (!process.env.ESCODE_BENCH_SEED_DB) await seed(source, benchProviderId, benchModelId);
     const samples: Record<"node" | "rust", Awaited<ReturnType<typeof measure>>[]> = {
       node: [],
       rust: [],
