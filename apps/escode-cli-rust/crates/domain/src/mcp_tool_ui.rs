@@ -279,11 +279,6 @@ fn normalize_origin(value: &Value) -> Option<String> {
     })
 }
 
-fn bound_text(value: &str, max_chars: usize) -> Option<String> {
-    let trimmed = value.trim();
-    (!trimmed.is_empty() && trimmed.chars().count() <= max_chars).then(|| trimmed.to_owned())
-}
-
 /// 展示名限长：超长按字符截断，与 TS `boundMcpDisplayText`（`trimmed.slice(0, maxChars)`）一致。
 ///
 /// 修复：pluginId 过去复用 `bound_text`，超长时整体返回 None，`display.ui` 缺失使
