@@ -240,7 +240,8 @@ for (const mode of modes) {
         child.kill("SIGKILL");
         reject(new Error(`Electron fixture timed out (${mode})`));
       },
-      mode === "background" ? (process.env.ESCODE_PHOTOCRAFT_SERVER ? 300_000 : 180_000) : 90_000,
+      // 后台场景包含三次冷启动 capturer 握手与同窗空闲 guest 隔离，macOS runner 实测超过 3 分钟。
+      mode === "background" ? (process.env.ESCODE_PHOTOCRAFT_SERVER ? 600_000 : 300_000) : 90_000,
     );
     child.on("error", reject);
     child.on("exit", (code) => {
