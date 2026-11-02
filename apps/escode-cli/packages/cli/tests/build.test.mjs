@@ -185,14 +185,17 @@ test("desktop agent builds minify the app-facing JS bundle", () => {
   assert.deepEqual(resolveBuildOptions([]), {
     minify: false,
     sourcemap: true,
+    buildPluginHost: false,
   });
   assert.deepEqual(resolveBuildOptions(["--desktop-agent"]), {
     minify: true,
     sourcemap: false,
+    buildPluginHost: true,
   });
   assert.deepEqual(resolveBuildOptions(["--desktop-agent"], { ESCODE_E2E_COVERAGE: "1" }), {
     minify: false,
     sourcemap: true,
+    buildPluginHost: true,
   });
 });
 
