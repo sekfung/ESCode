@@ -224,6 +224,38 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 本地 Node Host 路径与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，仍需三平台 Rust-only 安装/升级/回滚演练与
 P1 残余项收敛后再单独确认。
 
+**实跑证据（2026-11-03，四平台全绿）**
+
+- Rust-only 产物门禁：`release` run `41491160036`（`dev` @ `053f086a`，`workflow_dispatch`，
+  `rust_only=true`）。8 个 `rust runtime`、4 个 `desktop`、4 个 `installed` 作业全部 success；四平台
+  `desktop` 的 `assert release artifacts` 均通过，`installed` 均执行并通过
+  `launch installed package with Rust Host`、`Host switch and rollback drill`、
+  `launch installed package with Rust Host only`、`Rust-only installed runtime session`；Node → Rust → Node
+  **runtime** 演练按 `rust_only` 跳过。`installed` 作业：linux `125464648850`、win `125464646488`、
+  mac-x64 `125464649317`、mac-arm64 `125464649482`。
+- Windows `installed (win-x64)` 首次在 NSIS 启动阶段以 `0xC0000005` 崩溃，原作业重跑后通过；失败发生在
+  安装器进程启动阶段，不是产物断言失败。macOS 的 `macos-latest` 池连续排队超时后，发布与演练的 arm64
+  作业固定到 `macos-14`（commit `053f086a`），随后完成。
+- 版本升级/降级：`rust-version-drill` run `41503492904`（`dev` @ `83ecf28c`，`rust_only=true`），base
+  `release` run `41365221620`（tag `v3.15.2`）→ head `41491160036` → 降级。四平台 job：mac-arm64
+  `125480499642`、mac-x64 `125480499274`、win-x64 `125480497508`、linux-x64 `125480500515`，全部 success。
+  每步 `app.asar` sha256（base → head → 降级）：
+
+  | 平台      | base            | head            | 降级            |
+  | --------- | --------------- | --------------- | --------------- |
+  | mac-arm64 | `5ff1f955…e757` | `3e50dab6…b1ab` | `5ff1f955…e757` |
+  | mac-x64   | `63b9549a…40e8` | `4d2a99a4…9391` | `63b9549a…40e8` |
+  | win-x64   | `459ac7a9…b4db` | `ae52d073…fa12` | `459ac7a9…b4db` |
+  | linux-x64 | `64ca5d5e…cd40` | `bdabee8a…fe06` | `64ca5d5e…cd40` |
+
+  三次启动均到 `database-startup terminal { status: 'ready' }`，冻结设置保持不变，四平台日志均以
+  `version upgrade/downgrade drill passed: base → head → base, settings preserved (rust-only)` 结束。
+  Linux base/降级阶段对 root-owned `/opt/ESCode` 的 `zcode.cjs` 与 `.node-bundle-meta.json` 经 `sudo`
+  删除成功（commit `83ecf28c`）。
+
+- Windows 首次 run 的 NSIS 崩溃和 macOS runner 排队取消均保留为环境证据；失败原因与产物断言、Rust-only
+  启动语义无关，不能据此判定产物不可发布。
+
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 
 `packages/services/tests/escode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）
