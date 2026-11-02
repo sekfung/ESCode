@@ -77,6 +77,20 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
 | 二次打开                 | 5082 |          742 |
 | rows 单页（200 行）      |    5 |            6 |
 
+### 50000 轮 / 1 次（2026-11-02，只测打开与分页）
+
+同一用例改用 `ESCODE_BENCH_HISTORY_TURNS=50000 ESCODE_BENCH_ROUNDS=1 ESCODE_BENCH_SKIP_TURN=1
+ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，生成的 TS 库约 98 MiB：
+
+| 指标                     |  Node | Rust release |
+| ------------------------ | ----: | -----------: |
+| 首次打开（含一次性导入） | 10490 |      1654037 |
+| 二次打开                 | 10256 |         1704 |
+| rows 单页（200 行）      |     5 |            6 |
+
+50k 轮首次导入约 27.6 分钟；相对 20k 轮，轮数为 2.5 倍而导入耗时约 6.5 倍，呈超线性增长。
+二次打开仍为 1.7s（约为 Node 10.3s 的 1/6.0），单页读取保持毫秒级。
+
 ## 读法
 
 - 大历史冷进程打开：Rust 二次打开约为 Node 的 1/5.8；首次打开包含一次性导入，仍约为 1/3.3。
@@ -90,9 +104,11 @@ ESCODE_BENCH_RUST_BINARY=apps/escode-cli-rust/target/release/escode-cli-rust`，
   首次导入仍是单次成本；用户感知的稳态打开应以二次打开为准。
 - 20000 轮 / 39 MiB 的 release 二次打开为 742ms（Node 5082ms，约 1/6.8）；一次性导入 253s 仍随轮数线性增长，
   是当前唯一明显长尾。单页读取仍为毫秒级。
+- 50000 轮 / 98 MiB 的 release 二次打开为 1704ms（Node 10256ms，约 1/6.0），单页读取仍为毫秒级；
+  一次性导入增至约 27.6 分钟。导入耗时相对轮数超线性（2.5 倍轮数约 6.5 倍耗时），是当前最值得修复的长尾。
 
 ## 仍缺
 
 - 真实 TS runtime / 真实供应商的下一轮与流式稳定阶段 RPC 长尾。
 - Windows/macOS 原生大历史测量（当前只有 Linux x64）。
-- 真实安装库与 5 万轮以上；磁盘容量/备份保留策略的实测。
+- 真实安装库与 10 万轮级/真实用户大库；磁盘容量/备份保留策略的实测。
