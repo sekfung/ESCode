@@ -30,9 +30,13 @@ test("settings-page CA is trusted by Node and Rust", async () => {
     leafCert = join(temp, "leaf.pem"),
     extensions = join(temp, "leaf.ext");
   const openssl = (...args: string[]) => promisify(execFile)("openssl", args);
+  // 修复：macOS 自带 LibreSSL 的 `x509 -req` 默认用 SHA-1 签名，rustls 会拒绝该证书并让
+  // Rust 侧在建立连接前就报 TLS 校验失败（表现是本地模型服务 requests=0）。显式指定 SHA-256，
+  // 让 Linux OpenSSL 与 macOS LibreSSL 生成同一种可被 rustls 接受的证书。
   await openssl(
     "req",
     "-x509",
+    "-sha256",
     "-newkey",
     "rsa:2048",
     "-nodes",
@@ -52,6 +56,7 @@ test("settings-page CA is trusted by Node and Rust", async () => {
   await openssl(
     "req",
     "-new",
+    "-sha256",
     "-newkey",
     "rsa:2048",
     "-nodes",
@@ -75,6 +80,7 @@ test("settings-page CA is trusted by Node and Rust", async () => {
   await openssl(
     "x509",
     "-req",
+    "-sha256",
     "-in",
     leafCsr,
     "-CA",
