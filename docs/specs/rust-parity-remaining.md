@@ -44,6 +44,12 @@
 变化并恢复、冻结设置保持不变。因此「Rust-only 三平台发行门禁」与「Rust-only 升级/降级演练」不再是待办；
 删除 TS CLI、本地 Node Host 回退与 `ESCODE_AGENT_SERVER_RUNTIME=node` 仍需 P1 残余项收敛和单独确认。
 
+删除 `ESCODE_RUST_HOST=0` 本地 Node Host 回退的依赖面（2026-11-04 盘点，删除前需先给出替代方案并单独确认）：
+`scripts/ci-install-desktop.mjs` 的 Node→Rust→Node 安装包演练（`ESCODE_RUST_HOST` 取 `0`/`1` 两条腿）、
+`scripts/bench-escode-app.mjs` / `scripts/bench-escode-app-installed.mjs` 的 Node Host + Node/Rust CLI 基准
+（P1 性能证据）、`packages/desktop/wdio.conf.ts` 的 E2E env 透传与
+`packages/desktop/scripts/ensure-local-runtime-assets.mjs` 的 Rust Host 自举判定。
+
 2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
 `row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需
 设置 `ESCODE_BENCH_PROVIDER_ID` 在真实供应商环境执行；本地无供应商配置，未据此宣称 P1 已完成。
@@ -106,6 +112,12 @@ strict 门禁就此转绿。
 （`darwin-arm64` / `linux-x64` / `win32-x64` 的 `session-baseline`）均为空数组，因此三平台 CI 实际都跑
 `--golden --strict`。删除 Node runtime 的前置条件「差分套件完全依赖冻结 golden，不再启动 Node oracle，
 并切到 `--strict`」据此已满足；录制新 golden 仍需 `record cli goldens` workflow，不在 CI 里回退到实时 Node。
+
+2026-11-04 本地复核（Linux x64，release 二进制）：`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict`
+判定 parity：frames 7、rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 open / 0 欠账 /
+0 新差异；同一场景改用 `--live-node`（当前 `apps/escode-cli/packages/cli/dist/escode.cjs`）同样 0 新差异，
+说明冻结 golden 与当前 Node 产物一致，本地不需要回退实时 oracle。同日全量 Rust parity 套件（170 个测试文件）
+在 CI 同款环境（`ESCODE_TEST_REQUEST_MS=60000`、`--test-concurrency=1`）下 425 通过 / 0 失败 / 14 跳过。
 
 2026-11-01 CI 跨平台 test 分片三处失败的处置（run `41270183483`，commit `57179fa0`）：
 
