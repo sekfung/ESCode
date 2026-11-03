@@ -47,7 +47,8 @@ sequenceDiagram
 
 所有写入先创建父目录，再以临时文件 rename 落盘；`Task.outputFile` 与 Agent/TaskOutput/SendMessage
 返回的 `outputFile` 都指向该目录的 `output.txt`。差分验收覆盖完成、失败、停止三种状态的三文件集合、
-正文一致、产物路径与 metadata 关键字段，以及 `transcript.jsonl` 不存在。
+正文一致、产物路径与 metadata 关键字段，以及 `transcript.jsonl` 不存在；
+`escode-cli-rust-subagent-artifacts-differential.test.ts` 使用冻结 Node golden，常规 CI 不再启动 Node oracle。
 
 ## `features.subagent` 开关（2026-09-30）
 

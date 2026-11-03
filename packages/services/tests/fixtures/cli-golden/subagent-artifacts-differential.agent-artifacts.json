@@ -1,0 +1,31 @@
+{
+  "files": [
+    "metadata.json",
+    "output.txt",
+    "task.output"
+  ],
+  "output": "artifact result",
+  "taskOutput": "artifact result",
+  "metadata": {
+    "agentId": "<agent>",
+    "childSessionId": "<child>",
+    "parentSessionId": "<parent>",
+    "parentToolUseId": "launch",
+    "profileId": "general-purpose",
+    "profileName": "general-purpose",
+    "description": "artifact child",
+    "prompt": "artifact task",
+    "status": "completed",
+    "cwd": "workspace",
+    "workspaceRoot": "workspace",
+    "outputFile": "<parent>/<agent>/output.txt",
+    "taskOutputFile": "<parent>/<agent>/task.output",
+    "metadataFile": "<parent>/<agent>/metadata.json",
+    "createdAt": "<iso>",
+    "updatedAt": "<iso>",
+    "completedAt": "<iso>",
+    "durationIsNumber": true,
+    "totalTokens": 14,
+    "totalToolUseCount": 0
+  }
+}

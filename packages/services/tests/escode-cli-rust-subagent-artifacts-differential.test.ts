@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
+import { nodeOracle } from "./escode-cli-rust-golden.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { end, event, fixture } from "./escode-cli-rust-fixture.js";
 
@@ -133,7 +134,7 @@ async function observe(kind: "node" | "rust") {
 
 test("Agent artifacts use the Node layout and metadata across Node and Rust", async () => {
   const rust = await observe("rust");
-  const node = await observe("node");
+  const node = await nodeOracle("agent-artifacts", () => observe("node"));
   assert.deepEqual(rust, node);
   assert.deepEqual(rust.files, ["metadata.json", "output.txt", "task.output"]);
   assert.equal(rust.output, "artifact result");
