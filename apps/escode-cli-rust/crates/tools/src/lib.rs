@@ -38,6 +38,7 @@ mod mcp_http;
 mod mcp_http_capture;
 mod mcp_hub;
 mod mcp_image_artifacts;
+mod mcp_init_failure;
 mod mcp_oauth_client;
 mod mcp_oauth_credentials;
 mod mcp_oauth_flow;

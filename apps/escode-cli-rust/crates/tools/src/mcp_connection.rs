@@ -164,7 +164,7 @@ impl Connection {
                         .await
                     }
                 };
-                Ok::<Service, anyhow::Error>(service.context("protocol_negotiation_failed")?)
+                Ok::<Service, anyhow::Error>(service.map_err(super::mcp_init_failure::stdio)?)
             } else if config.transport == "sse" {
                 let transport = super::mcp_sse::Transport::open(
                     config,

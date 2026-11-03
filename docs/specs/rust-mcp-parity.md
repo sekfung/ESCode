@@ -70,6 +70,23 @@ TS `resolveVersionNegotiationMode` 的规则：
     预算后失败，且不再等待 rmcp 的 10s；
   - 现有 MCP 用例不回归。
 
+## stdio 握手前退出（2026-11-03）
+
+差分探测发现：stdio MCP 子进程启动成功后、版本握手完成前退出时，Node 报 `Connection closed`，
+`failureKind` 保持 stdio 默认值 `process_start_failed`；Rust 原先把
+`serve_client_with_lifecycle_and_ct` 的所有初始化错误统一包成
+`protocol_negotiation_failed`，设置页因此显示错误的分类。
+
+- Node `openServerConnection` 先按传输设置默认值：stdio 为 `process_start_failed`，http/sse 为
+  `network_unreachable`；只有 `SdkError(EraNegotiationFailed)` 与
+  `UnsupportedProtocolVersionError` 才改写成 `protocol_negotiation_failed`。
+- Rust 在 stdio 分支保留协商错误的 `protocol_negotiation_failed`，但把
+  `ClientInitializeError::ConnectionClosed`、`TransportError`（以及递归包含它们的
+  `LegacyFallbackFailed`）归类为 `process_start_failed`。
+- 验收：`packages/services/tests/escode-cli-rust-mcp-failure-kind-differential.test.ts` 覆盖
+  HTTP/SSE 连接拒绝、stdio 握手前退出、stdio 命令不存在；四例的 `status` 与 `failureKind`
+  均与 Node golden 相等。
+
 ## SSE 应答的 `server/discover` 错误（2026-09-27）
 
 schema 顺序差分发现：legacy streamable HTTP server 以 SSE（`text/event-stream`）应答 POST，
