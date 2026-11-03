@@ -21,6 +21,12 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - Windows runner 默认 MSVC 工具链，覆盖此前本机只能用 GNU 目标得出源码级结论的缺口；macOS runner 为 arm64。
 - macOS 作业固定 `macos-14`，不使用 `macos-latest`：后者属于会持续排队并被平台取消的托管池（与发布工作流同因）。`macos-14` 仍是 arm64，与既有 macOS 行为一致。
 - `ESCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
+- 2026-11-04 时序偶发（已用重跑确认）：纯文档提交 `57564389` 的 `rust-runtime-ci` run `41731402450` 在 macOS 两个 test 分片
+  各失败一次，都是时序敏感的深比较——`escode-cli-rust-model-io.test.ts` 的「full model-IO retention」用例 Rust 落盘 3 条记录、
+  Node 4 条；`escode-cli-rust-mcp-official-auth.test.ts`「official MCP (ok) identity headers…」的两条 hostRequest
+  （GET 与 POST `tools/list`）顺序互换。同一代码的上一轮 run `41717428169`、下一轮 `43cc1e7e` 均 macOS 全绿，
+  本地 Linux 在同款 `ESCODE_TEST_REQUEST_MS=60000` 下该文件 2/2 通过。处置：先 `gh run rerun --failed`；若复现，
+  稳定观察点（等落盘记录条数齐、按 `mcpKey + method` 排序）后再收紧断言，不用放宽断言或加超时掩盖时序问题。
 - `ELECTRON_SKIP_BINARY_DOWNLOAD=1`：测试不需要 Electron 运行时。
 - `bench-long-history` 只由 `workflow_dispatch` 的 `long_history=true` 启用，默认关闭，避免每次 push/PR 都为三平台生成大库；`long_history_turns` 可覆盖默认轮数（默认 20000）。
   作业构建 Node bundle、Rust release 二进制后，以 `ESCODE_BENCH_FIXTURE=1`、`ESCODE_BENCH_ROUNDS=1`、`ESCODE_BENCH_SKIP_TURN=1`
