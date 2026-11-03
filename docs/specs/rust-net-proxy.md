@@ -113,6 +113,17 @@ Chromium 侧由 `packages/desktop/src/main/desktopNetworkPolicy.ts` 单独应用
 补法是让 Main 在 `runtime_env` 里下发设置派生的代理/CA 键，并在设置变更时通过控制消息刷新实例 env（或让 Host
 装载同一份文件值）。补齐前不要把设置页代理计入 Host 迁移完成度。
 
+补齐设计（待确认后实现，所有者不变：settings 的唯一写者仍是 Host，Main 只读）：
+
+1. 启动：Main 在 `RpcListen` 前读一次 settings（现有 `SettingsRead` 控制消息），按 `agentProxyEnv.ts` 的语义把
+   `httpProxy` / `httpProxyNoProxy` / `httpProxyCaCertPath` 映射为 `ESCODE_HTTP_PROXY` / `ESCODE_NO_PROXY` /
+   `ESCODE_AGENT_CA_CERT` 放进 `runtime_env`；Host 侧 `net_config::proxy_options` 与 `tls_ca` 已按实例 env 快照取值，
+   无需新增文件读取。
+2. 变更：设置写入成功后 Main 下发新的实例 env patch，Host 更新该 workspace 的 patch；已在跑的 runtime 不重启
+   （与 TS「下次启动 agent 生效」一致）。Host 自身 `api_client` 的出口是否要求即时生效需产品确认。
+3. 远程：`ESCODE_REMOTE_HTTP_PROXY` / `ESCODE_REMOTE_NO_PROXY` 目前同样没有生产写入方
+   （`packages/server/src/stdioServices.ts:27` 只消费），需与本地一起复核，避免只修本地一半。
+
 ## 验收
 
 1. 差分：`scripts/generate-escode-cli-rust-proxy-corpus.mjs` 以 TS 两个入口为 oracle，导出
