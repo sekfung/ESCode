@@ -2,8 +2,8 @@
  * Main 侧的 Computer Use Helper 权限服务（docs/specs/rust-u2-cua-permission.md）。
  *
  * Helper 生命周期由 Main 拥有：Rust Host 只经控制通道 `mainRequest` 转发
- * `cua-permission.getStatus` / `restartHelper`。Node Host 与 Main 共用
- * `cuaPermissionServiceRuntime` 的编排，这里只负责 Main 的单例与进程环境。
+ * `cua-permission.getStatus` / `restartHelper`。S6 后 Node Host 退场，编排只在
+ * Main 内实例化；这里负责 Main 的单例与进程环境。
  */
 
 import { CuaHelperLifecycleManager } from "@escode/escode-cua/broker/server";

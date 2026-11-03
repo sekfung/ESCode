@@ -748,7 +748,7 @@ const rustHostManager = createRustHostManager({
   // 会话工作区等路径按 TS `getDataBaseDir()` 派生（设置项 dataBaseDir 由 bootstrap 注入）；
   // 启动后不再变，与 `conversationWorkspaceDir` 的取值时机一致（见上面 resolveStartupWindowBootstrap）。
   dataBaseDir: getDataBaseDir(),
-  // Rust Host 不建库：Main 先用 Node Host 同一条迁移 worker 准备 tasks-index（spec §3.1）。
+  // Rust Host 不建库：Main 在 spawn 前用自有 worker 准备 tasks-index（spec §3.1）。
   prepareStorage: createRustHostTasksIndexPreparation({ log: logger }),
   // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；含 provider 配置位置（A16b，spec §11）。
   runtimeEnv: () => ({

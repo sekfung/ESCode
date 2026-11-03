@@ -34,7 +34,7 @@ export function onLocalDatabaseStartupReady(listener: () => void): void {
 
 /**
  * Rust Host 模式没有 Node Host 的启动 relay：tasks-index 由 Main 准备完成后直接标记本地存储就绪，
- * 让依赖它的 scheduler 与 Node Host 路径保持同一触发点。重复调用幂等。
+ * 让依赖它的 Rust Host 启动路径保持同一触发点。重复调用幂等。
  */
 export function markLocalDatabaseStartupReady(): void {
   if (localStorageReady) return;

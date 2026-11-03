@@ -552,7 +552,7 @@ export function createRemoteWorkspaceSessionManager(options: {
    * 远端 scope 的桥接丢失（S3-c-3a，spec §10.14）：Host 结束 `/ws` 或 Host 进程退出。
    *
    * 修复：此前 bridge 只记录日志，Rust route 的 `onLost` 也无人订阅。链路 EOF 后窗口继续显示
-   * “已连接”，调用全部命中失效句柄。这里按 Node Host 的 `connection-closed` 语义收口 route，
+   * “已连接”，调用全部命中失效句柄。这里按既有 `connection-closed` 语义收口 route，
    * 并用既有 `RemoteSessionClosed` 通知 renderer；重连仍由 renderer 的 `connectRemote` 重新签发
    * capability，不在旧端口上原地恢复。
    */
@@ -677,7 +677,7 @@ export function createRemoteWorkspaceSessionManager(options: {
     if (pendingByRequestKey.has(key)) {
       throw new Error(`远程连接 requestId 重复，requestId=${resolvedRequestId}`);
     }
-    // 与 Node Host 远程路径同一语义：目录未选定时用根路径占位，bind 时换代。
+    // 与历史 Node Host 远程路径同一语义：目录未选定时用根路径占位，bind 时换代。
     const workspacePath =
       context?.workspacePath?.trim() ||
       (target.kind === "server" ? target.workspacePath?.trim() : undefined) ||
