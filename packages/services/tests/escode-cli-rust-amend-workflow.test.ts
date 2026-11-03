@@ -23,7 +23,12 @@ const revised = [
 
 const call = (id: string, name: string, args: unknown) => ({
   tool_calls: [
-    { index: 0, id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+    {
+      index: 0,
+      id,
+      type: "function",
+      function: { name, arguments: JSON.stringify(args) },
+    },
   ],
 });
 const toolResult = (req: any, id: string) =>
@@ -63,6 +68,7 @@ async function observe(kind: "node" | "rust") {
           env,
         })
       : await fixture({ root, registry: true, respond, mode: "yolo", env });
+  let pump: ReturnType<typeof setInterval> | undefined;
   try {
     await configureRegistry(f, false);
     await writeFile(join(f.cwd, "a.txt"), "a");
@@ -76,7 +82,7 @@ async function observe(kind: "node" | "rust") {
     const permissions: any[] = [];
     let seen = 0;
     const answered = new Set<string>();
-    const pump = setInterval(() => {
+    pump = setInterval(() => {
       for (; seen < h.messages.length; seen++) {
         for (const delta of h.messages[seen]?.params?.frame?.payload?.deltas ?? []) {
           for (const p of delta.patch?.pendingInteractions ?? []) {
@@ -98,13 +104,6 @@ async function observe(kind: "node" | "rust") {
       }
     }, 20);
     await h.command(h.envelope("sendText", id, { text: "count the txt files", mode: "yolo" }));
-    const deadline = Date.now() + 90_000;
-    while (requests.length < 6 && Date.now() < deadline) {
-      await new Promise((done) => setTimeout(done, 100));
-    }
-    await h.completed(id);
-    clearInterval(pump);
-    await h.close();
     const rootText = JSON.stringify(root).slice(1, -1);
     const scrub = (text: string) =>
       text
@@ -113,10 +112,36 @@ async function observe(kind: "node" | "rust") {
         .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>")
         .replace(/dwf[-_][A-Za-z0-9_-]+/g, "<runId>")
         .replace(/\d+(\.\d+)?\s?(ms|s)\b/g, "<duration>");
-    const lastUser = (req: any) => {
+    const lastUserContent = (req: any): string | undefined => {
       const content = req?.messages?.filter((m: any) => m.role === "user").at(-1)?.content;
+      if (content === undefined) return undefined;
       return scrub(typeof content === "string" ? content : JSON.stringify(content));
     };
+    const lastUser = (req: any): string => {
+      const content = lastUserContent(req);
+      if (content === undefined) throw new Error("expected the request to contain a user message");
+      return content;
+    };
+    const amendResult = () => scrub(toolResult(requests[4], "aw-1"));
+    const deadline = Date.now() + 90_000;
+    while (requests.length < 6 && Date.now() < deadline) {
+      if (requests.length >= 5) {
+        const result = amendResult();
+        if (/workflow_amend_[a-z_]+:/.test(result)) {
+          throw new Error(`AmendWorkflow failed before the completion notification: ${result}`);
+        }
+      }
+      await new Promise((done) => setTimeout(done, 100));
+    }
+    if (requests.length < 6) {
+      const last = requests.at(-1);
+      const roles = last?.messages?.map((message: Message) => message.role).join(",") ?? "<none>";
+      throw new Error(
+        `AmendWorkflow did not produce request 6 within 90s: requests=${requests.length}; amend=${amendResult()}; lastRoles=${roles}; lastUser=${lastUserContent(last) ?? "<missing>"}`,
+      );
+    }
+    await h.completed(id);
+    await h.close();
     return {
       amendResult: scrub(toolResult(requests[4], "aw-1")),
       notification: lastUser(requests[5]),
@@ -125,6 +150,7 @@ async function observe(kind: "node" | "rust") {
       schemaErrors: h.schemaErrors,
     };
   } finally {
+    if (pump) clearInterval(pump);
     await f.close();
   }
 }

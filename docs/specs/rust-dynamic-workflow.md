@@ -304,3 +304,8 @@ Agent / SendMessage、无定时任务端口的 Cron\*）。验收：`escode-cli-
   也连跑 3/3 通过（约 10s）；暂时按慢 runner 时序处理，不据此改产品；
   若再次复现，先查「修订 run 结算通知在 AmendWorkflow 工具结果之后到达时是否被丢弃」，并把等待循环改成
   「到点即失败并打印 `requests.length` 与最后一条消息」。
+- 2026-11-03 Windows CI 再次复现（`rust-runtime-ci` 的 `test (windows-latest, 3/3)`）：仍等到 90s 上限，随后在
+  `lastUser(requests[5])` 的 `scrub` 处因 `undefined` 崩溃。现已把等待改成可证伪的失败：第 5 个请求出现后先检查
+  `AmendWorkflow` 的结构化失败（`workflow_amend_*`）并立即报错；90s 到点则报告 `requests.length`、最后一条请求的
+  角色与用户文本、以及 `AmendWorkflow` 结果。下一次复现据此先区分「修订失败」与「结算通知丢失」，再决定修产品
+  还是测试。
