@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-export type CoverageHeatmapDomain = "renderer" | "main" | "host" | "cli";
+export type CoverageHeatmapDomain = "renderer" | "main" | "cli";
 
 interface IstanbulFunctionLocation {
   start?: {
@@ -66,7 +66,6 @@ interface WriteCoverageHeatmapOptions {
 const DOMAIN_COVERAGE_PATHS: Record<CoverageHeatmapDomain, string[]> = {
   renderer: ["coverage-final.json"],
   main: ["main", "coverage-final.json"],
-  host: ["host", "coverage-final.json"],
   cli: ["cli", "coverage-final.json"],
 };
 

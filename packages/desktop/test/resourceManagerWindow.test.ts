@@ -1,10 +1,8 @@
 import {
   formatESCodeAgentProcessName,
   formatESCodeGpuProcessName,
-  formatESCodeHostProcessName,
   formatESCodeRendererProcessName,
   formatESCodeUtilityProcessName,
-  HostMessageTypes,
 } from "@escode/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -79,7 +77,6 @@ describe("resourceManagerWindow", () => {
     const mainPid = process.pid;
     const gpuPid = mainPid + 1;
     const rendererPid = mainPid + 2;
-    const hostPid = mainPid + 3;
     const utilityPid = mainPid + 4;
     const guestPid = mainPid + 5;
 
@@ -87,7 +84,6 @@ describe("resourceManagerWindow", () => {
       createMetric(mainPid, "Browser", 1.2, 1024),
       createMetric(gpuPid, "GPU", 0.4, 2048),
       createMetric(rendererPid, "Tab", 18.8, 4096),
-      createMetric(hostPid, "Utility", 0.2, 512, "escode-host-local-1"),
       createMetric(utilityPid, "Utility", 0.1, 256, "network-service"),
       createMetric(guestPid, "Tab", 3, 8192),
     ]);
@@ -112,7 +108,6 @@ describe("resourceManagerWindow", () => {
     fromWebContents.mockReturnValue(null);
 
     const module = await loadModule();
-    module.registerHostProcess("local-1", { pid: hostPid } as never);
     module.setBrowserUseGuestWebContentsIdsProvider(() => [77]);
 
     try {
@@ -134,10 +129,6 @@ describe("resourceManagerWindow", () => {
         name: formatESCodeRendererProcessName("ESCode"),
         groupKey: "renderer",
       });
-      expect(byPid.get(hostPid)).toMatchObject({
-        name: formatESCodeHostProcessName("local-1"),
-        groupKey: "host",
-      });
       expect(byPid.get(utilityPid)).toMatchObject({
         name: formatESCodeUtilityProcessName("network-service"),
         groupKey: "utility",
@@ -147,18 +138,17 @@ describe("resourceManagerWindow", () => {
         groupLabel: "browser-use",
         memoryBytes: 8192 * 1024,
       });
-      expect(snapshot.app.memoryBytes).toBe((1024 + 2048 + 4096 + 512 + 256 + 8192) * 1024);
-      expect(snapshot.app.cpuPercent).toBeCloseTo(23.7, 5);
+      expect(snapshot.app.memoryBytes).toBe((1024 + 2048 + 4096 + 256 + 8192) * 1024);
+      expect(snapshot.app.cpuPercent).toBeCloseTo(23.5, 5);
       expect(snapshot.logicalCpuCount).toBe(4);
       expect(snapshot.system.memoryTotalBytes).toBe(16 * 1024 ** 3);
       expect(snapshot.system.memoryUsedBytes).toBe(10 * 1024 ** 3);
     } finally {
-      module.unregisterHostProcess("local-1");
       module.setBrowserUseGuestWebContentsIdsProvider(() => []);
     }
   });
 
-  it("合并 Host 回报的外部进程；注册表里未回报的 Agent 以 sampled=false 兜底", async () => {
+  it("合并 Rust Host 回报的外部进程；注册表里未回报的 Agent 以 sampled=false 兜底", async () => {
     const mainPid = process.pid;
     const hostPid = mainPid + 3;
     const agentPid = mainPid + 10;
@@ -169,14 +159,15 @@ describe("resourceManagerWindow", () => {
     getAllWebContents.mockReturnValue([]);
 
     const module = await loadModule();
-    const child = {
+    const hosts = await import("../src/main/resourceManagerExternalHosts.js");
+    hosts.registerExternalHostProcess({
+      label: "rust-host",
       pid: hostPid,
-      postMessage: vi.fn((message: { type: string; requestId: string }) => {
-        expect(message.type).toBe(HostMessageTypes.ResourceUsageSnapshotRequest);
+      requestResourceUsage: (requestId) => {
         queueMicrotask(() =>
-          module.resolveHostResourceUsageResult("local-1", {
+          module.resolveHostResourceUsageResult("rust-host", {
             type: "resource-usage-snapshot-result",
-            requestId: message.requestId,
+            requestId,
             sampledAt: 1,
             processes: [
               {
@@ -200,10 +191,11 @@ describe("resourceManagerWindow", () => {
             ],
           }),
         );
-      }),
-    };
-    module.registerHostProcess("local-1", child as never);
-    module.registerHostAgentProcess("local-1", {
+      },
+      cancelResourceUsage: vi.fn(),
+      setNetworkCapture: vi.fn(),
+    });
+    module.registerHostAgentProcess("rust-host", {
       pid: agentPid,
       provider: "glm",
       workspacePath: "/w/demo",
@@ -211,7 +203,7 @@ describe("resourceManagerWindow", () => {
       args: [],
       startedAt: 1,
     });
-    module.registerHostAgentProcess("local-1", {
+    module.registerHostAgentProcess("rust-host", {
       pid: unsampledAgentPid,
       provider: "glm",
       workspacePath: "/w/other",
@@ -242,25 +234,27 @@ describe("resourceManagerWindow", () => {
       });
       expect(snapshot.app.cpuPercent).toBe(4);
     } finally {
-      module.unregisterHostProcess("local-1");
+      hosts.unregisterExternalHostProcess("rust-host");
     }
   });
 
-  it("Host 超时时用它上一轮结果兜底，不让列表闪空", async () => {
+  it("Rust Host 超时时用它上一轮结果兜底，不让列表闪空", async () => {
     vi.useFakeTimers();
     const mainPid = process.pid;
     getAppMetrics.mockReturnValue([createMetric(mainPid, "Browser", 1, 100)]);
     getAllWindows.mockReturnValue([]);
     getAllWebContents.mockReturnValue([]);
     const module = await loadModule();
+    const hosts = await import("../src/main/resourceManagerExternalHosts.js");
     let respond = true;
-    const child = {
+    hosts.registerExternalHostProcess({
+      label: "rust-host",
       pid: mainPid + 3,
-      postMessage: vi.fn((message: { requestId: string }) => {
+      requestResourceUsage: (requestId) => {
         if (!respond) return;
-        module.resolveHostResourceUsageResult("local-1", {
+        module.resolveHostResourceUsageResult("rust-host", {
           type: "resource-usage-snapshot-result",
-          requestId: message.requestId,
+          requestId,
           sampledAt: 1,
           processes: [
             {
@@ -274,9 +268,10 @@ describe("resourceManagerWindow", () => {
             },
           ],
         });
-      }),
-    };
-    module.registerHostProcess("local-1", child as never);
+      },
+      cancelResourceUsage: vi.fn(),
+      setNetworkCapture: vi.fn(),
+    });
     try {
       const first = await module.buildResourceUsageSnapshot();
       expect(first.processes.some((row) => row.pid === 4242)).toBe(true);
@@ -287,7 +282,7 @@ describe("resourceManagerWindow", () => {
       const second = await pending;
       expect(second.processes.some((row) => row.pid === 4242)).toBe(true);
     } finally {
-      module.unregisterHostProcess("local-1");
+      hosts.unregisterExternalHostProcess("rust-host");
     }
   });
 

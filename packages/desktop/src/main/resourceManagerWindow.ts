@@ -1,5 +1,4 @@
 import { app, BrowserWindow, webContents as electronWebContents } from "electron";
-import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import type { ChromiumProcessRolePids } from "./resourceManagerProcessRoles.js";
 import os from "node:os";
 import { join } from "node:path";
@@ -16,14 +15,14 @@ import {
 } from "@escode/shared";
 import { logger } from "./logger.js";
 import { collectUnsampledAgentProcesses } from "./resourceManagerAgentRows.js";
-import { configureNetworkCaptureHost, observeNetworkWindow } from "./resourceManagerNetwork.js";
-import { collectExternalHostProcesses, externalHostRows } from "./resourceManagerExternalHosts.js";
+import {
+  collectExternalHostProcesses,
+  externalHostProcessesSnapshot,
+  externalHostRows,
+} from "./resourceManagerExternalHosts.js";
 import { normalizeElectronCpuToMachinePercent } from "./electronCpuNormalization.js";
 import { buildAuxiliaryRendererName } from "./resourceManagerProcessNames.js";
-import {
-  forgetHostResourceUsage,
-  requestHostResourceUsage,
-} from "./resourceManagerHostSampling.js";
+import { forgetHostResourceUsage } from "./resourceManagerHostSampling.js";
 
 /**
  * 资源管理器。
@@ -73,7 +72,7 @@ let samplingController: AbortController | undefined;
 function stopResourceUsageSampling(): void {
   samplingController?.abort();
   samplingController = undefined;
-  for (const label of hostProcesses.keys()) forgetHostResourceUsage(label);
+  for (const host of externalHostProcessesSnapshot()) forgetHostResourceUsage(host.label);
 }
 
 /** 只有资源管理器本身能启停观测；Main 持有唯一生命周期。 */
@@ -104,13 +103,6 @@ export function getResourceManagerWindowId(): number | null {
   }
   return instance.id;
 }
-
-/**
- * 记录活跃的 host process（utility process）。
- * 每个 BrowserWindow 只注册一个 window-scoped Host；远程连接不再产生独立 Host PID。
- * key = 窗口 label（如 "local-2"），value = UtilityProcess
- */
-const hostProcesses = new Map<string, ElectronUtilityProcess>();
 
 interface RegisteredAgentProcess {
   pid: number;
@@ -149,16 +141,6 @@ export function isMainApplicationWindowWebContents(webContentsId: number): boole
   return mainApplicationWindowWebContentsIds.has(webContentsId);
 }
 
-function collectUtilityProcessPids(children: Iterable<ElectronUtilityProcess>): Set<number> {
-  const pids = new Set<number>();
-  for (const child of children) {
-    if (child.pid != null && child.pid > 0) {
-      pids.add(child.pid);
-    }
-  }
-  return pids;
-}
-
 /**
  * 当前各进程角色的 pid 快照，供资源管理器按进程角色拆分使用
  *
@@ -191,19 +173,9 @@ export function collectChromiumProcessRolePids(): ChromiumProcessRolePids {
     mainPid: process.pid,
     mainWindowRendererPids,
     guestRendererPids,
-    hostPids: collectUtilityProcessPids(hostProcesses.values()),
+    // Node utility Host 已删除；Rust Host 不是 Electron utilityProcess，按外部 pid 采样行归类。
+    hostPids: new Set<number>(),
   };
-}
-
-export function registerHostProcess(label: string, child: ElectronUtilityProcess): void {
-  hostProcesses.set(label, child);
-  configureNetworkCaptureHost(child);
-}
-
-export function unregisterHostProcess(label: string): void {
-  hostProcesses.delete(label);
-  hostAgentProcesses.delete(label);
-  forgetHostResourceUsage(label);
 }
 
 export function registerHostAgentProcess(label: string, process: RegisteredAgentProcess): void {
@@ -264,7 +236,6 @@ export function openResourceManager(): void {
     },
   });
 
-  observeNetworkWindow(instance, () => hostProcesses.values());
   // 与主窗口保持一致：生产包始终加载签名包内的渲染资源。
   if (!app.isPackaged && process.env["ELECTRON_RENDERER_URL"]) {
     const base = process.env["ELECTRON_RENDERER_URL"];
@@ -389,14 +360,6 @@ function collectElectronProcesses(): ResourceUsageProcess[] {
     push(baseProcess(rendererPid, name, "renderer", cpuPercent, memoryBytes));
   }
 
-  // host 是 main 通过 utilityProcess.fork() 创建的直接子进程。
-  for (const [label, child] of hostProcesses) {
-    if (child.pid == null) continue;
-    const { cpuPercent, memoryBytes } = metricsOf(child.pid);
-    push(
-      baseProcess(child.pid, formatESCodeHostProcessName(label), "host", cpuPercent, memoryBytes),
-    );
-  }
   // Rust Host 不在 Electron app metrics 中；用采样行兜底（pid 去重在下游完成）。
   for (const host of externalHostRows()) {
     push(baseProcess(host.pid, formatESCodeHostProcessName(host.label), "host", 0, 0));
@@ -422,13 +385,7 @@ function collectElectronProcesses(): ResourceUsageProcess[] {
 }
 
 async function collectHostProcesses(signal?: AbortSignal): Promise<HostResourceUsageProcess[]> {
-  const results = await Promise.all([
-    ...[...hostProcesses].map(([label, child]) =>
-      child.pid != null ? requestHostResourceUsage(label, child, undefined, signal) : [],
-    ),
-    collectExternalHostProcesses(signal),
-  ]);
-  return results.flat();
+  return collectExternalHostProcesses(signal);
 }
 
 const systemCpuMeter = createSystemCpuMeter();

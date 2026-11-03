@@ -175,7 +175,6 @@ describe("desktop E2E build cache", () => {
   it("requires every desktop runtime entry before committing the cache", () => {
     expect(E2E_DESKTOP_REQUIRED_OUTPUT_PATHS).toEqual([
       "out/main/index.js",
-      "out/host/index.js",
       "out/preload/index.cjs",
       "out/preload/resourceManager.cjs",
       "out/renderer/index.html",

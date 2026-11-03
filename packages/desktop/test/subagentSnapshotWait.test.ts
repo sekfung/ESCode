@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { stringifyHostLogArg } from "../src/host/hostLog.js";
 import { subagentUpdateCursor } from "./e2e/helpers/subagent-snapshot-wait.js";
+
+const stringifyLogArg = (arg: unknown) => (typeof arg === "string" ? arg : JSON.stringify(arg));
 
 const runNode = promisify(execFile);
 const roots: string[] = [];
@@ -30,7 +31,7 @@ const message = (path: string, pid = 42) =>
     "Subagent 配置文件更新完成",
     { path, changedPaths: [path], fallback: false },
   ]
-    .map(stringifyHostLogArg)
+    .map(stringifyLogArg)
     .join(" ");
 
 describe("subagent E2E log path matching", () => {

@@ -311,8 +311,8 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 
 Host 回退步骤（S6 起）：
 
-1. Host 实现没有运行时回退；需要回退时只能回滚到仍含 Node Host 的旧安装包（安装包降级）；
-2. 回滚后按旧版本文档设置 `ESCODE_RUST_HOST=0` 才走 Node Host，新版会忽略该变量；
+1. Host 实现没有运行时回退；当前源码已删除 Node Host 入口，需要回退时只能降级到仍含 Node Host 的旧安装包；
+2. 旧安装包按旧版本文档设置 `ESCODE_RUST_HOST=0` 才走 Node Host；新版源码与安装包均无该路径；
 3. 新版确认主进程日志出现 `[rust-host] started`，且没有 `forked host process for (local-`。
 
 数据边界：Host 只读写既有设置文件与 tasks-index；切换 Host 实现不迁移、不改写这两类文件。安装包演练
@@ -335,4 +335,4 @@ CLI 确定性 oracle 已清零：`packages/services/tests/escode-cli-rust-*.test
 （`nodeOracle` record/load，`ESCODE_RECORD_CLI_GOLDEN=1` 重录；legacy DB 用 gzip seed）。
 例外为非确定性 benchmark/rehearsal（`long-history-bench`、`real-data-rehearsal`、
 `real-provider-bench`，默认跳过）与仅 Windows 的 `shell-resume-notice`（golden 待 Windows 重录）。
-在清零前不删除 Node Host / TS CLI；Web 服务端目标仍保留窗口内 Node Host。
+Node Host 入口与运行链路已于 2026-11-04 删除；TS CLI 仍按 P1 残余项与单独确认保留。

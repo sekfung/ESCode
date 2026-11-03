@@ -1,4 +1,3 @@
-import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { randomUUID } from "node:crypto";
 import {
   HostMessageTypes,
@@ -43,16 +42,7 @@ export function forgetHostResourceUsage(label: string): void {
   lastHostResults.delete(label);
 }
 
-export function requestHostResourceUsage(
-  label: string,
-  child: Pick<ElectronUtilityProcess, "postMessage">,
-  timeoutMs: number = HOST_SNAPSHOT_TIMEOUT_MS,
-  signal?: AbortSignal,
-): Promise<HostResourceUsageProcess[]> {
-  return requestFrom(label, (message) => child.postMessage(message), timeoutMs, signal);
-}
-
-/** 非 Electron utility Host（Rust Host）：发送函数由调用方提供。 */
+/** Rust Host 不是 Electron utilityProcess，发送函数由调用方提供。 */
 export function requestExternalHostResourceUsage(
   label: string,
   send: (message: { type: string; requestId: string }) => void,

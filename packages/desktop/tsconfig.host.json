@@ -3,7 +3,10 @@
   "compilerOptions": {
     "outDir": "out/host",
     "rootDir": "src/host",
-    "lib": ["es2025"]
+    "lib": ["es2025"],
+    // Node Host 入口删除后，剩余 TS 观察源不再携带 `/// <reference types="node" />`，
+    // 显式声明 Node 类型，避免 setTimeout/TextEncoder/node:util 依赖全局自动注入。
+    "types": ["node"]
   },
   "include": ["src/host"],
   // host 既直接依赖 services/shared，也直接 import 了 rpc；补 references 是为了避免它再次把 rpc 源码拉进来检查。

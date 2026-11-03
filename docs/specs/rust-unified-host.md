@@ -242,7 +242,10 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       例外（均非确定性 parity 门禁）：3 个默认跳过的 benchmark/rehearsal
       （`long-history-bench`、`real-data-rehearsal`、`real-provider-bench`）；
       `shell-resume-notice` 仅在 Windows 启用，其 golden 需在 Windows runner 上重录一次。
-      清零前不删除 Node Host / TS CLI（Web 服务端目标仍需 Node Host）
+      2026-11-04 S6 已删除 Node Host 实现入口（`packages/desktop/src/host/index.ts`）、tsup bundle 与
+      utility Host 进程注册表；S5-f 后 Web 服务端目标也由 Rust Host 承载，不再需要窗口内 Node Host。
+      保留 `windowHostControllerService` / `windowHostControllerProjection` 仅作为 Rust 差分 golden
+      生成器的 TS 观察源（`pnpm check:rust-host-golden`），不是可启动的 Host。TS CLI 仍按 P1 门禁保留
 - [x] 回退矩阵更新（`rust-release-rollback.md` 的「Host 实现切换矩阵」）；AGENTS.md 同步（CONTEXT.md 无
       Host 实现相关词条）
 

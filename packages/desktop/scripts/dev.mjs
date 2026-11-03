@@ -11,7 +11,6 @@ const root = resolve(import.meta.dirname, "..");
 const mainBundle = resolve(root, "out/main/index.js");
 const buildReadyMarkers = [
   { name: "main", path: resolve(root, "out/.main-build-ready") },
-  { name: "host", path: resolve(root, "out/.host-build-ready") },
   { name: "preload", path: resolve(root, "out/.preload-build-ready") },
 ];
 const waitLogIntervalMs = 3_000;
@@ -57,9 +56,9 @@ function probeHttpUrl(url) {
 
 // Wait for both Vite dev server and main bundle to be ready
 async function waitForReady() {
-  // desktop 的 tsup 实际是 main/host/preload 三个独立 watch 构建。
+  // desktop 的 tsup 实际是 main/preload 两个独立 watch 构建。
   // 之前任意一个构建成功就可能放行，Electron 会在其余产物还未稳定时启动，读到半完成的 ESM/CJS 文件。
-  // 现在必须等待三个构建各自写入 ready 标记，再额外确认 main bundle 已产出。
+  // 现在必须等待两个构建各自写入 ready 标记，再额外确认 main bundle 已产出。
   let lastBuildWaitLogAt = 0;
   while (true) {
     const missingMarkers = buildReadyMarkers

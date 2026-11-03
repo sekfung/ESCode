@@ -44,35 +44,26 @@ function getDefines(configName: string): Record<string, string> {
 
 describe("desktop tsup chunk isolation", () => {
   it("ZIP 解包器应外置，避免 Electron ESM 启动时动态 require fs 崩溃", () => {
-    for (const name of ["main", "host", "scheduler"]) expect(getExternal(name)).toContain("yauzl");
+    expect(getExternal("main")).toContain("yauzl");
   });
-  it("main 构建应将 chunk 输出到 main 子目录，避免覆盖 host 构建产物", () => {
+  it("main 构建应将 chunk 输出到 main 子目录，避免覆盖其他构建产物", () => {
     expect(getChunkNames("main")).toBe("main/chunk-[hash]");
   });
 
-  it("host 构建应将 chunk 输出到 host 子目录，避免覆盖 main 构建产物", () => {
-    expect(getChunkNames("host")).toBe("host/chunk-[hash]");
-  });
-
-  it("main/host 构建应外置 yaml，避免 Electron ESM 动态 require 崩溃", () => {
+  it("main 构建应外置 yaml，避免 Electron ESM 动态 require 崩溃", () => {
     expect(getExternal("main")).toContain("yaml");
-    expect(getExternal("host")).toContain("yaml");
   });
 
-  it("main/host/scheduler 应内联 CUA producer，安装包不能依赖被排除的 @escode node_modules", () => {
-    for (const configName of ["main", "host", "scheduler"]) {
-      expect(getNoExternal(configName)).toContain("@escode/escode-cua");
-    }
+  it("main 应内联 CUA producer，安装包不能依赖被排除的 @escode node_modules", () => {
+    expect(getNoExternal("main")).toContain("@escode/escode-cua");
   });
 
-  it("main/host/scheduler 应内联 Provider workspace 包，Electron 不能直接加载 TypeScript 源码", () => {
-    for (const configName of ["main", "host", "scheduler"]) {
-      expect(getNoExternal(configName)).toContain("@escode/provider");
-      expect(getNoExternal(configName)).toContain("@escode/provider-node");
-    }
+  it("main 应内联 Provider workspace 包，Electron 不能直接加载 TypeScript 源码", () => {
+    expect(getNoExternal("main")).toContain("@escode/provider");
+    expect(getNoExternal("main")).toContain("@escode/provider-node");
   });
 
-  it("生产构建应压缩 main/host/preload 且不生成 sourcemap", () => {
+  it("生产构建应压缩 main/preload 且不生成 sourcemap", () => {
     expect(resolveDesktopTsupBundleSecurityOptions({ NODE_ENV: "production" })).toEqual({
       keepNames: true,
       minify: true,
@@ -134,7 +125,7 @@ describe("desktop tsup chunk isolation", () => {
 
   it("安装包身份与后端环境作为两个编译期常量注入每个 bundle", () => {
     // 打包后的应用不能依赖机器环境变量：ESCODE_PREVIEW_IDENTITY 在构建时折叠成 __ESCODE_PRODUCT_FLAVOR__。
-    for (const entry of ["main", "host", "preload"] as const) {
+    for (const entry of ["main", "preload"] as const) {
       const defines = getDefines(entry);
       expect(defines).toHaveProperty("__ESCODE_ENV__");
       expect(defines).toHaveProperty("__ESCODE_PRODUCT_FLAVOR__");
@@ -143,7 +134,7 @@ describe("desktop tsup chunk isolation", () => {
   });
 
   it("所有 tsup 子构建都应关闭 esbuild legal comments 输出", () => {
-    for (const configName of ["main", "host", "preload"]) {
+    for (const configName of ["main", "preload"]) {
       const configs = Array.isArray(tsupConfig) ? tsupConfig : [tsupConfig];
       const target = configs.find((config) => config.name === configName);
       expect(target).toBeDefined();

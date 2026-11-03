@@ -60,7 +60,8 @@ flowchart LR
 Rust Host 默认开启后，本地窗口不再启动 Node Host，而 `TasksIndex::open` 按契约只校验不建库。因此
 **Main 在拉起 Rust Host 之前负责一次性准备 tasks-index**：
 
-- Main 复用 Node Host 同一条 `prepareTasksIndexStorage` 迁移路径（`host/tasksStorageWorker`），
+- Main 使用自有 worker（`packages/desktop/src/main/rustHostTasksStorageWorker.ts`）走同一条
+  `prepareTasksIndexStorage` 迁移路径；Node Host 的 worker 已随其入口删除，
   在 `rustHostManager.launch()` 前完成后才 spawn Rust Host；Rust Host 仍是业务写入的唯一所有者，
   只是在启动时校验准备好的账本。
 - tasks 迁移只负责 `tasks_schema_migration` 与基础表；`hosts` / `projects` / `project_roots` /

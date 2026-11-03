@@ -301,7 +301,6 @@ export function createE2EReporter(options: E2EReporterOptions) {
         containerE2E: options.containerE2E,
         coverage: {
           cli: nodeCoverage.enabled,
-          host: nodeCoverage.enabled,
           main: nodeCoverage.enabled,
           uiRenderer: uiCoverage.enabled,
         },

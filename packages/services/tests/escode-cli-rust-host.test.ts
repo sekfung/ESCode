@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
-import { access, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { fixture, binary } from "./escode-cli-rust-fixture.js";
 import type { ModelSelectionView } from "@escode/provider";
 import { completeNewModelSelection } from "@escode/provider";
@@ -12,7 +10,7 @@ import {
   type CommandEnvelope,
 } from "@escode/shared/escode-protocol-v4";
 
-test("Desktop storage preparation and Host service use the real native runtime", async () => {
+test("Host service uses the real native runtime", async () => {
   const f = await fixture();
   const keys = [
     "ESCODE_AGENT_SERVER_COMMAND",
@@ -38,8 +36,6 @@ test("Desktop storage preparation and Host service use the real native runtime",
   });
   const { setDataBaseDir } = await import("../src/paths.js");
   setDataBaseDir(f.root);
-  const { prepareSessionStorage } =
-    await import("../../desktop/src/host/storagePreparationProcesses.js");
   const { createESCodeAgentService } = await import("../src/escode-agent/escodeAgentService.js");
   let accountReads = 0;
   const view: ModelSelectionView = {
@@ -92,58 +88,6 @@ test("Desktop storage preparation and Host service use the real native runtime",
     },
   });
   try {
-    const phases: string[] = [];
-    const observed: string[] = [];
-    const preparedPaths = new Set<string>();
-    const prepare = (signal = new AbortController().signal) =>
-      prepareSessionStorage({
-        cwd: f.cwd,
-        signal,
-        preparedPaths,
-        observePath: async (path) => {
-          observed.push(path);
-        },
-        report: (phase) => phases.push(phase),
-      });
-    await prepare();
-    await prepare();
-    assert.deepEqual(phases, ["checking", "ready", "checking", "ready"]);
-    assert.equal(observed.length, 1);
-    assert.match(observed[0]!, /rust-sessions\.sqlite$/);
-    await access(join(f.dataDir, "rust-sessions.sqlite"));
-    const aborted = new AbortController();
-    aborted.abort();
-    await assert.rejects(prepare(aborted.signal), /transport_closed/);
-    // 保留的 JS Worker 入口也走同一握手，不需要启动完整模型 bundle。
-    const worker = join(f.root, "storage-worker.cjs");
-    await writeFile(
-      worker,
-      `
-      const lines = require("node:readline").createInterface({ input: process.stdin });
-      const emit = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
-      emit({ method: "startup/storagePath", params: { path: process.env.FIXTURE_DB_PATH } });
-      lines.once("line", (line) => {
-        if (JSON.parse(line).method !== "startup/storagePathReady") throw new Error("Bad handshake");
-        emit({ method: "startup/storageState", params: { schemaVersion: 1, attemptId: "worker-fixture", sequence: 1, databaseId: "fixture", databaseKind: "session", phase: "ready", elapsedMs: 0 } });
-        process.stdout.write(JSON.stringify({ method: "startup/storagePrepared", params: {} }) + "\\n", () => process.exit(0));
-      });
-    `,
-    );
-    const workerPhases: string[] = [];
-    await prepareSessionStorage({
-      cwd: f.cwd,
-      signal: new AbortController().signal,
-      env: { FIXTURE_DB_PATH: join(f.root, "worker.sqlite") },
-      resolveCommand: () => ({
-        command: process.execPath,
-        storagePreparationEntry: worker,
-        supportsStorageStartup: true,
-      }),
-      observePath: async () => {},
-      report: (phase) => workerPhases.push(phase),
-    });
-    assert.deepEqual(workerPhases, ["ready"]);
-
     const workspace = { workspacePath: f.cwd };
     assert.equal((await service.initialize(workspace)).available, true);
     assert.deepEqual((await service.readWorkspacePresentation(workspace)).executionCapabilities, {

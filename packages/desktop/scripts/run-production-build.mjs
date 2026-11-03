@@ -19,7 +19,6 @@ export function resolveDesktopProductionCleanPaths(cwd) {
     resolve(cwd, "out/renderer"),
     resolve(cwd, "out/plugin-sandbox"),
     resolve(cwd, "out/.main-build-ready"),
-    resolve(cwd, "out/.host-build-ready"),
     resolve(cwd, "out/.preload-build-ready"),
   ];
 }

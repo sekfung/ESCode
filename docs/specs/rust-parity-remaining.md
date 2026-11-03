@@ -54,6 +54,13 @@ E2E 不再透传该开关，`ensure-local-runtime-assets.mjs` 只保留 `ESCODE_
 不服务该域，见 `rust-u2-host-scope-boundary.md` §2.2）。`desktopContextPromptRollout` 的裁决仍由 Main
 写入 Rust Host `runtimeEnv`，但 Rust runtime 尚未消费该键，属独立 P2 迁移项，当前不改变行为。
 
+2026-11-04 Node Host 实现删除（S6 后续）：删除 `packages/desktop/src/host/index.ts` 及其 tsup bundle、
+Node Host 数据库启动链（`hostDatabaseStartup` / `databaseStartupCoordinator` / storage preparation
+worker）、`registerHostProcess` utility Host 注册表与仅断言 Node Host 源码的测试。Main 的
+tasks-index 准备继续使用 `main/rustHostStorageStartup.ts` 自有 worker；
+`windowHostControllerService` / `windowHostControllerProjection` 只作为 golden 生成器的 TS 观察源保留。
+TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
+
 2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
 `row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需
 设置 `ESCODE_BENCH_PROVIDER_ID` 在真实供应商环境执行；本地无供应商配置，未据此宣称 P1 已完成。

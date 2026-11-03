@@ -190,9 +190,9 @@ function zodLocalesEnOnlyPlugin(): Plugin {
   };
 }
 
-function createDevReadyMarkerHook(target: "main" | "host" | "preload"): string {
+function createDevReadyMarkerHook(target: "main" | "preload"): string {
   // CLI 级 --onSuccess 在多 config watch 模式下会被每个子构建分别触发。
-  // 之前 preload 先成功时就提前写入 ready 标记，Electron 仍会在 main/host 未完成时启动。
+  // 之前 preload 先成功时就提前写入 ready 标记，Electron 仍会在 main 未完成时启动。
   // 这里改成每个 config 自己在成功后写独立 marker，让 dev 启动脚本能精确等待全部构建完成。
   return `node scripts/write-dev-ready-marker.mjs ${target}`;
 }
@@ -234,8 +234,8 @@ export default defineConfig([
       "@escode/escode-cua",
     ],
     define: createSharedDefines(),
-    // 修复原因：main/host 同时 watch 且共享 out 根目录时，默认 chunk 命名会互相覆盖，
-    // 可能让 main 的 import 指向被 host 刚重写的 chunk，触发“缺少命名导出”的偶发启动报错。
+    // 修复原因：main/preload 同时 watch 且共享 out 根目录时，默认 chunk 命名会互相覆盖，
+    // 可能让 main 的 import 指向被其他构建刚重写的 chunk，触发“缺少命名导出”的偶发启动报错。
     // 这里按目标分目录输出 chunk，确保并发构建下产物隔离。
     esbuildOptions(options) {
       applyDesktopTsupEsbuildSecurityOptions(options);
@@ -292,38 +292,6 @@ export default defineConfig([
     esbuildOptions(options) {
       applyDesktopTsupEsbuildSecurityOptions(options);
     },
-    ...desktopTsupBundleSecurityOptions,
-  },
-  {
-    name: "host",
-    entry: {
-      "host/index": "src/host/index.ts",
-      "host/tasksStorageWorker": "src/host/tasksStorageWorker.ts",
-    },
-    outDir: "out",
-    format: "esm",
-    platform: "node",
-    target: "node22",
-    // host 与 main 共用同一套 services 图，继续内联 undici 会在 Electron ESM runtime 里触发同样的 dynamic require 崩溃。
-    // 这里同样保留为外部依赖，避免 desktop 开发态和打包态 host 进程启动失败。
-    external: desktopNodeRuntimeExternals,
-    noExternal: [
-      "@escode/server",
-      "@escode/shared",
-      "@escode/rpc",
-      "@escode/services",
-      "@escode/client",
-      "@escode/provider",
-      "@escode/provider-node",
-      "@escode/escode-cua",
-    ],
-    define: createSharedDefines(),
-    // 与 main 保持一致的 chunk 隔离策略，避免 host/main 产物相互覆盖。
-    esbuildOptions(options) {
-      applyDesktopTsupEsbuildSecurityOptions(options);
-      options.chunkNames = "host/chunk-[hash]";
-    },
-    onSuccess: createDevReadyMarkerHook("host"),
     ...desktopTsupBundleSecurityOptions,
   },
 ]);

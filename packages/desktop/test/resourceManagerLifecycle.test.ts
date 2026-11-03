@@ -23,6 +23,7 @@ vi.mock("../src/main/logger.js", () => ({ logger: { info: vi.fn() } }));
 vi.mock("../src/main/resourceManagerNetwork.js", () => ({
   observeNetworkWindow: vi.fn(),
   configureNetworkCaptureHost: vi.fn(),
+  registerExternalNetworkCaptureHost: vi.fn(() => () => {}),
 }));
 
 describe("resource manager window owns sampling", () => {
@@ -40,27 +41,32 @@ describe("resource manager window owns sampling", () => {
 
   it("未打开或非资源窗口的请求不采样，关窗取消在途请求", async () => {
     const window = await import("../src/main/resourceManagerWindow.js");
-    const child = { pid: 42, postMessage: vi.fn() };
-    window.registerHostProcess("lifecycle-host", child as never);
+    const hosts = await import("../src/main/resourceManagerExternalHosts.js");
+    const requestResourceUsage = vi.fn();
+    const cancelResourceUsage = vi.fn();
+    hosts.registerExternalHostProcess({
+      label: "rust-host",
+      pid: 42,
+      requestResourceUsage,
+      cancelResourceUsage,
+      setNetworkCapture: vi.fn(),
+    });
     try {
       await expect(window.getResourceUsageSnapshot(70)).rejects.toThrow("inactive");
       window.openResourceManager();
       window.setResourceUsageSamplingActive(999, true);
       await expect(window.getResourceUsageSnapshot(70)).rejects.toThrow("inactive");
-      expect(child.postMessage).not.toHaveBeenCalled();
+      expect(requestResourceUsage).not.toHaveBeenCalled();
       window.setResourceUsageSamplingActive(70, true);
       await expect(window.getResourceUsageSnapshot(999)).rejects.toThrow("inactive");
       const pending = window.getResourceUsageSnapshot(70).catch((error: unknown) => error);
-      const requestId = child.postMessage.mock.calls[0][0].requestId;
+      const requestId = requestResourceUsage.mock.calls[0][0];
       state.window!.emit("closed");
-      expect(child.postMessage).toHaveBeenLastCalledWith({
-        type: "resource-usage-snapshot-cancel",
-        requestId,
-      });
+      expect(cancelResourceUsage).toHaveBeenLastCalledWith(requestId);
       expect(await pending).toMatchObject({ name: "AbortError" });
       await expect(window.getResourceUsageSnapshot(70)).rejects.toThrow("inactive");
     } finally {
-      window.unregisterHostProcess("lifecycle-host");
+      hosts.unregisterExternalHostProcess("rust-host");
     }
   });
 

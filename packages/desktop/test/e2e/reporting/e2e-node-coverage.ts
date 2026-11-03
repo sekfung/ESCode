@@ -16,7 +16,7 @@ import { createInstrumenter } from "istanbul-lib-instrument";
 import { createContext } from "istanbul-lib-report";
 import { create as createIstanbulReport } from "istanbul-reports";
 
-export type E2ENodeCoverageDomain = "main" | "host" | "cli";
+export type E2ENodeCoverageDomain = "main" | "cli";
 
 interface CoverageMetricSummary {
   covered: number;
@@ -90,7 +90,7 @@ interface V8CoveragePayload {
 }
 
 const COVERAGE_ENABLED_VALUE = "1";
-const DOMAINS: E2ENodeCoverageDomain[] = ["main", "host", "cli"];
+const DOMAINS: E2ENodeCoverageDomain[] = ["main", "cli"];
 const SOURCE_EXTENSIONS = [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"];
 const SOURCE_MAP_CACHE_INDEX_MARKER = ".escode-source-map-cache-index-v2.marker";
 const COMPACTED_FILE_INDEX_MARKER = ".escode-compacted-coverage-files-v1.marker";
@@ -101,7 +101,6 @@ export function createE2ENodeCoverageCollector(options: E2ENodeCoverageCollector
   const rawRoot = resolve(coverageDir, "raw");
   const sourceMapRoots: Record<E2ENodeCoverageDomain, string> = {
     cli: resolve(options.repoRoot, "apps/escode-cli/packages/cli/dist"),
-    host: resolve(options.desktopDir, "out/host"),
     main: resolve(options.desktopDir, "out/main"),
   };
 
@@ -119,7 +118,7 @@ export function createE2ENodeCoverageCollector(options: E2ENodeCoverageCollector
   function beforeSession() {
     if (!enabled) return;
     prepare();
-    // Electron main 必须从进程启动时就继承 NODE_V8_COVERAGE；host 与 CLI
+    // Electron main 必须从进程启动时就继承 NODE_V8_COVERAGE；CLI
     // 会在各自 spawn 边界覆盖到独立目录，避免运行域数据混写。
     process.env.NODE_V8_COVERAGE = rawDir("main");
   }
@@ -593,7 +592,7 @@ function resolveCanonicalGeneratedUrl(url: string | undefined, sourceMapRoot: st
     if (!generatedName) return undefined;
     const canonicalRoot = resolve(sourceMapRoot);
     // 同名的 dependency/index.js 不能映射成 out/main/index.js。桌面 staging 目录会变化，
-    // 但运行域末级目录仍稳定为 main/host；CLI 则直接从 canonical dist 启动。
+    // 但运行域末级目录仍稳定为 main；CLI 则直接从 canonical dist 启动。
     if (
       dirname(resolve(generatedPath)) !== canonicalRoot &&
       basename(dirname(generatedPath)) !== basename(canonicalRoot)

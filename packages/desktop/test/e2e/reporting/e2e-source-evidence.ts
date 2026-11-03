@@ -71,7 +71,7 @@ export async function withE2ESourceEvidence(options: {
         : Object.keys(outputs).length
           ? "fresh-stable"
           : "missing-build-output",
-    domains: ["renderer", "host", "main"],
+    domains: ["renderer", "main"],
     sources: after,
     outputs,
     changedFiles,

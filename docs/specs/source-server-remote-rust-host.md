@@ -1778,6 +1778,12 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 >
 > 2026-11-03：S5 删除后的三平台 SSH 主链复跑全绿（run `41355882063`，各 5 passed），S5 的远程路径
 > 验收已完成；总目标仍等待 P1 真实供应商/MCP/安装演练与本地 Node Host / TS CLI 删除的产品确认。
+>
+> 2026-11-04：S6 删除 `ESCODE_RUST_HOST` 回退与 Node Host 运行入口后，Node Host 实现整体退场：
+> `packages/desktop/src/host/index.ts`、Node Host 数据库启动/存储准备、utility Host 进程注册表与
+> 对应 tsup/typecheck 入口全部删除。`windowHostControllerService` / `windowHostControllerProjection`
+> 保留为 Rust 差分 golden 的 TS 观察源，不再有可启动的 Node Host 进程。TS CLI / Node runtime
+> 仍受 P1 残余项约束，需单独确认后删除。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`

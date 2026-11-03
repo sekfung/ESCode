@@ -35,7 +35,7 @@ describe("E2E source evidence", () => {
     expect(evidence.status).toBe("fresh-stable");
     expect(evidence.sources["packages/ui/src/a.ts"]).toBe("hash");
     expect(evidence.outputs["index.js"]).toMatch(/^[a-f0-9]{64}$/);
-    expect(evidence.domains).toEqual(["renderer", "host", "main"]);
+    expect(evidence.domains).toEqual(["renderer", "main"]);
     expect(build).toHaveBeenCalledTimes(1);
   });
   it("does not validate a source edit during build", async () => {

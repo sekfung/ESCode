@@ -354,7 +354,7 @@ function renderSummaryMarkdown(summary: ReturnType<typeof buildSummaryPayload>) 
 
   if (summary.coverage.node) {
     lines.push("## Runtime Coverage", "");
-    for (const domain of ["main", "host", "cli"] as const) {
+    for (const domain of ["main", "cli"] as const) {
       const coverage = summary.coverage.node.domains[domain];
       const linesTotal = coverage.totals?.lines;
       lines.push(

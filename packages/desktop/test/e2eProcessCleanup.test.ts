@@ -126,24 +126,6 @@ describe("desktop e2e process cleanup", () => {
     );
   });
 
-  it("forces the Host to exit after its parent IPC disconnects", () => {
-    const hostSource = readFileSync(new URL("../src/host/index.ts", import.meta.url), "utf8");
-
-    expect(hostSource).toMatch(
-      /process\.once\("disconnect"[\s\S]*?disposeHostResources\("disconnect"\)\.finally\(\(\) => process\.exit\(1\)\)/u,
-    );
-  });
-
-  it("Host rejects remote attachments instead of using the retired Node backend", () => {
-    const hostSource = readFileSync(new URL("../src/host/index.ts", import.meta.url), "utf8");
-
-    // S5-f-5：Node Host 的远端 handler 已删除，收到 remote scope 必须显式失败而不是回退。
-    expect(hostSource).toMatch(/Remote workspace attachment is served by the Rust Host/u);
-    expect(hostSource).not.toMatch(
-      /setupRemoteConnection|import\("@escode\/server\/remote"\)|ConnectRemoteWorkspace|ProviderProvisioningExecute|windowRemoteConnectionRegistry/u,
-    );
-  });
-
   it("collects only the current run root and its child process tree", () => {
     const sharedEntryPoint = "/repo/packages/desktop/out/main/index.js";
     const processes = [
