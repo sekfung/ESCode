@@ -209,10 +209,15 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
   `isESCodeCuaInternalFeatureEnabled`），listing 取定义 seed。
 - 诊断：声明保留 id + 市场 `lastRefreshFailure`（severity error）。
 
-未对齐（记录在案，均为 schema 可选或独立缺口）：
+历史缺口（2026-11-04 复核，以下各项均已对齐并覆盖回归）：
 
-- **发现层诊断**（`plugin_root_not_found` 等，来自 TS `discoverNodePluginsSync`）Rust 不产出——`plugins/list` 的
-  `diagnostics` 同样缺。这是发现层的独立缺口，下一步单独补，届时 list/overview 一并对齐。
+- 发现层诊断（对齐 TS `discoverNodePluginsSync` 的 loader 语义，`crates/plugins/src/extension_plugins.rs`）：
+  产出 `plugin_root_not_found` / `plugin_manifest_not_found` / `plugin_manifest_invalid` /
+  `plugin_duplicate_id` / `plugin_unsupported_component`；坏插件只出诊断、不拖垮整个列表，manifest 缺 version 时
+  按 `"0.0.0"` 输出。`plugins/list` 与 `plugins/overview` 的 `diagnostics` 均逐条比对（code / severity /
+  pluginId / 文案；JSON 解析器文案差异只比 code）。验收：
+  `packages/services/tests/escode-cli-rust-plugins-diagnostics.test.ts`、
+  `packages/services/tests/escode-cli-rust-plugins-overview.test.ts`（整份结果含 `diagnostics` 逐值一致）。
 - `installedPlugins[].hookDetails` 与 componentTypes 里的 `hook`：已由第 4b 期补齐（见下方「第 4 期 · hook 源发现与
   hookDetails」）。
 - 读路径崩溃恢复（2026-11-04）：对齐 TS `recoverAtomicTargetSync`。`known_marketplaces.json` /
