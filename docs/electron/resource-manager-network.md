@@ -3,7 +3,7 @@
 ## 已确认范围
 
 - 网络页排在 CPU、内存、存储之后，仅展示时间、进程/PID、方法、URL；不收集 Headers、请求/响应体、SSE/WS 消息，不展示完成状态或耗时。
-- 只包含本机 Main、window Host、App 自身 Renderer、受管 CLI；包含插件管理 CLI 自身请求，排除 MCP transport/鉴权、Bash/MCP 子进程、内置浏览器外部网页、远程 CLI、SSH/TCP 原始连接。
+- 只包含本机 Main、Rust Host、App 自身 Renderer、受管 CLI；包含插件管理 CLI 自身请求，排除 MCP transport/鉴权、Bash/MCP 子进程、内置浏览器外部网页、远程 CLI、SSH/TCP 原始连接。
 - App 自身套餐、奖励页面仍在范围内；不按 webview 类型一概排除。
 - 资源管理器窗口是启停唯一 owner：未打开不安装本功能网络监听、不创建采集定时器；打开后跨 tab 继续收集；关闭、renderer 崩溃或销毁立即停止并释放记录。重新打开是新 captureId，不接收旧批次。清空也轮换 captureId 并清掉各进程待发批次，拒收清空之前的在途结果。
 - 只记录监听生效后创建的请求，不补历史或此前已存在的 SSE/WS 连接。UI 显示最近 1,000 条，淘汰数量可见；不持久化。URL 去掉用户名、密码、fragment，query 值统一脱敏并限制长度。
@@ -25,16 +25,16 @@ Host 仅接入本进程已有的本地 CLI 注册表，新 client 登记时继�
 
 ## 影响面
 
-| 等级 | 入口/owner                                              | 变更与隔离                                                                  |
-| ---- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 必改 | Help/问号 → ResourceManagerApp → 专用 preload           | 共享单例窗口；网络显示投影，筛选为本地 UI 状态；CPU/内存轮询显式按 tab 启用 |
-| 必改 | resourceManagerWindow / desktopHostProcess / Host index | 窗口启停、Host 生命周期、带 captureId 的有界批次                            |
-| 必改 | Node 诊断适配器 / 本地 CLI 注册表 / stdio 控制          | 默认无监听；新进程接入；诊断不参与业务生命周期                              |
-| 必改 | MCP transport fetch                                     | 异步上下文排除；原代理及鉴权行为不变                                        |
-| 必验 | 共享 onBeforeRequest 分发器的其他观测者 / 三套代理出口  | Electron 单监听限制；直连、代理、noProxy、证书与失败路径                    |
-| 隔离 | Web/手机、远程 CLI、外部浏览器                          | 不增加入口、不传播采集控制、不改任务恢复语义                                |
+| 等级 | 入口/owner                                                  | 变更与隔离                                                                  |
+| ---- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 必改 | Help/问号 → ResourceManagerApp → 专用 preload               | 共享单例窗口；网络显示投影，筛选为本地 UI 状态；CPU/内存轮询显式按 tab 启用 |
+| 必改 | resourceManagerWindow / rustHostManager / Rust Host control | 窗口启停、Host 生命周期、带 captureId 的有界批次                            |
+| 必改 | Node 诊断适配器 / 本地 CLI 注册表 / stdio 控制              | 默认无监听；新进程接入；诊断不参与业务生命周期                              |
+| 必改 | MCP transport fetch                                         | 异步上下文排除；原代理及鉴权行为不变                                        |
+| 必验 | 共享 onBeforeRequest 分发器的其他观测者 / 三套代理出口      | Electron 单监听限制；直连、代理、noProxy、证书与失败路径                    |
+| 隔离 | Web/手机、远程 CLI、外部浏览器                              | 不增加入口、不传播采集控制、不改任务恢复语义                                |
 
-代码扫描入口：ResourceManagerApp、openResourceManager、registerHostProcess、ESCodeAgentProcessManager、createMcpTransportFetch、ESCodeProtocolNdjsonConnection；沿直接调用方核对至 Host/CLI，未扩大为所有静态可达功能。desktop 当前不是 architecture-policy 的 managed module，架构门禁通过不代替运行时证明。
+代码扫描入口：ResourceManagerApp、openResourceManager、rustHostManager、ESCodeAgentProcessManager、createMcpTransportFetch、ESCodeProtocolNdjsonConnection；沿直接调用方核对至 Host/CLI，未扩大为所有静态可达功能。desktop 当前不是 architecture-policy 的 managed module，架构门禁通过不代替运行时证明。
 
 功能图补入网络 aliases、节点入口及窗口生命周期不变量。无待裁决的产品范围；Body、远程、原始 socket 均由用户明确剪枝，主题/平台采用代表性覆盖。
 
