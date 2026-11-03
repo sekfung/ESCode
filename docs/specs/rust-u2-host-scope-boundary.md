@@ -102,8 +102,9 @@ Host 侧实现是**依赖注入壳**，`packages/services/src/plugin-ui-bridge/`
   这点与按方法名的直觉相反，登记以免后续误判。
   Host 侧另有 `instanceAccounts.ts`（`active` Map + `revision` 代际失效）与之配套，同样是纯内存态。
 - **1 个不可迁**：`prepareSandbox`——其 `registerSandbox` 依赖经 `parentPort` 注入
-  （`packages/services/src/node.ts:1414`，Desktop 侧桥在 `packages/desktop/src/host/pluginSandbox/index.ts`，
-  Main 侧收口 `packages/desktop/src/main/index.ts:1929-1934` 的 `getPluginSandboxHost().registerFromHost`）。
+  （`packages/services/src/node.ts:1414`）。S6 删除 Node Host 桥后，Rust Host 经 `mainRequest`
+  调用 Main 的 `registerSandboxFromHost`，最终落到 `getPluginSandboxHost().registerFromHost`
+  （`packages/desktop/src/main/index.ts`）。
 
 ### 3.2 `gen-ui`（6 → 5 可迁）
 

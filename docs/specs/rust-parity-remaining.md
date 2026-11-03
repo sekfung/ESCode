@@ -61,6 +61,13 @@ tasks-index 准备继续使用 `main/rustHostStorageStartup.ts` 自有 worker；
 `windowHostControllerService` / `windowHostControllerProjection` 只作为 golden 生成器的 TS 观察源保留。
 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
 
+2026-11-04 Node runtime 删除前置复核：CLI 差分门禁已只启动 Rust 并对比冻结 golden
+（`scripts/diff-escode-cli-rust-parity.mjs --golden`），`--live-node` 仅用于显式双跑演练；
+`linux-x64` / `darwin-arm64` / `win32-x64` 的 per-platform 欠账基线均为空，CI 会自动追加
+`--strict`（`.github/workflows/rust-runtime-ci.yml`）。因此「差分套件完全依赖冻结 golden」
+不再阻塞删除；剩余门槛是真实供应商流式长尾、按在用第三方 MCP 实测、真实安装包切换演练
+（需 CI/对应平台环境）以及删除 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 的产品确认。
+
 2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
 `row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需
 设置 `ESCODE_BENCH_PROVIDER_ID` 在真实供应商环境执行；本地无供应商配置，未据此宣称 P1 已完成。
