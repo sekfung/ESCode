@@ -219,6 +219,23 @@ function collectDescendantIdentitiesFromProcessList(
   return descendants;
 }
 
+function collectLiveWindowsDescendants(
+  rootPid: number,
+  rootCreatedAtMs: number | undefined,
+  processList: readonly ProcessIdentity[],
+): ProcessIdentity[] {
+  if (rootCreatedAtMs === undefined) return [];
+  // Win32_Process 的 ParentProcessId 是创建时的数字，父进程退出或 PID 复用后不会更新。
+  // 只保留 root 创建后出现的候选，避免把 stale PPID 指向 root 的历史进程认作 runtime 后代。
+  return collectDescendantIdentitiesFromProcessList(
+    rootPid,
+    processList.filter((identity) => {
+      const createdAtMs = parseWindowsCreationTimeMs(identity.startTime);
+      return createdAtMs !== undefined && createdAtMs >= rootCreatedAtMs;
+    }),
+  );
+}
+
 export function filterCurrentProcessIdentities(
   identities: readonly ProcessIdentity[],
   options: ProcessTreeTerminatorOptions,
@@ -255,7 +272,14 @@ export function captureProcessTreeSnapshot(
     // 延迟回收在 PID 复用后重新沿裸 root PID 认领无关进程树。
     return undefined;
   }
-  const descendantIdentities = collectDescendantIdentitiesFromProcessList(child.pid, processList);
+  const descendantIdentities =
+    process.platform === "win32"
+      ? collectLiveWindowsDescendants(
+          child.pid,
+          parseWindowsCreationTimeMs(rootIdentity.startTime),
+          processList,
+        )
+      : collectDescendantIdentitiesFromProcessList(child.pid, processList);
   // POSIX detached root 是自己进程组的 leader；若它在 ps 扫描期间退出，
   // 后代会被 reparent，单靠 PPID 链会漏掉仍属于该 owned PGID 的进程。仅在
   // PGID === root PID 时合并同组成员，避免把普通 child 所在的宿主进程组纳入快照。

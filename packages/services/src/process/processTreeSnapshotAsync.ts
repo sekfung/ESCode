@@ -50,6 +50,23 @@ function collectDescendants(
   return descendants;
 }
 
+function collectLiveWindowsDescendants(
+  root: ProcessIdentity,
+  processList: readonly ProcessIdentity[],
+): ProcessIdentity[] {
+  const rootCreatedAtMs = parseWindowsCreationTimeMs(root.startTime);
+  if (rootCreatedAtMs === undefined) return [];
+  // Win32_Process 的 ParentProcessId 是创建时的数字，父进程退出或 PID 复用后不会更新。
+  // 只保留 root 创建后出现的候选，避免把 stale PPID 指向 root 的历史进程认作 runtime 后代。
+  return collectDescendants(
+    root.pid,
+    processList.filter((identity) => {
+      const createdAtMs = parseWindowsCreationTimeMs(identity.startTime);
+      return createdAtMs !== undefined && createdAtMs >= rootCreatedAtMs;
+    }),
+  );
+}
+
 export async function filterCurrentProcessIdentitiesAsync(
   identities: readonly ProcessIdentity[],
   options: ProcessTreeTerminatorOptions,
@@ -86,7 +103,7 @@ export async function captureProcessTreeSnapshotAsync(
   // 调用方记录的可信退出上界恢复旧后代，绝不能把同 PID 的当前进程认作原 root。
   const identities =
     rootIdentity && !childExitedDuringQuery
-      ? [rootIdentity, ...collectDescendants(child.pid, processList)]
+      ? [rootIdentity, ...collectLiveWindowsDescendants(rootIdentity, processList)]
       : collectExitedRootDescendants(
           child.pid,
           processList,

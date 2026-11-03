@@ -2,16 +2,19 @@ import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { execFileMock } = vi.hoisted(() => ({
+const { execFileMock, spawnSyncMock } = vi.hoisted(() => ({
   execFileMock: vi.fn(),
+  spawnSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", async (importOriginal) => ({
   ...(await importOriginal<typeof import("node:child_process")>()),
   execFile: execFileMock,
+  spawnSync: spawnSyncMock,
 }));
 
 import {
+  captureProcessTreeSnapshot,
   captureProcessTreeSnapshotAsync,
   filterCurrentProcessIdentitiesAsync,
   terminateProcessTree,
@@ -29,6 +32,7 @@ let targetedPowerShellUsesConfiguredTimeout: boolean;
 let onPowerShellQuery: (() => void) | undefined;
 let alivePids: Set<number>;
 let taskkillRemovesOnGraceful: boolean;
+let syncWindowsProcessListResult: string;
 
 function powershellIdentity(pid: number, parentPid: number): string {
   return powershellIdentityAt(pid, parentPid, Date.UTC(2026, 6, 24, 11, 0, 0));
@@ -57,6 +61,13 @@ describe("terminateProcessTree Windows", () => {
     targetedPowerShellUsesConfiguredTimeout = false;
     onPowerShellQuery = undefined;
     taskkillRemovesOnGraceful = false;
+    syncWindowsProcessListResult = powershellIdentity(4242, 1);
+    spawnSyncMock.mockReset().mockImplementation(() => ({
+      error: undefined,
+      status: 0,
+      stderr: "",
+      stdout: syncWindowsProcessListResult,
+    }));
     execFileMock
       .mockReset()
       .mockImplementation(
@@ -116,6 +127,42 @@ describe("terminateProcessTree Windows", () => {
     expect(
       execFileMock.mock.calls.filter(([command]) => command === "powershell.exe"),
     ).toHaveLength(1);
+  });
+
+  it("live 快照不认领早于 root 创建的 stale ParentProcessId 后代", async () => {
+    const child = {
+      exitCode: null,
+      pid: 4242,
+      signalCode: null,
+    } as ChildProcess;
+    // 修复原因：Win32_Process 会在父进程退出/PID 复用后保留旧的 ParentProcessId。
+    // 3244 早于 root 创建，即使 PPID 指向 4242 也不能算 runtime 后代。
+    powershellResult =
+      powershellIdentityAt(4242, 1, Date.UTC(2026, 6, 24, 11, 0, 0)) +
+      powershellIdentityAt(5000, 4242, Date.UTC(2026, 6, 24, 11, 0, 0, 100)) +
+      powershellIdentityAt(3244, 4242, Date.UTC(2026, 6, 24, 10, 0, 0));
+
+    const snapshot = await captureProcessTreeSnapshotAsync(child);
+
+    expect(snapshot?.identities.map((identity) => identity.pid)).toEqual([4242, 5000]);
+    expect(snapshot?.descendantPids).toEqual([5000]);
+  });
+
+  it("同步 live 快照同样不认领早于 root 创建的 stale 后代", () => {
+    const child = {
+      exitCode: null,
+      pid: 4242,
+      signalCode: null,
+    } as ChildProcess;
+    syncWindowsProcessListResult =
+      powershellIdentityAt(4242, 1, Date.UTC(2026, 6, 24, 11, 0, 0)) +
+      powershellIdentityAt(5000, 4242, Date.UTC(2026, 6, 24, 11, 0, 0, 100)) +
+      powershellIdentityAt(3244, 4242, Date.UTC(2026, 6, 24, 10, 0, 0));
+
+    const snapshot = captureProcessTreeSnapshot(child);
+
+    expect(snapshot?.identities.map((identity) => identity.pid)).toEqual([4242, 5000]);
+    expect(snapshot?.descendantPids).toEqual([5000]);
   });
 
   it("非等待式回收到 force deadline 后不使用旧快照强杀 root", async () => {

@@ -43,6 +43,9 @@ ESCodeAgentProcessManager
 5. 多 workspace 回收必须并发执行，禁止恢复同步或逐 workspace 串行 taskkill。
 6. 只有绝对 deadline 到达后仍属于原进程树的 PID 才是 confirmed residual。
 7. confirmed residual 必须继续向调用方报错，禁止吞掉真实清理失败。
+8. Windows live 快照沿 `ParentProcessId` 认领后代时，后代的 `CreationDate` 必须不早于
+   受管 root 的 `CreationDate`。`ParentProcessId` 只是创建时记录的数字，父进程退出或 PID
+   复用后 Windows 不会更新它；root 创建时间不可解析时只能保留 root，禁止认领任何后代。
 
 ## 状态机
 
@@ -139,6 +142,7 @@ Windows taskkill runner 是进程层依赖，默认实现仍使用异步 `execFi
 - graceful taskkill 未完成时不提前报告残留；
 - taskkill 完成后 exit 晚 1-10 ms 仍成功；
 - 新 root 不复用早于自身 spawn 启动的共享进程表；
+- live 快照不认领 `ParentProcessId` 指向 root、但 `CreationDate` 早于 root 的 stale 后代；
 - PID 复用或身份查询失败时不向未复核后代或 `unverifiedRootOnly` 发送 `/F`；受管 live root
   句柄例外只能发送 root `/T /F`，不能把后代带入显式 `/F` 目标集；
 - 定向 CIM 复核失败时，受管 live root 句柄仍触发 root-only `/F`，而未复核后代被跳过；
@@ -173,3 +177,16 @@ skip 原因、exit observation、deadline 与 remaining PID。日志不得包含
   59 passed / 11 skipped；
 - 后代 PID 复用用例确认：不匹配 identity 不接收 `/F`，其他匹配目标仍可并发收口，
   未确认旧身份继续按 fail-closed 上报而不是误判成功。
+
+## 2026-11-03 stale ParentProcessId 误报
+
+- 已确认：Windows CI 的 `account-host` 测试在受管 root 8840 正常退出（`code: 0`，
+  `terminationReason: manager-dispose`）后报告 `remaining pid=3244`；3244 是 runner 在
+  job 结束后单独清理的 `vctip`，不属于 ESCode runtime。
+- 已确认：清理快照沿 `ParentProcessId` 链把 3244 认作 runtime 后代，live 分支没有校验
+  3244 的 `CreationDate` 是否晚于 root。
+- 待验证的根因假设：`vctip` 早于 Agent root 启动，其 stale `ParentProcessId` 恰好等于
+  root 复用的 PID。该假设需要在具备 CIM 读取权限的 Windows 真机上用 CreationDate 取证。
+- 修复：live 快照先按 root `CreationDate` 过滤候选进程，再沿 PPID 链收集后代；这不改变
+  confirmed residual 语义，也不放松 root 自身的身份校验。root 创建时间不可解析时只保留
+  root，后代 fail-closed。
