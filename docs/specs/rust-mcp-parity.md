@@ -47,11 +47,27 @@ TS `resolveVersionNegotiationMode` 的规则：
 | `legacy`                     | legacy        | legacy          | legacy                                        |
 | 未写 / `auto`（http、stdio） | auto          | 未写时为 legacy | Auto（先 `server/discover`，失败回落 legacy） |
 
-- 已知差异：rmcp 的 Auto 探测超时固定为 10s，TS 为 min(5s, timeout/2)。
-  只有 server 对 `server/discover` 完全不响应时，两边才会表现不同；两边超时后都回落 legacy。
+- Auto 探测预算与 TS `resolveVersionNegotiation` 对齐为
+  `min(5s, max(1, floor(timeoutMs / 2)))`；rmcp 内置的 10s Auto 超时不再决定行为。
+- 预算到期后的行为按传输区分（2026-11-03 以当前 SDK 源码修正旧描述）：
+  - stdio：SDK `classifyProbeOutcome` 把 timeout 判为 legacy，因此 Rust 也在同一进程上回落
+    `initialize`；探测期间迟到的真实 `server/discover` 应答必须丢弃，不能让它与 `initialize`
+    的应答 id 冲突。
+  - HTTP：SDK 把 timeout 判为 `SdkErrorCode.RequestTimeout` 硬失败，不回落 legacy；Rust 同样以
+    传输错误结束本次连接。Rust 会中止探测 POST，而 Node 只是忽略迟到的应答并在关闭 transport
+    时取消；server 侧观察到的仅是该请求被取消。
+  - 已知分类差异：Node 对 `RequestTimeout` 走 `failConnection` 的默认值
+    `network_unreachable`；Rust 的连接阶段错误目前统一归为 `protocol_negotiation_failed`。
+    本次只对齐“失败且不回落”的语义，failureKind 的细粒度对齐不在本项范围。
+  - 显式 pin `2026-07-28` 没有 legacy 回落，仍使用完整的 `timeoutMs`，不受 5s 上限影响。
+- 实现位置：stdio 在 transport 边界注入与探测请求 id 关联的 `-32601` 错误并吞掉迟到应答
+  （`crates/tools/src/mcp_probe.rs`）；HTTP 在 `mcp_http_capture.rs` 的包装层限制探测 POST
+  的预算。
 - 验收：
   - 在未写 `protocolVersion` 的 HTTP fixture 上，Node 与 Rust 的请求方法序列一致（先 `server/discover`，再 `initialize`）；
   - SSE 的 `auto` 不发 `server/discover`；
+  - fixture 对 `server/discover` 不响应时，stdio 两侧都在预算后回落并连接成功；HTTP 两侧都在
+    预算后失败，且不再等待 rmcp 的 10s；
   - 现有 MCP 用例不回归。
 
 ## SSE 应答的 `server/discover` 错误（2026-09-27）

@@ -46,6 +46,7 @@ mod mcp_oauth_store;
 mod mcp_official_client;
 mod mcp_official_stdio;
 mod mcp_official_transport;
+mod mcp_probe;
 mod mcp_raw_capture;
 mod mcp_request_meta;
 mod mcp_result_budget;

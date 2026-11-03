@@ -28,7 +28,7 @@ const reply = (m,result) => process.stdout.write(JSON.stringify({jsonrpc:"2.0",i
 createInterface({input:process.stdin}).on("line",line=>{
  const m=JSON.parse(line);
  if(m.method==="initialize") { appendFileSync(${JSON.stringify(initialized)}, (process.env.MCP_PROBE ?? "") + "\\n"); if(${JSON.stringify(mode)}==="slow-connect")return;reply(m,{protocolVersion:"2025-11-25",serverInfo:{name:"fixture",version:"1"},capabilities:{tools:{}}}); }
- else if(m.method==="server/discover")process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code:-32601,message:"legacy"}})+"\\n");
+ else if(m.method==="server/discover"){if(${JSON.stringify(mode)}!=="hang-discover")process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code:-32601,message:"legacy"}})+"\\n");}
  else if(m.method==="tools/list") reply(m,{tools:${JSON.stringify(tools)}});
  else if(m.method==="tools/call") {
   appendFileSync(${JSON.stringify(calls)}, JSON.stringify(m.params)+"\\n");
@@ -71,7 +71,7 @@ export function listMcp(
 }
 export async function httpServer(
   transport: "http" | "sse",
-  options: { dropSseAfterInitialize?: boolean } = {},
+  options: { dropSseAfterInitialize?: boolean; hangDiscover?: boolean } = {},
 ) {
   let stream: ServerResponse | undefined;
   const calls: any[] = [];
@@ -114,6 +114,16 @@ export async function httpServer(
       return;
     }
     if (m.method === "server/discover") {
+      if (options.hangDiscover) {
+        // 探测预算到期后客户端应放弃；延时应答只用于让 Node transport 关闭时能正常收尾。
+        const timer = setTimeout(() => {
+          if (res.destroyed) return;
+          const error = { jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "late" } };
+          res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(error));
+        }, 2_000);
+        res.once("close", () => clearTimeout(timer));
+        return;
+      }
       // legacy server：未知方法回 -32601，客户端回落 initialize（与 stdio fixture 相同）。
       const error = { jsonrpc: "2.0", id: m.id, error: { code: -32601, message: "legacy" } };
       res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(error));

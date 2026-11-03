@@ -9,7 +9,7 @@ use rmcp::transport::streamable_http_client::{
     SseError, StreamableHttpClient, StreamableHttpError, StreamableHttpPostResponse,
 };
 use sse_stream::Sse;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 
 type Headers = HashMap<reqwest_mcp::header::HeaderName, reqwest_mcp::header::HeaderValue>;
 type Stream = BoxStream<'static, Result<Sse, SseError>>;
@@ -18,11 +18,17 @@ type Stream = BoxStream<'static, Result<Sse, SseError>>;
 pub(super) struct Capture<C> {
     inner: C,
     raw: Responses,
+    /// Auto 模式的 `server/discover` 预算；None 表示 pin/legacy，不额外限时。
+    probe_budget: Option<Duration>,
 }
 
 impl<C> Capture<C> {
-    pub fn new(inner: C, raw: Responses) -> Self {
-        Self { inner, raw }
+    pub fn new(inner: C, raw: Responses, probe_budget: Option<Duration>) -> Self {
+        Self {
+            inner,
+            raw,
+            probe_budget,
+        }
     }
     fn tee(&self, stream: Stream) -> Stream {
         let raw = self.raw.clone();
@@ -37,6 +43,36 @@ impl<C> Capture<C> {
             })
             .boxed()
     }
+    /// Auto + HTTP 的探测超时在 TS SDK 中是硬失败（`RequestTimeout`），不回落 legacy；
+    /// 因此这里返回传输错误而不是伪造 legacy 应答（docs/specs/rust-mcp-parity.md「协议协商默认值」）。
+    /// 预算内返回的应答仍走原有解析；超时后 POST 被取消，server 只会看到该请求被中止。
+    async fn post<F, E>(
+        &self,
+        discover: bool,
+        send: F,
+    ) -> Result<StreamableHttpPostResponse, StreamableHttpError<E>>
+    where
+        F: Future<Output = Result<StreamableHttpPostResponse, StreamableHttpError<E>>>,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        let response = match (discover, self.probe_budget) {
+            (true, Some(budget)) => match tokio::time::timeout(budget, send).await {
+                Ok(result) => result?,
+                Err(_) => {
+                    return Err(StreamableHttpError::UnexpectedServerResponse(
+                        format!(
+                            "version negotiation probe timed out after {}ms",
+                            budget.as_millis()
+                        )
+                        .into(),
+                    ));
+                }
+            },
+            _ => send.await?,
+        };
+        self.adapt(discover, response).await
+    }
+
     async fn adapt<E>(
         &self,
         discover: bool,
@@ -100,11 +136,12 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         headers: Headers,
     ) -> Result<StreamableHttpPostResponse, StreamableHttpError<C::Error>> {
         let discover = is_discover(&message);
-        let response = self
-            .inner
-            .post_message(uri, message, session_id, auth, headers)
-            .await?;
-        self.adapt(discover, response).await
+        self.post(
+            discover,
+            self.inner
+                .post_message(uri, message, session_id, auth, headers),
+        )
+        .await
     }
     async fn post_message_with_max_sse_event_size(
         &self,
@@ -116,11 +153,12 @@ impl<C: StreamableHttpClient + Sync> StreamableHttpClient for Capture<C> {
         max: usize,
     ) -> Result<StreamableHttpPostResponse, StreamableHttpError<C::Error>> {
         let discover = is_discover(&message);
-        let response = self
-            .inner
-            .post_message_with_max_sse_event_size(uri, message, session_id, auth, headers, max)
-            .await?;
-        self.adapt(discover, response).await
+        self.post(
+            discover,
+            self.inner
+                .post_message_with_max_sse_event_size(uri, message, session_id, auth, headers, max),
+        )
+        .await
     }
     async fn delete_session(
         &self,

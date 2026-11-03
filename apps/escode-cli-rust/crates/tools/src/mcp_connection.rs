@@ -82,6 +82,9 @@ impl Connection {
                 legacy_version: Some(ProtocolVersion::LATEST),
             },
         };
+        // TS 的 auto 探测预算；HTTP 与 stdio 的到期语义不同，分别由 mcp_http_capture / mcp_probe 处理。
+        let probe_budget = matches!(&mode, ClientLifecycleMode::Auto { .. })
+            .then(|| super::mcp_probe::timeout(config.timeout));
         let mut client = ClientConfig::default();
         client.client_info.name = "escode-cli-rust".into();
         client.client_info.version = env!("CARGO_PKG_VERSION").into();
@@ -135,16 +138,33 @@ impl Connection {
                         Box::pin(super::mcp_official_stdio::with_meta(meta.clone(), message))
                     },
                 );
-                Ok::<Service, anyhow::Error>(
-                    serve_client_with_lifecycle_and_ct(
-                        handler.clone(),
-                        (writer, reader),
-                        mode,
-                        lifecycle.clone(),
-                    )
-                    .await
-                    .context("protocol_negotiation_failed")?,
-                )
+                // 元组只实现 IntoTransport（sink/stream 适配器），先转成 Transport 才能套探测预算包装。
+                let transport = rmcp::transport::IntoTransport::<
+                    RoleClient,
+                    rmcp::transport::async_rw::JsonRpcMessageCodecError,
+                    rmcp::transport::sink_stream::TransportAdapterSinkStream,
+                >::into_transport((writer, reader));
+                let service = match probe_budget {
+                    Some(budget) => {
+                        serve_client_with_lifecycle_and_ct(
+                            handler.clone(),
+                            super::mcp_probe::TransportWithProbeBudget::new(transport, budget),
+                            mode,
+                            lifecycle.clone(),
+                        )
+                        .await
+                    }
+                    None => {
+                        serve_client_with_lifecycle_and_ct(
+                            handler.clone(),
+                            transport,
+                            mode,
+                            lifecycle.clone(),
+                        )
+                        .await
+                    }
+                };
+                Ok::<Service, anyhow::Error>(service.context("protocol_negotiation_failed")?)
             } else if config.transport == "sse" {
                 let transport = super::mcp_sse::Transport::open(
                     config,
@@ -190,7 +210,7 @@ impl Connection {
                         let official_client =
                             super::mcp_official_client::OfficialClient::new(http, official);
                         let transport = StreamableHttpClientTransport::with_client(
-                            Capture::new(official_client, raw.clone()),
+                            Capture::new(official_client, raw.clone(), probe_budget),
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(
@@ -203,7 +223,7 @@ impl Connection {
                     }
                     (Some(auth), None) => {
                         let transport = StreamableHttpClientTransport::with_client(
-                            Capture::new(auth, raw.clone()),
+                            Capture::new(auth, raw.clone(), probe_budget),
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(
@@ -216,7 +236,7 @@ impl Connection {
                     }
                     (None, None) => {
                         let transport = StreamableHttpClientTransport::with_client(
-                            Capture::new(http, raw.clone()),
+                            Capture::new(http, raw.clone(), probe_budget),
                             options,
                         );
                         serve_client_with_lifecycle_and_ct(

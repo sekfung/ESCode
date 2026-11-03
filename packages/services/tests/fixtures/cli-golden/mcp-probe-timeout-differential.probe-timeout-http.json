@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "status": "failed",
+    "toolCount": 0
+  },
+  "failureKind": "network_unreachable"
+}
