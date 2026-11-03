@@ -70,22 +70,37 @@ TS `resolveVersionNegotiationMode` 的规则：
     预算后失败，且不再等待 rmcp 的 10s；
   - 现有 MCP 用例不回归。
 
-## stdio 握手前退出（2026-11-03）
+## 传输失败分类（2026-11-03）
 
-差分探测发现：stdio MCP 子进程启动成功后、版本握手完成前退出时，Node 报 `Connection closed`，
-`failureKind` 保持 stdio 默认值 `process_start_failed`；Rust 原先把
-`serve_client_with_lifecycle_and_ct` 的所有初始化错误统一包成
-`protocol_negotiation_failed`，设置页因此显示错误的分类。
+差分探测发现：stdio 子进程在握手前退出、legacy `initialize` 返回 JSON-RPC 错误或非法结果、
+HTTP 的 `server/discover` 返回 JSON-RPC 错误、SSE 首连在收到 endpoint 前断流时，Rust 原先把
+`serve_client_with_lifecycle_and_ct` 的初始化错误统一包成 `protocol_negotiation_failed`，
+而 Node 会落到传输默认值，设置页因此显示错误分类。
 
 - Node `openServerConnection` 先按传输设置默认值：stdio 为 `process_start_failed`，http/sse 为
   `network_unreachable`；只有 `SdkError(EraNegotiationFailed)` 与
   `UnsupportedProtocolVersionError` 才改写成 `protocol_negotiation_failed`。
-- Rust 在 stdio 分支保留协商错误的 `protocol_negotiation_failed`，但把
-  `ClientInitializeError::ConnectionClosed`、`TransportError`（以及递归包含它们的
-  `LegacyFallbackFailed`）归类为 `process_start_failed`。
+- Rust 的分类规则（`crates/tools/src/mcp_init_failure.rs`）：
+  - `LegacyFallbackFailed` 按 `fallback` 递归分类；`discover` 侧错误只决定是否回落。
+  - 探测阶段的 `ExpectedInitResponse` / `ExpectedInitResult` 与 http/sse 的探测 `TransportError`
+    属于协商失败；legacy initialize 的同类错误与 `JsonRpcError`、`ConnectionClosed`、
+    `Cancelled` 使用传输默认值。
+  - `NoCompatibleProtocolVersion`、`NoPreferredProtocolVersion`、`ConflictInitResponseId`、
+    `UncorrelatedErrorResponse` 始终为 `protocol_negotiation_failed`。
+- 版本校验：Node legacy `initialize` 只接受 pre-2026-07-28 的已知版本；现代协商也只可能落在
+  `KNOWN_VERSIONS` 内。Rust 在握手完成后按传输默认值拒绝未知版本，避免把不兼容 server 当成
+  已连接后继续 `tools/list`。
+- SSE 首连尚未收到 `endpoint` 就断流时，Node 直接报 SSE error；Rust 立即以
+  `network_unreachable` 失败，不再静默重试到外层 `connection_timeout`。
 - 验收：`packages/services/tests/escode-cli-rust-mcp-failure-kind-differential.test.ts` 覆盖
-  HTTP/SSE 连接拒绝、stdio 握手前退出、stdio 命令不存在；四例的 `status` 与 `failureKind`
-  均与 Node golden 相等。
+  HTTP/SSE 连接拒绝、stdio 握手前退出/命令不存在/初始化拒绝/非法结果/不支持版本、HTTP
+  JSON-RPC 错误、SSE 首连断流；九例的 `status` 与 `failureKind` 均与 Node golden 相等。
+- 已知残余（不纳入本次对齐）：
+  - stdio 收到非法 JSON 帧或应答 id 不匹配时，Node SDK 会等到外层超时并报
+    `connection_timeout`，Rust 立即以 `process_start_failed` / `protocol_negotiation_failed`
+    失败；不复制 Node 的挂起。
+  - stdio 对 `server/discover` 返回空 `result` 时 Node 回落 legacy，rmcp 报
+    `ExpectedInitResult`；当前按协商失败处理，待确认是否有真实 server 依赖该形态。
 
 ## SSE 应答的 `server/discover` 错误（2026-09-27）
 

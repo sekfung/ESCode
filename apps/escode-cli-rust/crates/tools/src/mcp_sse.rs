@@ -45,14 +45,9 @@ impl Transport {
         }
         let response = tokio::select! {biased;_=stop.cancelled()=>anyhow::bail!("Cancelled"),response=send(&auth,||client.get(url.clone()).headers(headers.clone()).header("Accept","text/event-stream"))=>response.context("network_unreachable")?};
         let response = response.error_for_status().context("network_unreachable")?;
-        ensure!(
-            response.status() != reqwest_mcp::StatusCode::NO_CONTENT,
-            "SSE server sent 204"
-        );
-        ensure!(
-            is_event_stream(&response),
-            "SSE response is not text/event-stream"
-        );
+        if response.status() == reqwest_mcp::StatusCode::NO_CONTENT || !is_event_stream(&response) {
+            anyhow::bail!("network_unreachable");
+        }
 
         let endpoint_shared = Arc::new(RwLock::new(Arc::<str>::from("")));
         let worker_endpoint = endpoint_shared.clone();
@@ -95,11 +90,21 @@ impl Transport {
                             match tokio::select! {biased;_=worker_cancel.cancelled()=>return,result=send(&worker_auth,build)=>result} {
                                 Ok(response) => {
                                     let Ok(response) = response.error_for_status() else {
+                                        if let Some(endpoint_tx) = endpoint_tx.take() {
+                                            let _ = endpoint_tx.send(Err(anyhow::anyhow!(
+                                                "network_unreachable"
+                                            )));
+                                        }
                                         return;
                                     };
                                     if response.status() == reqwest_mcp::StatusCode::NO_CONTENT
                                         || !is_event_stream(&response)
                                     {
+                                        if let Some(endpoint_tx) = endpoint_tx.take() {
+                                            let _ = endpoint_tx.send(Err(anyhow::anyhow!(
+                                                "network_unreachable"
+                                            )));
+                                        }
                                         return;
                                     }
                                     response
@@ -159,7 +164,12 @@ impl Transport {
                             }
                         }
                     }
-                    // GET 流结束/网络错误：与 eventsource 一样按 retry 间隔重连，不重试已发出的 POST。
+                    // 首连尚未收到 endpoint 就断流时，Node SDK 直接报 SSE error；不能静默重试到外层超时。
+                    if let Some(endpoint_tx) = endpoint_tx.take() {
+                        let _ = endpoint_tx.send(Err(anyhow::anyhow!("network_unreachable")));
+                        return;
+                    }
+                    // 已建立连接后的 GET 流结束/网络错误：与 eventsource 一样按 retry 间隔重连。
                     if !retry_after(retry, &worker_cancel).await {
                         return;
                     }

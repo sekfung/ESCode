@@ -2,15 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { resolve } from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { escodeMcpListResultSchema, type ESCodeProtocolMcpServer } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 
-// docs/specs/rust-mcp-parity.md「stdio 握手前退出」：Node 对 stdio 的默认 failureKind 是
-// process_start_failed，只有版本协商类错误才改写为 protocol_negotiation_failed；Rust 也必须
-// 把子进程在握手前退出归到 process_start_failed，并与 HTTP/SSE 的连接拒绝分类保持一致。
+// docs/specs/rust-mcp-parity.md「传输失败分类」：Node 先按传输设置默认 failureKind
+// （stdio = process_start_failed，http/sse = network_unreachable），只有版本协商类错误才
+// 改写为 protocol_negotiation_failed。Rust 必须产出同一分类，不能把进程退出、JSON-RPC
+// 拒绝或首连断流误报成协商失败。
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
 async function closedPort(): Promise<number> {
@@ -52,50 +55,142 @@ async function observe(kind: "node" | "rust", config: ESCodeProtocolMcpServer) {
   }
 }
 
-// Windows runner 上本地端口拒绝可能慢于 1.2s：HTTP 的 600ms 探测预算会被误判为探测超时，
-// SSE 则直接落到外层 connection_timeout。放宽总预算到 10s，让分类反映连接结果而非机器速度。
-async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
-  const port = await closedPort();
-  switch (name) {
-    case "http-refused":
-      return {
-        name: "remote",
-        type: "http",
-        url: `http://127.0.0.1:${port}/mcp`,
-        headers: [],
+type Case = {
+  config: ESCodeProtocolMcpServer;
+  close?: () => Promise<void>;
+};
+
+const stdioScripts: Record<string, string> = {
+  "stdio-init-error": `
+import { createInterface } from "node:readline";
+const reply=(m,result)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result})+"\\n");
+const fail=(m,code,message)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code,message}})+"\\n");
+createInterface({input:process.stdin}).on("line",line=>{const m=JSON.parse(line);
+ if(m.method==="server/discover")fail(m,-32601,"legacy");
+ else if(m.method==="initialize")fail(m,-32000,"init denied");
+});`,
+  "stdio-init-bad-result": `
+import { createInterface } from "node:readline";
+const reply=(m,result)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result})+"\\n");
+const fail=(m,code,message)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code,message}})+"\\n");
+createInterface({input:process.stdin}).on("line",line=>{const m=JSON.parse(line);
+ if(m.method==="server/discover")fail(m,-32601,"legacy");
+ else if(m.method==="initialize")reply(m,{serverInfo:{name:"x",version:"1"}});
+});`,
+  "stdio-unsupported-version": `
+import { createInterface } from "node:readline";
+const reply=(m,result)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result})+"\\n");
+const fail=(m,code,message)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,error:{code,message}})+"\\n");
+createInterface({input:process.stdin}).on("line",line=>{const m=JSON.parse(line);
+ if(m.method==="server/discover")fail(m,-32601,"legacy");
+ else if(m.method==="initialize")reply(m,{protocolVersion:"1999-01-01",serverInfo:{name:"x",version:"1"},capabilities:{tools:{}}});
+});`,
+};
+
+async function caseFor(name: string): Promise<Case> {
+  if (name in stdioScripts) {
+    const root = await mkdtemp(join(tmpdir(), "mcp-failure-kind-"));
+    const script = join(root, `${name}.mjs`);
+    await writeFile(script, stdioScripts[name]!);
+    return {
+      config: {
+        name: "local.echo",
+        command: process.execPath,
+        args: [script],
+        env: [],
         timeoutMs: 10_000,
-      };
-    case "sse-refused":
-      return {
-        name: "remote",
-        type: "sse",
-        url: `http://127.0.0.1:${port}/sse`,
-        headers: [],
-        timeoutMs: 10_000,
-      };
-    case "stdio-exit":
-      return {
+      },
+      close: () => rm(root, { recursive: true, force: true }),
+    };
+  }
+  if (name === "stdio-exit") {
+    return {
+      config: {
         name: "local.echo",
         command: process.execPath,
         args: ["-e", "process.exit(1)"],
         env: [],
         timeoutMs: 10_000,
-      };
-    default:
-      return {
+      },
+    };
+  }
+  if (name === "stdio-missing") {
+    return {
+      config: {
         name: "local.echo",
         command: "/nonexistent/escode-mcp",
         args: [],
         env: [],
         timeoutMs: 10_000,
-      };
+      },
+    };
   }
+  if (name === "http-json-error" || name === "sse-drop") {
+    const server = createServer(async (req, res) => {
+      req.setEncoding("utf8");
+      let body = "";
+      for await (const part of req) body += part;
+      if (name === "sse-drop") {
+        res.writeHead(200, { "Content-Type": "text/event-stream" });
+        res.end();
+        return;
+      }
+      const message = JSON.parse(body || "{}");
+      const response = {
+        jsonrpc: "2.0",
+        id: message.id,
+        error: { code: -32000, message: "denied" },
+      };
+      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(response));
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    return {
+      config: {
+        name: "remote",
+        type: name === "sse-drop" ? "sse" : "http",
+        url: `http://127.0.0.1:${port}/mcp`,
+        headers: [],
+        timeoutMs: 10_000,
+      },
+      close: async () => {
+        server.closeAllConnections();
+        await new Promise<void>((done) => server.close(() => done()));
+      },
+    };
+  }
+  const port = await closedPort();
+  return {
+    config: {
+      name: "remote",
+      type: name === "sse-refused" ? "sse" : "http",
+      url: `http://127.0.0.1:${port}/${name === "sse-refused" ? "sse" : "mcp"}`,
+      headers: [],
+      timeoutMs: 10_000,
+    },
+  };
 }
 
-for (const name of ["http-refused", "sse-refused", "stdio-exit", "stdio-missing"] as const)
+for (const name of [
+  "http-refused",
+  "sse-refused",
+  "stdio-exit",
+  "stdio-missing",
+  "stdio-init-error",
+  "stdio-init-bad-result",
+  "stdio-unsupported-version",
+  "http-json-error",
+  "sse-drop",
+] as const)
   test(`MCP ${name} failureKind matches Node`, async () => {
-    const config = await configFor(name);
-    const node = await nodeOracle(name, () => observe("node", config));
-    const rust = canonical(await observe("rust", config));
-    assert.deepEqual(rust, node);
+    const current = await caseFor(name);
+    try {
+      const node = await nodeOracle(name, () => observe("node", current.config));
+      const rust = canonical(await observe("rust", current.config));
+      assert.deepEqual(rust, node);
+    } finally {
+      await current.close?.();
+    }
   });

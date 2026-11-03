@@ -104,12 +104,20 @@ pub(super) fn is_probe_timeout(error: &rmcp::service::ClientInitializeError) -> 
 }
 
 /// HTTP Auto 探测超时在 Node 侧是 SDK `RequestTimeout`，最终落到默认 `network_unreachable`；
-/// 其余连接阶段错误继续按 `protocol_negotiation_failed` 归类（docs/specs/rust-mcp-parity.md）。
-pub(super) fn init_failure(error: rmcp::service::ClientInitializeError) -> anyhow::Error {
+/// 其余错误按 Node 的传输默认值分类，只有协商类错误改写成 `protocol_negotiation_failed`
+/// （docs/specs/rust-mcp-parity.md）。
+pub(super) fn init_failure(
+    error: rmcp::service::ClientInitializeError,
+    probing: bool,
+) -> anyhow::Error {
     if is_probe_timeout(&error) {
         anyhow::anyhow!("network_unreachable")
     } else {
-        anyhow::Error::new(error).context("protocol_negotiation_failed")
+        super::mcp_init_failure::classify(
+            error,
+            super::mcp_init_failure::DefaultFailure::NetworkUnreachable,
+            probing,
+        )
     }
 }
 
@@ -272,15 +280,16 @@ mod tests {
 
     #[test]
     fn probe_timeout_classifies_as_network_unreachable() {
-        let error = init_failure(init_transport_error(&format!(
-            "{PROBE_TIMEOUT_PREFIX}400ms"
-        )));
+        let error = init_failure(
+            init_transport_error(&format!("{PROBE_TIMEOUT_PREFIX}400ms")),
+            true,
+        );
         assert_eq!(error.to_string(), "network_unreachable");
     }
 
     #[test]
     fn other_initialization_errors_keep_protocol_negotiation_failed() {
-        let error = init_failure(init_transport_error("connection refused"));
+        let error = init_failure(init_transport_error("connection refused"), true);
         assert_eq!(error.to_string(), "protocol_negotiation_failed");
     }
 }

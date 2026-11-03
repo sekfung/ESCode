@@ -3,18 +3,15 @@ use super::mcp_config::Server;
 use super::mcp_image_artifacts::ImageArtifacts;
 use super::mcp_result_budget::ResultBudget;
 use crate::contract::{McpClientEventSink, ProcessCleanupFailure, ToolOutput};
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use rmcp::{
     RoleClient,
-    model::{ClientConfig, ClientRequest, ProtocolVersion},
-    service::{
-        ClientLifecycleMode, Peer, PeerRequestOptions, RunningService,
-        serve_client_with_lifecycle_and_ct,
-    },
+    model::{ClientConfig, ProtocolVersion},
+    service::{ClientLifecycleMode, Peer, RunningService, serve_client_with_lifecycle_and_ct},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, process::Stdio, time::Duration};
+use std::{process::Stdio, time::Duration};
 use tokio::{
     process::{Child, Command},
     sync::Mutex,
@@ -82,6 +79,9 @@ impl Connection {
                 legacy_version: Some(ProtocolVersion::LATEST),
             },
         };
+        // Node 的 failureKind 默认值与探测/legacy 语义（docs/specs/rust-mcp-parity.md）。
+        let probing = !matches!(mode, ClientLifecycleMode::Initialize);
+        let legacy_only = matches!(mode, ClientLifecycleMode::Initialize);
         // TS 的 auto 探测预算；HTTP 与 stdio 的到期语义不同，分别由 mcp_http_capture / mcp_probe 处理。
         let probe_budget = matches!(&mode, ClientLifecycleMode::Auto { .. })
             .then(|| super::mcp_probe::timeout(config.timeout));
@@ -164,7 +164,13 @@ impl Connection {
                         .await
                     }
                 };
-                Ok::<Service, anyhow::Error>(service.map_err(super::mcp_init_failure::stdio)?)
+                Ok::<Service, anyhow::Error>(service.map_err(|error| {
+                    super::mcp_init_failure::classify(
+                        error,
+                        super::mcp_init_failure::DefaultFailure::ProcessStart,
+                        probing,
+                    )
+                })?)
             } else if config.transport == "sse" {
                 let transport = super::mcp_sse::Transport::open(
                     config,
@@ -181,7 +187,13 @@ impl Connection {
                     lifecycle.clone(),
                 )
                 .await
-                .context("protocol_negotiation_failed")?)
+                .map_err(|error| {
+                    super::mcp_init_failure::classify(
+                        error,
+                        super::mcp_init_failure::DefaultFailure::NetworkUnreachable,
+                        false,
+                    )
+                })?)
             } else {
                 use rmcp::transport::{
                     StreamableHttpClientTransport,
@@ -248,7 +260,8 @@ impl Connection {
                         .await
                     }
                 };
-                Ok(service.map_err(super::mcp_http_capture::init_failure)?)
+                Ok(service
+                    .map_err(|error| super::mcp_http_capture::init_failure(error, probing))?)
             }
         };
         let result = tokio::select! {biased; _=cancel.cancelled()=>Err(anyhow::anyhow!("Cancelled")), result=tokio::time::timeout(config.timeout,init)=>result.unwrap_or_else(|_|Err(anyhow::anyhow!("connection_timeout")))};
@@ -267,6 +280,20 @@ impl Connection {
                 return Err(official_failure().unwrap_or(error));
             }
         };
+        let mut service = service;
+        if let Some(version) = service
+            .peer_info()
+            .map(|info| info.protocol_version.clone())
+            && let Some(error) = super::mcp_init_failure::unsupported_version(
+                &version,
+                legacy_only,
+                &config.transport,
+            )
+        {
+            let _ = service.close().await;
+            cleanup_child(&mut owned).await?;
+            return Err(error);
+        }
         let modern = service
             .peer_info()
             .is_some_and(|i| i.protocol_version >= ProtocolVersion::V_2026_07_28);
@@ -289,72 +316,6 @@ impl Connection {
             }
         }
         Ok(connection)
-    }
-    async fn discover(&self, cancel: &CancellationToken) -> Result<Vec<Value>> {
-        let mut tools = vec![];
-        let mut cursor = Value::Null;
-        let mut seen = BTreeSet::new();
-        for _ in 0..128 {
-            let params = if cursor.is_null() {
-                json!({})
-            } else {
-                json!({"cursor":cursor})
-            };
-            let result = self.request("tools/list", params, cancel).await?;
-            tools.extend(
-                result["tools"]
-                    .as_array()
-                    .context("Invalid MCP tools list")?
-                    .iter()
-                    .cloned(),
-            );
-            ensure!(tools.len() <= 10_000, "MCP tool count exceeded");
-            cursor = result["nextCursor"].clone();
-            if cursor.is_null() {
-                return Ok(tools);
-            }
-            ensure!(
-                cursor.is_string() && seen.insert(cursor.to_string()),
-                "MCP pagination loop"
-            );
-        }
-        bail!("MCP tool pages exceeded")
-    }
-    async fn request(
-        &self,
-        method: &str,
-        params: Value,
-        cancel: &CancellationToken,
-    ) -> Result<Value> {
-        Ok(serde_json::from_str(
-            &self.request_text(method, params, cancel).await?,
-        )?)
-    }
-    /// 应答的 JSON 文本（按 rmcp 类型的字段顺序），供需要保持键序的格式化使用。
-    async fn request_text(
-        &self,
-        method: &str,
-        params: Value,
-        cancel: &CancellationToken,
-    ) -> Result<String> {
-        let request: ClientRequest =
-            serde_json::from_value(json!({"method":method,"params":params}))?;
-        let handle = tokio::select! {biased;_=cancel.cancelled()=>bail!("Cancelled"),result=self.peer.send_cancellable_request(request,PeerRequestOptions::with_timeout(self.timeout))=>result.context("MCP request dispatch failed")?};
-        let id = handle.id.clone();
-        let result = tokio::select! {biased;
-            _=cancel.cancelled()=>{
-                let _=tokio::time::timeout(Duration::from_secs(2),self.peer.notify_cancelled(rmcp::model::CancelledNotificationParam::new(Some(id.clone()),Some("Cancelled".into())))).await;
-                Err(anyhow::anyhow!("Cancelled"))
-            },
-            result=handle.await_response()=>result.map_err(|_|anyhow::anyhow!("MCP request failed or timed out")),
-        };
-        if result.is_ok() && method == "tools/list" {
-            self.raw.register(&id);
-        }
-        if result.is_err() && method == "tools/call" {
-            self.close().await?;
-        }
-        Ok(serde_json::to_string(&result?)?)
     }
     pub async fn call(
         &self,
@@ -422,6 +383,9 @@ async fn cleanup_child(child: &mut Option<(Child, u32)>) -> Result<()> {
 
 #[path = "mcp_connection_resources.rs"]
 mod resources;
+
+#[path = "mcp_connection_dispatch.rs"]
+mod dispatch;
 
 #[cfg(test)]
 #[path = "mcp_connection_tests.rs"]
