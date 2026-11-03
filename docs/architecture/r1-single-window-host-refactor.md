@@ -2,13 +2,16 @@
 
 ## 1. 状态与范围
 
-- 状态：实施中
+- 状态：历史规格（R1 已被后续 S5-f 的 App 级 Rust Host 远程路径取代）
 - 阶段：远程架构重构 R1
 - 发布方式：单版本原子切换，不保留新旧双架构
 - 核心目标：每个 `BrowserWindow` 只有一个 window-scoped Local Host，由该 Host 统一承载本地服务、远程连接、窗口级任务投影和各类客户端 attachment
 - 明确排除：独立 Server CLI、`sourceServerId`、Connection Profile、Transport Adapter、新的远端 wire contract、跨远程 Grouped 能力，分别留待 R2/R3/R4
 
-本文是 R1 的实现规格。远程 workspace已随 2026-10-20 产品决定删除；远程 workspace 的实时投递事实以 `docs/remote/` 与 `docs/specs/rust-u2-window-controller.md` 为准。
+本文是 R1 的实现规格。远程 workspace 的 Main → Window Host 入口已随 S5-f-5 删除，当前事实以
+[source-server-remote-rust-host.md](../specs/source-server-remote-rust-host.md) 与
+`docs/specs/rust-u2-window-controller.md` 为准；文中 `ConnectRemoteWorkspace` /
+`BindRemoteWorkspaceContext` / `DisposeRemoteWorkspaceSession` 仅作为历史记录保留。
 
 ## 2. 决策
 

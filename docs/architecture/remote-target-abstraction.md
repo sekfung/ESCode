@@ -1,5 +1,10 @@
 # Remote Target 抽象
 
+> 状态记录（2026-11-03）：本文描述 R1–S5 前的 Main → Window Host 远程入口。S5-f-5 已删除
+> `ConnectRemoteWorkspace`、`BindRemoteWorkspaceContext`、`DisposeRemoteWorkspaceSession` 与
+> Window Host 内的 `RemoteConnectionRegistry`；当前 ssh/wsl/docker/`kind: "server"` 均由 App 级
+> Rust Host 承载，见 [source-server-remote-rust-host.md](../specs/source-server-remote-rust-host.md)。
+
 ## 背景
 
 远程链路的核心实现早已不是 SSH 专属：

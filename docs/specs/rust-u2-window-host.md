@@ -106,11 +106,13 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
 
 1. **Rust Host 启动过快**：Main 在 renderer 注册 `message` 监听前投递 `databaseStartupState`/ServicePort，页面永久停在 `root-startup-loading`。改为 Main 等待 renderer 的 `snapshot` 再投递，renderer 在业务根接管前按 250ms 重试 `snapshot`。
 2. **桥接层帧不匹配**：Rust `/ws` 使用 `@escode/rpc` SocketProtocol 的 13 字节帧头，而窗口 MessagePort 使用无帧的 MessagePortProtocol；原实现按字节透传，`Initialize` 被 renderer 当作垃圾数据。`bridgeRustHostPort` 现在双向转帧。
-3. **远程-only Node Host 未就绪**：`attachInitialServicePort:false` 时 `InitLocal` 缺少 MessagePort，Host 直接 return；且远程连接在 DB/services 就绪前下发 `ConnectRemoteWorkspace`，报 “Local Host services are not initialized.”。现在仍为 InitLocal 建立 base channel（Main 侧立即关闭），并以 Host 发布的 `databaseStartupState.ready` 作为连接前置条件。
+3. **远程-only Node Host 未就绪**：`attachInitialServicePort:false` 时 `InitLocal` 缺少 MessagePort，Host 直接 return；且远程连接在 DB/services 就绪前下发 `ConnectRemoteWorkspace`，报 “Local Host services are not initialized.”。现在仍为 InitLocal 建立 base channel（Main 侧立即关闭），并以 Host 发布的 `databaseStartupState.ready` 作为连接前置条件。（`ConnectRemoteWorkspace` 协议已在 S5-f-5 删除。）
 4. **`file` channel 回归**：提交 `78d487f0` 删除营销链路时误删 `IFileService`/`IMediaPreviewService` 注册，远程 stdio server 不暴露 `file`（目录选择报 “Unknown channel: file”）。已恢复注册并重建 linux-x64 remote assets。
 5. **prepared quit 不退出**：Rust Host 清理比 Node 模式多约 2s 后，ChromeDriver 已发起的 quit 重入被 Electron 忽略，窗口不再触发 `closed`，`deleteSession` 超时。现在在 host/agent 回收完成后显式销毁剩余窗口，并保留 3s 兜底退出。
 
-该项的当前产品边界是**显式 Web 服务端仍保留 per-window Node Host**；ssh/wsl/docker 已由 Rust Host 承载。边界行为由上述可执行 E2E 验证。
+该段的“远程-only Node Host”是历史缺陷记录。S5-f 起显式 `kind: "server"` Web 服务端也由 App 级 Rust Host
+承载，`ConnectRemoteWorkspace` 已删除；当前边界行为见
+[source-server-remote-rust-host.md](source-server-remote-rust-host.md) §12.6。
 
 **默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退本地 Node 窗口 Host（远程不读取该开关，始终走 Rust Host）。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
 

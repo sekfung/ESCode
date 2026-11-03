@@ -279,6 +279,11 @@ Host 侧有并发工作（如本节的刷新）时必现。现在先建协议并
 
 ## 13. `provider-provisioning-target.apply`：登记为非缺口（2026-10-16，用户决定）
 
+> 2026-11-03 更新：该“重启条件”已随 Source Server 远程 Rust Host 落地。`remoteProviderProvisioningService`
+> 已删除（S5-f-5）；远程 provider 下发由 `SourceServerProviderProvisioning` 承担，见
+> [source-server-remote-rust-host.md](source-server-remote-rust-host.md) §10。本节保留 2026-10-16 的本地
+> Window Host 决定，不代表当前远程实现。
+
 **事实（读 TS 得到）**：该 target 只在两种环境启用（`services/node.ts`：桌面附着的**远程**环境，或带 auth token 的独立 HTTP `server`），由 Window Host 经
 `remoteProviderProvisioningService` 调用。本地窗口的 Rust Host 不会收到它。信封（`shared/provider-provisioning.ts`）的 `accountSettings`
 （`providerFamilyDomain` / `providerFamilyConnectionSelections`）、`oauth-session` 凭据（`oauth:zai:*` / `oauth:bigmodel:*` / `escodejwttoken`）与 `accountProviderSource.refresh`

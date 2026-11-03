@@ -28,7 +28,7 @@
 
 - `MessagePort`：Renderer 与 Window Host 之间的本地端口。
 - `stdio`：Host 与 `escode-cli`，以及 `escode-server` 与其 Agent 子进程之间的标准输入输出。
-- `WebSocket`：连接已存在的 `escode-server`，或连接远程 workspace Relay。
+- `WebSocket`：连接已存在的 `escode-server`（Desktop Host 的 `desktop-continuous` 或 Web 的 `web-remote-replayable`）。
 - Electron IPC：Renderer 与 Main 之间的平台调用。
 - UtilityProcess `postMessage`：Main 与 Window Host 之间的进程控制消息。
 
@@ -119,26 +119,29 @@ Service API 可以承载 V4，也可以承载文件、终端、Git 等非 V4 能
 
 Main 与 Host 之间传递的是进程和连接控制，例如：
 
-- 初始化 Host；
-- `ConnectRemoteWorkspace`；
+- 初始化 Host（`InitLocal`）；
 - `AttachServicePort` / `DetachServicePort`；
 - Renderer reload 后重新绑定 attachment。
 
-这些不是 V4 对话命令。
+这些不是 V4 对话命令。远程 SSH/WSL/Docker 与 `kind: "server"` 目标不再经 Host 控制消息建立：
+Connection Profile 与连接由 App 级 Rust Host 持有（`/api/source-server-*`），Window Host 只服务本地
+workspace；历史 `ConnectRemoteWorkspace` / `BindRemoteWorkspaceContext` / `DisposeRemoteWorkspaceSession`
+已随 S5-f-5 删除。
 
 ## 各链路对应关系
 
-| 链路                       | 第 3 层：内容                   | 第 2 层：信封                | 第 1 层：通道          |
-| -------------------------- | ------------------------------- | ---------------------------- | ---------------------- |
-| Renderer → Host            | Service API、V4 命令/查询/订阅  | `@escode/rpc`                | `MessagePort`          |
-| Renderer → Main            | 平台操作                        | Electron IPC channel         | Electron IPC           |
-| Main → Host                | Host 控制消息                   | typed `{ type, ... }`        | `postMessage`          |
-| Host → 本地 CLI            | V4、少量 legacy 操作            | ESCode Protocol JSON         | stdio NDJSON           |
-| Host → `escode-server`     | 远程 Service API，参数可携带 V4 | `@escode/rpc`                | SSH stdio 或 WebSocket |
-| `escode-server` → 远端 CLI | V4、少量 legacy 操作            | ESCode Protocol JSON         | stdio NDJSON           |
-| 手机 → Relay → Main        | 远控 Service/V4 调用            | relay envelope + `rpc-frame` | WebSocket              |
+| 链路                       | 第 3 层：内容                   | 第 2 层：信封         | 第 1 层：通道          |
+| -------------------------- | ------------------------------- | --------------------- | ---------------------- |
+| Renderer → Host            | Service API、V4 命令/查询/订阅  | `@escode/rpc`         | `MessagePort`          |
+| Renderer → Main            | 平台操作                        | Electron IPC channel  | Electron IPC           |
+| Main → Host                | Host 控制消息                   | typed `{ type, ... }` | `postMessage`          |
+| Host → 本地 CLI            | V4、少量 legacy 操作            | ESCode Protocol JSON  | stdio NDJSON           |
+| Host → `escode-server`     | 远程 Service API，参数可携带 V4 | `@escode/rpc`         | SSH stdio 或 WebSocket |
+| `escode-server` → 远端 CLI | V4、少量 legacy 操作            | ESCode Protocol JSON  | stdio NDJSON           |
 
-远程 workspace还会通过 shared-host attachment 进入已有 Window Host；Relay 和 Main 只负责鉴权、配对、心跳、frame 透传与 attachment 调度，不持有 conversation/task/stream 业务状态。
+远程 workspace 连接由 App 级 Rust Host 持有；`escode-server` 侧的 `trusted-host-relay` 只搬运下游
+`desktop-continuous` 帧，Main 只负责窗口与原生操作，不持有 conversation/task/stream 业务状态。
+手机远控 Relay 入口已于 2026-10-20 随手机远控一起删除。
 
 ## 一条远程 `sendText` 的完整路径
 
