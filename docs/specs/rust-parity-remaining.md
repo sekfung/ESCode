@@ -42,7 +42,7 @@
 安装包会话门禁，Node → Rust → Node runtime 演练按设计跳过。随后 `rust-version-drill` run `41503492904`
 （`dev` @ `83ecf28c`）完成 base `v3.15.2` → head → 降级的四平台 Rust-only 演练，`app.asar` 哈希按预期
 变化并恢复、冻结设置保持不变。因此「Rust-only 三平台发行门禁」与「Rust-only 升级/降级演练」不再是待办；
-删除 TS CLI、本地 Node Host 回退与 `ESCODE_AGENT_SERVER_RUNTIME=node` 仍需 P1 残余项收敛和单独确认。
+删除 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 仍需 P1 残余项收敛和单独确认；本地 Node Host 回退已在同日 S6 删除（见下）。
 
 2026-11-04 已删除 `ESCODE_RUST_HOST=0` 本地 Node Host 回退（S6）：`desktopWindowLifecycle.ts` 的
 Node 分支、`desktopHostProcess.ts` 的 spawn/dispose 进程管理、`isRustHostEnabled` 与
