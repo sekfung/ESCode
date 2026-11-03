@@ -1,6 +1,6 @@
 # Browser Use 内置 WebView 视频录制 Spec
 
-> 状态：2026-08-14 revised implementation（Electron MediaRecorder / WebM）。
+> 状态：2026-11-04 Rust Host 物化收口（Electron MediaRecorder / WebM）。
 >
 > 目标：让 `video2code` 等普通插件通过官方 Browser Use SDK 录制 ESCode 内置浏览器，移除
 > Playwright/独立 Chromium 依赖；普通插件仍不获得 raw CDP 或 Electron 权限。
@@ -10,14 +10,14 @@
 
 ## 1. Feature Summary
 
-| Field            | Value                                                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Developer intent | 复用内置 `<webview>` 与 Browser Use 交互链路产出 WebM，不依赖外部视频编码器                                             |
-| Capability       | Browser Use embedded WebView scenario recording                                                                         |
-| Change layer     | validation / commit-effect / transient state / artifact materialization                                                 |
-| Operating mode   | implementation handoff                                                                                                  |
-| Primary seeds    | `BrowserGuestManager`、`DesktopBrowserScreenshotSurfaceCoordinator`、`BrowserControlMainBridge`、Browser client `Tab`   |
-| Out of scope     | 给第三方插件开放 raw CDP；另起 Chromium；录制整个 ESCode 窗口；把录制任务写入 task snapshot；为其它视频处理功能提供转码 |
+| Field            | Value                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Developer intent | 复用内置 `<webview>` 与 Browser Use 交互链路产出 WebM，不依赖外部视频编码器                                                       |
+| Capability       | Browser Use embedded WebView scenario recording                                                                                   |
+| Change layer     | validation / commit-effect / transient state / artifact materialization                                                           |
+| Operating mode   | implementation handoff                                                                                                            |
+| Primary seeds    | `BrowserGuestManager`、`DesktopBrowserScreenshotSurfaceCoordinator`、Rust Host `interaction/browserExecute`、Browser client `Tab` |
+| Out of scope     | 给第三方插件开放 raw CDP；另起 Chromium；录制整个 ESCode 窗口；把录制任务写入 task snapshot；为其它视频处理功能提供转码           |
 
 ## 2. 产品与安全决策
 
@@ -39,8 +39,10 @@
    派生状态自动恢复。原始 display stream 再在受信任 renderer 的 canvas 中归一化到请求
    viewport/fps 后交给 `MediaRecorder`，避免高 DPI 泄漏到产物分辨率，也禁止把 Fit 低清 surface
    放大伪装成目标分辨率。
-7. main 只拥有 WebView 和短期录制产物。Host 在 `recordingStatus` 完成回包时把 WebM 原子落到
-   workspace，再把模型可见 path 改写为最终路径。模型永远不直接依赖 main 临时路径。
+7. main 只拥有 WebView 和短期录制产物。Rust Host 在转发 `recordingStatus` 的完成回包时把 WebM
+   原子落到 workspace，再把模型可见 path 改写为最终路径。模型永远不直接依赖 main 临时路径。
+   远程 workspace 的 Browser backend 保持不可用；带 `remoteSessionId` 且请求 `outputPath` 时显式
+   返回 `execution_error`，不把 main 临时路径当成远端产物。
 8. 当前 Browser Use backend 在纯 CLI、Server remote 或未注入 Desktop IAB executor 时保持
    `backend_unavailable`；本特性不为这些形态另起浏览器 runtime。
 
@@ -72,7 +74,7 @@
 | must-inspect   | embedded browser recording    | records guest from                     | Browser Use side-pane guest                                | same tab/generation                      | 画面与交互必须同源                    | manager runtime test           |
 | must-inspect   | recording job                 | holds bounded lease through            | screenshot surface coordination                            | capture phase only                       | hidden pane must keep emitting frames | coordinator/manager tests      |
 | must-inspect   | recording surface             | temporarily overrides display scale of | owner renderer free-size canvas                            | recording lease only                     | Fit/50% 不能成为录制源分辨率          | renderer + coordinator tests   |
-| must-inspect   | recording artifact            | materialized by                        | Host browser bridge                                        | completed status + validated output path | main temp path 不能泄漏               | bridge tests                   |
+| must-inspect   | recording artifact            | materialized by                        | Rust Host `interaction/browserExecute`                     | completed status + validated output path | main temp path 不能泄漏               | Host runtime request tests     |
 | must-inspect   | third-party video2code plugin | executes through                       | official stateless Browser Use MCP                         | official plugin enabled                  | 不新增 plugin 高权限                  | manifest/docs tests            |
 | invariant-only | recording transient state     | must-not-enter                         | desktop/mobile task delivery                               | all client modes                         | 不改变 replayable/continuous          | protocol diff + tests          |
 | invariant-only | recording scope               | isolated by                            | workspace key + remoteSessionId + session + tab generation | every command                            | 防串 workspace/session                | protocol/manager tests         |
@@ -86,7 +88,7 @@
 | WebView media stream      | 无 UI draft                        | target guest `WebFrameMain` + isolated recorder renderer | `getDisplayMedia`/`MediaRecorder` | WebM chunk stream         | recorder tests + Electron smoke |
 | capture residency         | renderer background surface        | Desktop main coordinator                                 | prepare/release lease             | 不持久化                  | surface tests                   |
 | recording surface scale   | renderer 根据 prepare payload 派生 | Desktop main recording lease                             | `surfaceScaleMode=unscaled`       | 不写入 preview zoom state | renderer/coordinator tests      |
-| final WebM path           | Browser SDK result                 | workspace filesystem / remote backend                    | Host artifact materializer        | 用户 workspace 文件       | bridge/materializer tests       |
+| final WebM path           | Browser SDK result                 | workspace filesystem                                     | Rust Host recording materializer  | 用户 workspace 文件       | Host runtime request tests      |
 
 ### 3.5 Must-Preserve Invariants
 
@@ -228,7 +230,7 @@ const status = await tab.recording.status(job.id, {
 | BVR03   | two sessions/tabs                                        | use foreign recording id for status/cancel | fail closed，不返回状态/path                                                                    | protocol + main                  | ✅ focused unit（跨 session status、跨 session cancel 且原作业存活、错 tabId）                                                                                                                                                                                                                                                                     |
 | BVR04   | active recording                                         | turn/session/window/tab end                | stop/ack/release/cursor cleanup，状态 cancelled                                                 | main lifecycle                   | ✅ focused unit（endTurn / closeSession / closeWindow 各一条，断言 cancelled + recorder.cancel + lease release；recorder 侧另有外部 abort 回收用例）<br>⬜ 缺口：closeTab 入口未单测                                                                                                                                                               |
 | BVR05   | same tab active job                                      | start second recording                     | structured execution error；第一任务继续                                                        | main state                       | ✅ focused unit（断言 execution_error、不再起第二个 recorder、第一作业仍 running）                                                                                                                                                                                                                                                                 |
-| BVR06   | output `../outside.webm` 或 `.mp4`                       | completed status materialization           | reject path escape/错误扩展名，不写 workspace 外                                                | Host IO                          | ✅ focused unit（`browserRecordingArtifactMaterializer.test.ts` 4 条 + `browserControlMainBridge.test.ts` materialization）                                                                                                                                                                                                                        |
+| BVR06   | output `../outside.webm` 或 `.mp4`                       | completed status materialization           | reject path escape/错误扩展名，不写 workspace 外                                                | Host IO                          | ✅ focused unit（`apps/escode-host/crates/host-rpc/src/runtime_requests.rs`：物化、剥离临时 artifact、路径逃逸、错误扩展名、`remoteSessionId`）                                                                                                                                                                                                    |
 | BVR07   | Chromium 不支持 VP8 WebM 或 recorder renderer 崩溃       | start/finish capture                       | failed status 包含 recorder unavailable；不伪造 artifact                                        | main recorder                    | ✅ focused unit（`electronBrowserWebmRecorder.test.ts`：MIME 白名单、renderer 崩溃、MessagePort 意外关闭、写盘失败；`browserGuestManager.test.ts`：recorder 不可用 → failed 且无 artifact）                                                                                                                                                        |
 | BVR08   | mobile attached local workspace                          | recording RPC                              | 不创建 runtime/snapshot；仍按 workspace/session/tab scope                                       | host/protocol                    | ⚠️ 部分：`scopeKey` 含 `clientMode`，已单测证明 web-remote 客户端查不到桌面作业。`attachGuest` 的 options 不接受 `clientMode`，本层无法构造 mobile-attached 的 tab，"不创建 runtime/snapshot" 需在 host/server 层验证                                                                                                                              |
 | BVR09   | tab 当前 preview 为 Fit/50%，录制请求相同或不同 viewport | start → prepare → capture → release        | renderer 临时按请求 viewport 以 100% 合成；ready 只接受 scale=1；完成/失败后恢复原 preview zoom | shared payload + main + renderer | ✅ focused unit（`browserScreenshotSurfaceCoordinator.test.ts` 只收 scale=1；`UnifiedBrowserView.test.ts` UI 侧临时切换；`browserGuestManager.test.ts` main 侧还原 viewport override）<br>⬜ 缺口：Electron runtime smoke 未覆盖 zoom 还原                                                                                                         |
@@ -262,3 +264,23 @@ const status = await tab.recording.status(job.id, {
 - lifecycle cancel、scope isolation、surface lease、tab LRU capture protection 有自动化证据。
 - 不新增 task/replayable snapshot 字段；workspaceIdentity/remoteSessionId/clientMode 透传不回归。
 - focused tests、`pnpm typecheck`、`pnpm lint` 通过，并完成一次真实 Electron 录制验证。
+
+## 8. Rust Host 物化实现记录（2026-11-04）
+
+Node Host 删除后，`interaction/browserExecute` 由 Rust Host 的
+`apps/escode-host/crates/host-rpc/src/runtime_requests.rs` 承接。此前它只把 Main 的回包原样转发，
+导致 `recordingStatus` 带 `outputPath` 时 Main 的临时 WebM 不会被落到 workspace（BVR06 回归）。
+
+实现规则：
+
+- 仅在 `ok && recording.status === "completed" && recording.artifact` 时处理产物；其它状态原样转发。
+- `command.outputPath` 缺省时移除 `recording.artifact`，Main 临时路径不返回 Agent（与 Node Host 一致）。
+- `command.outputPath` 存在时，Host 重新校验：相对路径、拒绝空段/`.`/`..`/盘符与前导分隔符、
+  扩展名 `.webm`（大小写不敏感）；通过后复制到同目录 staging，再删除目标并 `rename` 提交。
+- 校验或落盘失败返回 `execution_error`（`sideEffect: "none"`），不返回临时 artifact。
+- `remoteSessionId` 非空且请求 `outputPath` 时显式返回
+  `remote Browser recording materialization is unavailable for this session`；远程 Browser backend
+  仍按本 spec §2.8 保持 `backend_unavailable`。
+
+单测覆盖：完成态物化并改写 path、无 `outputPath` 剥离临时 artifact、`../` 与 `.mp4` 拒绝、
+`remoteSessionId` 显式失败。

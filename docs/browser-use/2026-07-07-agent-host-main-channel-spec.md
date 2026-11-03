@@ -1,6 +1,10 @@
 # agent→host→main browser 执行通道规格（T4）
 
 > 状态：已实现。
+>
+> 历史记录（2026-11-04）：Node Host 与 `browserControlMainBridge` 已随 S6 删除。当前的
+> `interaction/browserExecute` 由 Rust Host `apps/escode-host/crates/host-rpc/src/runtime_requests.rs`
+> 转发 Main，并负责 `recordingStatus` 的 workspace 产物物化；本文保留 T4 当时的 Node Host 设计。
 > 上位：`2026-07-07-browser-use-cdp-node-repl-spec.md`；依赖 T3 的 `BrowserControlPort` + `interaction/browserExecute` 协议。
 > 范围：打通 agent 的 `BrowserControlPort.execute` → ESCode Protocol → host router → parentPort → main 的三腿通道。T4 不含 main 侧 CDP 执行（T5 提供 executor，T4 桥先返回 stub/透传到一个可注入的 main handler）。
 

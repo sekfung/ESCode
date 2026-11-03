@@ -41,7 +41,12 @@ pub fn responder(
                 }
                 "interaction/browserList" => Ok(json!({"browsers": []})),
                 "interaction/browserExecute" => {
-                    browser_execute(&main_broker, &request.params).await
+                    crate::runtime_browser::browser_execute(
+                        &main_broker,
+                        &request.workspace_path,
+                        &request.params,
+                    )
+                    .await
                 }
                 other => Err(HostError::unsupported(other)),
             }
@@ -80,40 +85,6 @@ fn valid_subagent_runtime_config_params(params: &Value) -> bool {
             .get("sessionId")
             .and_then(Value::as_str)
             .is_some_and(|session_id| !session_id.trim().is_empty())
-}
-
-async fn browser_execute(main_broker: &MainBrokerSlot, params: &Value) -> Result<Value, HostError> {
-    if params.get("requestId").and_then(Value::as_str).is_none()
-        || params.get("sessionId").and_then(Value::as_str).is_none()
-        || params.get("command").is_none()
-    {
-        return Err(HostError {
-            code: -32602,
-            message: "Invalid interaction/browserExecute params".to_owned(),
-        });
-    }
-    let Some(broker) = main_broker.get() else {
-        return Ok(browser_unavailable("browser control not available"));
-    };
-    match broker
-        .request("interaction/browserExecute", params.clone())
-        .await
-    {
-        Ok(result) => Ok(result),
-        Err(error) => Ok(browser_unavailable(&error)),
-    }
-}
-
-fn browser_unavailable(message: &str) -> Value {
-    json!({
-        "ok": false,
-        "error": {
-            "code": "backend_unavailable",
-            "message": message,
-            "sideEffect": "uncertain",
-        },
-        "elapsedMs": 0,
-    })
 }
 
 async fn runtime_preferences(
@@ -169,49 +140,6 @@ pub(crate) fn preferences(settings: &Value, scope: &str, identity: &str) -> Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use escode_host_control::{ControlMessage, ControlWriter};
-
-    #[tokio::test]
-    async fn browser_execute_forwards_to_main_request() {
-        let (writer, mut rx) = ControlWriter::channel(8);
-        let broker = MainBroker::new(writer);
-        let slot: MainBrokerSlot = Arc::new(std::sync::OnceLock::new());
-        let _ = slot.set(Arc::clone(&broker));
-        let responder = responder(
-            PathBuf::from("/tmp"),
-            crate::provider_headers::ProviderHeaders::new(),
-            slot,
-        );
-        let call = tokio::spawn(async move {
-            responder(HostRequest {
-                identity: "w".to_owned(),
-                workspace_path: "/w".to_owned(),
-                method: "interaction/browserExecute".to_owned(),
-                params: json!({
-                    "requestId": "r1",
-                    "sessionId": "s1",
-                    "command": {"method": "navigate"},
-                }),
-            })
-            .await
-        });
-        let Some(ControlMessage::MainRequest {
-            request_id,
-            method,
-            params,
-        }) = rx.recv().await
-        else {
-            panic!("expected mainRequest");
-        };
-        assert_eq!(method, "interaction/browserExecute");
-        assert_eq!(params["requestId"], "r1");
-        assert!(broker.resolve(&request_id, true, Some(json!({"ok": true})), None));
-        assert_eq!(
-            call.await.expect("task").expect("result"),
-            json!({"ok": true})
-        );
-    }
-
     #[test]
     fn defaults_follow_the_ts_resolver() {
         let result = preferences(&json!({}), "runtime-materialization", "/w");

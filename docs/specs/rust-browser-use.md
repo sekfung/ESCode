@@ -187,3 +187,12 @@ sequenceDiagram
   - node_repl 可见的 CUA 键一致；
   - 同名用户 node_repl 配置不生效；
   - 退役 CUA server 不出现在 `mcp/list` 与工具列表中。
+
+## Browser 录制产物（2026-11-04）
+
+- Rust runtime `browser_broker` 的 Host 请求上下文补齐 `remoteSessionId`，与 TS
+  `buildBrowserRequestContext` 的 workspace scope 一致。
+- Rust Host `interaction/browserExecute` 在 `recordingStatus` 完成回包时按 `command.outputPath`
+  物化 WebM 到 workspace；无 `outputPath` 时剥离 Main 临时 artifact；`remoteSessionId` 请求物化
+  显式失败。细则与验收见
+  `docs/browser-use/2026-08-12-browser-webview-video-recording-spec.md` §8。

@@ -37,9 +37,21 @@ fn rejects_wrong_token_and_subagent_scope() {
 fn unknown_session_is_rejected_before_reaching_the_host() {
     let broker = broker();
     assert!(broker.context("sess_unknown", None).is_err());
-    broker.remember("sess_1", &json!({"workspace_key": "k", "workspace_path": "p", "client_mode": "web-remote-replayable", "turn_id": "t1"}));
+    broker.remember(
+        "sess_1",
+        &json!({
+            "workspace_key": "k",
+            "workspace_path": "p",
+            "workspace_identity": "remote:ssh:host:/w",
+            "remote_session_id": "rs1",
+            "client_mode": "web-remote-replayable",
+            "turn_id": "t1",
+        }),
+    );
     let params = broker.context("sess_1", None).unwrap();
     assert_eq!(params["workspaceKey"], "k");
+    assert_eq!(params["workspaceIdentity"], "remote:ssh:host:/w");
+    assert_eq!(params["remoteSessionId"], "rs1");
     assert_eq!(params["clientMode"], "web-remote-replayable");
     assert_eq!(params["turnId"], "t1");
     assert_eq!(params["sessionContext"], "live");

@@ -188,6 +188,11 @@ impl Broker {
         if let Some(identity) = meta["workspace_identity"].as_str() {
             params["workspaceIdentity"] = identity.into();
         }
+        // 与 TS buildBrowserRequestContext 一致：远程 workspace 的 remoteSessionId 属于 browser scope，
+        // 缺失会让 Main 把它当成另一个本地会话，tab/recording 可能跨客户端串线。
+        if let Some(remote) = meta["remote_session_id"].as_str() {
+            params["remoteSessionId"] = remote.into();
+        }
         Ok(params)
     }
 

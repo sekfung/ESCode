@@ -105,6 +105,7 @@ mod project_memory;
 mod provider_headers;
 mod remote_host_id;
 mod remote_scope;
+mod runtime_browser;
 mod runtime_event_fanout;
 pub mod runtime_requests;
 pub mod session;
