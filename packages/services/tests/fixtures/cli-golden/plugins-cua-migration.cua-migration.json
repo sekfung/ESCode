@@ -1,0 +1,10 @@
+{
+  "before": "{\"ui\":{\"locale\":\"zh-CN\"},\"plugins\":{\"dirs\":[],\"enabledPlugins\":{\"ghost@some-market\":false,\"escode-cua@zcode-plugins-official\":true},\"suppressedBuiltins\":[\"escode-cua@zcode-plugins-official\",\"ghost@some-market\"],\"options\":{\"escode-cua@zcode-plugins-official\":{\"apiKey\":\"legacy-key\"}},\"extraKnownMarketplaces\":{}},\"logging\":{\"level\":\"warn\"}}",
+  "after": "{\n  \"ui\": {\n    \"locale\": \"zh-CN\"\n  },\n  \"plugins\": {\n    \"dirs\": [],\n    \"enabledPlugins\": {\n      \"ghost@some-market\": false,\n      \"computer-use@zcode-plugins-official\": true\n    },\n    \"suppressedBuiltins\": [\n      \"computer-use@zcode-plugins-official\",\n      \"ghost@some-market\"\n    ],\n    \"options\": {\n      \"computer-use@zcode-plugins-official\": {\n        \"apiKey\": \"legacy-key\"\n      }\n    },\n    \"extraKnownMarketplaces\": {}\n  },\n  \"logging\": {\n    \"level\": \"warn\"\n  }\n}\n",
+  "canonical": {
+    "enabled": true,
+    "enabledSource": "user"
+  },
+  "hasLegacy": false,
+  "schemaErrors": []
+}

@@ -17,10 +17,10 @@ pub fn resolve(base: &Path, path: &str) -> PathBuf {
         .unwrap_or_else(|| base.join(path));
     super::lexical_path::normalize(&raw)
 }
-pub async fn json_file(path: &Path) -> Result<Value> {
+async fn read_json_bytes(path: &Path) -> Result<Option<Vec<u8>>> {
     let file = match tokio::fs::File::open(path).await {
         Ok(file) => file,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(json!({})),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
     let mut bytes = vec![];
@@ -31,7 +31,24 @@ pub async fn json_file(path: &Path) -> Result<Value> {
         bytes.len() <= 4 * 1024 * 1024,
         "Extension configuration exceeds size limit"
     );
+    Ok(Some(bytes))
+}
+
+pub async fn json_file(path: &Path) -> Result<Value> {
+    let Some(bytes) = read_json_bytes(path).await? else {
+        return Ok(json!({}));
+    };
     Ok(serde_json::from_slice(&bytes)?)
+}
+
+/// 用户 / 项目层配置装载：先迁移历史 CUA 插件 id 并 best-effort 写回，再把保序结果转成通用 Value。
+async fn plugin_config_file(path: &Path) -> Result<Value> {
+    let Some(bytes) = read_json_bytes(path).await? else {
+        return Ok(json!({}));
+    };
+    let mut ordered: escode_cli_domain::json_order::Json = serde_json::from_slice(&bytes)?;
+    super::config_file::migrate_legacy_cua_plugins_in_file(path, &mut ordered).await;
+    Ok(serde_json::from_str(&ordered.compact())?)
 }
 pub async fn project_directories(cwd: &Path) -> Vec<PathBuf> {
     let mut dirs = vec![];
@@ -64,11 +81,11 @@ impl Layers {
 }
 
 pub async fn load_layers(cwd: &Path) -> Result<Layers> {
-    let user = json_file(&home().join(".escode").join("cli").join("config.json")).await?;
+    let user = plugin_config_file(&home().join(".escode").join("cli").join("config.json")).await?;
     let mut config = json!({});
     for dir in project_directories(cwd).await.into_iter().rev() {
         for file in ["escode.json", ".escode/config.json"] {
-            let mut next = json_file(&dir.join(file)).await?;
+            let mut next = plugin_config_file(&dir.join(file)).await?;
             if let Some(servers) = next["mcp"]["servers"].as_object_mut() {
                 for server in servers.values_mut() {
                     if server["command"].is_string() {
@@ -92,7 +109,7 @@ pub async fn load_layers(cwd: &Path) -> Result<Layers> {
 /// 走这条（TS `createPluginConfigView` 在 user 视图不传 workingDirectory，避免把项目 override
 /// 投影成用户当前值）。
 pub async fn load_user() -> Result<Value> {
-    json_file(&home().join(".escode").join("cli").join("config.json")).await
+    plugin_config_file(&home().join(".escode").join("cli").join("config.json")).await
 }
 fn merge(base: &mut Value, next: &Value, depth: usize) {
     let Some(object) = next.as_object() else {
@@ -216,6 +233,44 @@ pub async fn permission_config(cwd: &Path) -> escode_cli_domain::permission::Con
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn plugin_config_file_migrates_cua_ids_and_writes_json_stringify_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(
+            &path,
+            r#"{"z":1,"plugins":{"enabledPlugins":{"escode-cua@zcode-plugins-official":true},"options":{"escode-cua@zcode-plugins-official":{"apiKey":"legacy"}},"suppressedBuiltins":["escode-cua@zcode-plugins-official"]},"y":2}"#,
+        )
+        .unwrap();
+
+        let config = plugin_config_file(&path).await.unwrap();
+        assert_eq!(
+            config["plugins"]["enabledPlugins"]["computer-use@zcode-plugins-official"],
+            true
+        );
+        assert!(config["plugins"]["enabledPlugins"]["escode-cua@zcode-plugins-official"].is_null());
+        assert_eq!(
+            config["plugins"]["options"]["computer-use@zcode-plugins-official"]["apiKey"],
+            "legacy"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "{\n  \"z\": 1,\n  \"plugins\": {\n    \"enabledPlugins\": {\n      \"computer-use@zcode-plugins-official\": true\n    },\n    \"options\": {\n      \"computer-use@zcode-plugins-official\": {\n        \"apiKey\": \"legacy\"\n      }\n    },\n    \"suppressedBuiltins\": [\n      \"computer-use@zcode-plugins-official\"\n    ]\n  },\n  \"y\": 2\n}\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn plugin_config_file_does_not_rewrite_without_migration() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let original = r#"{"plugins":{"enabledPlugins":{"a@m":true}}}"#;
+        std::fs::write(&path, original).unwrap();
+
+        let config = plugin_config_file(&path).await.unwrap();
+        assert_eq!(config["plugins"]["enabledPlugins"]["a@m"], true);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
+    }
 
     #[test]
     fn plugin_layers_merge_like_ts() {

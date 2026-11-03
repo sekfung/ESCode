@@ -165,8 +165,20 @@ Rust 与它保持一致（`crates/plugins/src/extension_plugins.rs`），回归
   刷新），覆盖 `enabled`，并带 `enabledSource = scope ?? "user"`。
 - 生效时机：只改配置文件；运行中会话的插件集合不变，新会话按新配置装载（与 TS 冻结的 session catalog 一致）。
 
-未对齐（记录在案）：TS `createConfig` 装载时会把旧 CUA key 迁移并回写磁盘（`persistPluginConfigMigration`），
-Rust 读路径不做这一步；只影响仍保存旧 id 的历史配置，写入时的别名清理已对齐。
+### 旧 CUA 配置迁移（2026-11-04）
+
+`extension_config::load_layers` / `load_user` 读取用户层与项目层配置时，对齐 TS `createConfig` →
+`migratePluginConfigInFile` + `persistPluginConfigMigration`：
+
+- 仅当根与 `plugins` 都是对象时处理；`plugins.enabledPlugins` / `plugins.options` 中的旧 id
+  `escode-cua@zcode-plugins-official`：规范 id 未定义时复制旧值，随后删除旧 id；规范 id 已定义时保留规范值。
+- `plugins.suppressedBuiltins` 中的旧 id 原位替换为规范 id，此阶段不去重（与 TS 一致；后续插件配置规范化负责去重）。
+- 有改动时按 `JSON.stringify(value, null, 2) + "\n"` 原子写回（同目录临时文件、unix 0600、rename）；
+  写回是 best-effort，失败只影响持久化，不改变本次装载的内存配置。无改动不写盘，避免普通读产生副作用。
+- 保序 JSON 语义与 TS 一致：已有键原位替换，新规范 id 追加到对应对象末尾；`plugins` 及其子键位置保持不变。
+
+验收：`packages/services/tests/escode-cli-rust-plugins-cua-migration.test.ts`——同一历史配置下比对 Node/Rust 的
+`plugins/list` 规范 id 启用态，以及迁移后的配置文件完整字节。
 
 验收：`packages/services/tests/escode-cli-rust-plugins-set-enabled.test.ts`——同一 fixture 下比对 Node 与
 Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace 层，文件原本不存在）、未知 id、missing 行

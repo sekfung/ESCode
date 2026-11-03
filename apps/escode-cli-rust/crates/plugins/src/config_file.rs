@@ -76,6 +76,82 @@ pub async fn atomic_write(path: &Path, value: &Json) -> Result<()> {
 const LEGACY_CUA_PLUGIN_ID: &str = "escode-cua@zcode-plugins-official";
 const CANONICAL_CUA_PLUGIN_ID: &str = "computer-use@zcode-plugins-official";
 
+/// TS `migratePluginConfigInFile`：把历史官方 CUA 插件 id 迁移为规范 id。
+///
+/// 只处理根与 `plugins` 都是对象的情况；返回 `true` 表示内存配置已改变（调用方应 best-effort 写回）。
+pub(crate) fn migrate_legacy_cua_plugins(root: &mut Json) -> bool {
+    if !root.is_object() {
+        return false;
+    }
+    let Some(plugins) = root
+        .get("plugins")
+        .filter(|value| value.is_object())
+        .cloned()
+    else {
+        return false;
+    };
+    let mut next_plugins = plugins.clone();
+    let mut changed = false;
+
+    if let Some(enabled) = plugins
+        .get("enabledPlugins")
+        .filter(|value| value.is_object())
+        .cloned()
+        && let Some(legacy) = enabled.get(LEGACY_CUA_PLUGIN_ID).cloned()
+    {
+        let mut next = enabled;
+        if next.get(CANONICAL_CUA_PLUGIN_ID).is_none() {
+            next.set(CANONICAL_CUA_PLUGIN_ID, legacy);
+        }
+        next.remove(LEGACY_CUA_PLUGIN_ID);
+        next_plugins.set("enabledPlugins", next);
+        changed = true;
+    }
+
+    if let Some(items) = plugins.get("suppressedBuiltins").and_then(Json::as_array) {
+        let next: Vec<Json> = items
+            .iter()
+            .map(|item| match item.as_str() {
+                Some(LEGACY_CUA_PLUGIN_ID) => Json::str(CANONICAL_CUA_PLUGIN_ID),
+                _ => item.clone(),
+            })
+            .collect();
+        if next != items {
+            next_plugins.set("suppressedBuiltins", Json::Array(next));
+            changed = true;
+        }
+    }
+
+    if let Some(options) = plugins
+        .get("options")
+        .filter(|value| value.is_object())
+        .cloned()
+        && let Some(legacy) = options.get(LEGACY_CUA_PLUGIN_ID).cloned()
+    {
+        let mut next = options;
+        if next.get(CANONICAL_CUA_PLUGIN_ID).is_none() {
+            next.set(CANONICAL_CUA_PLUGIN_ID, legacy);
+        }
+        next.remove(LEGACY_CUA_PLUGIN_ID);
+        next_plugins.set("options", next);
+        changed = true;
+    }
+
+    if changed {
+        root.set("plugins", next_plugins);
+    }
+    changed
+}
+
+/// 装载态迁移并 best-effort 写回；写盘失败不能改变合法配置的装载语义。
+pub(crate) async fn migrate_legacy_cua_plugins_in_file(path: &Path, root: &mut Json) -> bool {
+    if !migrate_legacy_cua_plugins(root) {
+        return false;
+    }
+    let _ = atomic_write(path, root).await;
+    true
+}
+
 /// TS `isRecord(x) ? x : {}`。
 fn object_or_empty(value: Option<&Json>) -> Json {
     value

@@ -102,3 +102,41 @@ async fn read_rejects_non_object_and_invalid_json() {
         "{error}"
     );
 }
+
+#[test]
+fn migrates_legacy_cua_ids_with_json_stringify_order() {
+    let mut root = parse(
+        r#"{"z":1,"plugins":{"dirs":["x"],"enabledPlugins":{"a@m":true,"escode-cua@zcode-plugins-official":false,"b@m":false},"suppressedBuiltins":["escode-cua@zcode-plugins-official","a","escode-cua@zcode-plugins-official","computer-use@zcode-plugins-official"],"options":{"escode-cua@zcode-plugins-official":{"apiKey":"legacy"},"b@m":{"x":1}},"extra":true},"y":2}"#,
+    );
+    assert!(migrate_legacy_cua_plugins(&mut root));
+    assert_eq!(
+        root.compact(),
+        r#"{"z":1,"plugins":{"dirs":["x"],"enabledPlugins":{"a@m":true,"b@m":false,"computer-use@zcode-plugins-official":false},"suppressedBuiltins":["computer-use@zcode-plugins-official","a","computer-use@zcode-plugins-official","computer-use@zcode-plugins-official"],"options":{"b@m":{"x":1},"computer-use@zcode-plugins-official":{"apiKey":"legacy"}},"extra":true},"y":2}"#
+    );
+}
+
+#[test]
+fn migrates_legacy_cua_ids_without_overwriting_canonical_values() {
+    let mut root = parse(
+        r#"{"plugins":{"enabledPlugins":{"escode-cua@zcode-plugins-official":true,"computer-use@zcode-plugins-official":false},"options":{"escode-cua@zcode-plugins-official":{"apiKey":"legacy"},"computer-use@zcode-plugins-official":{"apiKey":"canonical"}}}}"#,
+    );
+    assert!(migrate_legacy_cua_plugins(&mut root));
+    assert_eq!(
+        root.compact(),
+        r#"{"plugins":{"enabledPlugins":{"computer-use@zcode-plugins-official":false},"options":{"computer-use@zcode-plugins-official":{"apiKey":"canonical"}}}}"#
+    );
+}
+
+#[test]
+fn cua_migration_is_noop_without_an_object_plugins_section_or_legacy_id() {
+    for text in [
+        r#"{"plugins":null}"#,
+        r#"{"plugins":{}}"#,
+        r#"{"plugins":{"enabledPlugins":{"a@m":true}}}"#,
+        r#"{"plugins":{"suppressedBuiltins":["a"]}}"#,
+    ] {
+        let mut root = parse(text);
+        assert!(!migrate_legacy_cua_plugins(&mut root), "{text}");
+        assert_eq!(root.compact(), text);
+    }
+}
