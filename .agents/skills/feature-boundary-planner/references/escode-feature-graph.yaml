@@ -1628,7 +1628,8 @@ nodes:
       - symbol: "runSqliteSessionMigrations"
         file: "apps/escode-cli/packages/adapters/src/storage/session-store/migration-runner.ts"
       - file: "packages/desktop/src/renderer/src/main.tsx"
-      - file: "packages/desktop/src/host/index.ts"
+      - symbol: "createRustHostTasksIndexPreparation"
+        file: "packages/desktop/src/main/rustHostStorageStartup.ts"
       - symbol: "TaskIndexRepo"
         file: "packages/services/src/session/taskIndexRepo.ts"
       - symbol: "SqliteSessionMigrationError"
@@ -3817,7 +3818,8 @@ nodes:
     codeSeeds:
       - symbol: "createRemoteWorkspaceSessionManager"
         file: "packages/desktop/src/main/desktopRemoteSessions.ts"
-      - file: "packages/desktop/src/host/index.ts"
+      - symbol: "createRustHostTasksIndexPreparation"
+        file: "packages/desktop/src/main/rustHostStorageStartup.ts"
       - symbol: "useGlobalTaskList"
         file: "packages/ui/src/hooks/useGlobalTaskList.ts"
 
@@ -3848,7 +3850,8 @@ nodes:
     docs:
       - "docs/architecture/r1-single-window-host-refactor.md"
     codeSeeds:
-      - file: "packages/desktop/src/host/index.ts"
+      - file: "packages/desktop/src/main/rustHostBridge.ts"
+      - file: "apps/escode-host/crates/host-rpc/src/window_controller/scope.rs"
       - file: "packages/desktop/src/renderer/src/main.tsx"
 
   - id: "evidence.ssh-remote-p0-e2e"
@@ -4462,10 +4465,10 @@ nodes:
       - Queued-now promotion waits for the previous run to finish; held-queue discard ACKs share the new input transaction.
   - id: service.agent-storage-preparation
     kind: service
-    label: Host-owned JavaScript and native Agent storage preparation
+    label: Main tasks-index and native Agent storage preparation
     codeSeeds:
-      - file: packages/desktop/src/host/storagePreparationProcesses.ts
-        symbol: prepareSessionStorage
+      - file: packages/desktop/src/main/rustHostStorageStartup.ts
+        symbol: createRustHostTasksIndexPreparation
       - file: packages/services/src/escode-agent/escodeAgentStorageProcess.ts
         symbol: createNativeAgentStorageProcess
       - file: apps/escode-cli-rust/crates/app-server/src/stdio.rs

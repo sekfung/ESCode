@@ -81,4 +81,4 @@ desktop attachment；`DetachServicePort` 只释放一个逻辑 workspace 的 RPC
 | Host service        | `packages/services/src/escode-agent/escodeAgentService.ts`                                    |
 | V4 schema           | `packages/shared/src/escode-protocol-v4/`                                                     |
 | CLI gateway/reducer | `apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/`                                  |
-| Desktop host        | `packages/desktop/src/host/index.ts`                                                          |
+| Desktop host        | `apps/escode-host`（Rust Host；Node Host 入口已删除）                                         |

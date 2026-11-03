@@ -109,4 +109,5 @@ fork host process ──────────→
 
 - `packages/rpc/src/channels.ts` — `ChannelServer` 构造函数加 `deferInit` 参数，新增 `ready()` 方法
 - `packages/rpc/src/logging-middleware.ts` — `LoggingChannelServer` 透传 `ready()`
-- `packages/desktop/src/host/index.ts` — remote 模式传 `deferInit=true`，服务注册后调 `server.ready()`
+- （历史）`packages/desktop/src/host/index.ts` — remote 模式传 `deferInit=true`，服务注册后调 `server.ready()`；
+  该 Node Host 已删除，Rust Host 自行管理 channel 初始化与 attachment
