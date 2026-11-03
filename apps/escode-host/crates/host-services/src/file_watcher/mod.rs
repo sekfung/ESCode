@@ -180,6 +180,13 @@ fn fire(listeners: &Listeners, event: &Value) {
     lock(listeners).retain(|tx| tx.send(event.clone()).is_ok());
 }
 
+fn selected_changed_path(pending: &BTreeSet<String>, unknown: bool) -> Option<String> {
+    if unknown || pending.len() != 1 {
+        return None;
+    }
+    pending.iter().next().cloned()
+}
+
 async fn run_actor(mut actor: Actor) {
     let mut pending: BTreeSet<String> = BTreeSet::new();
     let mut unknown = false;
@@ -209,7 +216,7 @@ async fn run_actor(mut actor: Actor) {
             () = tokio::time::sleep_until(deadline.unwrap_or_else(Instant::now)), if deadline.is_some() => {
                 deadline = None;
                 // 同一防抖窗口只含一个明确路径时才透传，避免过滤掉同批次里的目标文件事件。
-                let only = (!unknown && pending.len() == 1).then(|| pending.iter().next().cloned()).flatten();
+                let only = selected_changed_path(&pending, unknown);
                 pending.clear();
                 unknown = false;
                 let mut event = json!({"dirPath": actor.path});

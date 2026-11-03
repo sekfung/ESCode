@@ -56,6 +56,14 @@ macOS FSEvents 会把「创建 + 写入」拆成 create/modify 两个事件，40
 null（产品预期行为）。夹具改为先建文件再监听，使写入只产生一个 modify 事件。修复后 run `41360826267`
 的 macOS shard（job `125012610781`）通过，本地连跑 5 次通过。
 
+### 5.2 2026-11-03 macOS flake 再次复现
+
+先在监听前写入种子文件仍会在 CI 偶发拿到 `changedPath: null`：FSEvents 在同一次写入的防抖窗口内还可能附加
+无法归属根路径的事件（rescan 或目录自身）。按 §3 的产品语义，窗口内不是「恰好一个已知路径」时本来就必须省略
+`changedPath`，所以这不是产品回归。现在把选择条件提取为 `selected_changed_path` 纯函数，并新增单测覆盖
+「一个已知路径 → 透传」「一个已知路径 + 未知路径 → 省略」「两个已知路径 → 省略」；服务集成测试在 macOS 上允许
+该平台噪声（仍拒绝非预期路径），Linux/Windows 继续精确断言目标文件路径。
+
 ## 6. 登记差异
 
 1. **平台**：事件映射按 Linux inotify 实测校准；macOS（FSEvents）与 Windows 上 Node 与 `notify` 的事件粒度可能不同，**未在这两个平台验证**。
