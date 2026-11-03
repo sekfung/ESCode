@@ -308,8 +308,8 @@ if (versionDrill) {
     USERPROFILE: drillHome,
     ESCODE_DESKTOP_USER_DATA_DIR: drillUserData,
     ESCODE_DESKTOP_SESSION_DATA_DIR: join(drillUserData, "session"),
-    // v3.15.1 早于 Rust Host 默认翻转，会忽略该变量；head 用它确定 Rust Host 断言。
-    ESCODE_RUST_HOST: "1",
+    // 2026-11-04 S6 起 ESCODE_RUST_HOST 开关已删除：head 始终启动 Rust Host；
+    // base v3.15.1 早于默认翻转也忽略该变量，无需注入。Host 断言只读启动日志。
   };
   const assertSettings = (stage) => {
     const after = JSON.parse(readFileSync(settingsFile, "utf8"));

@@ -82,6 +82,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
 - [x] nextest 配置（已完成：`apps/escode-cli-rust/.config/nextest.toml`——慢测试 30s 报告/60s 终止、retries=1、fail-fast=false、JUnit；本地实测 396 tests 全过；`scripts/test-escode-cli-rust.mjs` 首选 nextest、缺失时回退 cargo test 并提示；CI test job 经 `taiki-e/install-action@nextest` 三平台预装）
 - [x] App 级 perf harness 骨架（2026-10-14 完成）：`scripts/bench-escode-app.mjs`
   - 三配置注册（A=Node Host+Node CLI / B=Node Host+Rust CLI / C=Rust Host+内嵌 runtime 为阶段 2 占位、显式报错）；交错 N 轮取中位数。
+    2026-11-04 S6 起 Host 固定 Rust，A/B/C 差异只在 runtime（A=Rust Host+Node CLI、B=Rust Host+Rust CLI、C=Rust Host+内嵌 runtime），以 `scripts/bench-escode-app.mjs` 头注释为准。
   - 双口径内存（Windows WorkingSet64 + PrivateMemorySize64；POSIX 走 RSS，macOS footprint 待接入）；按角色分解（main/renderer/gpu/utility/agent/agent-node）。
   - 每轮隔离 data dir（A/B 交替写同一 data dir 会共享会话并触发两套存储格式互相迁移，必须隔离）；不建立调试连接；`--reuse-profile` 显式 opt-in 共享 profile。
   - `--self-test` 用合成进程树验证发现/采样/交错/中位数/杀树全链路（实测 3 轮交错 PASS；夹具教训：合成 Buffer 必须被闭包持有，否则分配后无引用的 buffer 会被 V8 外部内存 GC 回收，读数随 GC 时机倒挂）。
@@ -254,7 +255,8 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
 **验收补齐（2026-10-26 起）**
 
 - 性能测量：`scripts/bench-escode-app.mjs` 的配置语义修正为
-  A=Node Host + Node CLI、B=Node Host + Rust CLI、C=Rust Host + 内嵌 runtime；新增
+  A=Rust Host + Node CLI、B=Rust Host + Rust CLI、C=Rust Host + 内嵌 runtime（2026-11-04 S6 删除 Node Host 后的现行语义；
+  2026-10-26 当时为 A/B=Node Host、C=Rust Host）；新增
   `--installed-app/--installed-glm` 安装包模式（可用 `ESCODE_INSTALLED_APP/ESCODE_INSTALLED_GLM`
   传入），就绪信号取主进程日志（数据库终态 + `[bench-ready]` 首屏加载），每轮隔离
   HOME/userData/dataBaseDir。Linux 无 `DISPLAY` 时经 `xvfb-run` 启动。结果写入
