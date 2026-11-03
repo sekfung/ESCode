@@ -413,6 +413,8 @@ test("Stopping the parent waits for its foreground child Shell to exit and cold 
 
 test("Background Agent completion is delivered through the parent continuation and SendMessage resumes the same child", async () => {
   let agentId = "";
+  let launchOutputFile = "";
+  let sendMessageOutputFile = "";
   let resumed = false;
   const f = await fixture({
     mode: "yolo",
@@ -448,7 +450,12 @@ test("Background Agent completion is delivered through the parent continuation a
         const launch = request.messages.find(
           (m: any) => m.role === "tool" && m.tool_call_id === "launch",
         );
-        if (launch) agentId = launch.content.match(/agentId: (agent_[^\s]+)/)?.[1] ?? agentId;
+        if (launch) {
+          agentId = launch.content.match(/agentId: (agent_[^\s]+)/)?.[1] ?? agentId;
+          launchOutputFile = launch.content.match(/output_file: (.+)/)?.[1] ?? launchOutputFile;
+        }
+        if (last.tool_call_id === "message")
+          sendMessageOutputFile = JSON.parse(last.content).outputFile ?? sendMessageOutputFile;
         text(
           response,
           last.content.includes?.("task-notification") ? "reported child result" : "waiting",
@@ -497,6 +504,10 @@ test("Background Agent completion is delivered through the parent continuation a
     assert.equal(resumedRows[0]?.rowId, originalRow.rowId);
     assert.equal(resumedRows[0]?.parentToolCallId, "launch");
     assert.equal(resumedRows[0]?.status, "success");
+    const expectedOutputFile = join(f.dataDir, "cli", "agents", sid, agentId, "output.txt");
+    assert.equal(launchOutputFile.trim(), expectedOutputFile);
+    assert.equal(sendMessageOutputFile, expectedOutputFile);
+    assert.equal(await readFile(expectedOutputFile, "utf8"), "follow up evidence");
     assert.deepEqual(h.schemaErrors, []);
     await h.close();
   } finally {
