@@ -25,7 +25,7 @@ export interface ESCodeAgentRuntimeDescriptor {
   resolvePluginHostSegments(): string[];
   /**
    * Rust runtime（apps/escode-cli-rust）的原生二进制名，与 Node bundle 同放 glm 资源目录。
-   * 仅在 ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust 时被选用，默认 runtime 仍是 Node。
+   * 打包态未设置开关、无自定义命令且无开发入口时默认选用；显式 node 或本地开发/自定义命令仍走 Node。
    */
   rustBinaryName: string;
   resolveRustBinarySegments(platform: string): string[];

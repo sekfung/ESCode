@@ -181,8 +181,9 @@ sequenceDiagram
 | 构建 | `apps/escode-cli`、`scripts/build-desktop-agent-cli.mjs`、`packages/desktop/scripts/stage-agent-bundle.mjs`                               | 删除 TS CLI bundle 构建与 stage 入口（确认无其它消费者后移除 workspace）                                              |
 | 打包 | `packages/desktop/scripts/prepare-agent-node-bundle.mjs`、`prepare-bundled-remote-assets.ts`、`scripts/prepare-prebuilds.mjs`             | 移除 `zcode.cjs` 资产与 `ESCODE_BUNDLE_NODE_AGENT` 开关；断言只校验 Rust                                              |
 | 差分 | `packages/services/tests/escode-cli-rust-golden.ts`、`scripts/diff-escode-cli-rust-parity*.mjs`、`scripts/bench-escode-cli-node-rust.mjs` | 删除 `nodeOracle` / `--record` / `--live-node` / Node bench 侧；golden 只读                                           |
+| 基准 | `scripts/bench-escode-app.mjs`、`bench-escode-app-installed.mjs`、`bench-escode-app-selftest.mjs`                                         | 删除 A 组（`ESCODE_AGENT_SERVER_RUNTIME=node`）与自检中的双组断言，只保留 Rust 组                                     |
 | 测试 | `escode-cli-rust-runtime-selection.test.ts`、`escode-cli-rust-installed-rust-only.test.ts`                                                | 删除 `node` 选择断言；保留 Rust-only 缺 bundle 断言                                                                   |
-| 文档 | `rust-packaging.md`、`rust-release-rollback.md`、`rust-ci.md`、`rust-cli-architecture.md`                                                 | 删除回退说明；保留“只能降级到含 Node CLI 的旧安装包”                                                                  |
+| 文档 | `rust-packaging.md`、`rust-release-rollback.md`、`rust-ci.md`、`rust-cli-architecture.md`、`apps/escode-cli-rust/README.md`               | 删除回退说明；保留“只能降级到含 Node CLI 的旧安装包”                                                                  |
 
 顺序：
 
