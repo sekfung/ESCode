@@ -190,3 +190,7 @@ skip 原因、exit observation、deadline 与 remaining PID。日志不得包含
 - 修复：live 快照先按 root `CreationDate` 过滤候选进程，再沿 PPID 链收集后代；这不改变
   confirmed residual 语义，也不放松 root 自身的身份校验。root 创建时间不可解析时只保留
   root，后代 fail-closed。
+- 2026-11-03 修复后验证：Windows `rust-runtime-ci` 第 1 分片通过，`account-host` 用例
+  2.15s 成功，日志不再出现 `remaining pid`；runner 仍在 job 结束后单独清理 `vctip`，
+  说明该进程独立存在，过滤后不再被认作 runtime 后代。该轮日志未包含 CreationDate，
+  具体时间关系仍按上述待验证假设记录。
