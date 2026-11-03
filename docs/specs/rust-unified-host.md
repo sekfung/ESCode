@@ -1,6 +1,6 @@
 # Rust 统一 Host 迁移计划（对标 ZCode-rs 并超越）
 
-> 状态：草案 · 2026-10-14
+> 状态：草案 · 2026-10-14 · 2026-11-04 更新：Rust Host 已是唯一 Host，Node Host 实现与 `ESCODE_RUST_HOST` 回退已删除
 > 关联：`rust-cli-parity-plan.md`、`rust-packaging.md`、`rust-release-rollback.md`、`rust-runtime-performance.md`、[source-server-remote-rust-host.md](source-server-remote-rust-host.md)、`apps/escode-cli-rust/CONTRACT.md`、实现质量对比：`docs/reports/rust-impl-quality-comparison-2026-10-14.md`
 > 子 spec 约定：每期开工前先写 `docs/specs/rust-uX-*.md`（与对标仓库同构命名，便于交叉对照）；每期的验收场景随子 spec 定义，本文只定分期边界与总验收。
 

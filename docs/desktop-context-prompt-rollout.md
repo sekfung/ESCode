@@ -3,6 +3,11 @@
 > spec / 轨迹文档：服务端灰度（Desktop Context Prompt，简称 Desktop SP / DSP）如何决定 Agent
 > 是否输出 `::code-comment` 指令；以及 CR-01 修复的"首个 Host 创建时灰度裁决无生效路径"问题。
 
+> 2026-11-04 状态：Node Host 已删除，第 2 节的 Host fork 环境注入与第 4 节的首 Host gate 只保留为当时的设计记录。
+> 当前 Main 仍持有 rollout 快照，并在 App 级 Rust Host 的 `runtimeEnv` 写入
+> `ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED`；Rust runtime 尚未消费该键，presentation surface 迁移属独立 P2 项
+> （见 [rust-parity-remaining.md](specs/rust-parity-remaining.md)）。
+
 ## 1. 背景：什么是 Desktop Context Prompt
 
 服务端通过 `/api/v1/client/configs` 下发单功能灰度：`data.configs.desktopContextPrompt.enabled`。

@@ -2,6 +2,7 @@
 
 > 状态：已实现（node_repl/协议/交互面均落地；浏览器底座已由 <webview>+CDP-on-guest pivot 取代 WebContentsView）。
 > 当前事实入口：`2026-07-13-node-repl-mcp-runtime-spec.md` 与 `browser-use-plugin-runtime-boundary.md`。本文保留为重做阶段的总规格，涉及 `WebContentsView` 的历史表述以当前事实文档为准。
+> 2026-11-04：Node Host `utilityProcess` 已删除，第 3 节图中的 HOST 段现由 Rust Host（`apps/escode-host/crates/host-rpc` runtime 域 + `host-services`）承担；`desktopHostProcess` 只保留窗口加载。链路事实以当前源码为准。
 > 分支：`feat/browser-use-cdp`（从 staging 新建）。
 > 取代：`feat/in-app-browser-use` 分支的「MCP 单工具 + renderer webview + executeJavaScript」方案（已归档为参考/回滚点）。
 > 组件级 spec（每个 task 落地前先写）：`2026-07-07-node-repl-engine-spec.md`、`-node-repl-tools-spec.md`、`-browser-control-protocol-spec.md`、`-browser-cdp-view-spec.md`、`-browser-client-lib-spec.md`。

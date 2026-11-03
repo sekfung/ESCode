@@ -71,8 +71,8 @@ Rust Host 默认开启后，本地窗口不再启动 Node Host，而 `TasksIndex
 - 新库与 TS 迁移后的库字节等价（同一 SQL/checksum/事务边界，生成资产由
   `pnpm check:escode-host` 对照）；旧库按同一迁移前向补齐，不改变迁移语义。
 - 准备失败以 `RUST_HOST_STORAGE_FAILED` 显式拒绝启动，不回退 Node Host、不创建空库兜底。
-- 准备成功后 Main 标记本地数据库启动就绪，恢复依赖 tasks-index 的 cron scheduler；Node Host
-  模式保持现有 `startup/storageState` 路径不变。
+- 准备成功后 Main 标记本地数据库启动就绪；cron 调度由 Rust Host 常驻 scheduler
+  （`host-rpc/src/automation_scheduler.rs`）承担，Desktop 侧 scheduler 已随 S6 删除。
 
 ## 4. 接口映射
 

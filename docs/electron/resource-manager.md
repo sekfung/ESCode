@@ -130,7 +130,7 @@ interface ResourceUsageSnapshot {
   其中 `processes` 项为 `{ pid, name, category, groupKey, groupLabel, cpuPercent, memoryBytes }`
   （`apps/escode-host/crates/host-services/src/process_sampler.rs`）。
 - Main 侧 fan-out 由 `resourceManagerExternalHosts.ts` 发往 App 级 Rust Host；Rust Host 不是 Electron
-  utilityProcess，不再经过已删除的 `desktopHostProcess.ts`。shared 的
+  utilityProcess，不再经过原 Node Host 进程管理；`desktopHostProcess.ts` 现仅负责窗口加载。shared 的
   `hostResourceUsageSnapshotResultResponseSchema` 仍校验回包形状。
 
 ### Rust Host 侧采样（`apps/escode-host/crates/host-services/src/process_sampler.rs`）
