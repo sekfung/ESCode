@@ -1,5 +1,4 @@
 import { app, BrowserWindow, webContents as electronWebContents } from "electron";
-import type { ChromiumProcessRolePids } from "./resourceManagerProcessRoles.js";
 import os from "node:os";
 import { join } from "node:path";
 import {
@@ -139,43 +138,6 @@ export function unregisterMainApplicationWindow(webContentsId: number): void {
 /** renderer heap 样本按发送方 webContents 判断是否属于 `renderer_main`。 */
 export function isMainApplicationWindowWebContents(webContentsId: number): boolean {
   return mainApplicationWindowWebContentsIds.has(webContentsId);
-}
-
-/**
- * 当前各进程角色的 pid 快照，供资源管理器按进程角色拆分使用
- *
- * getAppMetrics 不直接给 renderer / host 的角色，需结合
- * BrowserWindow / webContents / utilityProcess 注册表才能可靠归类。
- */
-export function collectChromiumProcessRolePids(): ChromiumProcessRolePids {
-  const mainWindowRendererPids = new Set<number>();
-  const guestRendererPids = new Set<number>();
-
-  for (const contents of electronWebContents.getAllWebContents()) {
-    if (contents.isDestroyed()) {
-      continue;
-    }
-    const rendererPid = contents.getOSProcessId();
-    if (rendererPid <= 0) {
-      continue;
-    }
-    if (mainApplicationWindowWebContentsIds.has(contents.id)) {
-      mainWindowRendererPids.add(rendererPid);
-      continue;
-    }
-    // 内置浏览器 tab 是真实 `<webview>` guest；辅助窗口与 DevTools 落到 chromium_other。
-    if (contents.getType() === "webview") {
-      guestRendererPids.add(rendererPid);
-    }
-  }
-
-  return {
-    mainPid: process.pid,
-    mainWindowRendererPids,
-    guestRendererPids,
-    // Node utility Host 已删除；Rust Host 不是 Electron utilityProcess，按外部 pid 采样行归类。
-    hostPids: new Set<number>(),
-  };
 }
 
 export function registerHostAgentProcess(label: string, process: RegisteredAgentProcess): void {
