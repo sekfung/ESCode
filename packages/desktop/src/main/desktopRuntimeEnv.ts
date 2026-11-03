@@ -83,7 +83,6 @@ export const runtimeSessionDataPath =
 // Chromedriver 会注入临时 --user-data-dir，并在该目录等待 DevToolsActivePort。
 // e2e 如果再用 app.setPath 覆盖 userData/sessionData，端口文件会被写到另一个目录，
 // 导致 Electron 已启动但 WebDriver session 一直创建失败。测试态打开该开关后保留 Chromedriver 的目录。
-export const hostModulePath = join(import.meta.dirname, "../host/index.js");
 export function getCredentialsDir() {
   return getAppConfigDir();
 }
