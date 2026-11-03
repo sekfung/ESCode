@@ -89,46 +89,44 @@ where
         self.inner.send(item)
     }
 
-    fn receive(&mut self) -> impl Future<Output = Option<RxJsonRpcMessage<RoleClient>>> + Send {
-        async move {
-            loop {
-                let active = self
-                    .probe
-                    .as_ref()
-                    .map(|probe| (probe.id.clone(), probe.deadline));
-                let message = match active {
-                    Some((_, deadline)) => {
-                        tokio::select! {
-                            biased;
-                            message = self.inner.receive() => message,
-                            _ = tokio::time::sleep_until(deadline) => {
-                                let probe = self.probe.take().expect("active probe");
-                                self.expired.insert(probe.id.clone());
-                                return Some(ServerJsonRpcMessage::error(
-                                    ErrorData::new(
-                                        ErrorCode::METHOD_NOT_FOUND,
-                                        "server/discover probe timed out",
-                                        None,
-                                    ),
-                                    Some(probe.id),
-                                ));
-                            }
+    async fn receive(&mut self) -> Option<RxJsonRpcMessage<RoleClient>> {
+        loop {
+            let active = self
+                .probe
+                .as_ref()
+                .map(|probe| (probe.id.clone(), probe.deadline));
+            let message = match active {
+                Some((_, deadline)) => {
+                    tokio::select! {
+                        biased;
+                        message = self.inner.receive() => message,
+                        _ = tokio::time::sleep_until(deadline) => {
+                            let probe = self.probe.take().expect("active probe");
+                            self.expired.insert(probe.id.clone());
+                            return Some(ServerJsonRpcMessage::error(
+                                ErrorData::new(
+                                    ErrorCode::METHOD_NOT_FOUND,
+                                    "server/discover probe timed out",
+                                    None,
+                                ),
+                                Some(probe.id),
+                            ));
                         }
                     }
-                    None => self.inner.receive().await,
-                };
-                let Some(message) = message else { return None };
-                if let Some(id) = reply_id(&message) {
-                    if self.expired.remove(id) {
-                        continue;
-                    }
-                    if self.probe.as_ref().is_some_and(|probe| &probe.id == id) {
-                        self.probe = None;
-                        return Some(message);
-                    }
                 }
-                return Some(message);
+                None => self.inner.receive().await,
+            };
+            let message = message?;
+            if let Some(id) = reply_id(&message) {
+                if self.expired.remove(id) {
+                    continue;
+                }
+                if self.probe.as_ref().is_some_and(|probe| &probe.id == id) {
+                    self.probe = None;
+                    return Some(message);
+                }
             }
+            return Some(message);
         }
     }
 
@@ -154,15 +152,15 @@ mod tests {
             &mut self,
             _item: ClientJsonRpcMessage,
         ) -> impl Future<Output = Result<(), Self::Error>> + Send + 'static {
-            async { Ok(()) }
+            std::future::ready(Ok(()))
         }
 
-        fn receive(&mut self) -> impl Future<Output = Option<RxJsonRpcMessage<RoleClient>>> + Send {
-            async move { self.incoming.recv().await }
+        async fn receive(&mut self) -> Option<RxJsonRpcMessage<RoleClient>> {
+            self.incoming.recv().await
         }
 
-        fn close(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send {
-            async { Ok(()) }
+        async fn close(&mut self) -> Result<(), Self::Error> {
+            Ok(())
         }
     }
 
