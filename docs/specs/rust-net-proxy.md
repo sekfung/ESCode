@@ -95,6 +95,24 @@ sequenceDiagram
 - WebFetch 经代理失败时的错误文案：Node `Proxy connection ended before receiving CONNECT response (proxy_error)`，
   Rust 为 reqwest 原文。属既有的传输错误文案差异。
 
+### Host 侧设置页代理（2026-11-04 代码核查，待运行时验证）
+
+S6 删除 Node Host 前，设置页的 `httpProxy` / `httpProxyNoProxy` / `httpProxyCaCertPath` 由 TS
+`services/node.ts` 的 `resolveSpawnEnv`（`packages/services/src/node.ts:1488-1530`）在每次 spawn agent 时读取，
+经 `runtime-tools/agentProxyEnv.ts` 注入 `ESCODE_HTTP_PROXY` / `ESCODE_NO_PROXY` / `ESCODE_AGENT_CA_CERT`。
+该入口只存在于 `createLocalServices`，其生产调用方是 `packages/server`（Lite HTTP 与远程 stdio 服务）；
+本地窗口的 agent 自 S6 起由 App 级 Rust Host 拉起，`RuntimeOptions.env` 只来自 Main 在 `RpcListen` 下发的
+`runtime_env`（`packages/desktop/src/main/index.ts:755` 的 `buildRustHostRuntimeEnv`，不含设置代理）与 attach 时的
+登录 shell env patch；`apps/escode-host` 内没有读取 `httpProxy` / `ESCODE_HTTP_PROXY` 的代码
+（`crates/host/src/net_config.rs` 的文件值由 `apps/escode-cli-rust/src/runtime.rs` 在 CLI 进程装载）。
+
+因此按当前代码，用户只在设置页填写代理（未在 shell 导出 `ESCODE_HTTP_PROXY`）时，本地桌面的 Agent 出口与
+Host 业务 API（`crates/host-services/src/api_client`，走 `escode_cli_net` 的 `Purpose::WebFetch`）都不会经过该代理；
+Chromium 侧由 `packages/desktop/src/main/desktopNetworkPolicy.ts` 单独应用，不受影响。这是**待验证假设**（未做运行时复现），
+验证方式：设置页配一个本地 forward 代理后跑一次模型请求与一次 `client-config` 拉取，观察代理是否命中；若复现，
+补法是让 Main 在 `runtime_env` 里下发设置派生的代理/CA 键，并在设置变更时通过控制消息刷新实例 env（或让 Host
+装载同一份文件值）。补齐前不要把设置页代理计入 Host 迁移完成度。
+
 ## 验收
 
 1. 差分：`scripts/generate-escode-cli-rust-proxy-corpus.mjs` 以 TS 两个入口为 oracle，导出

@@ -2,7 +2,10 @@
 
 ## 背景
 
-Electron 的 Renderer、WebView 和 `electron.net` 使用 Chromium Session 代理；Window Host 是独立 Node 进程，`NodeApiClient` 默认使用 Node `fetch`，因此不会继承 `session.setProxy`。在强制代理网络下，OAuth token exchange 及其它 Host 业务 API 会直连失败。
+Electron 的 Renderer、WebView 和 `electron.net` 使用 Chromium Session 代理；Node 侧的 Host 业务服务（`packages/server` 的 Lite HTTP 与远程 stdio 进程）里，`NodeApiClient` 默认使用 Node `fetch`，因此不会继承 `session.setProxy`。在强制代理网络下，OAuth token exchange 及其它 Host 业务 API 会直连失败。
+
+> 2026-11-04：窗口内 Node Host 已删除，本地窗口的 Host 业务 API 改由 Rust Host 的 `api_client` 发出；
+> 该出口目前不吃设置页代理，见 [rust-net-proxy.md](specs/rust-net-proxy.md) 的「Host 侧设置页代理」。
 
 ## 最小方案
 
