@@ -124,17 +124,22 @@ interface ResourceUsageSnapshot {
 
 ### main ↔ host 消息
 
-- main → host `HostMessageTypes.ResourceUsageSnapshotRequest { requestId }`。
-- host → main `HostResponseTypes.ResourceUsageSnapshotResult { requestId, sampledAt, processes: HostResourceUsageProcess[] }`，其中 `HostResourceUsageProcess = { pid, name, category, groupKey, groupLabel, cpuPercent, memoryBytes }`。
-- 校验在 `packages/shared/src/validation.ts` 的 `hostIncomingMessageSchema` / `hostResponseMessageSchema` 中。
+- Main ↔ Rust Host 控制通道：`ControlMessage::ResourceUsageSnapshotRequest { request_id }` /
+  `ResourceUsageSnapshotCancel { request_id }`（`apps/escode-host/crates/host-control/src/lib.rs`）。
+- Rust Host → Main：HostEvent `{ type: "resource-usage-snapshot-result", requestId, sampledAt, processes }`，
+  其中 `processes` 项为 `{ pid, name, category, groupKey, groupLabel, cpuPercent, memoryBytes }`
+  （`apps/escode-host/crates/host-services/src/process_sampler.rs`）。
+- Main 侧 fan-out 由 `resourceManagerExternalHosts.ts` 发往 App 级 Rust Host；Rust Host 不是 Electron
+  utilityProcess，不再经过已删除的 `desktopHostProcess.ts`。shared 的
+  `hostResourceUsageSnapshotResultResponseSchema` 仍校验回包形状。
 
-### Host 侧采样（`packages/services/src/process/processResourceSampler.ts`）
+### Rust Host 侧采样（`apps/escode-host/crates/host-services/src/process_sampler.rs`）
 
-- `readProcessResourceTable()`：按平台异步读取整机进程表 `{ pid, ppid, rssKb, cpuTimeMs, command }`，超时 3s（win32 5s），失败返回 `undefined`（本轮跳过，不抛错）。
-- `createProcessResourceSampler()`：保存上一轮各 pid 的 `cpuTimeMs` 与时间戳，输出整机口径 `cpuPercent`；pid 消失后基线自动淘汰。
-- `attributeHostProcessTree()`（纯函数）：输入进程表、Host pid、Agent 列表（pid/workspacePath/provider）、各 Agent 的 MCP 子进程映射，输出 `HostResourceUsageProcess[]`。
-
-Host 入口 `packages/desktop/src/host/hostResourceUsage.ts` 把上述三者与 `IESCodeAgentService.collectLocalRuntimeChildProcesses()` 串起来，收到请求后回帖结果。
+- Rust Host 的 workspace 实例默认 embedded，没有 per-workspace CLI 子进程；采样集合是 Host 自身 +
+  子进程树（bash / MCP / terminal），行统一归到 `groupKey=host`、`groupLabel=ESCode Host`。
+- Linux 读 `/proc`，macOS 与 Windows 走各自的进程表实现；CPU 按整机口径归一化，RSS 转 `memoryBytes`。
+- Host 不维护定时器：每次快照只响应一次 `ResourceUsageSnapshotRequest`，窗口关闭后零开销；
+  Main 继续负责 900ms 超时与上一轮结果兜底。Node Host 的 TS 采样器已随 S6 删除。
 
 ## 架构治理决策记录
 
@@ -165,11 +170,11 @@ contracts/spec:   packages/shared protocol.ts / channels.ts / validation.ts / es
 
 | 文件                                                                                                    | 职责                                                                                                       |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `desktop/src/main/resourceManagerWindow.ts`                                                             | 单例窗口、Host / Agent 进程注册表、`buildResourceUsageSnapshot()`、系统 CPU 差分                           |
-| `desktop/src/main/resourceManagerHostSampling.ts`                                                       | main → Host 采样 fan-out：requestId 关联、900ms 超时、上一轮结果兜底                                       |
+| `desktop/src/main/resourceManagerWindow.ts`                                                             | 单例窗口、外部 Rust Host / Agent 进程注册表、`buildResourceUsageSnapshot()`、系统 CPU 差分                 |
+| `desktop/src/main/resourceManagerHostSampling.ts`                                                       | Main → Rust Host 采样 fan-out：requestId 关联、900ms 超时、上一轮结果兜底                                  |
 | `desktop/src/main/resourceManagerProcessNames.ts`                                                       | 非 BrowserWindow renderer（WebContentsView / DevTools / webview）的显示名                                  |
-| `desktop/src/main/desktopHostProcess.ts`                                                                | 转发 `ResourceUsageSnapshotResult`；`requestHostResourceUsage()` fan-out                                   |
-| `desktop/src/host/hostResourceUsage.ts`                                                                 | Host 侧采样 + 归属 + 回帖                                                                                  |
+| `desktop/src/main/resourceManagerExternalHosts.ts`                                                      | 外部 Rust Host 注册、pid/连接关联与快照行合并                                                              |
+| `apps/escode-host/crates/host-services/src/process_sampler.rs`                                          | Rust Host 侧采样 + 归属 + `resource-usage-snapshot-result` 回包                                            |
 | `desktop/src/preload/resourceManager.ts`                                                                | 暴露 `window.resourceManager.getSnapshot()` 与 `window.resourceManager.storage`（StorageManagementBridge） |
 | `desktop/src/main/resourceManagerStorage.ts`                                                            | 存储 tab 的 ipc 面：持有 StorageService、进度推送、关窗取消、定位路径校验                                  |
 | `desktop/src/main/storageScanWorker.ts` / `storageScanWorkerClient.ts` / `storageScanWorkerProtocol.ts` | 扫描 Worker 入口与 ScanRunnerPort 实现                                                                     |
@@ -177,8 +182,7 @@ contracts/spec:   packages/shared protocol.ts / channels.ts / validation.ts / es
 | `desktop/src/renderer/resource-manager.html` / `src/resource-manager.tsx`                               | 独立 renderer 入口，挂载 `@escode/ui` 的 `ResourceManagerApp`                                              |
 | `ui/src/resource-manager/ResourceManagerApp.tsx`                                                        | 窗口 UI（指标卡 + 分组列表），组件放在 `packages/ui` 内以纳入 Tailwind 扫描                                |
 | `ui/src/resource-manager/resourceUsageView.ts`                                                          | 分组聚合与格式化纯函数                                                                                     |
-| `services/src/process/processResourceSampler.ts`                                                        | 跨平台进程表读取、CPU 差分、进程树归属                                                                     |
-| `services/src/escode-agent/escodeAgentService.ts`                                                       | `collectLocalRuntimeChildProcesses()`                                                                      |
+| `services/src/escode-agent/escodeAgentService.ts`                                                       | TS runtime 的 `collectLocalRuntimeChildProcesses()`（Rust Host 不使用）                                    |
 | `shared/src/protocol.ts` / `channels.ts` / `validation.ts` / `escode-protocol/index.ts`                 | 类型、IPC 通道、host 消息 schema、CLI 协议                                                                 |
 | `apps/escode-cli/.../mcp/telemetry.ts` / `escode-protocol/server.ts`                                    | `listProcesses()` 与 `process/childProcesses` 处理                                                         |
 
@@ -194,6 +198,6 @@ contracts/spec:   packages/shared protocol.ts / channels.ts / validation.ts / es
 
 ## 测试
 
-- 单测：`desktop/test/resourceManagerWindow.test.ts`（快照合并、Agent 兜底、linux CPU 归一化、系统 CPU 差分）、`services/test/processResourceSampler.test.ts`（三平台解析、CPU 差分、树归属）、`ui/test/resourceUsageView.test.ts`（分组聚合/格式化）、CLI `mcp-telemetry.test.ts`（`listProcesses`）。
+- 单测：`desktop/test/resourceManagerWindow.test.ts`（快照合并、Agent 兜底、linux CPU 归一化、系统 CPU 差分）、Rust Host `host-services/src/process_sampler.rs`（snapshot 事件形状与 Host 进程行）、`ui/test/resourceUsageView.test.ts`（分组聚合/格式化）、CLI `mcp-telemetry.test.ts`（`listProcesses`）。
 - E2E：`desktop/test/e2e/resource-manager-storage.test.ts`——存储 tab 扫描 / 下钻 / safe 与 confirm 清理 / 日志保留当天（SM-01~05）。
 - E2E：`desktop/test/e2e/resource-manager.test.ts`——菜单打开窗口、默认 CPU tab 三组分区可见、切内存 tab 换指标卡、`escode-main` 与 `escode-agent-*` 行出现、Agent 行在 Host 采样后 `memoryBytes > 0`。既有依赖进程监视器的 E2E helper 改读 `window.resourceManager.getSnapshot().processes`。

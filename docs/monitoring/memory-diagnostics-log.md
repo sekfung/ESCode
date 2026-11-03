@@ -137,9 +137,10 @@ grep memory_sample ~/.escode/cli/log/escode-2026-09-03.jsonl | jq -c '[.time, .c
   `escode-protocol-entrypoint.ts`、`escode-protocol/server.ts`、`escode-protocol-v4/v4-gateway.ts`、
   `apps/escode-cli/packages/adapters/src/storage/index.ts`
 - services：`packages/services/src/memoryDiagnostics.ts` 与五个 service 的自注册
-- host：`packages/desktop/src/host/hostMemoryDiagnosticsLog.ts`（门控与行格式）；
-  host/index.ts 的入口是 `hostSelfResourceTelemetry.ts`，它包住本模块，把同一次 `memoryUsage()`
-  读数同时交给资源遥测（`onMemoryUsage` 钩子与写盘门控无关：本地行可能被门控跳过，遥测样本每 60 秒都发）
+- host：S6 删除 Node Host 后不再有 `role=utility_host` 的本地内存行。Rust Host 的资源采样由
+  `apps/escode-host/src/main.rs` 的 `resourceUsageSnapshotRequest` 与
+  `apps/escode-host/crates/host-services/src/process_sampler.rs` 提供，输出共享
+  `resource-usage-snapshot-result`；它不写本地内存诊断日志。
 - main：`packages/desktop/src/main/mainMemoryDiagnostics.ts`、`desktopResourceTelemetry.ts`
 - renderer：`packages/ui/src/lib/memoryDiagnostics.ts`、`packages/ui/src/logger.ts`；
   采样器的 `reportHeapSample` 注入点在写盘门控之前，把同一次 `performance.memory` 读数经
@@ -148,16 +149,16 @@ grep memory_sample ~/.escode/cli/log/escode-2026-09-03.jsonl | jq -c '[.time, .c
 
 ## 验收 Case
 
-| Case ID | Setup                     | Action                  | Assertions                                                                                                                 | Layer |
-| ------- | ------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----- |
-| MEM-001 | 空 gate                   | 首次 evaluate           | 返回 `first`                                                                                                               | unit  |
-| MEM-002 | 上次 heap 100000          | heap 104000、计数器不变 | 返回 `null`                                                                                                                | unit  |
-| MEM-003 | 上次 heap 100000          | heap 106000             | 返回 `changed`                                                                                                             | unit  |
-| MEM-004 | 计数器某 key 变化         | evaluate                | 返回 `changed`                                                                                                             | unit  |
-| MEM-005 | 全部不变                  | 满 300s                 | 返回 `heartbeat`，之后重新计时                                                                                             | unit  |
-| MEM-006 | registry 有 provider 抛错 | collect                 | 其余 provider 正常返回，抛错者跳过                                                                                         | unit  |
-| MEM-007 | CLI sampler               | 注入 readMemoryUsage    | onSample 第二参数为完整 memoryUsage，协议样本形状不变                                                                      | unit  |
-| MEM-008 | host 60s tick             | 推进 timer              | logger.info 一行含 `role=utility_host heapUsedKb=`；stop 后不再输出；同一次读数同时经 parentPort 发出 `HostResourceSample` | unit  |
-| MEM-009 | main 6 个 10s tick        | 推进 timer              | logger.info 一行含 `role=main` 与 `ws.<process_role>=`；同一次读数同时作为 `perf_process_window` 的 main heap 样本         | unit  |
-| MEM-010 | renderer 生产构建         | `logMemoryDiagnostics`  | 仍调用桥；无桥 no-op                                                                                                       | unit  |
-| MEM-011 | renderer 60s tick         | 推进 timer              | 同一次读数既经 preload 桥发出 heap 样本，又按门控写本地行；门控跳过写盘的 tick 仍发样本；桥抛错不影响本地行                | unit  |
+| Case ID | Setup                      | Action                  | Assertions                                                                                                         | Layer |
+| ------- | -------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------ | ----- |
+| MEM-001 | 空 gate                    | 首次 evaluate           | 返回 `first`                                                                                                       | unit  |
+| MEM-002 | 上次 heap 100000           | heap 104000、计数器不变 | 返回 `null`                                                                                                        | unit  |
+| MEM-003 | 上次 heap 100000           | heap 106000             | 返回 `changed`                                                                                                     | unit  |
+| MEM-004 | 计数器某 key 变化          | evaluate                | 返回 `changed`                                                                                                     | unit  |
+| MEM-005 | 全部不变                   | 满 300s                 | 返回 `heartbeat`，之后重新计时                                                                                     | unit  |
+| MEM-006 | registry 有 provider 抛错  | collect                 | 其余 provider 正常返回，抛错者跳过                                                                                 | unit  |
+| MEM-007 | CLI sampler                | 注入 readMemoryUsage    | onSample 第二参数为完整 memoryUsage，协议样本形状不变                                                              | unit  |
+| MEM-008 | Node Host 60s tick（历史） | 推进 timer              | S6 已随 Node Host 删除；Rust Host 不写该本地行，改由 `resourceUsageSnapshotRequest` 的资源采样覆盖                 | unit  |
+| MEM-009 | main 6 个 10s tick         | 推进 timer              | logger.info 一行含 `role=main` 与 `ws.<process_role>=`；同一次读数同时作为 `perf_process_window` 的 main heap 样本 | unit  |
+| MEM-010 | renderer 生产构建          | `logMemoryDiagnostics`  | 仍调用桥；无桥 no-op                                                                                               | unit  |
+| MEM-011 | renderer 60s tick          | 推进 timer              | 同一次读数既经 preload 桥发出 heap 样本，又按门控写本地行；门控跳过写盘的 tick 仍发样本；桥抛错不影响本地行        | unit  |

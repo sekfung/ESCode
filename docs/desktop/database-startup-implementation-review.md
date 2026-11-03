@@ -3,6 +3,11 @@
 日期：2026-09-14。分支：`codex/fix-database-migration-startup`。
 范围与恢复规则见 [spec](./database-migration-startup-gate-plan.md)，执行清单见 [Todo 145](../working-memory/provider-refactor/steps/todo-145-global-database-startup-loading.md)。
 
+> 2026-11-04 更新：Node Host 的数据库启动链（`hostDatabaseStartup` / `databaseStartupCoordinator` /
+> storage preparation worker）已随 S6 删除。当前 tasks-index 准备改由 Main
+> `packages/desktop/src/main/rustHostStorageStartup.ts` 在拉起 Rust Host 前完成；本文其余内容保留为
+> 当时 Node Host 实施复审的历史记录。
+
 ## 已实现
 
 - Host 单 attempt 协调器；独立 Main/preload 控制和快照通道；Renderer 在业务 Root 外展示真实阶段、耗时、错误、复制诊断和退出。无自动迁移重试。

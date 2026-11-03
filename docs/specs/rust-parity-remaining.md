@@ -61,6 +61,10 @@ tasks-index 准备继续使用 `main/rustHostStorageStartup.ts` 自有 worker；
 `windowHostControllerService` / `windowHostControllerProjection` 只作为 golden 生成器的 TS 观察源保留。
 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
 
+2026-11-04 资源采样残留清理：Node Host 退场后，TS `packages/services/src/process/processResourceSampler.ts`
+已无生产调用方（`pnpm dep:refs` 只剩自身测试与 `services/src/node.ts` 的 re-export），源码与测试一并删除；
+资源管理器 host 采样由 Rust Host `apps/escode-host/crates/host-services/src/process_sampler.rs` 承担。
+
 2026-11-04 Node runtime 删除前置复核：CLI 差分门禁已只启动 Rust 并对比冻结 golden
 （`scripts/diff-escode-cli-rust-parity.mjs --golden`），`--live-node` 仅用于显式双跑演练；
 `linux-x64` / `darwin-arm64` / `win32-x64` 的 per-platform 欠账基线均为空，CI 会自动追加

@@ -23,7 +23,7 @@ const pendingHostRequests = new Map<string, PendingHostRequest>();
 const requestIdByHost = new Map<string, string>();
 const lastHostResults = new Map<string, HostResourceUsageProcess[]>();
 
-/** desktopHostProcess 收到 Host 回帖时调用 */
+/** Rust Host 控制通道收到 `resource-usage-snapshot-result` 时由 Main 调用 */
 export function resolveHostResourceUsageResult(
   label: string,
   result: HostResourceUsageSnapshotResultResponse,

@@ -24,14 +24,6 @@ export {
 } from "@escode/provider-node";
 import { randomUUID } from "node:crypto";
 export { createFileService } from "./file/fileService.js";
-export {
-  attributeHostProcessTree,
-  createProcessResourceSampler,
-  createProcessResourceTableReader,
-  type HostResourceUsageAgent,
-  type ProcessResourceSample,
-  type ProcessResourceSampler,
-} from "./process/processResourceSampler.js";
 export { createMediaPreviewService } from "./media-preview/mediaPreview.js";
 export type { CreateFileServiceOptions } from "./file/fileService.js";
 export {

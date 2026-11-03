@@ -7,9 +7,12 @@
 
 同一组请求分别打到 Node 与 Rust（`escode-cli-rust-legacy-session.test.ts`），Node 全部受理，Rust 结果如下：
 
+> 2026-11-04 更新：Node Host 已删除，下文“Node”列仅作对齐时的历史基线；定时任务建会话现由 Rust
+> `host-rpc/src/automation_scheduler.rs` + `automation_dispatch.rs` 派发 `createTask`。
+
 | 方法                      | Rust 原行为                         | App 触达路径                                                                                        |
 | ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `session/create`（普通）  | `Null shared import field` / 缺字段 | 定时任务首跑（`host/index.ts` cron createTask）、闲时任务首跑、task facade 默认建会话               |
+| `session/create`（普通）  | `Null shared import field` / 缺字段 | 定时任务首跑（Rust `automation_scheduler.rs` 定时任务派发）、闲时任务首跑、task facade 默认建会话   |
 | `session/send`            | `Unsupported method`                | task facade 带附件输入、手机 replayable 附件首发                                                    |
 | `session/setModel`        | `Unsupported method`                | facade `setConfigOption(model)`、desktop `escodeSessionService.setModel`、replayable 草稿复用       |
 | `session/setThoughtLevel` | `Unsupported method`                | 打开历史任务时重放 task 思考档位（`escodeSessionService.resumeSession`）、replayable 草稿复用       |

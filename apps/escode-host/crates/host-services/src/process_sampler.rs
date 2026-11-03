@@ -1,6 +1,6 @@
 //! 资源管理器 host 进程采样（`resource-usage-snapshot-request` 的 Rust 实现）。
 //!
-//! Node Host 用 `processResourceSampler` 采样本进程树；Rust Host 的实例默认 embedded，
+//! 历史 Node Host 用 `processResourceSampler` 采样本进程树（该实现已随 Node Host 退场删除）；Rust Host 的实例默认 embedded，
 //! 没有 per-workspace CLI 子进程，因此行集合是 Host 自身 + 其子进程树（bash/MCP/terminal）。
 //! 输出形状对齐共享 `resource-usage-snapshot-result`。
 

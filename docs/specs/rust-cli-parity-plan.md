@@ -115,7 +115,7 @@ sequenceDiagram
 | 模型请求      | `apps/escode-cli/packages/adapters/src/model/runner-stream.ts`、`runner-retry.ts`、`stream-retry-boundary.ts`、`runner-runtime-headers.ts` | 消息规范化、重试边界、推理历史、鉴权刷新、取消                                     |
 | 工具          | `apps/escode-cli/packages/contracts/src/tools/`、`packages/core/src/tool/handlers/index.ts`                                                | 实际注册面、schema、返回值、权限、超时、取消、可并发性、结果预算                   |
 | 存储          | `apps/escode-cli/packages/adapters/src/storage/session-store/`                                                                             | transcript/输入事实/索引/权限/usage 分别验证；不直接拿 SQLite 格式等价代替恢复语义 |
-| Host          | `packages/services/src/escode-agent/`、`packages/desktop/src/host/storagePreparationProcesses.ts`                                          | 启动与退出、身份、owner/lease、账号配置同步、窗口/远端隔离                         |
+| Host          | `apps/escode-host/crates/host-rpc/`、`packages/desktop/src/main/rustHostStorageStartup.ts`                                                 | 启动与退出、身份、owner/lease、账号配置同步、窗口/远端隔离                         |
 
 ```mermaid
 sequenceDiagram

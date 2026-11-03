@@ -47,7 +47,8 @@ E2E：`packages/desktop/test/e2e/settings/settings-client-language-header.test.t
 E2E 无法稳定守住的约束：
 
 - InitLocal 初值：渲染进程挂载时会把语言同步给 Main，Main 再推给 Host，挂载后的请求看不出差别（反向修改已实测）。
-  由 `desktopWindowLifecycle.test.ts` 覆盖下发；Host 消息校验由 `hostMessagePortGuard.test.ts` 覆盖。
+  由 `desktopWindowLifecycle.test.ts` 覆盖下发；Rust Host 控制消息校验由
+  `apps/escode-host/crates/host-control` 的 `ControlMessage` 反序列化与 `host-proto` 测试覆盖。
 - 预热晚于读取持久化语言：预热读语言前还有两次 `await`，正常时序下启动读取先完成，竞态无法复现（反向修改已实测）；
   只靠 `main/index.ts` 中的调用顺序保证。
 - Host 初始化期间收到变更：同样会被挂载后的同步掩盖（推断，未实测）。顺序由「消息处理在任何 `await` 之前同步赋值」保证。

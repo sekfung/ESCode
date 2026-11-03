@@ -404,6 +404,10 @@ desktop/src/main/escodeDataSizeWorker.ts      改为 import services 的 fsWalke
 
 ### 10.4 接线点（改动清单）
 
+> 2026-11-04 更新：Node Host 删除后，storage 服务改由 Main 的
+> `packages/desktop/src/main/resourceManagerStorage.ts` 组装；Rust Host 不服务 `storage` channel。
+> 下表中 Node Host / 远程连接级注册行保留为当时接线记录。
+
 | 位置                                                                                              | 改动                                                                                                                                                                                        |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `architecture-policy.yaml`                                                                        | 新增 `storage` managed 模块（10.2）                                                                                                                                                         |
@@ -413,10 +417,9 @@ desktop/src/main/escodeDataSizeWorker.ts      改为 import services 的 fsWalke
 | `packages/services/src/accessor.ts`                                                               | `IServiceAccessor.storageService`                                                                                                                                                           |
 | `packages/services/src/node.ts`                                                                   | 导出 `createStorageService` 与 adapters 工厂                                                                                                                                                |
 | `packages/client/src/remoteServiceAccess.ts`                                                      | `ProxyChannel.toService<IStorageService>`                                                                                                                                                   |
-| `packages/desktop/src/host/index.ts`                                                              | 在 `createSettingService()` 附近组装：roots resolver、Worker scan runner、fs cleaner、volume probe                                                                                          |
-| `packages/desktop/src/host/remoteConnectionServiceCollection.ts`                                  | `.register(IStorageService, ...)`（连接级，机器作用域；不注册到 workspace 级 collection）                                                                                                   |
-| `packages/desktop/src/host/storageScanWorker.ts` + `storageScanWorkerClient.ts`                   | Worker 入口与 ScanRunnerPort 实现                                                                                                                                                           |
-| `packages/desktop/tsup.config.ts`                                                                 | host 增加 `"host/storageScanWorker"` entry                                                                                                                                                  |
+| `packages/desktop/src/main/resourceManagerStorage.ts`                                             | Main 侧组装 roots resolver、Worker scan runner、fs cleaner、volume probe                                                                                                                    |
+| `packages/desktop/src/main/storageScanWorker.ts` + `storageScanWorkerClient.ts`                   | Worker 入口与 ScanRunnerPort 实现                                                                                                                                                           |
+| `packages/desktop/tsup.config.ts`                                                                 | main 增加 `"main/storageScanWorker"` entry                                                                                                                                                  |
 | `packages/desktop/src/main/escodeDataSizeWorker.ts` / `escodeDataSizeScanner.ts`                  | 遍历实现迁入 services，main 侧只保留 Worker 入口                                                                                                                                            |
 | `packages/ui/src/hooks/useStorageUsage.ts`                                                        | 订阅 `onScanProgress`，mount 时 `startScan`、unmount/失焦 60s 时 `cancelScan`，按 jobId 过滤                                                                                                |
 | `packages/ui/src/settings/storage/`                                                               | `StorageSection.tsx`、`StorageDiskCard.tsx`、`StorageCategoryList.tsx`、`StorageCategoryDetail.tsx`、`StorageCleanConfirmDialog.tsx`、`storageCategoryPresentation.ts`（图标/文案 id/颜色） |
