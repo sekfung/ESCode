@@ -181,23 +181,13 @@ const NODE_HOST_STARTED_PATTERN = /forked host process for \(local-/;
 const assertRustHostLaunch = (output, expectRustHost) => {
   if (!expectRustHost) return;
   if (!RUST_HOST_STARTED_PATTERN.test(output)) {
-    throw new Error(
-      "Installed app did not start the packaged Rust Host in ESCODE_RUST_HOST=1 mode",
-    );
+    throw new Error("Installed app did not start the packaged Rust Host");
   }
   if (!output.includes("attached renderer to Rust Host")) {
     throw new Error("Installed renderer did not attach to the packaged Rust Host");
   }
   if (NODE_HOST_STARTED_PATTERN.test(output)) {
     throw new Error("Installed app spawned a Node utility window Host in Rust mode");
-  }
-};
-const assertNodeHostLaunch = (output) => {
-  if (RUST_HOST_STARTED_PATTERN.test(output)) {
-    throw new Error("Installed app started the Rust Host in ESCODE_RUST_HOST=0 mode");
-  }
-  if (!NODE_HOST_STARTED_PATTERN.test(output)) {
-    throw new Error("Installed app did not spawn the Node utility window Host in fallback mode");
   }
 };
 
@@ -282,14 +272,10 @@ async function launchApp({ expectRustHost, hostAssertion, launchCwd, label, env 
         `application stayed up for ${STARTUP_TIMEOUT_MS / 1000}s with database startup ready`,
       );
       try {
-        const expectedHost =
-          hostAssertion ?? (expectRustHost ? "rust" : label.startsWith("drill") ? "node" : "any");
-        if (expectedHost === "rust") assertRustHostLaunch(output, true);
-        if (expectedHost === "node") assertNodeHostLaunch(output);
+        const expectedHost = hostAssertion ?? (expectRustHost ? "rust" : "any");
         if (expectedHost === "rust") {
+          assertRustHostLaunch(output, true);
           console.log("packaged Rust Host started and attached the renderer");
-        } else if (expectedHost === "node") {
-          console.log("packaged Node utility window Host started (expected in fallback mode)");
         }
       } catch (error) {
         void finish(error);
@@ -365,8 +351,9 @@ if (versionDrill) {
   );
 }
 
-// 阶段 3 的四平台切换 + 回退演练：Node Host → Rust Host → Node Host，复用同一 home/cwd。
-// 启动前写入冻结设置夹具，切换后逐次校验文件未被任一 Host 破坏（未知键与已有值仍在）。
+// S6 四平台重启演练：Rust Host 连续三次启动，复用同一 home/cwd。
+// 启动前写入冻结设置夹具，逐次校验文件未被 Host 破坏（未知键与已有值仍在）；
+// Node Host 回退已删除，演练不再要求 Node 腿。
 const hostSwitchDrill = process.argv.includes("--host-switch-drill");
 if (hostSwitchDrill) {
   // 上一步（Rust Host 启动检查）刚结束；Windows 上单实例锁/子 Host 句柄释放需要时间。
@@ -388,23 +375,23 @@ if (hostSwitchDrill) {
     ESCODE_DESKTOP_USER_DATA_DIR: drillUserData,
     ESCODE_DESKTOP_SESSION_DATA_DIR: join(drillUserData, "session"),
   });
-  for (const [index, mode] of ["node", "rust", "node"].entries()) {
+  for (const index of [0, 1, 2]) {
     await launchApp({
-      expectRustHost: mode === "rust",
+      expectRustHost: true,
       launchCwd: drillCwd,
-      label: `drill ${index + 1}/3 ${mode}`,
-      env: { ...drillEnv(), ESCODE_RUST_HOST: mode === "rust" ? "1" : "0" },
+      label: `drill ${index + 1}/3 rust`,
+      env: drillEnv(),
     });
     const after = JSON.parse(readFileSync(settingsFile, "utf8"));
     if (after.locale !== "zh-CN" || after.unknownFromNode?.kept !== true) {
       throw new Error(
-        `Host switch drill corrupted settings after ${mode} (locale=${after.locale})`,
+        `Host restart drill corrupted settings after launch ${index + 1} (locale=${after.locale})`,
       );
     }
     // 下一次启动前等旧实例彻底退出，避免 Windows 单实例锁/DB owner 锁串扰。
     await sleep(2_000);
   }
-  console.log("host switch and rollback drill passed: node → rust → node, settings preserved");
+  console.log("host restart drill passed: rust ×3, settings preserved");
 } else if (!versionDrill) {
   await launchApp({
     expectRustHost: expectRustHostEnv,

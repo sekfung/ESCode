@@ -58,7 +58,6 @@ import { createTempTextAttachment } from "./tempTextAttachment.js";
 import { materializeWorkflowArtifactFile } from "./workflowArtifactFile.js";
 import { registerDesktopSaveFileIpcHandler } from "./desktopSaveFile.js";
 import { registerDesktopPrintToPdfIpcHandler } from "./desktopPrintToPdf.js";
-import { registerCuaPipActiveSessionIpc } from "./desktopCuaPipIpc.js";
 
 export function registerPlatformIpcHandlers(options: {
   fetchHelpConfig?: () => Promise<unknown>;
@@ -80,8 +79,6 @@ export function registerPlatformIpcHandlers(options: {
     senderWindow?: BrowserWindow | null,
   ) => Promise<unknown>;
   acknowledgePostUpdateReleaseNotes: (version: string) => Promise<void>;
-  syncActiveTaskSession: (windowId: number, sessionId: string | null) => void;
-  syncTaskRealtimeWorkspaceKeys: (windowId: number, workspaceKeys: Iterable<string>) => void;
   getUpdateState: () => UpdateStatePayload;
   openUpdateStatusWindow: () => void;
   getDesktopSessionActivity: () => {
@@ -182,7 +179,6 @@ export function registerPlatformIpcHandlers(options: {
         senderWin.on("closed", () => options.windowWorkspaceMap.delete(senderWin.id));
       }
       pathSet.add(validatedPath);
-      options.syncTaskRealtimeWorkspaceKeys(senderWin.id, pathSet);
     }
     return { activated: false };
   });
@@ -268,7 +264,6 @@ export function registerPlatformIpcHandlers(options: {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
       options.windowWorkspaceMap.set(win.id, new Set(result.data));
-      options.syncTaskRealtimeWorkspaceKeys(win.id, result.data);
     }
   });
 
@@ -279,10 +274,6 @@ export function registerPlatformIpcHandlers(options: {
       options.windowUnreadCountMap,
       options.logger,
     );
-  });
-  registerCuaPipActiveSessionIpc({
-    syncActiveTaskSession: options.syncActiveTaskSession,
-    warn: (message) => options.logger.warn(message),
   });
   ipcMain.on(
     PlatformChannels.WindowControlsOverlayReady,

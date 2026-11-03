@@ -1,9 +1,9 @@
 // 安装包口径的 App bench 配置（docs/specs/rust-unified-host.md 阶段 3 验收补齐）。
 //
-// 同一个已安装包内切换 Host 与 runtime，避免把 dev 构建链（tsup/vite，实测约 165s）算进冷启动：
-//   A：Node Host + Node CLI（ESCODE_RUST_HOST=0 + ESCODE_AGENT_SERVER_RUNTIME=node）
-//   B：Node Host + Rust CLI（ESCODE_RUST_HOST=0 + 包内 resources/glm/escode-cli-rust）
-//   C：Rust Host + 内嵌 runtime（ESCODE_RUST_HOST=1，Host 内 runtime-link 默认 embedded）
+// 同一个已安装包内切换 runtime（S6 起 Host 固定 Rust），避免把 dev 构建链算进冷启动：
+//   A：Rust Host + Node CLI（ESCODE_AGENT_SERVER_RUNTIME=node）
+//   B：Rust Host + Rust CLI（包内 resources/glm/escode-cli-rust）
+//   C：Rust Host + 内嵌 runtime（Host 内 runtime-link 默认 embedded）
 // 就绪使用主进程日志而不是进程名轮询：数据库终态 ready + 首屏 did-finish-load（见
 // `ESCODE_BENCH_READY_LOG` 的受控日志）。Linux 若没有 DISPLAY 则经 xvfb-run 启动，与
 // installed 演练同一路径。
@@ -64,10 +64,9 @@ export function installedBenchConfigs(paths) {
   return {
     A: {
       ...base,
-      label: "Node Host + Node CLI（安装包）",
+      label: "Rust Host + Node CLI（安装包）",
       env: {
         ...COMMON_ENV,
-        ESCODE_RUST_HOST: "0",
         ESCODE_AGENT_SERVER_RUNTIME: "node",
         ESCODE_AGENT_SERVER_COMMAND: "",
         ESCODE_AGENT_SERVER_ARGS_JSON: "",
@@ -75,10 +74,9 @@ export function installedBenchConfigs(paths) {
     },
     B: {
       ...base,
-      label: "Node Host + Rust CLI（安装包）",
+      label: "Rust Host + Rust CLI（安装包）",
       env: {
         ...COMMON_ENV,
-        ESCODE_RUST_HOST: "0",
         ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust",
         ESCODE_AGENT_SERVER_COMMAND: paths.rust,
         ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify(["app-server", "--stdio"]),
@@ -89,7 +87,6 @@ export function installedBenchConfigs(paths) {
       label: "Rust Host + 内嵌 runtime（安装包）",
       env: {
         ...COMMON_ENV,
-        ESCODE_RUST_HOST: "1",
         ESCODE_HOST_RUNTIME_LINK: "embedded",
       },
     },

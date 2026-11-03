@@ -8,7 +8,7 @@
 > （重启恢复）」关闭；新 server 握手失败后的 release 回滚仍只由注入失败的 Rust 单测覆盖
 > （`source_server_update_flow` / `source_server_connections_update_tests`），没有三平台桌面 E2E。
 > S5 删除项审计：`desktopRemoteSessions` 无 `node-host` route，`ProviderProvisioningExecute` 无生产引用，
-> `ESCODE_RUST_HOST` 仅剩本地开关（见 §12.1/§12.5）。
+> S6（2026-11-04）起 `ESCODE_RUST_HOST` 开关与 Node 窗口 Host 回退均已删除（见 §12.1/§12.5）。
 > 关联：[upstream-v3.16.2-sync.md](upstream-v3.16.2-sync.md)、[rust-unified-host.md](rust-unified-host.md)、[rust-u2-window-host.md](rust-u2-window-host.md)、[rust-u2-host-skeleton.md](rust-u2-host-skeleton.md)
 > 上游参考：`shared/src/source-server/*`、`desktop/src/host/sourceServer*`、`server/src/source-server/*`、`docs/architecture/r3-source-server-remote-architecture.md`
 
@@ -25,15 +25,15 @@
 
 ## 2. 现状与差距
 
-| 项目           | 现状                                              | 上游 Source Server 目标                                         |
-| -------------- | ------------------------------------------------- | --------------------------------------------------------------- |
-| 本地 workspace | Rust Host 默认（`ESCODE_RUST_HOST` 未设置即为真） | 不变                                                            |
-| 远程 workspace | 每窗口独立 Node Host，懒创建，独立进程表          | Rust Host 内统一 registry + 连接 profile + 实例表               |
-| 身份           | `workspaceIdentity` + `remoteSessionId`           | `sourceServerId` / Connection Profile / workspace identity 三层 |
-| 连接恢复       | Node Host 的远程路径                              | 原位重连、重启恢复、连接日志与错误契约                          |
-| 版本/兼容      | 无统一契约                                        | compatibility manifest、匿名信息 schema、严格输出 schema        |
-| 项目模型       | 真实 workspace 路径为主                           | 虚拟项目（`virtualProjects`）+ 远程目录绑定                     |
-| 更新           | 分散                                              | Host 解析 release、校验兼容、安装、重启、显式失败               |
+| 项目           | 现状                                      | 上游 Source Server 目标                                         |
+| -------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| 本地 workspace | Rust Host（S6 起固定，无 Node Host 回退） | 不变                                                            |
+| 远程 workspace | App 级 Rust Host 的 Source Server scope   | Rust Host 内统一 registry + 连接 profile + 实例表               |
+| 身份           | `workspaceIdentity` + `remoteSessionId`   | `sourceServerId` / Connection Profile / workspace identity 三层 |
+| 连接恢复       | Rust Host 的 Source Server scope          | 原位重连、重启恢复、连接日志与错误契约                          |
+| 版本/兼容      | 无统一契约                                | compatibility manifest、匿名信息 schema、严格输出 schema        |
+| 项目模型       | 真实 workspace 路径为主                   | 虚拟项目（`virtualProjects`）+ 远程目录绑定                     |
+| 更新           | 分散                                      | Host 解析 release、校验兼容、安装、重启、显式失败               |
 
 上游关键能力（v3.16.2 增量，约 59 个源码文件）：
 
@@ -1541,8 +1541,8 @@ previousSourceServerId 存在且 != handshake.sourceServerId
   3. 申请远端 capability → 走 Rust Host；
   4. 只有 target 明确是 Web 服务端（`kind: "server"`）时才保留 Node/HTTP 路径。
 - 不得因为 target 快照缺少 Profile 归属而回退 Node Host；缺字段时由 Main 补齐后再路由。
-- `ESCODE_RUST_HOST=0` 只影响本地 scope；远程不再读取该开关。测试禁用 Rust 时改用显式注入 Host 实现，
-  不使用环境回退。
+- S5-b 时本开关只影响本地 scope；S6（2026-11-04）起开关已删除，本地与远程都固定由 Rust Host 服务，
+  测试禁用 Rust 时改用显式注入 Host 实现，不使用环境回退。
 
 **S5-a 实现记录（2026-10-31）**
 
@@ -1738,8 +1738,8 @@ previousSourceServerId 存在且 != handshake.sourceServerId
    `desktop-e2e-20261031-225816-501`；均断言零 `escode-host-remote-*`。删除前的历史证据见
    `desktop-e2e-20261031-122307-136` / `-123400-961` / `-125229-399`。Windows/macOS 由 run
    `41355882063` 的三平台 SSH 作业补齐（各 5 passed）。
-2. `ESCODE_RUST_HOST=0` 下远程连接仍成功（开关只影响本地），或按产品决策显式报错而非回退 Node。
-   证据（2026-10-31）：S5-b 已让远程路由不再读取该开关；
+2. （S5-b 历史验收）`ESCODE_RUST_HOST=0` 下远程连接仍成功（开关只影响本地），或按产品决策显式报错而非回退 Node。
+   证据（2026-10-31）：S5-b 已让远程路由不再读取该开关；S6 起开关本身已删除；
    `desktopRemoteSessionsRustHostMode.test.ts` 新增用例断言缺少 Rust resolver 的 SSH 目标返回
    `REMOTE_RUST_HOST_UNAVAILABLE` 且不调用 `ensureWindowHost`，即显式失败而非回退 Node。
 3. 直接首连（无 `profileId`）同样落在 Rust Host，并能回填 `sourceServerId` / `profileId` 供重启恢复。
@@ -1772,9 +1772,9 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 >
 > 2026-11-02：S2–S4 退出条件所需的三平台主链已全绿（run `41355882063`），S5 删除项已在源码审计中确认
 > （`desktopRemoteSessions` 无 `node-host` route、`ProviderProvisioningExecute` 无生产引用、
-> `ESCODE_RUST_HOST` 仅剩本地开关）。远程 workspace 只剩 Rust Host 一条路径。Node Host 剩余的本地
-> `ESCODE_RUST_HOST=0` 回退与 Node runtime 删除仍受 P1 收敛与三平台 Rust-only 发行门禁约束，属破坏性
-> 步骤，需单独确认。
+> `ESCODE_RUST_HOST` 仅剩本地开关）。远程 workspace 只剩 Rust Host 一条路径。2026-11-04 S6 已删除本地
+> `ESCODE_RUST_HOST=0` Node Host 回退；TS CLI / Node runtime 删除仍受 P1 收敛与三平台 Rust-only 发行门禁
+> 约束，属破坏性步骤，需单独确认。
 >
 > 2026-11-03：S5 删除后的三平台 SSH 主链复跑全绿（run `41355882063`，各 5 passed），S5 的远程路径
 > 验收已完成；总目标仍等待 P1 真实供应商/MCP/安装演练与本地 Node Host / TS CLI 删除的产品确认。

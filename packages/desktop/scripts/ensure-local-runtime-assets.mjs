@@ -16,11 +16,8 @@ const repoRoot = resolve(desktopRoot, "..", "..");
 const target = getTargetPlatform();
 const bundledToolsRoot = join(desktopRoot, "bundled-tools", target.key);
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-// M5 默认走 Rust Host：开发态由 Main 解析 apps/escode-host/target/debug/escode-host。
-// 显式 0/false 或 ESCODE_RUST_HOST_BINARY 覆盖时不参与自举。
-const rustHostDisabled = ["0", "false"].includes(
-  (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
-);
+// S6 起 Host 固定 Rust：开发态由 Main 解析 apps/escode-host/target/debug/escode-host。
+// 显式 ESCODE_RUST_HOST_BINARY 覆盖时不参与自举。
 const rustHostBinaryOverride = process.env.ESCODE_RUST_HOST_BINARY?.trim();
 const debugRustHostBinary = join(
   repoRoot,
@@ -85,7 +82,7 @@ function isNativeSearchReady() {
 }
 
 const REQUIRED_LOCAL_RUNTIME_ASSETS = [
-  ...(!rustHostDisabled && !rustHostBinaryOverride
+  ...(!rustHostBinaryOverride
     ? [
         {
           label: "Rust Host (debug)",

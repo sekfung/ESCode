@@ -17,7 +17,7 @@ Host，**不**证明 GUI 交互可用。
 | --- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | 1   | `./test/e2e/smoke.test.ts`                                                                | 默认启动进入可交互工作区：V4 session pane 与 composer 同时可见                                         | 无 provider；主界面可用性最小门禁                                                          |
 | 2   | `./test/e2e/infrastructure/session-lifecycle.test.ts`                                     | 每轮 WebDriver current handle 绑定真实 renderer page target，URL 不是 `chrome-error://`                | 排除白屏/绑错窗口类假绿                                                                    |
-| 3   | `./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts` | 本地窗口只由一个 `escode-host-rust-host` 服务、无 Node utility Host；renderer reload 后 Host pid 不变  | 阶段 3 的 Host 拓扑断言；`ESCODE_RUST_HOST` 未设即 Rust 模式                               |
+| 3   | `./test/e2e/conversation-session/conversation-session-rust-host-window-lifecycle.test.ts` | 本地窗口只由一个 `escode-host-rust-host` 服务、无 Node utility Host；renderer reload 后 Host pid 不变  | 阶段 3 的 Host 拓扑断言；S6 起 Host 固定 Rust，无开关                                      |
 | 4   | `./test/e2e/conversation-session/source-server-rust-server-direct.test.ts`                | 真实本地 `escode-server`：首连 → App 重启恢复 → 断线原位重连 → 双窗口共享，且无 `escode-host-remote-*` | Source Server 远程链路（§12.6.7-4/5/6）；server 由 worker 内 fixture 拉起，不依赖 SSH/账号 |
 
 命令（CI 与本地一致）：

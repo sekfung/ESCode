@@ -65,7 +65,6 @@ export function createDesktopPlatform(options: {
     showTaskNotification: (payload) => window.escode.showTaskNotification(payload),
     syncWindowTabs: (paths) => window.escode.syncWindowTabs(paths),
     syncWindowUnreadCount: (count) => window.escode.syncWindowUnreadCount(count),
-    syncActiveTaskSession: (sessionId) => window.escode.syncActiveTaskSession(sessionId),
     syncAppSettings: (patch) => window.escode.syncAppSettings?.(patch),
     // 桥缺失（旧 preload 升级窗口）时按 supported 兜底，与 Windows 现状一致，设置开关可用。
     getCloseToTrayCapability: () =>

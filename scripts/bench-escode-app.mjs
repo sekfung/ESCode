@@ -16,15 +16,15 @@
 //     --configs A,B,C --reps 3 --out .escode-runtime/app-bench-installed   # 安装包口径
 //   node scripts/bench-escode-app.mjs --self-test                    # 合成进程树验证管线（无需桌面）
 //
-// 配置（dev）：
-//   A：Node Host + Node CLI（pnpm dev:desktop，显式 ESCODE_RUST_HOST=0；monorepo dev 默认 Node CLI）
-//   B：Node Host + Rust CLI（pnpm dev:desktop:escode-cli-rust，显式 ESCODE_RUST_HOST=0）
-//   C：Rust Host + 内嵌 runtime（pnpm dev:desktop，显式 ESCODE_RUST_HOST=1）
+// 配置（dev，S6 起 Host 固定 Rust，配置差异只在 runtime）：
+//   A：Rust Host + Node CLI（pnpm dev:desktop + ESCODE_AGENT_SERVER_RUNTIME=node）
+//   B：Rust Host + Rust CLI（pnpm dev:desktop:escode-cli-rust）
+//   C：Rust Host + 内嵌 runtime（pnpm dev:desktop）
 //
 // 配置（安装包，--installed-app/--installed-glm 或 ESCODE_INSTALLED_APP/GLM）：
-//   A：Node Host + Node CLI（ESCODE_RUST_HOST=0 + ESCODE_AGENT_SERVER_RUNTIME=node）
-//   B：Node Host + Rust CLI（ESCODE_RUST_HOST=0 + 包内 resources/glm/escode-cli-rust）
-//   C：Rust Host + 内嵌 runtime（ESCODE_RUST_HOST=1，runtime-link 默认 embedded）
+//   A：Rust Host + Node CLI（ESCODE_AGENT_SERVER_RUNTIME=node）
+//   B：Rust Host + Rust CLI（包内 resources/glm/escode-cli-rust）
+//   C：Rust Host + 内嵌 runtime（runtime-link 默认 embedded）
 //
 // 场景与边界（骨架已知缺口，随阶段推进补齐）：
 //   - idle：dev 就绪=electron 主进程与 renderer 同时在场（dev 下 tsup/vite 起完 electron 才 launch，
@@ -82,24 +82,22 @@ const began = Date.now();
 
 const CONFIGS = {
   A: {
-    label: "Node Host + Node CLI（dev:desktop）",
+    label: "Rust Host + Node CLI（dev:desktop）",
     command: ["pnpm", ["dev:desktop"]],
     readyMarker: "electron-app",
-    // 默认已翻转 Rust Host；A 必须显式回退 Node Host，否则标签与实际链路不符。
-    env: { ESCODE_RUST_HOST: "0", ESCODE_AGENT_SERVER_RUNTIME: "node" },
+    env: { ESCODE_AGENT_SERVER_RUNTIME: "node" },
   },
   B: {
-    label: "Node Host + Rust CLI（dev:desktop:escode-cli-rust）",
+    label: "Rust Host + Rust CLI（dev:desktop:escode-cli-rust）",
     command: ["pnpm", ["dev:desktop:escode-cli-rust"]],
     readyMarker: "electron-app",
-    // dev 脚本负责 Rust CLI 的构建与命令；Host 侧显式固定 Node，避免默认翻转后变成 Rust Host。
-    env: { ESCODE_RUST_HOST: "0" },
+    env: {},
   },
   C: {
     label: "Rust Host + 内嵌 runtime（dev:desktop）",
     command: ["pnpm", ["dev:desktop"]],
     readyMarker: "electron-app",
-    env: { ESCODE_RUST_HOST: "1" },
+    env: {},
   },
 };
 

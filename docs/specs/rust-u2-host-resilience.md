@@ -14,7 +14,8 @@
 3. 启动失败按类别显式报错，每类都有时间上限，不挂起。
 4. 真实 `host-rpc` 路径的保序粒度、各队列的容量与溢出策略，与代码一致。
 
-本轮不做：Pending 业务域、删除 `ESCODE_RUST_HOST` 开关或 Node Host 回退分支（M5）、窗口自身 host 接线（H2.3）、删除 TS 代码。
+本轮不做：Pending 业务域、窗口自身 host 接线（H2.3）、删除 TS 代码。`ESCODE_RUST_HOST` 开关与
+Node Host 回退分支已于 2026-11-04 S6 删除。
 
 ## 1. 对 ZCode-rs D2 的取舍
 

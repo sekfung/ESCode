@@ -8,7 +8,6 @@ import { ChannelClient, MessagePortProtocol } from "@escode/rpc";
 import { connectViaMessagePort } from "@escode/client";
 import {
   bridgeRustHostPort,
-  isRustHostEnabled,
   startRustHost,
   type HostPortLike,
   type RustHostHandle,
@@ -23,22 +22,12 @@ const hostBinary = resolve(
   `apps/escode-host/target/debug/escode-host${process.platform === "win32" ? ".exe" : ""}`,
 );
 
-describe("rust host dev switch", () => {
+describe("rust host bridge", () => {
   let handle: RustHostHandle | undefined;
 
   afterEach(async () => {
     await handle?.stop();
     handle = undefined;
-  });
-
-  it("defaults to Rust Host and only falls back on an explicit false flag", () => {
-    // M5 已翻转：未设置时走 Rust Host，显式 0/false 才回退 Node Host。
-    expect(isRustHostEnabled({})).toBe(true);
-    expect(isRustHostEnabled({ ESCODE_RUST_HOST: "0" })).toBe(false);
-    expect(isRustHostEnabled({ ESCODE_RUST_HOST: "false" })).toBe(false);
-    expect(isRustHostEnabled({ ESCODE_RUST_HOST: " FALSE " })).toBe(false);
-    expect(isRustHostEnabled({ ESCODE_RUST_HOST: "1" })).toBe(true);
-    expect(isRustHostEnabled({ ESCODE_RUST_HOST: " TRUE " })).toBe(true);
   });
 
   it.skipIf(!existsSync(hostBinary))(
@@ -138,7 +127,7 @@ describe("rust host manager (dev switch)", () => {
     async () => {
       const root = await mkdtemp(join(tmpdir(), "escode-rust-host-manager-"));
       const home = join(root, "home");
-      const manager = createRustHostManager({ binary: hostBinary, home, enabled: true });
+      const manager = createRustHostManager({ binary: hostBinary, home });
       try {
         const attachment = await manager.attachLocalPort(() => {
           const [port1, port2] = createPortPair();
@@ -162,11 +151,6 @@ describe("rust host manager (dev switch)", () => {
       expect(manager.isRunning()).toBe(false);
     },
   );
-
-  it("stays disabled unless the flag is on", () => {
-    const manager = createRustHostManager({ binary: hostBinary, home: "/tmp/x", enabled: false });
-    expect(manager.enabled).toBe(false);
-  });
 
   it("resolves the packaged and dev binary paths", () => {
     const name = process.platform === "win32" ? "escode-host.exe" : "escode-host";

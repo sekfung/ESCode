@@ -76,11 +76,11 @@ describe("desktop e2e process cleanup", () => {
     );
   });
 
-  it("waits for each window Host once and keeps update install on the strict policy", () => {
+  it("waits for the App-level Rust Host once and keeps update install on the strict policy", () => {
     const mainSource = readFileSync(new URL("../src/main/index.ts", import.meta.url), "utf8");
 
-    // R1 后 remote session 是窗口 Host 内资源；manager 只清理请求关联，真正的连接释放由
-    // windowHostProcessMap 中唯一 Host 的 shutdown barrier 完成。
+    // S6 后 remote session 是 App 级 Rust Host 内资源；manager 只清理请求关联，真正的连接释放
+    // 由 rustHostManager.stop() 的退出屏障完成。
     expect(mainSource).toMatch(
       /async function prepareAppQuit[\s\S]*?remoteSessionManager\.disposeAllAndWaitForAppShutdown\(reason\)/u,
     );
@@ -93,7 +93,7 @@ describe("desktop e2e process cleanup", () => {
       /async function prepareAppQuit[\s\S]*?selectAppShutdownPolicy[\s\S]*?if \(hasPreparedAppQuit\)[\s\S]*?if \(appQuitPreparationInFlight\)/u,
     );
     // S5-f-5 后 Main 不再把 windowHostProcessMap 传给 remote session manager：远端连接只有
-    // Rust Host 一个 owner，退出屏障仍按窗口 Host + 正在回收的 Host 逐个等待。
+    // Rust Host 一个 owner；S6 删除 Node Host 回退后，Main 也不再持有窗口 Host 注册表。
     const remoteSessionManagerInit =
       /const remoteSessionManager = createRemoteWorkspaceSessionManager\(\{[\s\S]*?\n\}\);/u.exec(
         mainSource,
@@ -101,15 +101,17 @@ describe("desktop e2e process cleanup", () => {
     expect(remoteSessionManagerInit).toContain("attachRustRemoteScope");
     expect(remoteSessionManagerInit).toContain("resolveRustRemoteProfile");
     expect(remoteSessionManagerInit).not.toContain("windowHostProcessMap");
-    expect(mainSource).toMatch(
-      /const hostProcesses = \[[\s\S]*?windowHostProcessMap\.values\(\)[\s\S]*?listDisposingHostProcesses\(\)[\s\S]*?disposeHostProcessAndWait\(/u,
+    expect(mainSource).not.toMatch(
+      /windowHostProcessMap|listDisposingHostProcesses|disposeHostProcessAndWait/u,
     );
     expect(mainSource).toMatch(
       /activeAppShutdownPolicy\.forceKillDelayMs[\s\S]*?activeAppShutdownPolicy\.waitTimeoutMs/u,
     );
     expect(mainSource).not.toMatch(/resolveRemoteHostShutdownPolicy/u);
+    // Desktop 侧 Node cron scheduler 已随 Node Host 退场；automation 调度由 Rust Host 常驻承担。
+    expect(mainSource).not.toMatch(/cronScheduler|spawnCronScheduler/u);
     expect(mainSource).toMatch(
-      /const cronSchedulerToDispose = cronScheduler[\s\S]*?appQuitPreparationInFlight = Promise\.all\(\[[\s\S]*?cronSchedulerToDispose\?\.dispose\(\)[\s\S]*?remoteSessionManager\.disposeAllAndWaitForAppShutdown/u,
+      /appQuitPreparationInFlight = Promise\.all\(\[[\s\S]*?timed\("rust-host"[\s\S]*?rustHostManager\.stop\(\)[\s\S]*?remoteSessionManager\.disposeAllAndWaitForAppShutdown/u,
     );
     // Bug 原因：退出屏障结束后窗口 close 还会启动异步设置写入，app.exit 可能留下锁。
     // 窗口尺寸只在 resize/maximize/unmaximize 阶段保存，退出屏障不得新建该写入。

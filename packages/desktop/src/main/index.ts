@@ -5,10 +5,7 @@ import "./desktopEarlyChromiumHardwareAccelerationBootstrap.js";
 import { powerMonitor, powerSaveBlocker } from "electron";
 import { crashCapturePaths } from "./appCrashCaptureBootstrap.js";
 import { registerCrashEventMonitor } from "./desktopCrashCapture.js";
-import {
-  onLocalDatabaseStartupReady,
-  configureDatabaseStartupQuit,
-} from "./databaseStartupRelay.js";
+import { configureDatabaseStartupQuit } from "./databaseStartupRelay.js";
 import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
 import {
   createDesktopContextPromptRollout,
@@ -42,7 +39,6 @@ import {
   session,
   webContents,
 } from "electron";
-import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -69,15 +65,14 @@ import {
   DEFAULT_LOCALE,
   TEST_ESCODE_ENDPOINT_ORIGIN,
   ESCODE_VERSION,
+  ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
   resolveESCodeEndpointOrigin,
   shouldEnableE2ETestBridge,
   type UpdateStatePayload,
-  HostMessageTypes,
   HostResponseTypes,
 } from "@escode/shared";
 import { logger } from "./logger.js";
 import { markMainLaunchAppReady } from "./desktopLaunchMarks.js";
-import { createCuaPipFocusRouter, resolveCuaPipWindowKey } from "./cuaPipFocusRouter.js";
 import {
   acknowledgePostUpdateReleaseNotes,
   getAutoUpdaterState,
@@ -90,8 +85,6 @@ import {
   syncPostUpdateReleaseNotesToWindow,
   syncReadyUpdateToWindow,
 } from "./autoUpdater.js";
-import { BroadcastHub } from "./broadcastHub.js";
-import { TaskRealtimeBus } from "./taskRealtimeBus.js";
 import { createAppLaunchGate } from "./appLaunchGate.js";
 import { createAppLaunchCoordinator } from "./appLaunchCoordinator.js";
 import {
@@ -159,14 +152,7 @@ import {
   runtimeUserDataPath,
   shouldUseElectronDefaultUserDataPath,
 } from "./desktopRuntimeEnv.js";
-import {
-  disposeHostProcess,
-  disposeHostProcessAndWait,
-  listDisposingHostProcesses,
-  loadWindow,
-  spawnHostProcess,
-} from "./desktopHostProcess.js";
-import { spawnCronScheduler, type CronSchedulerHandle } from "./desktopCronScheduler.js";
+import { loadWindow } from "./desktopHostProcess.js";
 import {
   clearOAuthRoutesForWindow,
   handleDeepLink,
@@ -611,12 +597,8 @@ let activeAppShutdownPolicy = resolveAppShutdownPolicy("normal", process.platfor
 let activeAppShutdownKind: AppShutdownKind | null = null;
 const WINDOWS_AGENT_FORCE_KILL_TIMEOUT_MS = 2_000;
 
-const broadcastHub = new BroadcastHub();
-const taskRealtimeBus = new TaskRealtimeBus({ logger });
 // 内存诊断计数器：desktopResourceTelemetry 每 60s collect
 // 一次写主日志。will-download 监听数用于观察关窗后 defaultSession 是否残留监听。
-mainMemoryDiagnosticsRegistry.register("taskBus", () => taskRealtimeBus.collectMemoryDiagnostics());
-mainMemoryDiagnosticsRegistry.register("broadcast", () => broadcastHub.collectMemoryDiagnostics());
 mainMemoryDiagnosticsRegistry.register("guest", () =>
   browserGuestManager.collectMemoryDiagnostics(),
 );
@@ -692,18 +674,7 @@ const explicitQuitRef = { current: false };
 let appQuitPreparationInFlight: Promise<void> | null = null;
 let hasPreparedAppQuit = false;
 const windowWorkspaceMap = new Map<number, Set<string>>();
-const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
-const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
-const cuaPipFocusRouter = createCuaPipFocusRouter({
-  send: (windowId, event) => {
-    windowHostProcessMap.get(windowId)?.postMessage({
-      type: HostMessageTypes.CuaPipFocusChanged,
-      event,
-    });
-  },
-});
-const hostRunningTaskCountMap = new Map<ElectronUtilityProcess, number>();
 /** Rust Host 的运行中会话数（App 级单 Host）。 */
 let rustHostRunningTaskCount = 0;
 let rustHostPid: number | undefined;
@@ -715,26 +686,6 @@ const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
   logger,
 });
 
-// 常驻 cron scheduler 进程句柄；app ready 后拉起，退出前销毁。
-let cronScheduler: CronSchedulerHandle | null = null;
-// host → main 的定时任务派发结果，转交给 scheduler 结算。经模块变量转发以避免 spawn 顺序耦合。
-function forwardCronRunResult(
-  result: Parameters<CronSchedulerHandle["handleCronRunResult"]>[0],
-): void {
-  cronScheduler?.handleCronRunResult(result);
-}
-function wakeCronScheduler(automationId: string): void {
-  cronScheduler?.wake(automationId);
-}
-// 选一个本地 host 执行派发：本期本地 workspace 由任一本地窗口 host 的 createTask 按 path 拉起/复用 agent。
-function resolveCronDispatchHost(): ElectronUtilityProcess | null {
-  const first = windowHostProcessMap.values().next();
-  return first.done ? null : first.value;
-}
-const disposingHostProcessTimers = new WeakMap<
-  ElectronUtilityProcess,
-  ReturnType<typeof setTimeout>
->();
 let updateStatusWindow: BrowserWindow | null = null;
 const UPDATE_STATUS_WINDOW_WIDTH = 512;
 const UPDATE_STATUS_WINDOW_COMPACT_HEIGHT = 205;
@@ -762,53 +713,8 @@ function resolveDesktopContextPromptEnabledForHost(): boolean {
   return rollout.getSnapshot().enabled;
 }
 
-// 首个 Host 创建前的有界灰度裁决门。Host/Agent 的 presentation surface 在进程启动时
-// 冻结（services/node.ts 顶层 const + CLI --surface），而灰度请求是旁路、不阻塞 Host。若首个
-// Host fork 早于请求 resolve，成功结果（enabled:true）对已冻结的 Host/Agent 无可达生效路径。
-// 这里给"成功结果"一条有界的生效路径：首 Host fork 前 await 一次裁决（≤2s），失败/超时仍按当前
-// 快照继续（desktopContextPrompt fail-open）。first-only 永久
-// latch——后续 Host fork await 已 resolve 的 promise（近乎 0ms），且各 resolve*ForHost()
-// 同步读取已被刷新的 live 快照。
-const DESKTOP_FIRST_HOST_SPAWN_DECISION_TIMEOUT_MS = 2_000;
-let firstHostSpawnDecisionPromise: Promise<void> | null = null;
-function awaitFirstHostSpawnDecision(): Promise<void> {
-  if (firstHostSpawnDecisionPromise) {
-    return firstHostSpawnDecisionPromise;
-  }
-  firstHostSpawnDecisionPromise = (async () => {
-    const rollout = desktopContextPromptRollout;
-    if (!rollout) {
-      return;
-    }
-    try {
-      const decision = await rollout.awaitFirstDecision(
-        DESKTOP_FIRST_HOST_SPAWN_DECISION_TIMEOUT_MS,
-      );
-      logger.info("[desktop-context-prompt] first host spawn decision resolved", {
-        enabled: decision.enabled,
-        configVersion: decision.configVersion,
-      });
-    } catch (error) {
-      // awaitFirstDecision 永不 reject（refresh 内部已 catch + timeout 回退快照），此处仅兜底。
-      logger.warn("[desktop-context-prompt] first host spawn decision failed, fail-open", {
-        error,
-      });
-    }
-  })();
-  return firstHostSpawnDecisionPromise;
-}
-app.on("browser-window-focus", (_event, win) => {
+app.on("browser-window-focus", () => {
   rebuildMenu();
-  // 设置/更新等无 Host 的 ESCode 窗口也算前台：router 会先把旧 workspace Host 清成 null，
-  // 再把无 Host 的新窗口事实静默丢弃，避免旧会话 PiP 继续显示。
-  cuaPipFocusRouter.focusWindow(resolveCuaPipWindowKey(win));
-});
-app.on("browser-window-blur", (_event, win) => {
-  cuaPipFocusRouter.blurWindow(resolveCuaPipWindowKey(win));
-});
-app.on("browser-window-created", (_event, win) => {
-  const windowKey = resolveCuaPipWindowKey(win);
-  win.once("closed", () => cuaPipFocusRouter.removeWindow(windowKey));
 });
 
 const remoteSessionManager = createRemoteWorkspaceSessionManager({
@@ -831,9 +737,9 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
   resolveWslTarget: resolveCanonicalWslTarget,
 });
 
-// Host 开关（docs/specs/rust-u2-host-skeleton.md §6）：默认走 Rust Host（App 级一个进程，
-// Main 桥接 MessagePort ↔ RPC WebSocket）；显式 `ESCODE_RUST_HOST=0/false` 只回退本地
-// window Host。远程 SSH/WSL/Docker 与 Connection Profile 始终由 Rust Host 服务。
+// Host（docs/specs/rust-u2-host-skeleton.md §6）：S6 起固定走 Rust Host（App 级一个进程，
+// Main 桥接 MessagePort ↔ RPC WebSocket），不再保留 Node window Host 回退。
+// 远程 SSH/WSL/Docker 与 Connection Profile 同样由 Rust Host 服务。
 // 启动失败不阻塞应用：`attachRustHostLocal` 抛带分类的 `RustHostStartError`，由 Host 边界按
 // `desktop-disconnected` 呈现（docs/specs/rust-u2-host-resilience.md §4）。
 const rustHostManager = createRustHostManager({
@@ -847,6 +753,11 @@ const rustHostManager = createRustHostManager({
   // 嵌入运行时的 ambient env 只有 Main 交付的这一份（审计 A16）；含 provider 配置位置（A16b，spec §11）。
   runtimeEnv: () => ({
     ...buildRustHostRuntimeEnv(hostProcessLocalEnv),
+    // 灰度裁决仍由 Main 持有（与 Node Host 同一快照）；Rust runtime 消费该键属独立迁移项，
+    // 在补齐前不会改变行为，但 Main 不再需要 per-window Host 才能交付决定。
+    [ESCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV]: resolveDesktopContextPromptEnabledForHost()
+      ? "1"
+      : "0",
     ...buildRustHostClientEnv(),
     ...buildRustHostProviderEnv({
       builtinFilePath: resolveESCodeBuiltinProviderConfigFilePath(),
@@ -1159,14 +1070,9 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   browserScreenshotSurfaceCoordinator.dispose();
   stopDesktopMemoryDiagnosticsLog();
 
-  const cronSchedulerToDispose = cronScheduler;
-  cronScheduler = null;
-
-  const hostProcesses = [
-    ...new Set([...windowHostProcessMap.values(), ...listDisposingHostProcesses()]),
-  ];
+  // S6：本地窗口 Host 只由 App 级 Rust Host 承载，退出屏障里不再有 per-window Node Host。
   logger.info(
-    `[app-quit] waiting for host process cleanup (${reason}), kind=${activeAppShutdownKind}, hosts=${hostProcesses.length}, forceKillDelayMs=${activeAppShutdownPolicy.forceKillDelayMs}, waitTimeoutMs=${activeAppShutdownPolicy.waitTimeoutMs}`,
+    `[app-quit] waiting for host cleanup (${reason}), kind=${activeAppShutdownKind}, forceKillDelayMs=${activeAppShutdownPolicy.forceKillDelayMs}, waitTimeoutMs=${activeAppShutdownPolicy.waitTimeoutMs}`,
   );
 
   // 每个 owner 单独计时：退出总耗时是阶段 4「启动/退出路径优化」的指标，只有逐项耗时才能
@@ -1181,16 +1087,7 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
   };
 
   appQuitPreparationInFlight = Promise.all([
-    // 旧流程先等待 Cron 的 1.5s deadline，再启动 Host timer，导致声明的
-    // 4.5s/9s 退出总预算被串行放大。两类 owner 无关闭依赖，统一并行进入同一屏障。
-    timed("cron", async () => {
-      try {
-        await cronSchedulerToDispose?.dispose();
-      } catch (error) {
-        logger.warn(`[app-quit] cron scheduler dispose failed (${reason}):`, error);
-      }
-    }),
-    // Rust Host 是 App 级进程，必须和窗口 Host 一样显式进入退出屏障；否则只能等
+    // Rust Host 是 App 级进程，必须显式进入退出屏障；否则只能等
     // stdin EOF 自行退出，退出路径上看不到它的收口结果（rust-u2-host-resilience.md §3.2）。
     timed("rust-host", async () => {
       try {
@@ -1206,23 +1103,9 @@ async function prepareAppQuit(reason: string, kind: AppShutdownKind = "normal"):
         logger.warn(`[app-quit] cua permission service dispose failed (${reason}):`, error);
       }
     }),
-    // remote session、attachment 和 transport 都由窗口 Host 持有；这里先清理
-    // Main 的请求关联，再由下方每窗口唯一 Host 的 shutdown barrier 释放真实连接与 Agent。
+    // remote session、attachment 和 transport 都由 App 级 Rust Host 持有；这里清理
+    // Main 的请求关联，真实连接与 Agent 由上方 rust-host 屏障释放。
     timed("remote-sessions", () => remoteSessionManager.disposeAllAndWaitForAppShutdown(reason)),
-    ...hostProcesses.map((child, index) =>
-      timed(`window-host-${index + 1}`, () =>
-        disposeHostProcessAndWait(
-          child,
-          `${reason}-${index + 1}`,
-          disposingHostProcessTimers,
-          logger,
-          {
-            forceKillDelayMs: activeAppShutdownPolicy.forceKillDelayMs,
-            waitTimeoutMs: activeAppShutdownPolicy.waitTimeoutMs,
-          },
-        ),
-      ),
-    ),
   ])
     .then(() => {
       logger.info(`[app-quit] host process cleanup completed (${reason})`);
@@ -1269,10 +1152,7 @@ function exitPreparedApp(reason: string): never | void {
 }
 
 function getRunningAgentSessionCount() {
-  return (
-    [...hostRunningTaskCountMap.values()].reduce((total, count) => total + count, 0) +
-    rustHostRunningTaskCount
-  );
+  return rustHostRunningTaskCount;
 }
 
 function delay(ms: number): Promise<void> {
@@ -1849,62 +1729,7 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
         },
         hideWindow: () => win.hide(),
       }),
-    windowHostProcessMap,
     rustHostManager,
-    onHostProcessReady: (windowKey) => cuaPipFocusRouter.refreshWindow(windowKey),
-    awaitFirstHostSpawnDecision,
-    spawnHostProcess: (win, label, initMessage) =>
-      spawnHostProcess(
-        win,
-        label,
-        {
-          ...initMessage,
-          escodeBuiltinProviderConfigFilePath: resolveESCodeBuiltinProviderConfigFilePath(),
-        },
-        {
-          hostProcessLocalEnv,
-          desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
-          logger,
-          broadcastHub,
-          taskRealtimeBus,
-          windowHostProcessMap,
-          hostRunningTaskCountMap,
-          onCuaOperationStateChanged: (source, event) =>
-            windowsCuaOperationIndicator.handleState(source, event),
-          onCuaOperationStateSourceExited: (source) =>
-            windowsCuaOperationIndicator.clearSource(source),
-          onCronRunResult: forwardCronRunResult,
-          onCronSchedulerWakeRequested: wakeCronScheduler,
-          authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
-          registerPluginSandbox: (input) => {
-            const host = getPluginSandboxHost();
-            if (!host) throw new Error("Plugin UI sandbox host is not installed.");
-            const { requestId: _requestId, ...registerInput } = input;
-            return host.registerFromHost(registerInput);
-          },
-          // browser-use：main 用 WebContentsView+CDP 执行命令。
-          handleBrowserExecuteRequest: ({ win: browserWin, ...request }) =>
-            runBrowserCommandOnView({ win: browserWin, ...request }),
-        },
-        {
-          taskRealtime: {
-            workspaceKeys: windowWorkspaceMap.get(win.id) ?? [],
-            onHostId: (hostId) => {
-              windowTaskRealtimeHostIdMap.set(win.id, hostId);
-            },
-          },
-        },
-      ),
-    disposeHostProcess: (child, label, forceKillDelayMs) =>
-      disposeHostProcess(
-        child,
-        label,
-        disposingHostProcessTimers,
-        logger,
-        label.includes("window-closed")
-          ? activeAppShutdownPolicy.forceKillDelayMs
-          : forceKillDelayMs,
-      ),
     syncAutoUpdaterStateToWindow,
     syncReadyUpdateToWindow,
     syncPostUpdateReleaseNotesToWindow,
@@ -1920,9 +1745,6 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
       unavailableWorkspacePath: startupBootstrap.unavailableWorkspacePath,
     },
     agentWarmupTargets: startupBootstrap.agentWarmupTargets,
-    // startupBootstrap 只标记 active workspace 是否不可用，但 local Host 会为所有
-    // 已恢复 workspace 建立后台索引。始终注入 canonical fallback，才能覆盖非 active 历史目录已删除的情况。
-    agentSpawnFallbackCwd: getConversationWorkspaceDir(),
     deviceMid,
     runtimeProcessEnvPatchPromise: runtimeProcessEnvPreparation.patchPromise,
     runtimeProcessEnvFallbackPatch: runtimeProcessEnvPreparation.fallbackPatch,
@@ -2083,21 +1905,9 @@ app.whenReady().then(async () => {
     // 读取失败不影响启动，使用默认 homedir
   }
 
-  // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。
   configureDatabaseStartupQuit(() => {
     markExplicitQuit("database-startup-exit");
     app.quit();
-  });
-  onLocalDatabaseStartupReady(() => {
-    try {
-      cronScheduler = spawnCronScheduler({
-        hostProcessLocalEnv,
-        logger,
-        resolveDispatchHost: resolveCronDispatchHost,
-      });
-    } catch (error) {
-      logger.error("[cron-scheduler] failed to spawn scheduler process:", error);
-    }
   });
 
   if (process.platform === "win32") {
@@ -2309,14 +2119,6 @@ app.whenReady().then(async () => {
     executeDesktopCommand: executeDesktopCommandForApp,
     acknowledgePostUpdateReleaseNotes: (version) =>
       acknowledgePostUpdateReleaseNotes(version, mainSettingService),
-    syncActiveTaskSession: (windowId, sessionId) =>
-      cuaPipFocusRouter.updateActiveSession(windowId, sessionId),
-    syncTaskRealtimeWorkspaceKeys: (windowId, workspaceKeys) => {
-      const hostId = windowTaskRealtimeHostIdMap.get(windowId);
-      if (hostId) {
-        taskRealtimeBus.updateHostWorkspaceKeys(hostId, workspaceKeys);
-      }
-    },
     getUpdateState: getAutoUpdaterState,
     openUpdateStatusWindow,
     getAutoUpdatePreferences,
@@ -2417,7 +2219,6 @@ app.on("browser-window-created", (_, win) => {
     browserScreenshotSurfaceCoordinator.handleWindowDestroyed(win.id);
     browserGuestManager.closeWindow(win.id);
     windowWorkspaceMap.delete(win.id);
-    windowTaskRealtimeHostIdMap.delete(win.id);
     if (windowUnreadCountMap.delete(win.id)) {
       syncApplicationUnreadBadge(windowUnreadCountMap);
     }

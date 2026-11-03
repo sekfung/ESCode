@@ -5,7 +5,6 @@ import {
   type RustHostRemoteProfileRequest,
   type RustHostRemoteScope,
   cancelRustHostRemoteProfile,
-  isRustHostEnabled,
   resolveRustHostRemoteProfile,
   RustHostStartError,
   startRustHost,
@@ -32,21 +31,18 @@ export type {
   RustHostRestartPolicy,
 } from "./rustHostManagerTypes.js";
 
-// Rust Host 生命周期（默认开启，docs/specs/rust-u2-host-skeleton.md §6；韧性见
+// Rust Host 生命周期（S6 起固定启用，docs/specs/rust-u2-host-skeleton.md §6；韧性见
 // docs/specs/rust-u2-host-resilience.md §3/§4）：
 // - Main 懒启动一个 App 级 Rust Host（每 App 一个进程，所有窗口/远程 workspace
-//   经 attachment 接入同一个 Host，符合 AGENTS.md 的状态所有者约定）；显式 `ESCODE_RUST_HOST=0/false`
-//   才回退 Node Host；
+//   经 attachment 接入同一个 Host，符合 AGENTS.md 的状态所有者约定）；S6 起不再保留 Node Host 回退；
 // - `attachLocalPort`：给一个 attachment 生产 renderer/relay 侧的 MessagePort——Main 把另一端桥到
 //   Rust Host 的 RPC WebSocket，因此**消费方协议不变**（MessagePort 上的 `@escode/rpc`）；
 // - Host 意外退出（Main 没有调用 `stop()`）时：已桥接的 attachment 全部 `onLost`（消费方按
 //   web-remote-replayable 恢复重建），并按“60 s 内最多 3 次、退避 500 ms / 2 s / 5 s”自动重启；
 //   超过上限进入 `failed`，`ensureStarted()` 以 `RUST_HOST_CRASH_LOOP` 显式拒绝，不回退 Node Host。
 //
-// 未接线处（下一步，见 u2 子 spec）：桌面窗口自身 host 的进程无关化——
-// `desktopHostProcess.ts:762` 的 `MessageChannelMain` 已把 `port1` 交给 renderer、`port2` 交给
-// Electron utility Host；切到 Rust Host 需要 `windowHostProcessMap`/broadcast/taskRealtime 等
-// 子系统接受"非 utility process 的 window host"，属独立改造。
+// S6 后桌面窗口只通过 `attachLocalPort` 接入该 App 级 Host；Node window Host 与
+// `windowHostProcessMap`/broadcast/taskRealtime 等 utility-process 子系统已删除。
 
 const DEFAULT_RESTART_POLICY: RustHostRestartPolicy = {
   maxRestarts: 3,
@@ -66,7 +62,6 @@ interface LiveAttachment {
 }
 
 export function createRustHostManager(options: RustHostManagerOptions): RustHostManager {
-  const enabled = options.enabled ?? isRustHostEnabled();
   const policy = { ...DEFAULT_RESTART_POLICY, ...options.restartPolicy };
   const clock = options.clock ?? SYSTEM_CLOCK;
   const logError = (text: string) => (options.log?.error ?? options.log?.warn)?.(text);
@@ -367,7 +362,6 @@ export function createRustHostManager(options: RustHostManagerOptions): RustHost
   }
 
   return {
-    enabled,
     ensureStarted,
     async attachLocalPort(
       createChannel: () => { port1: unknown; port2: unknown },

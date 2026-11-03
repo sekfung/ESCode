@@ -24,7 +24,7 @@ describe(`${CASE_MARKER}: SSH password 连接 P0`, () => {
     const config = readSSHRuntimeConfig(CASE_MARKER);
     const workspacePath = config.workspacePaths[0];
     await prepareV4ConversationE2E({ skipProvider: true });
-    // `ESCODE_RUST_HOST` 只影响本地 window Host；远程 SSH 始终由 App 级 Rust Host 服务。
+    // S6 起本地 window Host 与远程 SSH 都由 App 级 Rust Host 服务。
     const initialHosts = await readHostProcesses();
     expect(initialHosts.length).toBeGreaterThanOrEqual(1);
 

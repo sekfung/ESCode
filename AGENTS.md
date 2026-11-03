@@ -61,7 +61,7 @@ affected 使用 Vitest 官方选择，只运行选中的根 UT；选中整个套
 
 - Desktop app 通过 stdio 与 Agent 通信。协议改动同步更新 `packages/shared/src/escode-protocol/index.ts`，提供严格类型与运行时校验。
 - Main 负责窗口、原生操作、进程调度和消息转发，不承载 task/session 业务状态。
-- 每个窗口使用一个 window-scoped Local Host；本地 workspace 默认由 Rust Host 服务（`ESCODE_RUST_HOST` 未设置即启用，显式 `0`/`false` 才回退 Node Host）。远程 ssh/wsl/docker 与显式 `kind: "server"` 的 Web 服务端目标统一由 App 级 Rust Host 服务（S5-f 起 `kind: "server"` 不再保留窗口内 Node Host 路径），Connection Profile 与连接注册表均由 Rust Host 持有。`ESCODE_RUST_HOST` 只决定本地 Host，不参与远程路径选择。
+- 每个窗口使用一个 window-scoped Local Host；S6 起本地与远程 Host 均固定由 App 级 Rust Host 服务，`ESCODE_RUST_HOST` 开关与 Node 窗口 Host 回退已删除（`ESCODE_RUST_HOST_BINARY` 仅用于 E2E/自定义安装布局覆盖）。远程 ssh/wsl/docker 与显式 `kind: "server"` 的 Web 服务端目标统一由 App 级 Rust Host 服务（S5-f 起 `kind: "server"` 不再保留窗口内 Node Host 路径），Connection Profile 与连接注册表均由 Rust Host 持有。
 - Desktop 的 `desktop-continuous` 实时链路与 Web 客户端的 `web-remote-replayable` 恢复链路必须明确区分。修改 stream、snapshot、queue 或重连时，同时验证两种语义。
 - 已接受的 busy/running 输入由 CLI/runtime `CommandInbox` 串行 admission；Renderer 只保留未提交草稿与 pending optimistic overlay，Host owner/lease 负责路由。
 - 保留 owner/lease、跨 Host 路由和 stale run 防护，不能仅根据单一路径删除边界判断。

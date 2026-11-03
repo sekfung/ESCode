@@ -162,7 +162,7 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 
 1. 安装（或覆盖安装）后断言 `resources/glm/escode-cli-rust[.exe]` 存在，删除
    `resources/glm/zcode.cjs`；若未来安装包已不含 Node bundle，则把「不存在」视为通过，不伪造删除成功。
-2. 用 `ESCODE_RUST_HOST=1` 启动真实安装包：数据库启动终态必须 `ready`，日志必须出现 Rust Host
+2. 启动真实安装包：数据库启动终态必须 `ready`，日志必须出现 Rust Host
    `started` 与 renderer `attached`，且不得出现 per-window Node utility Host。
 3. `escode-cli-rust-installed-rust-only.test.ts` 只通过安装包内的 Rust 二进制创建会话、发送一轮输入并等待
    完成；不加载 `zcode.cjs`，schema 错误必须为 0。
@@ -297,26 +297,27 @@ stop 中断流式回复后的收口相位、行与下一轮完成情况两侧一
 该用例把上述差异写成**契约**：出现新的差异键即失败，从而在后续改动中持续守住功能对齐。
 新增能力位必须同步更新本表与用例。
 
-## Host 实现切换矩阵（阶段 3，2026-10-23）
+## Host 实现切换矩阵（阶段 3；S6 起固定 Rust Host）
 
-本文件上文描述的是 **Agent runtime**（Rust CLI / Node CLI）的切换面。Host 进程本身另有独立开关：
+本文件上文描述的是 **Agent runtime**（Rust CLI / Node CLI）的切换面。Host 进程自 S6（2026-11-04）起
+不再有实现切换开关，本地与远程统一由 App 级 Rust Host 服务：
 
-| 范围                           | 默认                                           | 显式回退                           | 说明                                                                            |
+| 范围                           | 实现                                           | 回退                               | 说明                                                                            |
 | ------------------------------ | ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
-| 本地 workspace 窗口            | Rust Host（`apps/escode-host`）                | `ESCODE_RUST_HOST=0` / `false`     | 未设置即 Rust；其他未识别值保持 Rust，避免拼写错误静默降级                      |
-| 远程 SSH/WSL/Docker 与 Profile | App 级 Rust Host 的 Source Server scope        | 不提供 Node 远程回退               | `ESCODE_RUST_HOST` 不参与远程路径选择；失败显式报错                             |
-| Web 服务端（`kind: "server"`） | App 级 Rust Host（`kind: "server"` transport） | 不提供 Node 远程回退               | 与 ssh/wsl/docker 共用 Source Server 注册表；连接注册表与本地窗口 Host map 隔离 |
-| Agent runtime（本地/远程）     | Rust CLI                                       | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 开关正交                                                        |
+| 本地 workspace 窗口            | App 级 Rust Host（`apps/escode-host`）         | 无                                 | `ESCODE_RUST_HOST` 已删除；`ESCODE_RUST_HOST_BINARY` 只覆盖二进制路径           |
+| 远程 SSH/WSL/Docker 与 Profile | App 级 Rust Host 的 Source Server scope        | 无                                 | 失败显式报错                                                                    |
+| Web 服务端（`kind: "server"`） | App 级 Rust Host（`kind: "server"` transport） | 无                                 | 与 ssh/wsl/docker 共用 Source Server 注册表；连接注册表与本地窗口 Host map 隔离 |
+| Agent runtime（本地/远程）     | Rust CLI                                       | `ESCODE_AGENT_SERVER_RUNTIME=node` | 见上文；与 Host 生命周期正交                                                    |
 
-回退步骤（Host）：
+Host 回退步骤（S6 起）：
 
-1. 设置 `ESCODE_RUST_HOST=0`（只切换本地 window Host；远程 SSH/WSL/Docker 仍由 Rust Host 服务）；
-2. 重启 App；
-3. 确认窗口主进程日志出现 `forked host process for (local-`，且没有 `[rust-host] started`。
+1. Host 实现没有运行时回退；需要回退时只能回滚到仍含 Node Host 的旧安装包（安装包降级）；
+2. 回滚后按旧版本文档设置 `ESCODE_RUST_HOST=0` 才走 Node Host，新版会忽略该变量；
+3. 新版确认主进程日志出现 `[rust-host] started`，且没有 `forked host process for (local-`。
 
 数据边界：Host 只读写既有设置文件与 tasks-index；切换 Host 实现不迁移、不改写这两类文件。安装包演练
-`node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill` 复用同一 home 依次以
-Node Host → Rust Host → Node Host 启动，断言每次 Host 类型正确，并校验冻结设置夹具（含未知键）在切换后
+`node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill` 复用同一 home 连续三次以
+Rust Host 启动（S6 起不再演练 Node Host），断言每次 Host 类型正确，并校验冻结设置夹具（含未知键）在重启后
 未被破坏。release 工作流的 `installed` 四平台作业执行该演练（`.github/workflows/release.yml`）。
 2026-10-24 release CI run `40022683157` 的 `installed` 四平台作业全部 success，四个日志均出现
 `host switch and rollback drill passed: node → rust → node, settings preserved`；

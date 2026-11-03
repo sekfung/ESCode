@@ -4,5 +4,4 @@ export interface ChromiumProcessRolePids {
   mainWindowRendererPids: ReadonlySet<number>;
   guestRendererPids: ReadonlySet<number>;
   hostPids: ReadonlySet<number>;
-  schedulerPids: ReadonlySet<number>;
 }

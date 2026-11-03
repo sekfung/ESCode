@@ -24,7 +24,8 @@
   （与 TS 同库同表、同列）。
 - Host 是管理面写者；`claimDue` / `markDispatched` / `markDispatchFailed` 在 repo，
   常驻 scheduler 在 Host 组合根启动（`automation_scheduler.rs`，20 s tick、misfire 跳过）。
-  窗口全关后仍由 Host 进程派发，Main 不持有调度状态（H5.3 已落地）。
+  窗口全关后仍由 Host 进程派发，Main 不持有调度状态（H5.3 已落地；2026-11-04 S6 删除
+  Desktop 侧重复的 Node cron scheduler 进程）。
 - `model_selection` / `schedule_rule` 以 JSON 文本存储；读取时非法 JSON 按缺省字段处理（与 TS 读取兼容）。
 
 ## 3. 接口

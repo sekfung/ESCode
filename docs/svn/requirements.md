@@ -146,7 +146,7 @@ Rust Host、merge、单文件历史与 Blame、分支拓扑图谱、externals / 
 ### 场景 10：环境不满足
 
 - 未找到 svn 或版本低于 1.8：面板显示安装指引，不显示其他操作。
-- Rust Host（`ESCODE_RUST_HOST=1`）与 TS Host 使用同一套 `svn` 服务语义；只有连接到未实现 `svn` channel 的旧 Host 时，面板才显示“当前 Host 暂不支持 SVN”。
+- Rust Host 与历史 TS Host 使用同一套 `svn` 服务语义（S6 起 Host 固定 Rust）；只有连接到未实现 `svn` channel 的旧 Host 时，面板才显示“当前 Host 暂不支持 SVN”。
 - 远程 workspace 的远端机器未安装 svn：同样显示安装指引，指引对应远端系统。
 
 ### 场景 11：我想把其他分支的改动合并进来

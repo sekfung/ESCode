@@ -28,8 +28,6 @@ export interface RustHostManagerOptions {
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
   /** Main 专属服务（cua-permission / sandbox 注册）；提供后 Host 经控制通道转发。 */
   onMainRequest?: (request: { method: string; params: unknown }) => Promise<unknown>;
-  /** 显式覆盖开关（默认读 `ESCODE_RUST_HOST`）。 */
-  enabled?: boolean;
   /** 启动握手截止时间（默认 10s，spec §4）。 */
   startTimeoutMs?: number;
   /** 受限重启策略（默认 60 s 内 3 次，退避 500 ms / 2 s / 5 s；spec §3.2）。 */
@@ -101,8 +99,6 @@ export interface RustHostAttachmentClosedEvent {
 }
 
 export interface RustHostManager {
-  /** 开关是否打开（关闭时调用方走 Node Host；M5 删除）。 */
-  readonly enabled: boolean;
   /** 懒启动（single-flight）；失败抛 `RustHostStartError`。重启退避期间等待同一次重启。 */
   ensureStarted(): Promise<RustHostHandle>;
   /**

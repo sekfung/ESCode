@@ -80,7 +80,8 @@ fail-closed）下无可见损失；但**装了闭源 producer 的私有构建**�
 
 **非缺口依据**：**无任何 Renderer 调用方**——不在 `IServiceAccessor`、不在 `RemoteServiceAccess`，`packages/ui` /
 `packages/client` 全仓零引用（grep 无命中）。它只是 Host 内部投递链（`node.ts:1961` 的
-`publishLifecycle` 由 agent service 事件驱动）。Rust Host 不服务它 = 无可见差异。
+`publishLifecycle` 由 agent service 事件驱动）。Rust Host 不服务它 = 无可见差异。2026-11-04 S6 删除
+Node Host 后，Main 侧 focus 转发与 `syncActiveTaskSession` 平台 API 一并删除，不存在无投递对象的死链路。
 
 ## 3. 部分可迁项：`prepareSandbox` 是唯一不可迁成员
 

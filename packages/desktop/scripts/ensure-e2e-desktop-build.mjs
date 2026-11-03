@@ -30,7 +30,6 @@ const SYNC_WAIT_BUFFER = new Int32Array(new SharedArrayBuffer(4));
 export const E2E_DESKTOP_REQUIRED_OUTPUT_PATHS = [
   "out/main/index.js",
   "out/host/index.js",
-  "out/scheduler/index.js",
   "out/preload/index.cjs",
   "out/preload/resourceManager.cjs",
   "out/renderer/index.html",
@@ -60,7 +59,6 @@ export const DEFAULT_E2E_DESKTOP_BUILD_INPUTS = [
   "packages/desktop/tsconfig.main.json",
   "packages/desktop/tsconfig.preload.json",
   "packages/desktop/tsconfig.renderer.json",
-  "packages/desktop/tsconfig.scheduler.json",
   "packages/desktop/tsup.config.ts",
   "packages/desktop/vite.config.ts",
 ];

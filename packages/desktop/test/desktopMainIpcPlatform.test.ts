@@ -119,7 +119,6 @@ describe("registerPlatformIpcHandlers", () => {
       currentApplicationLocale: () => "en-US",
       executeDesktopCommand: vi.fn(async () => {}),
       acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
-      syncTaskRealtimeWorkspaceKeys: vi.fn(),
       getUpdateState: vi.fn(() => ({ status: "idle" })),
       deviceMid: "test-device-mid",
     });
@@ -155,7 +154,6 @@ describe("registerPlatformIpcHandlers", () => {
       currentApplicationLocale: () => "en-US",
       executeDesktopCommand: vi.fn(async () => {}),
       acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
-      syncTaskRealtimeWorkspaceKeys: vi.fn(),
       getUpdateState: vi.fn(() => ({ status: "idle" })),
       deviceMid: "test-device-mid",
     });
@@ -190,7 +188,6 @@ describe("registerPlatformIpcHandlers", () => {
       currentApplicationLocale: () => "en-US",
       executeDesktopCommand: vi.fn(async () => {}),
       acknowledgePostUpdateReleaseNotes: vi.fn(async () => {}),
-      syncTaskRealtimeWorkspaceKeys: vi.fn(),
       getUpdateState: vi.fn(() => ({ status: "idle" })),
       deviceMid: "test-device-mid",
     });

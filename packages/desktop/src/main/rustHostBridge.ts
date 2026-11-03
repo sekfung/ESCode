@@ -17,7 +17,10 @@ import type {
 } from "./rustHostBridgeTypes.js";
 
 export { RUST_HOST_CAPABILITY_HEADER, RUST_HOST_SECRET_HEADER } from "./rustHostBridgeHttp.js";
-export { cancelRustHostRemoteProfile, resolveRustHostRemoteProfile } from "./rustHostRemoteProfile.js";
+export {
+  cancelRustHostRemoteProfile,
+  resolveRustHostRemoteProfile,
+} from "./rustHostRemoteProfile.js";
 
 export type {
   HostPortLike,
@@ -36,7 +39,7 @@ export type {
   StartRustHostOptions,
 } from "./rustHostBridgeTypes.js";
 
-// Host 默认走 Rust（显式 `ESCODE_RUST_HOST=0/false` 才回退 Node）：窗口的本地 Host 通路由
+// Host 固定走 Rust（S6 起不再保留 Node Host 回退开关）：窗口的本地 Host 通路由
 // Electron utility process 切到 Rust Host（docs/specs/rust-u2-host-skeleton.md §6）。切换点是 Main 的
 // `attachWorkspaceHost` 本地分支：renderer 仍拿到一个 MessagePort（协议层 SocketProtocol
 // 不变），Main 把该端口与 Rust Host 的 RPC WebSocket（`@escode/rpc` 协议，二进制帧）
@@ -67,15 +70,6 @@ export class RustHostStartError extends Error {
   ) {
     super(message);
   }
-}
-
-/**
- * `ESCODE_RUST_HOST` 默认开启（M5 已翻转，四平台安装包验收见 rust-u2-window-host.md §6）；
- * 显式 `0`/`false` 才回退 Node Host。其它未识别值保持默认开启，避免拼写错误静默降级。
- */
-export function isRustHostEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = (env.ESCODE_RUST_HOST ?? "").trim().toLowerCase();
-  return raw !== "0" && raw !== "false";
 }
 
 /**

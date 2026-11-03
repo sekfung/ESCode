@@ -439,7 +439,7 @@ export async function prepareSSHLifecycle(caseMarker: string): Promise<{
   const config = readSSHRuntimeConfig(caseMarker);
   await prepareV4ConversationE2E({ skipProvider: true });
   const initialHosts = await readHostProcesses();
-  // `ESCODE_RUST_HOST` 只影响本地 window Host；远程 SSH 始终由 Rust Host 服务。
+  // S6 起本地 window Host 与远程 SSH 都由 App 级 Rust Host 服务。
   expect(initialHosts.length).toBeGreaterThanOrEqual(1);
   const provider = await createSSHLifecycleProvider(config, caseMarker);
   return { config, initialHosts, provider };

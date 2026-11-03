@@ -32,7 +32,7 @@
 | `grantWorkspaceHookTrust` | `useWorkspaceHookInlineTrust.ts:100-103`                              | 不在 Host 直接写 trust store；转发运行时 Agent authority 重新发现并授权     |
 
 不在本轮：hooks 执行器与调用点（已在 `apps/escode-cli-rust`，见 `rust-hooks.md`）、删除 TS 代码、
-`ESCODE_RUST_HOST` 开关、窗口 host 接线、其它 channel。
+其它 channel。`ESCODE_RUST_HOST` 开关与窗口 host 接线已于 2026-11-04 S6 删除。
 
 ## 2. 状态所有者
 

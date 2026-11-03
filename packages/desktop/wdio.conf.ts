@@ -153,16 +153,9 @@ const E2E_HOME_DIR = resolve(
 const E2E_PACKAGED_APP_BINARY_PATH = process.env.ESCODE_E2E_PACKAGED_APP_PATH?.trim()
   ? resolve(process.env.ESCODE_E2E_PACKAGED_APP_PATH)
   : null;
-// M5 默认走 Rust Host：非打包 E2E 的 appPath 指向 .e2e-cache 副本，Main 无法按仓库布局
+// S6 起 Host 固定 Rust：非打包 E2E 的 appPath 指向 .e2e-cache 副本，Main 无法按仓库布局
 // 推导 debug 二进制，必须在 runnerEnv 里显式给出。打包 E2E 用包内二进制，不覆盖。
-const E2E_RUST_HOST_ENABLED = !["0", "false"].includes(
-  (process.env.ESCODE_RUST_HOST ?? "").trim().toLowerCase(),
-);
-if (
-  !E2E_PACKAGED_APP_BINARY_PATH &&
-  E2E_RUST_HOST_ENABLED &&
-  !process.env.ESCODE_RUST_HOST_BINARY?.trim()
-) {
+if (!E2E_PACKAGED_APP_BINARY_PATH && !process.env.ESCODE_RUST_HOST_BINARY?.trim()) {
   process.env.ESCODE_RUST_HOST_BINARY = resolve(
     REPO_ROOT,
     "apps",
@@ -846,10 +839,10 @@ function applyAskUserQuestionClockScaleForWorker(specs: string[]) {
 }
 
 function ensureRustHostBinaryForE2E() {
-  if (E2E_PACKAGED_APP_BINARY_PATH || !E2E_RUST_HOST_ENABLED) return;
+  if (E2E_PACKAGED_APP_BINARY_PATH) return;
   const binary = process.env.ESCODE_RUST_HOST_BINARY?.trim();
   if (!binary || existsSync(binary)) return;
-  // M5 默认走 Rust Host：非打包 E2E 使用仓库 debug 二进制，缺失时在 onPrepare 自举一次。
+  // S6 起 Host 固定 Rust：非打包 E2E 使用仓库 debug 二进制，缺失时在 onPrepare 自举一次。
   console.log("[e2e] building Rust Host debug binary for the default Rust Host");
   execFileSync("cargo", ["build", "--locked", "--manifest-path", "apps/escode-host/Cargo.toml"], {
     cwd: REPO_ROOT,
@@ -3031,7 +3024,6 @@ export const config: WebdriverIO.Config = {
     ESCODE_E2E_DEFER_APP_DATA_CLEANUP: "1",
     ESCODE_E2E_RUN_ID: E2E_RUN_ID,
     ESCODE_ENV: "test",
-    ...(process.env.ESCODE_RUST_HOST ? { ESCODE_RUST_HOST: process.env.ESCODE_RUST_HOST } : {}),
     ...(process.env.ESCODE_RUST_HOST_BINARY
       ? { ESCODE_RUST_HOST_BINARY: process.env.ESCODE_RUST_HOST_BINARY }
       : {}),

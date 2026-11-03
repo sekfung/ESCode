@@ -2,7 +2,7 @@
 
 > 状态：窗口 attachment 已落地（2026-10-22，开关打开时生效）· 默认开关翻转仍被本文 §5 的 parity 缺口阻塞
 > 父计划：`rust-unified-host.md` §阶段 2 / H2.3；相关：`rust-u2-host-resilience.md` §3.4
-> 开关：`ESCODE_RUST_HOST`（`0`/`false` 关闭）；二进制覆盖：`ESCODE_RUST_HOST_BINARY`
+> Host：固定 Rust Host（S6 起删除 `ESCODE_RUST_HOST` 开关）；二进制覆盖：`ESCODE_RUST_HOST_BINARY`
 
 ## 1. 现状（2026-10-22 实测）
 
@@ -10,8 +10,9 @@
   `attachLocalPort`**。手机远控删除后，原来的 Rust attachment 消费方也不存在了。
 - 2026-10-22 已补 `desktopRustHostWindow.ts` 与 `desktopWindowLifecycle.ts` 的 Rust 分支：
   开关打开时窗口只建 attachment，不 spawn utility process；reload/close 只解绑。
-- 因此 `ESCODE_RUST_HOST` **现在决定窗口 Host**；2026-10-23 已完成四平台安装包验收并默认开启，
-  显式 `0`/`false` 回退 Node Host；该开关只决定本地窗口 Host，远程 ssh/wsl/docker 始终由 App 级 Rust Host 服务（见 §6、S5-b）。
+- 2026-10-23 已完成四平台安装包验收并把 Rust Host 翻为默认；**S6（2026-11-04）删除
+  `ESCODE_RUST_HOST` 开关与 Node 窗口 Host 回退**：本地窗口、远程 ssh/wsl/docker 与
+  `kind: "server"` 目标全部由 App 级 Rust Host 服务（见 §6、S5-b）。
 - `ESCODE_RUST_HOST_BINARY` 覆盖已落地（E2E/自定义安装布局）。
 
 ## 2. 目标形态
@@ -71,7 +72,7 @@ Host 意外退出时 `onLost` 触发：窗口收到 `failed/transport_closed` �
 
 | #   | 原缺口                           | 处理                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | 远程 workspace（SSH/WSL/Docker） | **S5-a/S5-b 已迁移**：本地窗口用 Rust Host；远程 ssh/wsl/docker 与 Connection Profile 由 App 级 Rust Host 的 Source Server scope 服务。S5-f 起显式 `kind: "server"` Web 服务端目标也迁到 App 级 Rust Host，per-window Node Host 远程路径与 `remoteWindowHostProcessMap` 已删除。`ESCODE_RUST_HOST` 只决定本地 Host。`desktopRemoteSessionsRustHostMode.test.ts` 验证 server target 也走 Rust resolver、缺少 resolver 时显式失败。真实 SSH E2E 见 §5.1。                                                  |
+| 1   | 远程 workspace（SSH/WSL/Docker） | **S5-a/S5-b 已迁移**：本地窗口用 Rust Host；远程 ssh/wsl/docker 与 Connection Profile 由 App 级 Rust Host 的 Source Server scope 服务。S5-f 起显式 `kind: "server"` Web 服务端目标也迁到 App 级 Rust Host，per-window Node Host 远程路径与 `remoteWindowHostProcessMap` 已删除。本地与远程 Host 均固定为 App 级 Rust Host。`desktopRemoteSessionsRustHostMode.test.ts` 验证 server target 也走 Rust resolver、缺少 resolver 时显式失败。真实 SSH E2E 见 §5.1。                                           |
 | 2   | 资源管理器采样与 host 行         | Rust `process_sampler`（Host 自身 + 子进程树）+ `HostEvent.resource-usage-snapshot-result`；Main `registerExternalHostProcess` 把 Rust Host 作为外部 host 纳入采样与进程行。                                                                                                                                                                                                                                                                                                                             |
 | 3   | 网络捕获                         | `escode-cli-net::capture` 250ms/100 条批量；model、webfetch、MCP SSE/OAuth HTTP、provider/API client 出口记录（`mcp_http` 只建 client，实际发送在 `mcp_sse`/`mcp_oauth_http`）；`HostEvent.network-capture-batch` → Main `ingestHostNetworkCapture`。                                                                                                                                                                                                                                                    |
 | 4   | Agent 进程事件与运行任务计数     | `Instances::lifecycle` → `agent-process-spawned/exited`（child-link 有 pid；embedded 无 per-workspace 进程，Host 行即进程事实）；`TaskEventHub` 在 run start/terminal 发 `agent-running-task-count-changed`，Main 计入退出确认。                                                                                                                                                                                                                                                                         |
@@ -114,31 +115,31 @@ ChromeDriver：Electron 41.10.7 的 Chromium `146.0.7680.216` 没有对应 Chrom
 承载，`ConnectRemoteWorkspace` 已删除；当前边界行为见
 [source-server-remote-rust-host.md](source-server-remote-rust-host.md) §12.6。
 
-**默认开关（2026-10-23 已翻转）**：`ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host；显式 `0`/`false` 回退本地 Node 窗口 Host（远程不读取该开关，始终走 Rust Host）。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
+**默认开关（2026-10-23 已翻转；S6 已删除开关）**：历史实现中 `ESCODE_RUST_HOST` 未设置或为真值时使用 Rust Host，显式 `0`/`false` 回退本地 Node 窗口 Host。S6 起本地窗口 Host 固定为 Rust Host，Node 窗口 Host、`isRustHostEnabled` 与安装包 Node→Rust→Node 切换演练一并删除；下方 run 记录是翻转当时的验收证据。翻转前依据 CI run `39920171658`（四个 `installed` 作业的显式 Rust Host 步骤全绿）；翻转后 run `39932318894` 再次验证默认路径：win-x64、mac-arm64、mac-x64、linux-x64 的 `install and launch`（未设置 env，走默认 Rust Host）与显式 Rust Host 步骤均 success（Windows 该轮 NSIS 安装器偶发 `0xC0000005`，重跑后通过）。
 
 ## 6. 验收（默认翻转前必须满足）
 
-- 单测：Rust attachment 创建不发 `spawnHostProcess`、不注册 broadcast/taskRealtime/hostProcess；
-  reload 复用 Host、close 只解绑；synthetic ready 被 `DatabaseStartupAdmission` 接受
+- 单测：窗口只创建 Rust attachment（S6 后不存在 Node Host spawn/broadcast/taskRealtime/hostProcess
+  装配）；reload 复用 Host、close 只解绑；synthetic ready 被 `DatabaseStartupAdmission` 接受
   （`desktopRustHostWindow.test.ts`、`desktopWindowLifecycle.test.ts`）。
 - 集成（真实 Host）：两个窗口 attachment 共用同一进程，Host 退出时两个 attachment 都收到
   `onLost`；Host 受限重启后新 attachment 可用（`rustHostResilience.test.ts` 的
   "serves multiple window attachments from one Host process" 与
   "restarts within the budget and attachments are rebuilt"）。
 - E2E（Linux，2026-10-23 已通过）：`conversation-session-rust-host-window-lifecycle.test.ts`，
-  artifact `desktop-e2e-20261023-064527-548`（显式 `ESCODE_RUST_HOST=1`）与
+  artifact `desktop-e2e-20261023-064527-548`（当时显式 `ESCODE_RUST_HOST=1`）与
   `desktop-e2e-20261023-092550-025`（不设置任何 env，走翻转后的默认值）。本地窗口只由 1 个
   `escode-host-rust-host` 服务，无 `escode-host-local-*` utility host；renderer reload 后 Host pid
   不变。App quit 后 Host 退出由 `desktop-e2e` 退出屏障、`rustHostManager.stop()` 测试与 SSH E2E
   teardown 的 `[spawnHostProcess] host process ... exited` 覆盖。
-- 远程 workspace：`conversation-session-ssh-remote-connection-p0.test.ts` 在
-  `ESCODE_RUST_HOST=1` 下通过（§5.1）。
+- 远程 workspace：`conversation-session-ssh-remote-connection-p0.test.ts` 通过（§5.1；S6 后固定
+  Rust Host，不再需要开关）。
 - 资源管理器、网络捕获、CUA 指示、browser-use、agent 进程计数：由 `rustHostHostEvents`、
   `rustHostCuaPermission`、`rustHostRuntimeCrash` 与对应 channel 测试覆盖；SSH E2E 回归了
   远程 host 行与 agent 进程注册。
 - 默认翻转的 macOS/Windows 安装包 E2E 已接入且通过 CI：`.github/workflows/release.yml` 的
   `installed` 作业（win-x64 / mac-arm64 / mac-x64 / linux-x64）在真实安装后，再用
-  `ESCODE_RUST_HOST=1 ESCODE_INSTALLED_EXPECT_RUST_HOST=1 node scripts/ci-install-desktop.mjs --launch-only`
+  `ESCODE_INSTALLED_EXPECT_RUST_HOST=1 node scripts/ci-install-desktop.mjs --launch-only`
   启动同一个包，断言包内 `escode-host` 启动、renderer attach，且没有 utility Node 窗口 Host。
   CI run `39920171658` 四个平台的该步骤全部 success；随后已把 `ESCODE_RUST_HOST` 默认翻转为开启
   （显式 `0`/`false` 回退本地 Node 窗口 Host；远程始终走 Rust Host）。翻转后的 run `39932318894` 四平台 `installed` 全绿，

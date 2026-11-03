@@ -302,8 +302,6 @@ contextBridge.exposeInMainWorld("escode", {
   /** 同步当前窗口的未读 task 数到 main 进程 */
   syncWindowUnreadCount: (count: number) =>
     ipcRenderer.send(PlatformChannels.SyncWindowUnreadCount, count),
-  syncActiveTaskSession: (sessionId: string | null) =>
-    ipcRenderer.send(PlatformChannels.SyncActiveTaskSession, sessionId),
   /** 同步需要 main 进程即时感知的应用设置 */
   syncAppSettings: (patch: Partial<AppSettings>) =>
     ipcRenderer.send(PlatformChannels.SyncAppSettings, patch),

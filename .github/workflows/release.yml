@@ -246,21 +246,20 @@ jobs:
           path: installer
       - name: install and launch
         run: node scripts/ci-install-desktop.mjs installer ${{ inputs.rust_only && '--rust-only' || '' }}
-      # 默认翻转门槛（rust-u2-window-host.md §6）：用同一个真实安装包再以 Rust Host 启动，
-      # 断言包内 escode-host 真的启动并挂上 renderer，且不再创建 utility Node 窗口 Host。
+      # Rust Host 门槛（rust-u2-window-host.md §6）：用同一个真实安装包启动，
+      # 断言包内 escode-host 真的启动并挂上 renderer，且不会创建 utility Node 窗口 Host。
       - name: launch installed package with Rust Host
         shell: bash
         env:
-          ESCODE_RUST_HOST: "1"
           ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
         run: node scripts/ci-install-desktop.mjs --launch-only
-      # 阶段 3 切默认演练：同一个安装包依次以 Node Host → Rust Host → Node Host 启动，
-      # 断言每次 Host 类型正确，且冻结设置夹具在切换后未被破坏。
-      - name: Host switch and rollback drill
+      # S6 重启演练：同一个安装包连续三次以 Rust Host 启动，
+      # 断言每次 Host 类型正确，且冻结设置夹具在重启后未被破坏。
+      - name: Host restart drill
         shell: bash
         run: node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill
-      - name: Node → Rust → Node rollback rehearsal on the installed package
-        # Rust-only 产物没有 Node agent bundle，回退演练由 rust_only 的安装 / 会话门禁替代。
+      - name: Node → Rust runtime rehearsal on the installed package
+        # Rust-only 产物没有 Node agent bundle，runtime 演练由 rust_only 的安装 / 会话门禁替代。
         if: ${{ !inputs.rust_only }}
         shell: bash
         env:
@@ -286,7 +285,6 @@ jobs:
       - name: launch installed package with Rust Host only
         shell: bash
         env:
-          ESCODE_RUST_HOST: "1"
           ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
         run: node scripts/ci-install-desktop.mjs --launch-only --rust-only
       - name: Rust-only installed runtime session

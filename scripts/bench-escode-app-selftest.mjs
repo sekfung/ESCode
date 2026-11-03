@@ -26,13 +26,13 @@ export function assertBenchHelpers() {
   };
   const installed = installedBenchConfigs(fakePaths);
   if (
-    installed.A.env.ESCODE_RUST_HOST !== "0" ||
     installed.A.env.ESCODE_AGENT_SERVER_RUNTIME !== "node" ||
-    installed.B.env.ESCODE_RUST_HOST !== "0" ||
     installed.B.env.ESCODE_AGENT_SERVER_RUNTIME !== "escode-cli-rust" ||
     installed.B.env.ESCODE_AGENT_SERVER_COMMAND !== fakePaths.rust ||
-    installed.C.env.ESCODE_RUST_HOST !== "1" ||
-    installed.C.env.ESCODE_HOST_RUNTIME_LINK !== "embedded"
+    installed.C.env.ESCODE_HOST_RUNTIME_LINK !== "embedded" ||
+    installed.A.env.ESCODE_RUST_HOST !== undefined ||
+    installed.B.env.ESCODE_RUST_HOST !== undefined ||
+    installed.C.env.ESCODE_RUST_HOST !== undefined
   ) {
     throw new Error(`[self-test] 安装包配置错误：${JSON.stringify(installed)}`);
   }

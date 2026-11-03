@@ -44,11 +44,15 @@
 变化并恢复、冻结设置保持不变。因此「Rust-only 三平台发行门禁」与「Rust-only 升级/降级演练」不再是待办；
 删除 TS CLI、本地 Node Host 回退与 `ESCODE_AGENT_SERVER_RUNTIME=node` 仍需 P1 残余项收敛和单独确认。
 
-删除 `ESCODE_RUST_HOST=0` 本地 Node Host 回退的依赖面（2026-11-04 盘点，删除前需先给出替代方案并单独确认）：
-`scripts/ci-install-desktop.mjs` 的 Node→Rust→Node 安装包演练（`ESCODE_RUST_HOST` 取 `0`/`1` 两条腿）、
-`scripts/bench-escode-app.mjs` / `scripts/bench-escode-app-installed.mjs` 的 Node Host + Node/Rust CLI 基准
-（P1 性能证据）、`packages/desktop/wdio.conf.ts` 的 E2E env 透传与
-`packages/desktop/scripts/ensure-local-runtime-assets.mjs` 的 Rust Host 自举判定。
+2026-11-04 已删除 `ESCODE_RUST_HOST=0` 本地 Node Host 回退（S6）：`desktopWindowLifecycle.ts` 的
+Node 分支、`desktopHostProcess.ts` 的 spawn/dispose 进程管理、`isRustHostEnabled` 与
+`windowHostProcessMap` 装配一并移除；安装包演练改为 Rust Host 重启三次并校验冻结设置，
+`bench-escode-app*.mjs` 改为 Rust Host 下的 Node/Rust/embedded runtime 对比，
+E2E 不再透传该开关，`ensure-local-runtime-assets.mjs` 只保留 `ESCODE_RUST_HOST_BINARY` 覆盖。
+同时删除仅由 Node Host 驱动的 Desktop 侧 cron scheduler（automation 调度由 Rust Host 常驻循环承担）、
+`BroadcastHub` / `TaskRealtimeBus` 与 `cua-pip-session` focus 转发（占位包恒 `enabled:false`，Rust Host
+不服务该域，见 `rust-u2-host-scope-boundary.md` §2.2）。`desktopContextPromptRollout` 的裁决仍由 Main
+写入 Rust Host `runtimeEnv`，但 Rust runtime 尚未消费该键，属独立 P2 迁移项，当前不改变行为。
 
 2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
 `row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需

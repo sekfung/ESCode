@@ -326,32 +326,4 @@ export default defineConfig([
     onSuccess: createDevReadyMarkerHook("host"),
     ...desktopTsupBundleSecurityOptions,
   },
-  {
-    name: "scheduler",
-    entry: { "scheduler/index": "src/scheduler/index.ts" },
-    outDir: "out",
-    format: "esm",
-    platform: "node",
-    target: "node22",
-    // 与 host 同构：常驻 cron scheduler 进程复用 @escode/services（tasks-index + cron），
-    // 同样保留 undici 等为外部依赖，避免 Electron ESM runtime 的 dynamic require 崩溃。
-    external: desktopNodeRuntimeExternals,
-    noExternal: [
-      "@escode/server",
-      "@escode/shared",
-      "@escode/rpc",
-      "@escode/services",
-      "@escode/client",
-      "@escode/provider",
-      "@escode/provider-node",
-      "@escode/escode-cua",
-    ],
-    define: createSharedDefines(),
-    esbuildOptions(options) {
-      applyDesktopTsupEsbuildSecurityOptions(options);
-      options.chunkNames = "scheduler/chunk-[hash]";
-    },
-    onSuccess: createDevReadyMarkerHook("scheduler"),
-    ...desktopTsupBundleSecurityOptions,
-  },
 ]);

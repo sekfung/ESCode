@@ -84,7 +84,6 @@ export const runtimeSessionDataPath =
 // e2e 如果再用 app.setPath 覆盖 userData/sessionData，端口文件会被写到另一个目录，
 // 导致 Electron 已启动但 WebDriver session 一直创建失败。测试态打开该开关后保留 Chromedriver 的目录。
 export const hostModulePath = join(import.meta.dirname, "../host/index.js");
-export const schedulerModulePath = join(import.meta.dirname, "../scheduler/index.js");
 export function getCredentialsDir() {
   return getAppConfigDir();
 }
@@ -102,9 +101,7 @@ export function resolveRustHostRemoteAssets(
   dirs: RemoteAssetDirs,
   version: string = ESCODE_VERSION,
 ): { releaseDir?: string; cdnBaseUrls: string[]; appVersion: string } {
-  const baseUrls = (dirs.remoteCdnBaseUrls ?? [])
-    .map((url) => url.trim())
-    .filter(Boolean);
+  const baseUrls = (dirs.remoteCdnBaseUrls ?? []).map((url) => url.trim()).filter(Boolean);
   if (baseUrls.length === 0 && dirs.remoteCdnBaseUrl?.trim()) {
     baseUrls.push(dirs.remoteCdnBaseUrl.trim());
   }
