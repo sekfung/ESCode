@@ -11,6 +11,7 @@ import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { createCaSignedLeaf } from "./escode-cli-rust-tls-fixture.js";
 
 const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
 
@@ -23,78 +24,16 @@ test("settings-page CA is trusted by Node and Rust", async () => {
   const temp = await mkdtemp(join(tmpdir(), "rust-tls-ca-"));
   // 真实形态：设置页的 CA 签发的**叶子**证书（rustls 拒绝把 `CA:TRUE` 的证书当服务端叶子，
   // Node/OpenSSL 则宽容——单张自签证书会造出「Node 过、Rust 不过」的假差异）。
-  const caKey = join(temp, "ca-key.pem"),
-    caCert = join(temp, "ca.pem"),
+  const caCert = join(temp, "ca.pem"),
     leafKey = join(temp, "leaf-key.pem"),
-    leafCsr = join(temp, "leaf.csr"),
-    leafCert = join(temp, "leaf.pem"),
-    extensions = join(temp, "leaf.ext");
-  const openssl = (...args: string[]) => promisify(execFile)("openssl", args);
-  // 修复：macOS 自带 LibreSSL 的 `x509 -req` 默认用 SHA-1 签名，rustls 会拒绝该证书并让
-  // Rust 侧在建立连接前就报 TLS 校验失败（表现是本地模型服务 requests=0）。显式指定 SHA-256，
-  // 让 Linux OpenSSL 与 macOS LibreSSL 生成同一种可被 rustls 接受的证书。
-  await openssl(
-    "req",
-    "-x509",
-    "-sha256",
-    "-newkey",
-    "rsa:2048",
-    "-nodes",
-    "-keyout",
-    caKey,
-    "-out",
-    caCert,
-    "-days",
-    "1",
-    "-subj",
-    "/CN=ESCode Test CA",
-    "-addext",
-    "basicConstraints=critical,CA:TRUE",
-    "-addext",
-    "keyUsage=critical,keyCertSign,cRLSign",
-  );
-  await openssl(
-    "req",
-    "-new",
-    "-sha256",
-    "-newkey",
-    "rsa:2048",
-    "-nodes",
-    "-keyout",
-    leafKey,
-    "-out",
-    leafCsr,
-    "-subj",
-    "/CN=127.0.0.1",
-  );
-  await writeFile(
-    extensions,
-    [
-      "basicConstraints=critical,CA:FALSE",
-      "keyUsage=critical,digitalSignature,keyEncipherment",
-      "extendedKeyUsage=serverAuth",
-      "subjectAltName=IP:127.0.0.1,DNS:localhost",
-      "",
-    ].join("\n"),
-  );
-  await openssl(
-    "x509",
-    "-req",
-    "-sha256",
-    "-in",
-    leafCsr,
-    "-CA",
-    caCert,
-    "-CAkey",
-    caKey,
-    "-CAcreateserial",
-    "-out",
-    leafCert,
-    "-days",
-    "1",
-    "-extfile",
-    extensions,
-  );
+    leafCert = join(temp, "leaf.pem");
+  // 修复：macOS runner 的 LibreSSL 生成的证书链会被 rustls 拒绝，导致该用例只在 macOS 报
+  // 「Provider TLS validation failed.」且服务端 requests=0。证书改由测试进程内的 node-forge 生成，
+  // 不再依赖宿主 openssl 的版本和扩展编码。
+  const generated = createCaSignedLeaf();
+  await writeFile(caCert, generated.caCert);
+  await writeFile(leafKey, generated.key);
+  await writeFile(leafCert, generated.cert);
   const server = createServer(
     { key: await readFile(leafKey), cert: await readFile(leafCert) },
     (req, res) => {

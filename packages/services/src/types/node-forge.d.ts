@@ -1,5 +1,5 @@
 // node-forge 1.4.0 没有自带类型，也未安装 @types/node-forge。
-// 这里只声明 appCaCert.ts 用到的最小 pki/md 子集，避免引入额外依赖。
+// 这里只声明 appCaCert.ts 与 Rust TLS 测试夹具用到的最小 pki/md 子集，避免引入额外依赖。
 declare module "node-forge" {
   interface ForgeKey {
     n?: unknown;
@@ -24,6 +24,7 @@ declare module "node-forge" {
     keyEncipherment?: boolean;
     serverAuth?: boolean;
     clientAuth?: boolean;
+    altNames?: { type: number; value?: string; ip?: string }[];
   }
   interface ForgeMessageDigest {
     update(msg: string): ForgeMessageDigest;

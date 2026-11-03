@@ -104,7 +104,9 @@ sequenceDiagram
    「settings-page CA is trusted by Node and Rust」——同一份 CA→叶子证书链的本地 TLS 模型服务，
    Node 带 `NODE_EXTRA_CA_CERTS`+`ESCODE_AGENT_CA_CERT`、Rust 只带 `ESCODE_AGENT_CA_CERT`，两者都必须
    成功收到模型回复（叶子不能是 `CA:TRUE`：rustls 明确拒绝把 CA 当服务端实体，Node/OpenSSL 宽容——
-   单张自签证书会造出假差异）。
+   单张自签证书会造出假差异）。证书链由 `node-forge` 在测试进程内生成（2026-11-03）：宿主
+   `openssl` 在 macOS 上是 LibreSSL，生成的证书不被 rustls 接受，导致同一用例只在 macOS runner
+   报 TLS 校验失败；测试不能依赖宿主证书工具链的输出差异。
 4. 差分（2026-09-30）：`packages/services/tests/escode-cli-rust-mcp.test.ts` 的
    「MCP HTTP transport goes through the configured proxy in both runtimes」——本地 forward 代理统计
    MCP 路径请求，Node 与 Rust 的 MCP 握手都必须经代理过去（模型 fixture 由 `ESCODE_NO_PROXY` 绕过）。

@@ -52,7 +52,9 @@ export function canonical<T>(value: T, parentKey?: string): T {
         )
         .replace(/(?:\/bin\/)?bash: line \d+:/g, "<shell>:")
         // 默认并发由 runner 核数派生，也会出现在确认窗结果文案里；与 concurrency 字段同法归一。
-        .replace(/\(the default is \d+\)/g, "(the default is <concurrency>)") as T
+        .replace(/\(the default is \d+\)/g, "(the default is <concurrency>)")
+        // workflow 结果文案里会回显相对路径；Windows 用反斜杠，归一后与 Linux/macOS golden 可比。
+        .replace(/\.escode\\[^\s;]+/g, (path) => path.replaceAll("\\", "/")) as T
     );
   }
   // JSON 把数组里的 undefined 写成 null；两侧同法归一（对象键仍按旧语义丢弃 undefined）。
