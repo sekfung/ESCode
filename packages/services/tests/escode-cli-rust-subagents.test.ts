@@ -6,7 +6,7 @@ import {
   shellHeartbeatCommand,
   waitForBeat,
 } from "./escode-cli-rust-shell-probe.js";
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -113,6 +113,37 @@ test("Agent creates isolated real child sessions, runs foreground siblings concu
       );
       assert.equal(detail.session.sessionKind, "subagent_child");
       assert.equal(detail.session.parentSessionId, sid);
+
+      // Node createSubagentLifecycle/writeAgentMetadataFile：三件套布局与元数据。
+      const agentId = child.agentId;
+      assert.ok(agentId);
+      const dir = join(f.dataDir, "cli", "agents", sid, agentId);
+      assert.deepEqual((await readdir(dir)).sort(), ["metadata.json", "output.txt", "task.output"]);
+      const output = await readFile(join(dir, "output.txt"), "utf8");
+      assert.equal(await readFile(join(dir, "task.output"), "utf8"), output);
+      assert.equal(output, child.title === "read one" ? "child-one result" : "child-two result");
+      await assert.rejects(access(join(dir, "transcript.jsonl")));
+      const metadata = JSON.parse(await readFile(join(dir, "metadata.json"), "utf8"));
+      assert.equal(metadata.agentId, agentId);
+      assert.equal(metadata.childSessionId, child.childSessionId);
+      assert.equal(metadata.parentSessionId, sid);
+      assert.equal(metadata.parentToolUseId, child.toolCallId);
+      assert.equal(metadata.profileId, child.title === "read one" ? "Explore" : "general-purpose");
+      assert.equal(metadata.profileSnapshot.name, metadata.profileId);
+      assert.equal(metadata.description, child.title);
+      assert.equal(metadata.status, "completed");
+      assert.equal(metadata.cwd, f.cwd);
+      assert.equal(metadata.workspaceRoot, f.cwd);
+      assert.equal(metadata.metadataFile, join(dir, "metadata.json"));
+      assert.equal(metadata.outputFile, join(dir, "output.txt"));
+      assert.equal(metadata.taskOutputFile, join(dir, "task.output"));
+      for (const key of ["createdAt", "updatedAt", "completedAt"])
+        assert.match(metadata[key], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      assert.equal(typeof metadata.totalDurationMs, "number");
+      assert.equal(metadata.totalToolUseCount, 0);
+      assert.equal(typeof metadata.totalTokens, "number");
+      assert.equal(typeof metadata.usage, "object");
+      assert.equal("transcriptFile" in metadata, false);
     }
     assert.deepEqual(h.schemaErrors, []);
     await h.close();
@@ -258,7 +289,34 @@ test("Subagent profile constrains dispatched tools and maxTurns, and foreign ses
     await h.command(h.envelope("sendText", other, { text: "foreign" }));
     await h.completed(other);
     assert.equal((await listing(h, other)).childSessionIds.length, 0);
-    assert.equal((await listing(h, sid)).ended.items[0]?.status, "failed");
+    const failed = (await listing(h, sid)).ended.items[0];
+    assert.ok(failed);
+    assert.equal(failed?.status, "failed");
+    const failedAgentId = failed.agentId;
+    assert.ok(failedAgentId);
+    const failedDir = join(f.dataDir, "cli", "agents", sid, failedAgentId);
+    assert.deepEqual((await readdir(failedDir)).sort(), [
+      "metadata.json",
+      "output.txt",
+      "task.output",
+    ]);
+    const failedOutput = await readFile(join(failedDir, "output.txt"), "utf8");
+    assert.equal(await readFile(join(failedDir, "task.output"), "utf8"), failedOutput);
+    assert.ok(failedOutput.length > 0);
+    await assert.rejects(access(join(failedDir, "transcript.jsonl")));
+    const failedMetadata = JSON.parse(await readFile(join(failedDir, "metadata.json"), "utf8"));
+    assert.equal(failedMetadata.agentId, failedAgentId);
+    assert.equal(failedMetadata.childSessionId, failed.childSessionId);
+    assert.equal(failedMetadata.parentSessionId, sid);
+    assert.equal(failedMetadata.parentToolUseId, failed.toolCallId);
+    assert.equal(failedMetadata.profileId, "limited");
+    assert.equal(failedMetadata.description, "limited profile");
+    assert.equal(failedMetadata.prompt, "limited task");
+    assert.equal(failedMetadata.status, "failed");
+    assert.equal(failedMetadata.outputFile, join(failedDir, "output.txt"));
+    assert.equal(failedMetadata.taskOutputFile, join(failedDir, "task.output"));
+    assert.equal(failedMetadata.error, failedOutput);
+    assert.match(failedMetadata.completedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.deepEqual(h.schemaErrors, []);
     await h.close();
   } finally {
@@ -305,7 +363,43 @@ test("Stopping the parent waits for its foreground child Shell to exit and cold 
       ),
     );
     await assertBeatStopped(f.cwd, "subagent.beat");
-    assert.equal((await listing(h, sid)).ended.items[0]?.status, "cancelled");
+    const stopped = (await listing(h, sid)).ended.items[0];
+    assert.ok(stopped);
+    assert.equal(stopped?.status, "cancelled");
+    const stoppedAgentId = stopped.agentId;
+    assert.ok(stoppedAgentId);
+    const stoppedDir = join(f.dataDir, "cli", "agents", sid, stoppedAgentId);
+    assert.deepEqual((await readdir(stoppedDir)).sort(), [
+      "metadata.json",
+      "output.txt",
+      "task.output",
+    ]);
+    const stoppedOutput = await readFile(join(stoppedDir, "output.txt"), "utf8");
+    assert.equal(await readFile(join(stoppedDir, "task.output"), "utf8"), stoppedOutput);
+    await assert.rejects(access(join(stoppedDir, "transcript.jsonl")));
+    const stoppedMetadata = JSON.parse(await readFile(join(stoppedDir, "metadata.json"), "utf8"));
+    assert.deepEqual(Object.keys(stoppedMetadata).sort(), [
+      "agentId",
+      "childSessionId",
+      "completedAt",
+      "description",
+      "outputFile",
+      "parentSessionId",
+      "parentToolUseId",
+      "profileId",
+      "prompt",
+      "status",
+      "taskOutputFile",
+      "updatedAt",
+    ]);
+    assert.equal(stoppedMetadata.agentId, stoppedAgentId);
+    assert.equal(stoppedMetadata.childSessionId, stopped.childSessionId);
+    assert.equal(stoppedMetadata.parentSessionId, sid);
+    assert.equal(stoppedMetadata.parentToolUseId, stopped.toolCallId);
+    assert.equal(stoppedMetadata.profileId, "general-purpose");
+    assert.equal(stoppedMetadata.status, "stopped");
+    assert.equal(stoppedMetadata.outputFile, join(stoppedDir, "output.txt"));
+    assert.equal(stoppedMetadata.taskOutputFile, join(stoppedDir, "task.output"));
     assert.equal((await h.rows(sid)).rows.find((r) => r.kind === "subagent")?.status, "cancelled");
     assert.equal(f.requests.length, 2);
     await h.close();

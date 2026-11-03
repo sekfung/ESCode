@@ -190,6 +190,7 @@ pub async fn build_engine(
             tools: Arc::new(
                 WorkspaceTools::new(ws.cwd.clone(), ws.data_dir.join("tool-results"))
                     .with_workspace_path(workspace_path)
+                    .with_subagent_root(ws.data_dir.join("cli").join("agents"))
                     .with_session_db(ws.db.clone())
                     .with_include_visualize(include_visualize)
                     .with_model_admission(),

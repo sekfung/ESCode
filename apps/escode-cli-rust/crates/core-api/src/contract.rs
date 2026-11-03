@@ -106,7 +106,19 @@ pub trait ToolPort: Send + Sync {
     async fn write_plan_file(&self, _file_name: &str, _plan: &str) -> Result<()> {
         Ok(())
     }
-    async fn agent_output(&self, _session: &str, _text: &str) -> Result<String> {
+    /// 写入子代理产物三件套并返回 `outputFile`（Node `createSubagentLifecycle` 同形）。
+    /// `task.status` 决定 running/completed/failed/stopped 语义；`extra` 覆盖 completed 的用量等字段。
+    #[allow(clippy::too_many_arguments)]
+    async fn write_agent_artifacts(
+        &self,
+        _parent_session: &str,
+        _task: &escode_cli_domain::subagent::Task,
+        _profile: Option<&escode_cli_domain::subagent::Profile>,
+        _cwd: &str,
+        _workspace_root: &str,
+        _text: &str,
+        _extra: &Value,
+    ) -> Result<String> {
         anyhow::bail!("Agent artifact storage unavailable")
     }
     async fn configure_mcp(&self, _session: &str, servers: &Value) -> Result<()> {

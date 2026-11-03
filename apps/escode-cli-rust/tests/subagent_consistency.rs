@@ -115,7 +115,17 @@ impl ToolPort for Tools {
     async fn execute(&self, _: &str, _: &Value, _: &CancellationToken) -> Result<String> {
         panic!("Agent must execute through owner")
     }
-    async fn agent_output(&self, _: &str, _: &str) -> Result<String> {
+    #[allow(clippy::too_many_arguments)]
+    async fn write_agent_artifacts(
+        &self,
+        _: &str,
+        _: &escode_cli_domain::subagent::Task,
+        _: Option<&escode_cli_domain::subagent::Profile>,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: &Value,
+    ) -> Result<String> {
         Ok("/fixture/agent.output".into())
     }
 }

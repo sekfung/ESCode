@@ -17,6 +17,8 @@ pub struct WorkspaceTools {
     /// Host 提交的 workspace 绝对路径（不解析符号链接/短文件名），记忆根按它哈希，与 Node 一致。
     pub(super) workspace_path: PathBuf,
     pub(super) artifacts: PathBuf,
+    /// 子代理产物根：`<storageRoot>/cli/agents`，与 Node `subagentOutputRootDir` 同址。
+    pub(super) subagent_root: PathBuf,
     pub(super) reads: Mutex<HashMap<String, Arc<Mutex<FileState>>>>,
     /// 会话的记忆上下文（记忆根, 来源会话），Write/Edit 据此补写 originSessionId。
     pub(super) memory: Mutex<HashMap<String, (String, String)>>,
@@ -43,6 +45,11 @@ pub struct WorkspaceTools {
 }
 impl WorkspaceTools {
     pub fn new(cwd: PathBuf, artifacts: PathBuf) -> Self {
+        let subagent_root = artifacts
+            .parent()
+            .unwrap_or(artifacts.as_path())
+            .join("cli")
+            .join("agents");
         Self {
             mcp: super::mcp_hub::Hub::new(cwd.clone()),
             analyzer: Arc::default(),
@@ -51,6 +58,7 @@ impl WorkspaceTools {
             workspace_path: cwd.clone(),
             cwd,
             artifacts,
+            subagent_root,
             reads: Mutex::new(HashMap::new()),
             memory: Mutex::new(HashMap::new()),
             models: Mutex::new(HashMap::new()),
@@ -65,6 +73,11 @@ impl WorkspaceTools {
     /// 与 Node（按 Host 路径 resolve）不同，两侧记忆不共享；改用 Host 路径。
     pub fn with_workspace_path(mut self, path: PathBuf) -> Self {
         self.workspace_path = path;
+        self
+    }
+    /// 显式指定子代理产物根（组合根传 `<data-dir>/cli/agents`；见 docs/specs/rust-subagents.md）。
+    pub fn with_subagent_root(mut self, path: PathBuf) -> Self {
+        self.subagent_root = path;
         self
     }
     /// 本进程的会话库：工作流宿主用 TS journal 仓储写其中的 dwf_* 表。

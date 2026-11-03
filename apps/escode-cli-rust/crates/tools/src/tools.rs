@@ -122,8 +122,10 @@ impl ToolPort for WorkspaceTools {
     async fn write_plan_file(&self, file_name: &str, plan: &str) -> Result<()> {
         super::plan_tools::write_plan_file(&self.cwd, file_name, plan).await
     }
-    async fn agent_output(&self, session: &str, text: &str) -> Result<String> {
-        super::workspace_tools_misc::agent_output(self, session, text).await
+    #[rustfmt::skip]
+    #[allow(clippy::too_many_arguments)]
+    async fn write_agent_artifacts(&self, parent: &str, task: &crate::domain::subagent::Task, profile: Option<&crate::domain::subagent::Profile>, cwd: &str, workspace_root: &str, text: &str, extra: &Value) -> Result<String> {
+        super::workspace_tools_misc::write_agent_artifacts(self, parent, task, profile, cwd, workspace_root, text, extra).await
     }
     async fn configure_mcp(&self, session: &str, servers: &Value) -> Result<()> {
         self.mcp.configure(session, servers)

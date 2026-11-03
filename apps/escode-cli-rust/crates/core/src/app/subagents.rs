@@ -92,7 +92,36 @@ impl Engine {
         let now = self.clock.now();
         let agent = format!("agent_{}", self.clock.id());
         let child = format!("subagent_{agent}");
-        let output_file = self.tools.agent_output(&child, "").await?;
+        let mut task = Task {
+            id: agent.clone(),
+            child_id: child.clone(),
+            parent_run: self.active[parent].run_id.clone(),
+            call_id: call.into(),
+            agent_type: profile.name.clone(),
+            description: args["description"].as_str().unwrap().into(),
+            prompt: args["prompt"].as_str().unwrap().into(),
+            status: "running".into(),
+            background: args["run_in_background"] == true || profile.background,
+            notified: false,
+            started_at: now,
+            ended_at: None,
+            output: String::new(),
+            output_file: String::new(),
+            tool_uses: 0,
+            tokens: 0,
+        };
+        task.output_file = self
+            .tools
+            .write_agent_artifacts(
+                parent,
+                &task,
+                Some(&profile),
+                &self.workspace_path,
+                &self.workspace_path,
+                "",
+                &Value::Null,
+            )
+            .await?;
         self.tools.inherit_session(parent, &child).await?;
         let mut session = Session::new(
             child.clone(),
@@ -149,24 +178,6 @@ impl Engine {
         let c = child_command(&child, &self.clock.id(), args["prompt"].as_str().unwrap());
         let (turn, _) = self.admit_input(&child, &c, None)?;
         self.persist(&child, None).await?;
-        let task = Task {
-            id: agent.clone(),
-            child_id: child.clone(),
-            parent_run: self.active[parent].run_id.clone(),
-            call_id: call.into(),
-            agent_type: profile.name,
-            description: args["description"].as_str().unwrap().into(),
-            prompt: args["prompt"].as_str().unwrap().into(),
-            status: "running".into(),
-            background: args["run_in_background"] == true || profile.background,
-            notified: false,
-            started_at: now,
-            ended_at: None,
-            output: String::new(),
-            output_file,
-            tool_uses: 0,
-            tokens: 0,
-        };
         self.sessions
             .get_mut(parent)
             .unwrap()

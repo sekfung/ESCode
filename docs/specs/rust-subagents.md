@@ -22,6 +22,33 @@ sequenceDiagram
 
 子工具可见集与调用时检查一致，不能只从 provider schema 隐藏。Explore 对齐 TS 的只读工具集合和提示词（Bash 仍按 TS 以只读提示约束）；profile 的 tools/disallowedTools/maxTurns/模型覆盖必须影响实际执行。MCP 子代理复用父 session 已借用的连接，不复制凭据到历史；Skill 元数据复用冻结目录，正文按需加载。
 
+## 子代理产物布局（与 Node `createSubagentLifecycle` 对齐）
+
+产物根为 `<storageRoot>/cli/agents`（Rust 的 `--data-dir` 即 storageRoot）。每个子代理任务写
+`<storageRoot>/cli/agents/<parentSessionId>/<agentId>/`：
+
+- `output.txt`：Agent 最终输出；运行中为空，完成/失败写最终正文，停止写停止正文。
+- `task.output`：与 `output.txt` 同内容，供 `TaskOutput` 与完成通知引用。
+- `metadata.json`：与 Node `writeAgentMetadataFile` 同形。
+
+不写 `transcript.jsonl`；子代理事件已由 session store 持久化，不再生成 transcript sidecar。
+
+`metadata.json` 的公共字段：`agentId`、`childSessionId`、`createdAt`、`cwd`、`description`、
+`metadataFile`、`outputFile`、`parentSessionId`、`parentToolUseId`、`profileId`、
+`profileSnapshot`、`prompt`、`status`、`taskOutputFile`、`updatedAt`、`workspaceRoot`。
+
+- `running`：启动时写一次（输出文件为空）。
+- `completed`：公共字段 + `completedAt`、`totalDurationMs`、`totalTokens`、`totalToolUseCount`、
+  `usage`。
+- `failed`：公共字段 + `completedAt`、`error`。
+- `stopped`：仅 `agentId`、`childSessionId`、`completedAt`、`description`、`outputFile`、
+  `parentSessionId`、`parentToolUseId`、`profileId`、`prompt`、`status`、`taskOutputFile`、
+  `updatedAt`（Node `writeStoppedAgentArtifacts` 的精简集合）。
+
+所有写入先创建父目录，再以临时文件 rename 落盘；`Task.outputFile` 与 Agent/TaskOutput/SendMessage
+返回的 `outputFile` 都指向该目录的 `output.txt`。差分验收覆盖完成、失败、停止三种状态的三文件集合、
+正文一致、产物路径与 metadata 关键字段，以及 `transcript.jsonl` 不存在。
+
 ## `features.subagent` 开关（2026-09-30）
 
 与 TS `createDefaultSubagentPort` 一致：`features.subagent=false`（读 `~/.escode/cli/config.json` 与项目

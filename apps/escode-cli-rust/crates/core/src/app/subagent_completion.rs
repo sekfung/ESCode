@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 impl Engine {
     pub(super) async fn finish_child(&mut self, id: &str) -> Result<()> {
         let s = &self.sessions[id];
+        let profile = s.agent_profile.clone();
         if s.agent_profile.is_none()
             || s.running()
             || s.background.values().any(|t| t.status == "running")
@@ -65,13 +66,37 @@ impl Engine {
         let tools = s.rows.iter().filter(|r| r["kind"] == "toolCall").count() as u64;
         let tokens = s.usage["cumulative"]["inputTokens"].as_u64().unwrap_or(0)
             + s.usage["cumulative"]["outputTokens"].as_u64().unwrap_or(0);
-        let output_file = self.tools.agent_output(id, &output).await?;
+        let mut usage = s.usage["cumulative"]
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        usage.insert("totalTokens".into(), tokens.into());
+        let extra = json!({ "usage": Value::Object(usage) });
+        let ended_at = self.clock.now();
+        let mut artifact_task = task.clone();
+        artifact_task.status = status.into();
+        artifact_task.output = output.clone();
+        artifact_task.ended_at = Some(ended_at);
+        artifact_task.tool_uses = tools;
+        artifact_task.tokens = tokens;
+        let output_file = self
+            .tools
+            .write_agent_artifacts(
+                &parent,
+                &artifact_task,
+                profile.as_ref(),
+                &self.workspace_path,
+                &self.workspace_path,
+                &output,
+                &extra,
+            )
+            .await?;
         let owner = self.sessions.get_mut(&parent).unwrap();
         let task = owner.children.get_mut(&task.id).unwrap();
         task.status = status.into();
         task.output = output;
         task.output_file = output_file;
-        task.ended_at = Some(self.clock.now());
+        task.ended_at = Some(ended_at);
         task.tool_uses = tools;
         task.tokens = tokens;
         if !task.background {
