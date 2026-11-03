@@ -44,6 +44,10 @@
 变化并恢复、冻结设置保持不变。因此「Rust-only 三平台发行门禁」与「Rust-only 升级/降级演练」不再是待办；
 删除 TS CLI、本地 Node Host 回退与 `ESCODE_AGENT_SERVER_RUNTIME=node` 仍需 P1 残余项收敛和单独确认。
 
+2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
+`row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需
+设置 `ESCODE_BENCH_PROVIDER_ID` 在真实供应商环境执行；本地无供应商配置，未据此宣称 P1 已完成。
+
 2026-10-31 MCP 凭据变更补充：`escode-cli-rust-mcp.test.ts`「MCP credential change reconnects with the rotated env」
 在同一 server 名下把 `MCP_PROBE` 从 `scoped` 改为 `rotated`，Node/Rust 的 `mcp/list` 都重连，新 session 工具读到
 `rotated`；另有「MCP HTTP credential change reconnects with the rotated header」覆盖 `X-Fixture` header 轮换。

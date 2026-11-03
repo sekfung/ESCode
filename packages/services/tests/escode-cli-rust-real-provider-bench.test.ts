@@ -32,6 +32,18 @@ function percentile(values: number[], p: number) {
   return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]!;
 }
 
+function maxOf(values: number[]): number {
+  return values.reduce((max, value) => Math.max(max, value), 0);
+}
+
+function gapsBetween(timestamps: number[]): number[] {
+  const gaps: number[] = [];
+  for (let index = 1; index < timestamps.length; index++) {
+    gaps.push(Math.max(0, timestamps[index]! - timestamps[index - 1]!));
+  }
+  return gaps;
+}
+
 async function providerConfig(root: string) {
   const config = JSON.parse(
     await readFile(join(homedir(), ".escode", "v2", "config.json"), "utf8"),
@@ -145,7 +157,27 @@ async function measure(kind: "node" | "rust") {
         console.log("TRACE", kind, JSON.stringify(seen));
       }
       await h.completed(id, mark);
-      return { firstMs, totalMs: performance.now() - t0 };
+      // 流式稳定阶段的长尾不能由首段/完成时间代表：记录本轮每个新文本增量到达时刻，
+      // 用相邻 delta 间隔的 p95/p99/max 观察供应商停顿与协议层抖动。推理行与正文行
+      // 都属于可见流式输出，统一按新建 rowId + path=text 计入。
+      const streamTimestamps: number[] = [];
+      for (const message of h.messages.slice(mark)) {
+        for (const delta of message.params?.frame?.payload?.deltas ?? []) {
+          if (
+            delta.op === "row.delta" &&
+            delta.path === "text" &&
+            Number(delta.rowId) > before &&
+            String(delta.append ?? "").length > 0
+          ) {
+            streamTimestamps.push(Number(message.__receivedAt ?? 0));
+          }
+        }
+      }
+      return {
+        firstMs,
+        totalMs: performance.now() - t0,
+        streamGapsMs: gapsBetween(streamTimestamps),
+      };
     };
     const cold = await turn(prompts[0]!);
     const warm = await turn(prompts[1]!);
@@ -164,6 +196,7 @@ async function measure(kind: "node" | "rust") {
       totalMs: cold.totalMs,
       warmFirstMs: warm.firstMs,
       warmTotalMs: warm.totalMs,
+      streamGapsMs: [...cold.streamGapsMs, ...warm.streamGapsMs],
       answered,
       toolsOk,
       answerChars,
@@ -201,6 +234,7 @@ test(
           p95: Math.round(percentile(values, 95)),
           p99: Math.round(percentile(values, 99)),
         });
+        const gaps = s.flatMap((x) => x.streamGapsMs);
         return [
           kind,
           {
@@ -214,6 +248,14 @@ test(
             completeMs: stats(pick("totalMs")),
             warmFirstTextMs: stats(pick("warmFirstMs")),
             warmCompleteMs: stats(pick("warmTotalMs")),
+            streamGaps:
+              gaps.length === 0
+                ? null
+                : {
+                    samples: gaps.length,
+                    ...stats(gaps),
+                    max: Math.round(maxOf(gaps)),
+                  },
           },
         ];
       }),
