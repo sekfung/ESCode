@@ -52,6 +52,8 @@ async function observe(kind: "node" | "rust", config: ESCodeProtocolMcpServer) {
   }
 }
 
+// Windows runner 上本地端口拒绝可能慢于 1.2s：HTTP 的 600ms 探测预算会被误判为探测超时，
+// SSE 则直接落到外层 connection_timeout。放宽总预算到 10s，让分类反映连接结果而非机器速度。
 async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
   const port = await closedPort();
   switch (name) {
@@ -61,7 +63,7 @@ async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
         type: "http",
         url: `http://127.0.0.1:${port}/mcp`,
         headers: [],
-        timeoutMs: 1_200,
+        timeoutMs: 10_000,
       };
     case "sse-refused":
       return {
@@ -69,7 +71,7 @@ async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
         type: "sse",
         url: `http://127.0.0.1:${port}/sse`,
         headers: [],
-        timeoutMs: 1_200,
+        timeoutMs: 10_000,
       };
     case "stdio-exit":
       return {
@@ -77,7 +79,7 @@ async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
         command: process.execPath,
         args: ["-e", "process.exit(1)"],
         env: [],
-        timeoutMs: 1_200,
+        timeoutMs: 10_000,
       };
     default:
       return {
@@ -85,7 +87,7 @@ async function configFor(name: string): Promise<ESCodeProtocolMcpServer> {
         command: "/nonexistent/escode-mcp",
         args: [],
         env: [],
-        timeoutMs: 1_200,
+        timeoutMs: 10_000,
       };
   }
 }
