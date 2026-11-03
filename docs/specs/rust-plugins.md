@@ -215,8 +215,12 @@ Rust 的：按 id 启用（user 层）、按带空格的 name 停用（workspace
   `diagnostics` 同样缺。这是发现层的独立缺口，下一步单独补，届时 list/overview 一并对齐。
 - `installedPlugins[].hookDetails` 与 componentTypes 里的 `hook`：已由第 4b 期补齐（见下方「第 4 期 · hook 源发现与
   hookDetails」）。
-- 读路径不做 TS `recoverAtomicTargetSync` 的崩溃恢复：Rust 不写 marketplaces/cache 目录，Node writer 崩溃留下的
-  事务残留由 Node 下次操作恢复；在此之前 Rust 可能读到旧一代或缺失的 manifest。
+- 读路径崩溃恢复（2026-11-04）：对齐 TS `recoverAtomicTargetSync`。`known_marketplaces.json` /
+  `installed_plugins.json` 读取前先恢复目标文件；marketplace manifest 先恢复 `marketplaces/<id>` 目录，再恢复
+  manifest 文件；发现层对安装记录的 `installPath` 与异步卸载读取同样先恢复。活跃 writer 的事务不被抢占，
+  仍按事务的权威状态返回 target 或 backup；无活跃 writer 的残留会原位恢复/清理。
+  回归：`crates/plugins/src/plugin_marketplace_tests.rs`、`crates/plugins/src/extension_plugins_tests.rs` 复刻
+  Node `recovers state files and marketplace directories left in the atomic commit window` 的备份布局。
 
 验收：`packages/services/tests/escode-cli-rust-plugins-overview.test.ts`——同一 fixture（第三方市场含 listing /
 featured / 版本更新 / sha 更新 / zip 源、刷新失败市场、非法记录、用户层声明含保留官方 id 与相对目录、已安装

@@ -124,7 +124,8 @@ pub async fn discover_with(
             }
         }
     }
-    let installed = json_file(&storage.join("installed_plugins.json")).await?;
+    let installed_path = super::atomic_dir::recover(&storage.join("installed_plugins.json"));
+    let installed = json_file(&installed_path).await?;
     let mut records = vec![];
     if let Some(entries) = installed["plugins"].as_array() {
         records.extend(entries.iter().cloned());
@@ -159,6 +160,7 @@ pub async fn discover_with(
                         .join(name)
                         .join(record["version"].as_str().unwrap_or("0.0.0"))
                 });
+            let root = super::atomic_dir::recover(&root);
             candidates.push((root, market.into(), "cache", false, false));
         }
     }

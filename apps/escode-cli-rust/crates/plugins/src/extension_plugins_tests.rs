@@ -82,3 +82,62 @@ async fn marketplace_cache_path_is_discovered_even_when_missing_like_node() {
         format!("Plugin root does not exist: {}", missing.display())
     );
 }
+
+#[tokio::test]
+async fn installed_plugin_file_and_root_recover_atomic_backups_like_node() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = dir.path().join("cli").join("plugins");
+    let target = storage
+        .join("cache")
+        .join("recover-market")
+        .join("recover-plugin")
+        .join("1.0.0");
+    tokio::fs::create_dir_all(target.join(".escode-plugin"))
+        .await
+        .unwrap();
+    tokio::fs::write(
+        target.join(".escode-plugin").join("plugin.json"),
+        r#"{"name":"recover-plugin","version":"1.0.0"}"#,
+    )
+    .await
+    .unwrap();
+    tokio::fs::rename(&target, target.parent().unwrap().join(".1.0.0.backup"))
+        .await
+        .unwrap();
+
+    let installed = storage.join("installed_plugins.json");
+    tokio::fs::write(
+        &installed,
+        format!(
+            r#"{{"version":1,"plugins":[{{"id":"recover-plugin@recover-market","name":"recover-plugin","marketplace":"recover-market","version":"1.0.0","installPath":{},"installedAt":"2026-01-01T00:00:00.000Z","scope":"user"}}]}}"#,
+            serde_json::to_string(&target).unwrap()
+        ),
+    )
+    .await
+    .unwrap();
+    tokio::fs::rename(&installed, storage.join(".installed_plugins.json.backup"))
+        .await
+        .unwrap();
+
+    let config = json!({
+        "storage": { "dir": dir.path() },
+        "plugins": {
+            "enabled": true,
+            "dirs": [],
+            "enabledPlugins": { "recover-plugin@recover-market": true },
+        },
+    });
+    let (plugins, _) = discover(dir.path(), &config, &CancellationToken::new())
+        .await
+        .unwrap();
+
+    assert!(
+        plugins
+            .iter()
+            .any(|plugin| plugin.id == "recover-plugin@recover-market"),
+        "installed plugin should be discovered after recovery: {:?}",
+        plugins.iter().map(|p| p.id.clone()).collect::<Vec<_>>()
+    );
+    assert!(installed.exists());
+    assert!(target.exists());
+}

@@ -68,10 +68,10 @@ fn default_source(source: &str) -> Json {
     out
 }
 
-/// TS `readJsonFileSync`：读不到或不是 JSON 一律视为缺失。
-/// 未实现 `recoverAtomicTargetSync` 的崩溃恢复（Rust 不写这些目录，见 spec 第 3 期说明）。
+/// TS `readJsonFileSync`：先按 `recoverAtomicTargetSync` 恢复目标文件，读不到或不是 JSON 一律视为缺失。
 fn read_json(path: &Path) -> Option<Value> {
-    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+    let readable = super::atomic_dir::recover(path);
+    serde_json::from_slice(&std::fs::read(readable).ok()?).ok()
 }
 
 /// TS `isKnownMarketplaceRecord`。
@@ -99,7 +99,8 @@ pub fn known_marketplaces(storage: &Path) -> Vec<Value> {
 /// `{version: 1, marketplaces: [...]}`（保序：已有记录原样、未通过校验的记录被丢弃，与 TS 相同）。
 pub fn ensure_default_marketplaces(storage: &Path) -> std::io::Result<()> {
     let path = storage.join("known_marketplaces.json");
-    let parsed = std::fs::read_to_string(&path)
+    let readable = super::atomic_dir::recover(&path);
+    let parsed = std::fs::read_to_string(readable)
         .ok()
         .and_then(|text| Json::parse(&text))
         .filter(Json::is_object);
@@ -179,12 +180,9 @@ pub struct Entry {
 
 /// TS `loadMarketplaceManifestSync` + `parseMarketplaceManifest` + `normalizeMarketplaceManifest`。
 pub fn manifest(storage: &Path, marketplace: &str) -> Option<Manifest> {
-    let parsed = read_json(
-        &storage
-            .join("marketplaces")
-            .join(sanitize(marketplace))
-            .join("marketplace.json"),
-    )?;
+    let directory =
+        super::atomic_dir::recover(&storage.join("marketplaces").join(sanitize(marketplace)));
+    let parsed = read_json(&directory.join("marketplace.json"))?;
     let name = parsed["name"].as_str().unwrap_or_default().trim();
     if !valid_marketplace_name(name) {
         return None;

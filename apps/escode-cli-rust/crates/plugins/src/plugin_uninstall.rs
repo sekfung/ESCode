@@ -109,7 +109,8 @@ fn from_map_entry(id: &str, item: &Json) -> Option<Json> {
 }
 
 pub async fn read_installed(storage: &Path) -> Vec<Json> {
-    let parsed = tokio::fs::read_to_string(storage.join("installed_plugins.json"))
+    let path = super::atomic_dir::recover(&storage.join("installed_plugins.json"));
+    let parsed = tokio::fs::read_to_string(path)
         .await
         .ok()
         .and_then(|text| Json::parse(&text));
@@ -278,6 +279,24 @@ pub async fn restore_builtin(params: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn async_read_recovers_installed_plugins_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = dir.path().join("storage");
+        std::fs::create_dir_all(&storage).unwrap();
+        let installed = storage.join("installed_plugins.json");
+        std::fs::write(
+            &installed,
+            r#"{"version":1,"plugins":[{"id":"a@m","name":"a","marketplace":"m","version":"1","installPath":"/p","installedAt":"t","scope":"user"}]}"#,
+        )
+        .unwrap();
+        std::fs::rename(&installed, storage.join(".installed_plugins.json.backup")).unwrap();
+
+        let records = read_installed(&storage).await;
+        assert_eq!(records[0].get("id").and_then(Json::as_str), Some("a@m"));
+        assert!(installed.exists());
+    }
 
     #[test]
     fn installed_state_normalizes_both_shapes() {
