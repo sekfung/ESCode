@@ -85,6 +85,14 @@ createInterface({input:process.stdin}).on("line",line=>{const m=JSON.parse(line)
  if(m.method==="server/discover")fail(m,-32601,"legacy");
  else if(m.method==="initialize")reply(m,{protocolVersion:"1999-01-01",serverInfo:{name:"x",version:"1"},capabilities:{tools:{}}});
 });`,
+  "stdio-discover-empty-result": `
+import { createInterface } from "node:readline";
+const reply=(m,result)=>process.stdout.write(JSON.stringify({jsonrpc:"2.0",id:m.id,result})+"\\n");
+createInterface({input:process.stdin}).on("line",line=>{const m=JSON.parse(line);
+ if(m.method==="server/discover")reply(m,{});
+ else if(m.method==="initialize")reply(m,{protocolVersion:"2025-11-25",serverInfo:{name:"x",version:"1"},capabilities:{tools:{}}});
+ else if(m.method==="tools/list")reply(m,{tools:[]});
+});`,
 };
 
 async function caseFor(name: string): Promise<Case> {
@@ -128,12 +136,16 @@ async function caseFor(name: string): Promise<Case> {
   if (
     name === "http-json-error" ||
     name === "http-unsupported-version" ||
+    name === "http-discover-empty-result" ||
+    name === "http-sse-discover-empty-result" ||
     name === "sse-drop" ||
     name === "sse-unsupported-version"
   ) {
     let stream: ServerResponse | undefined;
     let eventId = 0;
     const sse = name.startsWith("sse-");
+    const sseReply = name === "http-sse-discover-empty-result";
+    const emptyDiscover = name.endsWith("discover-empty-result");
     const server = createServer(async (req, res) => {
       if (req.method === "GET") {
         if (name === "sse-drop") {
@@ -165,13 +177,15 @@ async function caseFor(name: string): Promise<Case> {
               error: { code: -32000, message: "denied" },
             }
           : message.method === "server/discover"
-            ? { jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "legacy" } }
+            ? emptyDiscover
+              ? { jsonrpc: "2.0", id: message.id, result: {} }
+              : { jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "legacy" } }
             : message.method === "initialize"
               ? {
                   jsonrpc: "2.0",
                   id: message.id,
                   result: {
-                    protocolVersion: "1999-01-01",
+                    protocolVersion: emptyDiscover ? "2025-11-25" : "1999-01-01",
                     serverInfo: { name: "x", version: "1" },
                     capabilities: { tools: {} },
                   },
@@ -180,6 +194,10 @@ async function caseFor(name: string): Promise<Case> {
       if (sse) {
         res.writeHead(202).end();
         stream?.write(`id: ${++eventId}\nevent: message\ndata: ${JSON.stringify(response)}\n\n`);
+      } else if (sseReply) {
+        res
+          .writeHead(200, { "Content-Type": "text/event-stream" })
+          .end(`event: message\ndata: ${JSON.stringify(response)}\n\n`);
       } else {
         res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(response));
       }
@@ -223,8 +241,11 @@ for (const name of [
   "stdio-init-error",
   "stdio-init-bad-result",
   "stdio-unsupported-version",
+  "stdio-discover-empty-result",
   "http-json-error",
   "http-unsupported-version",
+  "http-discover-empty-result",
+  "http-sse-discover-empty-result",
   "sse-drop",
   "sse-unsupported-version",
 ] as const)

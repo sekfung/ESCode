@@ -9,7 +9,8 @@
 use rmcp::{
     RoleClient,
     model::{
-        ClientJsonRpcMessage, ClientRequest, ErrorCode, ErrorData, RequestId, ServerJsonRpcMessage,
+        ClientJsonRpcMessage, ClientRequest, ErrorCode, ErrorData, ProtocolVersion, RequestId,
+        ServerJsonRpcMessage, ServerResult,
     },
     service::RxJsonRpcMessage,
     transport::Transport,
@@ -18,6 +19,7 @@ use std::{collections::HashSet, future::Future, time::Duration};
 use tokio::time::Instant;
 
 pub(super) const MAX_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+pub(super) const PREFERRED_PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion::V_2026_07_28;
 
 /// TS `resolveVersionNegotiation`：auto 的探测预算。
 pub(super) fn timeout(timeout: Duration) -> Duration {
@@ -38,6 +40,33 @@ pub(super) struct TransportWithProbeBudget<T> {
     budget: Duration,
     probe: Option<Probe>,
     expired: HashSet<RequestId>,
+}
+
+/// Node `classifyResult`：discover 结果不可解析或没有客户端 modern 版本交集时按 legacy 回落；
+/// rmcp 只把 JSON-RPC error 当 legacy。这里把同一应答改写成关联 error，复用 rmcp 的回落路径。
+pub(super) fn legacy_unusable_discover(
+    message: ServerJsonRpcMessage,
+    preferred_version: &ProtocolVersion,
+) -> ServerJsonRpcMessage {
+    let ServerJsonRpcMessage::Response(response) = &message else {
+        return message;
+    };
+    let usable = matches!(
+        &response.result,
+        ServerResult::DiscoverResult(result)
+            if result.supported_versions.contains(preferred_version)
+    );
+    if usable {
+        return message;
+    }
+    ServerJsonRpcMessage::error(
+        ErrorData::new(
+            ErrorCode::METHOD_NOT_FOUND,
+            "server/discover result is not usable by this client",
+            None,
+        ),
+        Some(response.id.clone()),
+    )
 }
 
 impl<T> TransportWithProbeBudget<T> {
@@ -123,7 +152,10 @@ where
                 }
                 if self.probe.as_ref().is_some_and(|probe| &probe.id == id) {
                     self.probe = None;
-                    return Some(message);
+                    return Some(legacy_unusable_discover(
+                        message,
+                        &PREFERRED_PROTOCOL_VERSION,
+                    ));
                 }
             }
             return Some(message);
@@ -138,7 +170,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rmcp::model::{DiscoverRequest, DiscoverRequestParams};
+    use rmcp::model::{DiscoverRequest, DiscoverRequestParams, DiscoverResult, ServerCapabilities};
     use tokio::sync::mpsc;
 
     struct FakeTransport {
@@ -169,6 +201,54 @@ mod tests {
             ClientRequest::DiscoverRequest(DiscoverRequest::new(DiscoverRequestParams {})),
             id,
         )
+    }
+
+    #[test]
+    fn unusable_discover_result_becomes_legacy_error() {
+        let id = RequestId::Number(7);
+        let message = legacy_unusable_discover(
+            ServerJsonRpcMessage::response(ServerResult::empty(()), id.clone()),
+            &PREFERRED_PROTOCOL_VERSION,
+        );
+        match message {
+            ServerJsonRpcMessage::Error(error) => {
+                assert_eq!(error.id, Some(id));
+                assert_eq!(error.error.code, ErrorCode::METHOD_NOT_FOUND);
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn discover_without_modern_overlap_becomes_legacy_error() {
+        let id = RequestId::Number(8);
+        let result = DiscoverResult::new(vec![], ServerCapabilities::default());
+        let message = legacy_unusable_discover(
+            ServerJsonRpcMessage::response(ServerResult::DiscoverResult(result), id.clone()),
+            &PREFERRED_PROTOCOL_VERSION,
+        );
+        assert!(matches!(
+            message,
+            ServerJsonRpcMessage::Error(error)
+                if error.id == Some(id) && error.error.code == ErrorCode::METHOD_NOT_FOUND
+        ));
+    }
+
+    #[test]
+    fn discover_with_modern_overlap_is_preserved() {
+        let id = RequestId::Number(9);
+        let result = DiscoverResult::new(
+            vec![PREFERRED_PROTOCOL_VERSION],
+            ServerCapabilities::default(),
+        );
+        let message = legacy_unusable_discover(
+            ServerJsonRpcMessage::response(ServerResult::DiscoverResult(result), id.clone()),
+            &PREFERRED_PROTOCOL_VERSION,
+        );
+        assert!(matches!(
+            message,
+            ServerJsonRpcMessage::Response(response) if response.id == id
+        ));
     }
 
     #[test]

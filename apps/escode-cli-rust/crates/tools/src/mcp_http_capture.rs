@@ -73,6 +73,25 @@ impl<C> Capture<C> {
         self.adapt(discover, response).await
     }
 
+    fn adapt_discover_reply(
+        &self,
+        response: StreamableHttpPostResponse,
+    ) -> StreamableHttpPostResponse {
+        if self.probe_budget.is_none() {
+            return response;
+        }
+        match response {
+            StreamableHttpPostResponse::Json(message, session) => StreamableHttpPostResponse::Json(
+                super::mcp_probe::legacy_unusable_discover(
+                    message,
+                    &super::mcp_probe::PREFERRED_PROTOCOL_VERSION,
+                ),
+                session,
+            ),
+            other => other,
+        }
+    }
+
     async fn adapt<E>(
         &self,
         discover: bool,
@@ -83,7 +102,10 @@ impl<C> Capture<C> {
     {
         match response {
             StreamableHttpPostResponse::Sse(stream, session) if discover => {
-                first_reply(stream, session).await
+                Ok(self.adapt_discover_reply(first_reply(stream, session).await?))
+            }
+            StreamableHttpPostResponse::Json(message, session) if discover => {
+                Ok(self.adapt_discover_reply(StreamableHttpPostResponse::Json(message, session)))
             }
             StreamableHttpPostResponse::Sse(stream, session) => {
                 Ok(StreamableHttpPostResponse::Sse(self.tee(stream), session))

@@ -99,8 +99,26 @@ HTTP 的 `server/discover` 返回 JSON-RPC 错误、SSE 首连在收到 endpoint
   - stdio 收到非法 JSON 帧或应答 id 不匹配时，Node SDK 会等到外层超时并报
     `connection_timeout`，Rust 立即以 `process_start_failed` / `protocol_negotiation_failed`
     失败；不复制 Node 的挂起。
-  - stdio 对 `server/discover` 返回空 `result` 时 Node 回落 legacy，rmcp 报
-    `ExpectedInitResult`；当前按协商失败处理，待确认是否有真实 server 依赖该形态。
+
+## discover 不可用结果回落（2026-11-03）
+
+Node SDK 的 `classifyResult` 把 schema 不可解析的 `server/discover` 结果（包括空 `result`）
+和没有客户端 modern 版本交集的结果都视为 legacy；auto 模式随后回落 `initialize`。rmcp 3.4
+只把关联的 JSON-RPC error 视为 legacy，这两种应答会变成 `ExpectedInitResult` /
+`NoCompatibleProtocolVersion`，直接连接失败。
+
+Rust 在 auto 探测边界统一改写：
+
+- stdio：`TransportWithProbeBudget` 在收到与探测 id 关联的不可用结果时，返回同 id 的
+  `-32601` JSON-RPC error，复用既有的 legacy 回落与迟到应答丢弃逻辑。
+- HTTP/SSE：`Capture` 在 auto 探测预算存在时，对 `server/discover` 的 JSON 或 SSE 应答做同样
+  改写；pin/legacy 不经过该分支，仍保持不支持版本即失败。
+- “可用”指 `DiscoverResult` 且 `supportedVersions` 包含客户端 modern 版本
+  `2026-07-28`；结构化 JSON-RPC error 原样透传，由 rmcp 自行判定 legacy。
+
+验收：`packages/services/tests/escode-cli-rust-mcp-failure-kind-differential.test.ts` 覆盖
+stdio、HTTP JSON 与 HTTP SSE 应答的 `server/discover` 空结果，Node 与 Rust 均成功回落后连接并
+返回相同状态。
 
 ## SSE 应答的 `server/discover` 错误（2026-09-27）
 
