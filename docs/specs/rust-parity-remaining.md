@@ -71,6 +71,8 @@ TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
 `--strict`（`.github/workflows/rust-runtime-ci.yml`）。因此「差分套件完全依赖冻结 golden」
 不再阻塞删除；剩余门槛是真实供应商流式长尾、按在用第三方 MCP 实测、真实安装包切换演练
 （需 CI/对应平台环境）以及删除 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 的产品确认。
+2026-11-04 本地 linux-x64 复核：`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict` 只启动 Rust
+一次（frames 25 对 golden 53），判定 0 open / 0 新差异 / 0 欠账指纹，确认正常差分不依赖 Node oracle。
 
 2026-11-03 流式长尾指标补齐：`escode-cli-rust-real-provider-bench.test.ts` 现在同时输出本轮新文本
 `row.delta` 相邻到达间隔的 p50/p95/p99/max，覆盖首段与完成时间看不到的流式稳定阶段停顿。该指标仍需

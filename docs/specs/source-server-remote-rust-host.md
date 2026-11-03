@@ -21,7 +21,10 @@
 3. 迁移不是“加超时/加兜底”，而是所有权转移：同一时刻只能有一个 Host 服务同一个远程 workspace。
 4. 不恢复已删除的手机远控、会话分享、Bots 等产品面；只保留协议兼容字段和桌面端 `desktop-continuous` 语义。
 
-> 2026-10-31 更新：决策 1 只描述 v3.16.2 同步当轮；S5-a/S5-b 已执行决策 2 的 ssh/wsl/docker 迁移，仅 Web `kind: "server"` 自连保留 Node Host。
+> 2026-10-31 更新：决策 1 只描述 v3.16.2 同步当轮；S5-a/S5-b 已执行决策 2 的 ssh/wsl/docker 迁移。
+> 2026-11-01 S5-f 又把 `kind: "server"` 自连迁到 App 级 Rust Host；2026-11-04 S6 删除 Node Host
+> 实现与 `ESCODE_RUST_HOST` 回退。因此决策 1 的前提（远程仍由每窗口 Node Host 承载）已完全失效，
+> 仅留作历史记录。
 
 ## 2. 现状与差距
 
