@@ -139,7 +139,7 @@ export const ServiceChannels = {
   PluginUiAppTools: "plugin-ui-app-tools",
   /** Subagents 管理服务 */
   Subagents: "subagents",
-  /** Source Server workspace 迁移/解析（远程仍由 Node Host 承载） */
+  /** Source Server workspace 迁移/解析（远程由 Rust Host 承载） */
   SourceServerWorkspace: "source-server-workspace",
   /** Source Server 连接与更新管理（Desktop Host 投影） */
   SourceServerManagement: "source-server-management",

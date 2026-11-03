@@ -626,7 +626,7 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
 }
 
 /**
- * Rust Host 嵌入运行时的环境（rust-u2-host-skeleton.md §6，审计 A16）：与 Node Host 进程同一份基础 env
+ * Rust Host 嵌入运行时的环境（rust-u2-host-skeleton.md §6，审计 A16）：与历史 Node Host 进程同一份基础 env
  * （数据根、运行环境标识、版本/提交、内置二进制路径、工具透传……）。
  */
 export function buildRustHostRuntimeEnv(

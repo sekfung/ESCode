@@ -1,6 +1,6 @@
 //! Computer Use Helper 权限服务的共享实现。
 //!
-//! Node Host（`node.ts`）与 Electron Main（`desktopCuaPermissionService.ts`）共用这份编排：
+//! TS 服务端（`node.ts`）与 Electron Main（`desktopCuaPermissionService.ts`）共用这份编排：
 //! 探测/拉起/重启 Helper、读取权限真值、执行 screen-capture 探针。两边只在下面注入的
 //! Helper 生命周期依赖上不同，避免出现两条行为路径。
 //!

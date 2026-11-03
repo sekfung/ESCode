@@ -1390,7 +1390,7 @@ export function createLocalServices(options: {
   // 因为 resolver 优先复用既有 socket/token；裸 host.restart() 可能 fresh 新凭据，使已有 Agent
   // 继续持有旧 transport，无法连接新的 broker。
   // Computer Use Helper 权限状态服务：Renderer 经 host RPC 查询/重启 Helper。
-  // 与 Electron Main 共用 cuaPermissionServiceRuntime 的编排，这里只注入 Node Host 的生命周期。
+  // 与 Electron Main 共用 cuaPermissionServiceRuntime 的编排，这里只注入 TS 服务端进程的生命周期。
   const cuaPermissionService = createCuaPermissionService({
     platform: process.platform,
     env: process.env,

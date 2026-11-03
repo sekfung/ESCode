@@ -79,7 +79,7 @@ export interface StartRustHostOptions {
   /**
    * 结构化日志钩子：Host 的 `logBatch` 控制帧（`host-control/src/logging.rs` 的进程级 sink）。
    * 缺省时这些帧只被跳过——Host 的 stderr 兜底仍会到达 Main（stdio inherit）。
-   * Main 把它接到 `hostLogRelay.onStructuredLog`，与 Node Host 的 postMessage 日志同一条出口。
+   * Main 把它接到 `hostLogRelay.onStructuredLog`，与历史 Node Host 的 postMessage 日志同一条出口。
    */
   onLogBatch?: (batch: RustHostLogBatch) => void;
   /**
