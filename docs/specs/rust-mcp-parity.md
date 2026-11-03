@@ -93,8 +93,8 @@ HTTP 的 `server/discover` 返回 JSON-RPC 错误、SSE 首连在收到 endpoint
 - SSE 首连尚未收到 `endpoint` 就断流时，Node 直接报 SSE error；Rust 立即以
   `network_unreachable` 失败，不再静默重试到外层 `connection_timeout`。
 - 验收：`packages/services/tests/escode-cli-rust-mcp-failure-kind-differential.test.ts` 覆盖
-  HTTP/SSE 连接拒绝、stdio 握手前退出/命令不存在/初始化拒绝/非法结果/不支持版本、HTTP
-  JSON-RPC 错误、SSE 首连断流；九例的 `status` 与 `failureKind` 均与 Node golden 相等。
+  HTTP/SSE 连接拒绝、stdio 握手前退出/命令不存在/初始化拒绝/非法结果、HTTP/SSE 不支持版本、
+  HTTP JSON-RPC 错误、SSE 首连断流；十一例的 `status` 与 `failureKind` 均与 Node golden 相等。
 - 已知残余（不纳入本次对齐）：
   - stdio 收到非法 JSON 帧或应答 id 不匹配时，Node SDK 会等到外层超时并报
     `connection_timeout`，Rust 立即以 `process_start_failed` / `protocol_negotiation_failed`

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -125,23 +125,64 @@ async function caseFor(name: string): Promise<Case> {
       },
     };
   }
-  if (name === "http-json-error" || name === "sse-drop") {
+  if (
+    name === "http-json-error" ||
+    name === "http-unsupported-version" ||
+    name === "sse-drop" ||
+    name === "sse-unsupported-version"
+  ) {
+    let stream: ServerResponse | undefined;
+    let eventId = 0;
+    const sse = name.startsWith("sse-");
     const server = createServer(async (req, res) => {
+      if (req.method === "GET") {
+        if (name === "sse-drop") {
+          res.writeHead(200, { "Content-Type": "text/event-stream" }).end();
+          return;
+        }
+        if (!sse) {
+          res.writeHead(405).end();
+          return;
+        }
+        stream = res;
+        res.writeHead(200, { "Content-Type": "text/event-stream" });
+        res.write("event: endpoint\ndata: /messages\n\n");
+        return;
+      }
       req.setEncoding("utf8");
       let body = "";
       for await (const part of req) body += part;
       if (name === "sse-drop") {
-        res.writeHead(200, { "Content-Type": "text/event-stream" });
-        res.end();
+        res.writeHead(200, { "Content-Type": "text/event-stream" }).end();
         return;
       }
       const message = JSON.parse(body || "{}");
-      const response = {
-        jsonrpc: "2.0",
-        id: message.id,
-        error: { code: -32000, message: "denied" },
-      };
-      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(response));
+      const response =
+        name === "http-json-error"
+          ? {
+              jsonrpc: "2.0",
+              id: message.id,
+              error: { code: -32000, message: "denied" },
+            }
+          : message.method === "server/discover"
+            ? { jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "legacy" } }
+            : message.method === "initialize"
+              ? {
+                  jsonrpc: "2.0",
+                  id: message.id,
+                  result: {
+                    protocolVersion: "1999-01-01",
+                    serverInfo: { name: "x", version: "1" },
+                    capabilities: { tools: {} },
+                  },
+                }
+              : { jsonrpc: "2.0", id: message.id, result: { tools: [] } };
+      if (sse) {
+        res.writeHead(202).end();
+        stream?.write(`id: ${++eventId}\nevent: message\ndata: ${JSON.stringify(response)}\n\n`);
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(response));
+      }
     });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -150,12 +191,13 @@ async function caseFor(name: string): Promise<Case> {
     return {
       config: {
         name: "remote",
-        type: name === "sse-drop" ? "sse" : "http",
-        url: `http://127.0.0.1:${port}/mcp`,
+        type: sse ? "sse" : "http",
+        url: `http://127.0.0.1:${port}/${sse ? "sse" : "mcp"}`,
         headers: [],
         timeoutMs: 10_000,
       },
       close: async () => {
+        stream?.end();
         server.closeAllConnections();
         await new Promise<void>((done) => server.close(() => done()));
       },
@@ -182,7 +224,9 @@ for (const name of [
   "stdio-init-bad-result",
   "stdio-unsupported-version",
   "http-json-error",
+  "http-unsupported-version",
   "sse-drop",
+  "sse-unsupported-version",
 ] as const)
   test(`MCP ${name} failureKind matches Node`, async () => {
     const current = await caseFor(name);
