@@ -14,6 +14,10 @@ use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 type Headers = HashMap<reqwest_mcp::header::HeaderName, reqwest_mcp::header::HeaderValue>;
 type Stream = BoxStream<'static, Result<Sse, SseError>>;
 
+/// Auto 探测超时在错误链中的标记。`mcp_connection` 用它在 `failureKind` 上对齐 Node：
+/// TS SDK 的 `RequestTimeout` 落到默认 `network_unreachable`（docs/specs/rust-mcp-parity.md「协议协商默认值」）。
+pub(super) const PROBE_TIMEOUT_PREFIX: &str = "version negotiation probe timed out after ";
+
 #[derive(Clone)]
 pub(super) struct Capture<C> {
     inner: C,
@@ -60,11 +64,7 @@ impl<C> Capture<C> {
                 Ok(result) => result?,
                 Err(_) => {
                     return Err(StreamableHttpError::UnexpectedServerResponse(
-                        format!(
-                            "version negotiation probe timed out after {}ms",
-                            budget.as_millis()
-                        )
-                        .into(),
+                        format!("{PROBE_TIMEOUT_PREFIX}{}ms", budget.as_millis()).into(),
                     ));
                 }
             },
@@ -90,6 +90,26 @@ impl<C> Capture<C> {
             }
             other => Ok(other),
         }
+    }
+}
+
+/// 只把本模块自己产生的探测超时标记归类为 Node 的 `RequestTimeout` 路径，
+/// 不按任意错误文本放宽 `protocol_negotiation_failed` 的判定。
+pub(super) fn is_probe_timeout(error: &rmcp::service::ClientInitializeError) -> bool {
+    matches!(
+        error,
+        rmcp::service::ClientInitializeError::TransportError { error, .. }
+            if error.to_string().contains(PROBE_TIMEOUT_PREFIX)
+    )
+}
+
+/// HTTP Auto 探测超时在 Node 侧是 SDK `RequestTimeout`，最终落到默认 `network_unreachable`；
+/// 其余连接阶段错误继续按 `protocol_negotiation_failed` 归类（docs/specs/rust-mcp-parity.md）。
+pub(super) fn init_failure(error: rmcp::service::ClientInitializeError) -> anyhow::Error {
+    if is_probe_timeout(&error) {
+        anyhow::anyhow!("network_unreachable")
+    } else {
+        anyhow::Error::new(error).context("protocol_negotiation_failed")
     }
 }
 
@@ -237,5 +257,30 @@ mod tests {
             result,
             Err(StreamableHttpError::UnexpectedServerResponse(_))
         ));
+    }
+
+    fn init_transport_error(message: &str) -> rmcp::service::ClientInitializeError {
+        rmcp::service::ClientInitializeError::TransportError {
+            error: rmcp::transport::DynamicTransportError::from_parts(
+                "streamable-http",
+                std::any::TypeId::of::<()>(),
+                Box::new(std::io::Error::other(message)),
+            ),
+            context: "discover".into(),
+        }
+    }
+
+    #[test]
+    fn probe_timeout_classifies_as_network_unreachable() {
+        let error = init_failure(init_transport_error(&format!(
+            "{PROBE_TIMEOUT_PREFIX}400ms"
+        )));
+        assert_eq!(error.to_string(), "network_unreachable");
+    }
+
+    #[test]
+    fn other_initialization_errors_keep_protocol_negotiation_failed() {
+        let error = init_failure(init_transport_error("connection refused"));
+        assert_eq!(error.to_string(), "protocol_negotiation_failed");
     }
 }

@@ -69,10 +69,10 @@ for (const transport of ["stdio", "http"] as const)
     const rust = canonical(await observe("rust", transport));
     assert.deepEqual(rust.outcome, node.outcome);
     if (transport === "http") {
-      // 已知分类差异：Node 对 SDK 的 RequestTimeout 用默认 network_unreachable；
-      // Rust 当前把连接阶段未细分的错误统一记为 protocol_negotiation_failed。
+      // Node 对 SDK 的 RequestTimeout 用默认 network_unreachable；Rust 对同一探测超时标记
+      // 必须产出相同分类，不能把它混进 protocol_negotiation_failed。
       assert.equal(node.failureKind, "network_unreachable");
-      assert.equal(rust.failureKind, "protocol_negotiation_failed");
+      assert.equal(rust.failureKind, "network_unreachable");
     } else {
       assert.equal(node.failureKind, undefined);
       assert.equal(rust.failureKind, undefined);

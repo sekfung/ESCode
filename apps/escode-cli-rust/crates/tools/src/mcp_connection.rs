@@ -248,7 +248,7 @@ impl Connection {
                         .await
                     }
                 };
-                Ok(service.context("protocol_negotiation_failed")?)
+                Ok(service.map_err(super::mcp_http_capture::init_failure)?)
             }
         };
         let result = tokio::select! {biased; _=cancel.cancelled()=>Err(anyhow::anyhow!("Cancelled")), result=tokio::time::timeout(config.timeout,init)=>result.unwrap_or_else(|_|Err(anyhow::anyhow!("connection_timeout")))};

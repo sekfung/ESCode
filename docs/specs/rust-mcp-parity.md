@@ -56,9 +56,9 @@ TS `resolveVersionNegotiationMode` 的规则：
   - HTTP：SDK 把 timeout 判为 `SdkErrorCode.RequestTimeout` 硬失败，不回落 legacy；Rust 同样以
     传输错误结束本次连接。Rust 会中止探测 POST，而 Node 只是忽略迟到的应答并在关闭 transport
     时取消；server 侧观察到的仅是该请求被取消。
-  - 已知分类差异：Node 对 `RequestTimeout` 走 `failConnection` 的默认值
-    `network_unreachable`；Rust 的连接阶段错误目前统一归为 `protocol_negotiation_failed`。
-    本次只对齐“失败且不回落”的语义，failureKind 的细粒度对齐不在本项范围。
+  - `failureKind` 也已对齐：Node 对 `RequestTimeout` 走 `failConnection` 的默认值
+    `network_unreachable`；Rust 在 `mcp_http_capture` 产生的探测超时标记上替同一错误分类，
+    不再落进 `protocol_negotiation_failed`。差分用例同时断言两侧的 `failureKind` 相等。
   - 显式 pin `2026-07-28` 没有 legacy 回落，仍使用完整的 `timeoutMs`，不受 5s 上限影响。
 - 实现位置：stdio 在 transport 边界注入与探测请求 id 关联的 `-32601` 错误并吞掉迟到应答
   （`crates/tools/src/mcp_probe.rs`）；HTTP 在 `mcp_http_capture.rs` 的包装层限制探测 POST

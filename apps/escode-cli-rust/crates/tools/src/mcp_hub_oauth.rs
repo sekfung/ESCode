@@ -290,14 +290,37 @@ impl std::fmt::Display for PendingAuthorization {
     }
 }
 impl std::error::Error for PendingAuthorization {}
+
 pub(super) fn failure_kind(error: &anyhow::Error) -> &'static str {
     match error.to_string().as_str() {
         "config_invalid" => "config_invalid",
         "not_authenticated" => "not_authenticated",
         "connection_timeout" => "connection_timeout",
+        "network_unreachable" => "network_unreachable",
         "process_start_failed" => "process_start_failed",
         "tool_list_failed" => "tool_list_failed",
         "oauth_authorization_failed" => "oauth_authorization_failed",
         _ => "protocol_negotiation_failed",
+    }
+}
+
+#[cfg(test)]
+mod failure_kind_tests {
+    use super::failure_kind;
+
+    #[test]
+    fn preserves_network_unreachable() {
+        assert_eq!(
+            failure_kind(&anyhow::anyhow!("network_unreachable")),
+            "network_unreachable"
+        );
+    }
+
+    #[test]
+    fn unknown_connection_errors_remain_protocol_negotiation_failed() {
+        assert_eq!(
+            failure_kind(&anyhow::anyhow!("connection refused")),
+            "protocol_negotiation_failed"
+        );
     }
 }
