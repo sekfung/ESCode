@@ -1795,6 +1795,11 @@ previousSourceServerId 存在且 != handshake.sourceServerId
   或 `ESCODE_RUST_HOST=0` 远程分支。Desktop `kind: "server"` 直连已按 §12.6 迁到 Rust Host；Node Host
   的 `connectServerRemote` 与 Provider Provisioning 处理端已于 S5-f-5 删除，不得反向成为任何 transport
   的 Node 回退。
+- 2026-11-04 S6 删除后复验（真实 SSH/WSL 目标，run [`41748227539`](https://github.com/sekfung/ESCode/actions/runs/41748227539)，
+  head `99d447fb`，`workflow_dispatch` + `ssh=true`）：8 个作业全绿——`desktop e2e (ubuntu-latest, ssh remote)`
+  （job `126306527326`）、`(macos-14, ssh remote)`（job `126306527070`）、`(windows-latest, ssh remote)`
+  （job `126308447684`）各 5 passed（首次安装、首连、重启恢复、双窗口共享、PROJECT-01），常规三平台矩阵与
+  app perf 同轮通过。
 - 文档、技能、脚本无失效引用；§7 的 S5 项标记完成并记录证据 run id。
 
 ### 12.6 S5-f：`kind: "server"` 直连迁到 Rust Host（设计，2026-11-01）

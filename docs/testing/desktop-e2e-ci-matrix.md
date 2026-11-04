@@ -91,6 +91,9 @@ macOS（job `124989308551`）、Windows（job `124990489645`），首次在 CI �
 首连、重启恢复与双窗口共享。
 run `41355882063` 加入首次安装后各 5 passed：Linux（job `124995848070`）、macOS
 （job `124995848156`）、Windows（job `124997065666`）。
+2026-11-04 S6 删除 Node Host 后复验 run `41748227539`（head `99d447fb`，`ssh=true`）：8 个作业全绿，
+三个 SSH 作业各 5 passed——Linux（job `126306527326`）、macOS（job `126306527070`）、
+Windows（job `126308447684`），常规三平台矩阵与 app perf 同轮通过。
 
 ## 不在本矩阵内
 
