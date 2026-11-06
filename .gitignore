@@ -45,6 +45,8 @@ openclaw/
 packages/stream-animate/dist-server/
 packages/stream-animate/.stream-animate-data/
 .claude/worktrees/
+# ZCode 客户端的本机配置（插件开关等个人偏好），不入库；.zcode/plans/ 等计划文档仍按需提交。
+.zcode/config.json
 .codegraph
 .mimosa/
 # 2026-08-20：集成分支曾混入 node-gyp 构建产物与 .playwright-mcp 临时快照；
