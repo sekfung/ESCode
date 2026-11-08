@@ -4,12 +4,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-tool-input-validation.md：MCP 入参按 inputSchema 校验，失败时模型收到与 Node 逐字一致的
 // InputValidationError，且工具不被调用。属性按字母序声明：Rust 经 rmcp 取得的 schema 键已排序（见规格）。
 process.env.ESCODE_TEST_WAIT_MS ??= "20000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const schema = {
   type: "object",
   properties: {
@@ -58,7 +58,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -111,7 +111,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 }
 
 test("MCP tool input validation errors reach the model the same way as Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.equal(node.seen.length, ARGUMENTS.length);
   assert.match(node.seen[0]!, /^<tool_use_error>InputValidationError: /);

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import {
   v4AttachmentBeginResultSchema,
   v4AttachmentChunkResultSchema,
@@ -47,7 +47,7 @@ test("Rust attachment transactions match the TS registry for retry, conflicts, g
   try {
     // TS registry 的状态机结果（begin/chunk/commit 与抛出的错误）冻结为观察。
     // 输出不回显 sessionId，因此录制时用固定会话；浏览器连接隔离由 Rust 断言单独覆盖。
-    const registry = await nodeOracle("transactions", async () => {
+    const registry = await goldenOracle("transactions", async () => {
       const { AttachmentUploadRegistry } =
         await import("../../../apps/escode-cli/packages/bootstrap/src/escode-protocol-v4/attachment-upload-registry.js");
       const putBytes: string[] = [];

@@ -16,7 +16,7 @@ import { projectRows } from "./escode-cli-rust-row-projection.js";
 // - Node runtime 与 Rust 导入各自打开独立副本，逐会话比较行种类计数、附件数与 todo 数；
 // - 只输出计数，不输出任何会话内容。
 const source = process.env.ESCODE_REHEARSAL_DB;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const sha = async (p: string) =>
   createHash("sha256")
     .update(await readFile(p))
@@ -91,7 +91,7 @@ async function open(
         ? await fixture({
             root,
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           })
         : await fixture({ root, legacy: true });
     try {

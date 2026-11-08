@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { anthropic } from "./escode-cli-rust-protocol-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md 第 1、2 期：同一 MCP server 的各类结果（多段文本、structuredContent、
 // isError、图片/音频/resource 混合）在 Node 与 Rust 上给模型的工具结果一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const properties = {
   contextWindow: 200000,
   inputFormat: {
@@ -124,7 +124,7 @@ async function observe(kind: "node" | "rust", apiType: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -185,7 +185,7 @@ async function observe(kind: "node" | "rust", apiType: string) {
 
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Node and Rust format MCP tool results the same way (${apiType})`, async () => {
-    const node = await nodeOracle(apiType, () => observe("node", apiType));
+    const node = await goldenOracle(apiType, () => observe("node", apiType));
     const rust = canonical(await observe("rust", apiType));
     // 自检：Node 为超预算图片写了 artifact，且文件内容就是解码后的图片字节。
     assert.ok(node.written.length > 0 && node.written.every(Boolean), JSON.stringify(node));

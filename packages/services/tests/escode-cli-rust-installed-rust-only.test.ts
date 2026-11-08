@@ -9,8 +9,8 @@ import { promisify } from "node:util";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 
-// docs/specs/rust-release-rollback.md「Rust-only 安装门禁」：真实安装包在 ci-install-desktop --rust-only
-// 删除 resources/glm/zcode.cjs 后，仍必须能用包内 escode-cli-rust 创建会话并完成一轮。
+// docs/specs/rust-release-rollback.md「Rust-only 安装门禁」：真实安装包只携带 Rust runtime 与
+// plugin-host.cjs，必须能用包内 escode-cli-rust 创建会话并完成一轮。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 const glm = process.env.ESCODE_INSTALLED_GLM;
 const exe = process.platform === "win32" ? ".exe" : "";
@@ -28,7 +28,7 @@ test(
     assert.equal(
       existsSync(nodeBundle),
       false,
-      "Rust-only gate expects resources/glm/zcode.cjs to be removed",
+      "Node runtime retired: resources/glm/zcode.cjs must not be installed",
     );
     assert.ok(
       existsSync(pluginHost),

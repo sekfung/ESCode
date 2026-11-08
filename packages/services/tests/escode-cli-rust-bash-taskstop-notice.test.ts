@@ -4,12 +4,12 @@ import { resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { backgroundNotice } from "./escode-cli-rust-bash-notice.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // TaskStop 停掉的后台 Bash：停止的工具结果就是模型对这次停止的全部所知，TS 不再发完成通知
 // （否则模型会被一条「任务被 killed」再唤起一轮）。比对停止那一轮之后的模型请求。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust") {
   const requests: any[] = [];
@@ -43,7 +43,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -76,7 +76,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust do not notify about a background Bash stopped by TaskStop", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
 });

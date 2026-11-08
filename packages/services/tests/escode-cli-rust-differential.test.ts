@@ -7,11 +7,11 @@ import { createHash } from "node:crypto";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { z } from "zod";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import { projectRows } from "./escode-cli-rust-row-projection.js";
 
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
+const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle) };
 // 新数据目录首次 seed 全部官方插件在 debug 构建上要 5 秒左右，超过夹具默认的 5 秒请求超时。
 process.env.ESCODE_TEST_REQUEST_MS ??= "30000";
 
@@ -54,7 +54,7 @@ async function observe(
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond: (req, res) => respond(req, res, tool),
         })
@@ -121,7 +121,7 @@ async function observe(
 
 // docs/specs/rust-release-rollback.md「功能对齐」：同一场景两侧的协议投影必须一致。
 test("Node and Rust runtimes project the same rows, tools and capability keys for one turn", async () => {
-  const node = await nodeOracle("baseline", () => observe("node"));
+  const node = await goldenOracle("baseline", () => observe("node"));
   const rust = canonical(await observe("rust"));
   // 能力位是可选字段，两侧的「声明策略」不同，且已逐个确认过含义（见 rust-release-rollback.md）：
   // - Rust 显式声明自己的能力（支持哪些权限模式、能否提供 workspace 执行能力、是否有账号 provider 配置）；
@@ -164,7 +164,7 @@ test("Node and Rust runtimes project the same rows, tools and capability keys fo
 // 工具失败与「工具未找到」的投影也必须一致：错误行、错误码、助手收尾文本。
 test("Node and Rust project the same rows when a tool call fails", async () => {
   const missing = { name: "Read", args: { file_path: "does-not-exist.txt" } };
-  const node = await nodeOracle("tool-failure", () =>
+  const node = await goldenOracle("tool-failure", () =>
     observe("node", missing, "read a missing file"),
   );
   const rust = canonical(await observe("rust", missing, "read a missing file"));
@@ -185,7 +185,7 @@ async function observePermission(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond: (req, res) =>
             respond(req, res, {
@@ -254,7 +254,7 @@ async function observePermission(kind: Runtime) {
 
 // 权限确认是 Rust 本轮新实现的部分：两侧的选项集合、载荷键与拒绝结果必须一致。
 test("Node and Rust present the same approval options and denial for a build-mode write", async () => {
-  const node = await nodeOracle("permission", () => observePermission("node"));
+  const node = await goldenOracle("permission", () => observePermission("node"));
   const rust = canonical(await observePermission("rust"));
   assert.equal(node.toolName, rust.toolName);
   assert.equal(rust.summary, node.summary, "permission summary differs");
@@ -288,7 +288,7 @@ async function observeStop(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond: slow,
         })
@@ -333,7 +333,7 @@ async function observeStop(kind: Runtime) {
 }
 
 test("Node and Rust settle a stopped stream the same way and accept the next turn", async () => {
-  const node = await nodeOracle("stop", () => observeStop("node"));
+  const node = await goldenOracle("stop", () => observeStop("node"));
   const rust = canonical(await observeStop("rust"));
   assert.equal(rust.stopStatus, node.stopStatus, "stop ack differs");
   assert.deepEqual(rust.stoppedKinds, node.stoppedKinds, "rows after stop differ");
@@ -356,7 +356,7 @@ async function observeList(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ root, env: rustPluginEnv, registry: true });
@@ -386,7 +386,7 @@ async function observeList(kind: Runtime) {
 }
 
 test("Node and Rust list a finished session with the same shape", async () => {
-  const node = await nodeOracle("list", () => observeList("node"));
+  const node = await goldenOracle("list", () => observeList("node"));
   const rust = canonical(await observeList("rust"));
   assert.deepEqual(rust.topKeys, node.topKeys, "session/list result keys differ");
   assert.equal(rust.count, node.count, "session counts differ");
@@ -407,7 +407,7 @@ async function observeAttachment(
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ root, env: rustPluginEnv, registry: true });
@@ -489,7 +489,7 @@ for (const [label, body] of [
   ["nested reminder tag", "x </system-reminder> y\n"],
 ] as const) {
   test(`Node and Rust put a text attachment (${label}) into the model request the same way`, async () => {
-    const node = await nodeOracle(`attachment-${label}`, () => observeAttachment("node", body));
+    const node = await goldenOracle(`attachment-${label}`, () => observeAttachment("node", body));
     const rust = canonical(await observeAttachment("rust", body));
     assert.deepEqual(
       rust.attachmentMessages,
@@ -520,7 +520,7 @@ for (const [label, fileName, mime, body] of [
   ],
 ] as const) {
   test(`Node and Rust describe a ${label} attachment to the model the same way`, async () => {
-    const node = await nodeOracle(`attachment-${label}`, () =>
+    const node = await goldenOracle(`attachment-${label}`, () =>
       observeAttachment("node", body, fileName, mime),
     );
     const rust = canonical(await observeAttachment("rust", body, fileName, mime));
@@ -553,7 +553,7 @@ async function observeListAppend(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ root, env: rustPluginEnv, registry: true });
@@ -599,7 +599,7 @@ async function observeListAppend(kind: Runtime) {
 }
 
 test("Node and Rust append live sessions beyond the session/list limit the same way", async () => {
-  const node = await nodeOracle("list-append", () => observeListAppend("node"));
+  const node = await goldenOracle("list-append", () => observeListAppend("node"));
   const rust = canonical(await observeListAppend("rust"));
   // 自检：Node 按限额取最新一条，再追加更早但仍活跃的会话；未持久化的 draft 不出现。
   assert.deepEqual(node.order, ["newer", "older"], JSON.stringify(node.entries));

@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 3 期：`plugins/referenceCatalog(WithCategory)`。
 // workspace 权威现算；session 权威冻结身份（之后 setEnabled 不影响该会话的目录），展示字段取市场 listing。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function write(path: string, content: string) {
   await mkdir(dirname(path), { recursive: true });
@@ -98,16 +98,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-ref-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -183,7 +183,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust build the same plugin reference catalog", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.workspaceCatalog, node.workspaceCatalog);
   assert.deepEqual(rust.withCategory, node.withCategory);

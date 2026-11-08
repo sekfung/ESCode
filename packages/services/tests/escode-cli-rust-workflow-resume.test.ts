@@ -5,7 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：停止与恢复。actor 的第一次模型请求挂住时，用户让主代理 TaskStop 这条 run →
 // ResumeWorkflowRun → actor 会话重水化（resumeFromStore）后重跑未完结的 ask → submit_result → 结算。比对 TaskStop /
@@ -14,7 +14,7 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // 占着唯一名额时 actor 会排队，挂住主请求等 actor 就成了死锁。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   "interface Answer { total: number; }",
   'const counter = agent("counter", { system: "You count things carefully." });',
@@ -92,9 +92,9 @@ async function observe(kind: "node" | "rust") {
     }
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   let pump: ReturnType<typeof setInterval> | undefined;
   const f =
@@ -102,7 +102,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -196,7 +196,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust stop and resume a workflow run with a live actor the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.stopNotice, /stopped/i);

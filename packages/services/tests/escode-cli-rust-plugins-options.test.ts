@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 4 期（选项面）：user / workspace 两层配置合并（dirs 并集、options 按 key）、
 // plugins/list 的 enabledSource / optionSources / rootSource / configuredOptions（剔除 sensitive）/ userConfig，
 // 以及 plugins/configure、plugins/resetConfig 的返回与两份配置文件落盘字节。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const FIELDS = [
   "id",
   "enabled",
@@ -34,16 +34,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-options-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -170,7 +170,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust merge, report and write plugin options the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);

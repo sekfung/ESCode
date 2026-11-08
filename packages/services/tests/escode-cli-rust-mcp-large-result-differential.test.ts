@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { anthropic } from "./escode-cli-rust-protocol-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md「大结果边界」：普通 MCP 文本结果由 Node 的通用
 // resultBudget 在 50_000 字节处按 head 截断；Rust 旧实现到 64 KiB 才截断且文案不同。
 // 观察按平台无关的文本长度/首尾冻结，避免把 50 KB 正文写进 golden。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const properties = {
   contextWindow: 200000,
   inputFormat: {
@@ -119,7 +119,7 @@ async function observe(kind: "node" | "rust", apiType: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -156,7 +156,7 @@ async function observe(kind: "node" | "rust", apiType: string) {
 
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Node and Rust apply the same MCP result budget (${apiType})`, async () => {
-    const node = await nodeOracle(`large.${apiType}`, () => observe("node", apiType));
+    const node = await goldenOracle(`large.${apiType}`, () => observe("node", apiType));
     const rust = canonical(await observe("rust", apiType));
     for (const [index, name] of kinds.entries())
       assert.deepEqual(rust.results[index], node.results[index], name);

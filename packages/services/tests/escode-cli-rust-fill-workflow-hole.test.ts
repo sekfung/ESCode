@@ -5,14 +5,14 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md：FillWorkflowHole 的本会话 run 免确认。
 // 同一段带留白的脚本在两侧跑到停驻，随后补全；只有 CreateWorkflow 弹一次确认，
 // FillWorkflowHole 读宿主回填的 `hole.owned_by_this_session` 直接放行。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   'phase("准备");',
   'const v = await hole<string>("裁决", "decide");',
@@ -55,16 +55,16 @@ async function observe(kind: "node" | "rust") {
     end(res, n === 1 || n === 2 || n === 4 ? "tool_calls" : "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -132,7 +132,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust fill a hole in this session's run without asking again", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.createResult, /background/i);

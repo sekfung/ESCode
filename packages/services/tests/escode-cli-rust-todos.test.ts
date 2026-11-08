@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 const todoContractsModule = "../../../apps/escode-cli/packages/contracts/src/tools/todo.js";
 const todoHandlerModule = "../../../apps/escode-cli/packages/core/src/tool/handlers/todo.js";
@@ -73,7 +73,7 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
   const f = await todoFixture(values);
   try {
     // TS handler 的有序输出（共享同一 session store 语义）冻结为观察。
-    const expected = await nodeOracle("handlers", async () => {
+    const expected = await goldenOracle("handlers", async () => {
       const { todoReadToolEntry, todoWriteToolEntry } = await import(todoHandlerModule);
       let todos: unknown[] = [];
       const context = {
@@ -149,7 +149,7 @@ test("Rust Todo follows TS handlers, commits ordered replacement and projects du
 });
 
 test("Rust Todo reminder follows TS ten-turn cadence across restart without visible user rows", async () => {
-  const reminder = await nodeOracle("reminder", async () => {
+  const reminder = await goldenOracle("reminder", async () => {
     const { buildTodoReminderBody } = await import(runtimeRemindersModule);
     return `<system-reminder>\n${buildTodoReminderBody([])}\n</system-reminder>`;
   });
@@ -236,7 +236,7 @@ test("Rust Todo validates TS strict inputs, retains state on failure and clears 
     ["TodoWrite", { todos: [], unknown: 1 }],
   ];
   // TS 严格入参校验结论与规范化结果冻结为观察。
-  const validation = await nodeOracle("validation", async () => {
+  const validation = await goldenOracle("validation", async () => {
     const { TodoReadInputSchema, TodoWriteInputSchema } = await import(todoContractsModule);
     return {
       invalid: invalid.map(

@@ -5,11 +5,11 @@ import { resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { stdioServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-browser-use.md 第 1 期：MCP tools/call 的 `_meta` 请求上下文（TS mcpRequestMeta）。
 // node_repl 的浏览器 bridge 以它回到当前会话；比较键集合与取值关系（id 每次不同，不比较值）。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust") {
   const respond = (req: any, res: any) => {
@@ -34,7 +34,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -78,7 +78,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("MCP tools/call carries the same request context _meta as Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.equal(node.sessionMatches, true);
   assert.deepEqual(rust, node);

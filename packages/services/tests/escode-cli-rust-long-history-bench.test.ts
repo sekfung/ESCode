@@ -23,7 +23,7 @@ if (turns >= 50_000) {
 }
 // 数万轮的大库会超过 mock provider 的上下文窗口；该模式只测冷打开与分页，不发下一轮。
 const skipTurn = process.env.ESCODE_BENCH_SKIP_TURN === "1";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const rustBinary = process.env.ESCODE_BENCH_RUST_BINARY;
 const session = "long-history" as SessionId;
 let benchModelId = "";
@@ -185,7 +185,7 @@ async function measure(kind: "node" | "rust", source: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,

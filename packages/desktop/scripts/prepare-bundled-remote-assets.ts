@@ -64,7 +64,7 @@ function resolveRequiredEntries(): string[] {
     join("server", "zcode-server.cjs"),
     join("node", remotePlatform, "node"),
     join("node-pty", remotePlatform, "pty.node"),
-    join("glm", remotePlatform, "zcode.cjs"),
+    join("glm", remotePlatform, "plugin-host.cjs"),
     join("glm", remotePlatform, REMOTE_AGENT_RUST_BINARY_NAME),
     ...REMOTE_AGENT_OFFICIAL_PLUGIN_REQUIRED_RELATIVE_PATHS.map((relativePath) =>
       join("glm", remotePlatform, "packages", ...relativePath.split("/")),

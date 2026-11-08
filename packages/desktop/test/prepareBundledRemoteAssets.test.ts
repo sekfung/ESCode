@@ -49,7 +49,7 @@ const FIXTURE_COMPONENTS: FixtureComponent[] = [
     id: "glm",
     mount: `glm/${remotePlatform}`,
     files: {
-      "zcode.cjs": "agent",
+      "plugin-host.cjs": "plugin host",
       // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
       "escode-cli-rust": "rust agent",
       ...Object.fromEntries(
@@ -174,9 +174,9 @@ describe("prepare-bundled-remote-assets", () => {
       const result = await runPrepareScript(mockCdn.dir);
 
       expect(result.status).toBe(0);
-      // 远程制品名沿用发布侧约定：server/zcode-server.cjs、glm/<arch>/zcode.cjs。
+      // 远程制品名沿用发布侧约定：server/zcode-server.cjs、glm/<arch>/{escode-cli-rust,plugin-host.cjs}。
       expect(existsSync(join(releaseDir, "server", "zcode-server.cjs"))).toBe(true);
-      expect(existsSync(join(releaseDir, "glm", remotePlatform, "zcode.cjs"))).toBe(true);
+      expect(existsSync(join(releaseDir, "glm", remotePlatform, "plugin-host.cjs"))).toBe(true);
       expect(existsSync(join(releaseDir, "glm", remotePlatform, "escode-cli-rust"))).toBe(true);
       expect(existsSync(join(releaseDir, "node", remotePlatform, "node"))).toBe(true);
       expect(existsSync(join(releaseDir, "node-pty", remotePlatform, "pty.node"))).toBe(true);
@@ -224,7 +224,8 @@ describe("prepare-bundled-remote-assets", () => {
     const mockCdn = createFakeMockCdn({
       overrideFiles: {
         glm: {
-          "zcode.cjs": "agent",
+          "escode-cli-rust": "rust agent",
+          "plugin-host.cjs": "plugin host",
           "packages/skill-creator-plugin/.zcode-plugin/plugin.json": "{}",
         },
       },

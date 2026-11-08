@@ -5,13 +5,13 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md M3：V4 工作流只读查询。一条发布 markdown 产物、读过工作区文件的 run 结算后，
 // 比对 workflowRuns / workflowRunEvents / workflowRunArtifacts / workflowRunArtifactRead / workflowRunWorkspace /
 // workflowRunNodeResult 的应答（id / 时间戳抹掉）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   'const paths = await files.glob("*.txt");',
   'await artifact.markdown("report", `# Found ${paths.length}`, { title: "Count report" });',
@@ -37,16 +37,16 @@ async function observe(kind: "node" | "rust") {
     end(res, n <= 2 ? "tool_calls" : "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -140,7 +140,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust answer the V4 workflow run queries the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_WQ) console.log(JSON.stringify({ node, rust }, null, 1).slice(0, 8000));
   assert.deepEqual(node.schemaErrors, []);

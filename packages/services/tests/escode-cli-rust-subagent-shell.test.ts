@@ -4,13 +4,13 @@ import { resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-selection.md「已知差异」：TS 子代理继承父会话已解析的 shell 选择
 // （subagent.ts 把父的 bashShellSelection/envInfo.shell 传给 child），不再以自己的 sessionId
 // 请求 `user-execution`；Rust 之前每个子会话都另发一次请求。
 // 差分口径：两侧的 runtime 偏好请求（按 parent/child 归一）与子会话 Bash 的实际 shell。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 
 function call(response: any, calls: { id: string; name: string; args: unknown }[]) {
@@ -54,7 +54,7 @@ async function observe(kind: Runtime) {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           respond,
@@ -108,7 +108,7 @@ test(
   "subagents inherit the parent shell selection without their own preference request",
   { skip: process.platform !== "win32" },
   async () => {
-    const node = await nodeOracle("observe", () => observe("node"));
+    const node = await goldenOracle("observe", () => observe("node"));
     const rust = await canonical(await observe("rust"));
     assert.deepEqual(rust, node);
     assert.match(String(node.childBash), /Microsoft Windows/);

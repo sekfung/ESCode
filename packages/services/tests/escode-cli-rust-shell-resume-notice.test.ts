@@ -6,14 +6,14 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, hasGolden, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, hasGolden, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-resume-notice.md：恢复会话后的 `The Bash tool shell is …` 提醒。
 // 同一会话跑三段（phase 1 → 重启 → phase 2 → 重启 → phase 3），比较 phase 2 / 3 的模型请求会话部分：
 // 提醒的有无、正文、位置（本段输入之前），以及不落库（phase 3 里 phase 2 的提醒消失、换成新的一条）。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 // v3.15.1 官方插件自带子代理与技能：Rust 与 Node 读同一官方插件根目录，避免把插件可见性差异误判为运行时差异。
-const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle) };
 const gitBash = "C:\\Program Files\\Git\\bin\\bash.exe";
 const GIT_BASH = {
   mode: "shell",
@@ -52,7 +52,7 @@ async function observe(kind: Runtime, before: Shell, after: Shell) {
         ? await fixture({
             root,
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             registry: true,
             mode: "yolo",
             respond,
@@ -112,7 +112,7 @@ test(
     ];
     for (const [name, before, after, expected] of cases) {
       const key = `observe-${name.replace(/[^a-z0-9]+/gi, "-")}`;
-      const node = await nodeOracle(key, () => observe("node", before, after));
+      const node = await goldenOracle(key, () => observe("node", before, after));
       const rust = canonical(await observe("rust", before, after));
       // 自检 Node 基准：提醒紧挨在本段输入之前；下一次恢复时旧提醒不在历史里（不落库）。
       if (expected) {

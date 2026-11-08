@@ -5,14 +5,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fixture } from "./escode-cli-rust-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 import { projectRows } from "./escode-cli-rust-row-projection.js";
 
 // docs/specs/rust-import-lifecycle.md / rust-row-projection.md：冷导入的最终行态必须与
 // Node 冷恢复逐行一致。仓内种子覆盖工具/正文交错、actions、createdAtSeq、被中断的工具行、
 // compact 摘要与相对/内联附件；Node 侧整份投影录成 golden，正常跑只启动 Rust。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Row = Record<string, any>;
 type Observation = { seed: string; sessions: { id: string; rows: Row[] }[] }[];
 
@@ -64,7 +64,7 @@ async function observe(kind: "node" | "rust"): Promise<Observation> {
           ? await fixture({
               root,
               command: process.execPath,
-              args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+              args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             })
           : await fixture({ root, legacy: true });
       try {
@@ -91,7 +91,7 @@ test(
   "cold import matches Node row-for-row across frozen legacy seeds",
   { timeout: 300000 },
   async () => {
-    const node = await nodeOracle("frozen-seeds", () => observe("node"));
+    const node = await goldenOracle("frozen-seeds", () => observe("node"));
     const rust = canonical(await observe("rust"));
     assert.deepEqual(rust, node);
     // 自检：每个种子都必须真正产出会话与行，避免两侧同时为空而误判一致。

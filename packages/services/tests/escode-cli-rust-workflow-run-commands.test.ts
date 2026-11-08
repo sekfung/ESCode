@@ -5,14 +5,14 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md：run 卡 / 详情页的「取消」（cancelBackgroundWork {workId: dwfrun-…}）与
 // 「恢复」（resumeWorkflowRun）走用户命令面。actor 首个请求挂住 → UI 取消 → UI 恢复 → actor 重跑并结算。
 // 比对两侧的命令 ACK、停止 / 完成通知与拒绝路径（未知 run、已完结 run）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   "interface Answer { total: number; }",
   'const counter = agent("counter", { system: "You count things carefully." });',
@@ -77,9 +77,9 @@ async function observe(kind: "node" | "rust") {
     }
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   let pump: ReturnType<typeof setInterval> | undefined;
   const f =
@@ -87,7 +87,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -181,7 +181,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust cancel and resume a workflow run from the UI command surface the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.cancel.status, "accepted");

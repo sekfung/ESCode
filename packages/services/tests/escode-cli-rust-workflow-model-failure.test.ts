@@ -5,12 +5,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 模型失败分类映射（docs/specs/rust-dynamic-workflow.md）：actor 的模型请求返回配额业务码 1308，TS driver 按
 // inspectWorkflowModelFailure 把 run 停为 stopped(provider, quota)。比对 run 状态键、CreateWorkflow 结果与通知。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   "interface Answer { total: number; }",
   'const counter = agent("counter", { system: "You count things carefully." });',
@@ -52,16 +52,16 @@ async function observe(kind: "node" | "rust") {
     }
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -136,7 +136,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust stop a workflow run on a provider quota failure the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);

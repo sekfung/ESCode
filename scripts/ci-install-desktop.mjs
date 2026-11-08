@@ -5,8 +5,8 @@
 // - 启动检查：应用主进程起来后超时时间内不退出（Linux 用 xvfb-run），且数据库启动终态为 ready。
 //   在空临时目录下启动：runner 的 cwd 是仓库 checkout，会掩盖/诱发打包态与开发入口探测的耦合。
 // - 把应用可执行文件与 resources/glm 写进 $GITHUB_ENV（ESCODE_INSTALLED_APP / ESCODE_INSTALLED_GLM），供
-//   escode-cli-rust-installed.test.ts 用包内两种 runtime 做 Node → Rust → Node 回退演练。
-// - `--rust-only` 删除安装包里的 Node agent bundle（zcode.cjs），强制 Rust Host + Rust runtime 启动与会话；
+//   escode-cli-rust-installed-rust-only.test.ts 用包内 Rust runtime 完成会话。
+// - Node agent runtime 已退场：默认安装结果必须含 escode-cli-rust；不再提供 `--rust-only` 剥离步骤。
 //   见 docs/specs/rust-release-rollback.md「Rust-only 安装门禁」。
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -18,12 +18,10 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  rmSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 const launchOnly = process.argv.includes("--launch-only");
-const rustOnly = process.argv.includes("--rust-only");
 const source = resolve(process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? "artifacts");
 const temp = process.env.RUNNER_TEMP ?? resolve(".ci-install");
 // --launch-only 与切换演练都直接 mkdtemp；本地默认目录可能尚未创建。
@@ -87,11 +85,7 @@ function installFrom(sourceDir) {
   const pkg = capture("dpkg-deb", ["-f", deb, "Package"]).trim();
   const entry = capture("dpkg", ["-L", pkg])
     .split("\n")
-    .find(
-      (line) =>
-        line.endsWith("/resources/glm/zcode.cjs") ||
-        /\/resources\/glm\/escode-cli-rust(?:\.exe)?$/u.test(line),
-    );
+    .find((line) => /\/resources\/glm\/escode-cli-rust(?:\.exe)?$/u.test(line));
   if (!entry) throw new Error(`Installed package ${pkg} has no resources/glm agent runtime`);
   const glm = dirname(entry);
   const base = dirname(dirname(glm));
@@ -101,45 +95,14 @@ function installFrom(sourceDir) {
 const rustBinaryPath = (glm) =>
   join(glm, `escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`);
 
-function assertInstalled({ app, glm }, label = "install", { rustOnly: requireRust = false } = {}) {
+function assertInstalled({ app, glm }, label = "install") {
   const required = [app, glm, join(dirname(glm), "app.asar")];
   for (const path of required) {
     if (!existsSync(path)) throw new Error(`${label}: installed path missing: ${path}`);
   }
-  if (requireRust) {
-    const rust = rustBinaryPath(glm);
-    if (!existsSync(rust)) throw new Error(`${label}: installed path missing: ${rust}`);
-  } else if (!existsSync(join(glm, "zcode.cjs")) && !existsSync(rustBinaryPath(glm))) {
-    throw new Error(`${label}: installed package has no agent runtime under ${glm}`);
-  }
+  const rust = rustBinaryPath(glm);
+  if (!existsSync(rust)) throw new Error(`${label}: installed path missing: ${rust}`);
   console.log(`${label}: installed app: ${app}\n${label}: installed glm: ${glm}`);
-}
-
-function removePackagedFile(path, label) {
-  if (!existsSync(path)) return false;
-  try {
-    rmSync(path);
-  } catch (error) {
-    // Bugfix：Linux apt 安装目录 /opt/ESCode 归 root，普通 runner 用户删除旧包的 zcode.cjs 会 EACCES；
-    // 版本演练的 base/降级阶段是旧安装包，必须显式提权，不能留下半剥离产物。
-    if (process.platform !== "linux" || error?.code !== "EACCES") throw error;
-    run("sudo", ["rm", "-f", path]);
-  }
-  console.log(`${label}: removed ${path}`);
-  return true;
-}
-
-function stripNodeAgentBundle(glmDir, label) {
-  const nodeBundle = join(glmDir, "zcode.cjs");
-  const nodeMeta = join(glmDir, ".node-bundle-meta.json");
-  const removedBundle = removePackagedFile(nodeBundle, label);
-  const removedMeta = removePackagedFile(nodeMeta, label);
-  if (!removedBundle && !removedMeta) {
-    console.log(`${label}: Node agent bundle already absent`);
-  }
-  if (!existsSync(rustBinaryPath(glmDir))) {
-    throw new Error(`${label}: Rust-only gate requires ${rustBinaryPath(glmDir)}`);
-  }
 }
 
 let app;
@@ -153,16 +116,11 @@ if (launchOnly) {
       "--launch-only requires ESCODE_INSTALLED_APP and ESCODE_INSTALLED_GLM from a previous install",
     );
   }
-  if (rustOnly) {
-    assertInstalled({ app, glm }, "rust-only launch", { rustOnly: true });
-    stripNodeAgentBundle(glm, "rust-only launch");
-  }
 } else if (process.argv.includes("--version-drill")) {
   // 版本演练在下面单独执行两次安装；这里不做默认安装。
 } else {
   ({ app, glm } = installFrom(source));
-  assertInstalled({ app, glm }, "install", { rustOnly });
-  if (rustOnly) stripNodeAgentBundle(glm, "install");
+  assertInstalled({ app, glm }, "install");
 }
 
 // 启动检查：主进程在超时时间内不崩，且数据库启动终态为 ready（无签名的 macOS 包在 CI 上无 Gatekeeper 隔离属性，可直接运行）。
@@ -319,8 +277,7 @@ if (versionDrill) {
   };
   const runStage = async (label, dir, hostAssertion) => {
     ({ app, glm } = installFrom(dir));
-    assertInstalled({ app, glm }, label, { rustOnly });
-    if (rustOnly) stripNodeAgentBundle(glm, label);
+    assertInstalled({ app, glm }, label);
     // 覆盖安装的证据必须取每次构建都会变化的载荷：Electron 启动器在 base/head 之间通常
     // 完全相同（同一 Electron 版本），用它比较会误报「没有替换」（run 41386625407 的
     // mac-* 与 linux-x64）。app.asar 才是应用代码本体。
@@ -332,23 +289,16 @@ if (versionDrill) {
     await sleep(2_000);
     return hash;
   };
-  const hostForStage = (hostAssertion) => (rustOnly ? "rust" : hostAssertion);
-  const baseHash = await runStage("version drill 1/3 base", baseDir, hostForStage("any"));
+  const baseHash = await runStage("version drill 1/3 base", baseDir, "any");
   const headHash = await runStage("version drill 2/3 head", headDir, "rust");
   if (headHash === baseHash) {
     throw new Error("version drill did not replace the application payload on upgrade");
   }
-  const downgradedHash = await runStage(
-    "version drill 3/3 downgrade",
-    baseDir,
-    hostForStage("any"),
-  );
+  const downgradedHash = await runStage("version drill 3/3 downgrade", baseDir, "any");
   if (downgradedHash !== baseHash) {
     throw new Error("version drill did not restore the base payload on downgrade");
   }
-  console.log(
-    `version upgrade/downgrade drill passed: base → head → base, settings preserved${rustOnly ? " (rust-only)" : ""}`,
-  );
+  console.log("version upgrade/downgrade drill passed: base → head → base, settings preserved");
 }
 
 // S6 四平台重启演练：Rust Host 连续三次启动，复用同一 home/cwd。
@@ -403,6 +353,6 @@ if (hostSwitchDrill) {
 if (app && glm && process.env.GITHUB_ENV) {
   appendFileSync(
     process.env.GITHUB_ENV,
-    `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n${rustOnly ? "ESCODE_INSTALLED_RUST_ONLY=1\n" : ""}`,
+    `ESCODE_INSTALLED_APP=${app}\nESCODE_INSTALLED_GLM=${glm}\n`,
   );
 }

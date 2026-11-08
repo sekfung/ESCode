@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-session-loading.md：App 的 `session/resume`（TS `resumeSession` +
 // `activateSessionForResume`）是任务列表/会话恢复的入口。Rust 之前没有该方法，App 会拿到
 // -32601「Unsupported method」。这里比对冷/热恢复的 snapshot 与恢复后的可用性。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 
 function respond(request: any, response: any) {
@@ -42,7 +42,7 @@ function start(kind: Runtime, root: string) {
     ? fixture({
         root,
         command: process.execPath,
-        args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+        args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
         registry: true,
         mode: "yolo",
         respond,
@@ -132,7 +132,7 @@ function project(snapshot: any) {
 }
 
 test("Node and Rust resume a session the same way (cold and warm)", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.warm, node.warm);
   assert.deepEqual(rust.cold, node.cold);

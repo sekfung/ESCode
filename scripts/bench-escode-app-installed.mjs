@@ -1,7 +1,6 @@
 // 安装包口径的 App bench 配置（docs/specs/rust-unified-host.md 阶段 3 验收补齐）。
 //
-// 同一个已安装包内切换 runtime（S6 起 Host 固定 Rust），避免把 dev 构建链算进冷启动：
-//   A：Rust Host + Node CLI（ESCODE_AGENT_SERVER_RUNTIME=node）
+// 同一个已安装包内切换 runtime（S6 起 Host 固定 Rust；Node runtime 已退场），避免把 dev 构建链算进冷启动：
 //   B：Rust Host + Rust CLI（包内 resources/glm/escode-cli-rust）
 //   C：Rust Host + 内嵌 runtime（Host 内 runtime-link 默认 embedded）
 // 就绪使用主进程日志而不是进程名轮询：数据库终态 ready + 首屏 did-finish-load（见
@@ -62,22 +61,11 @@ export function installedBenchConfigs(paths) {
     isolatedProfile: true,
   };
   return {
-    A: {
-      ...base,
-      label: "Rust Host + Node CLI（安装包）",
-      env: {
-        ...COMMON_ENV,
-        ESCODE_AGENT_SERVER_RUNTIME: "node",
-        ESCODE_AGENT_SERVER_COMMAND: "",
-        ESCODE_AGENT_SERVER_ARGS_JSON: "",
-      },
-    },
     B: {
       ...base,
       label: "Rust Host + Rust CLI（安装包）",
       env: {
         ...COMMON_ENV,
-        ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust",
         ESCODE_AGENT_SERVER_COMMAND: paths.rust,
         ESCODE_AGENT_SERVER_ARGS_JSON: JSON.stringify(["app-server", "--stdio"]),
       },

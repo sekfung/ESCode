@@ -3,12 +3,12 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 后台子代理在父回合进行中完成：Node 在下一个步边界把完成通知并入本回合（task_notification_steer），而不是
 // 等回合结束再开后台结果轮。比对父会话每次模型请求的尾部消息（agent id / 路径 / 耗时抹掉）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 const call = (id: string, name: string, args: unknown) => ({
   tool_calls: [
@@ -55,7 +55,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -103,7 +103,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust steer a background subagent completion into the running parent turn", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   for (const key of Object.keys(node)) {

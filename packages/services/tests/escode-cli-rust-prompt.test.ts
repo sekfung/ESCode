@@ -8,7 +8,7 @@ import { execFile } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end, waitForFile, type Harness } from "./escode-cli-rust-fixture.js";
 import { responses, anthropic } from "./escode-cli-rust-protocol-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 const contextAdapterModule = "../../../apps/escode-cli/packages/adapters/src/context/index.js";
 const contextBuilderModule = "../../../apps/escode-cli/packages/core/src/context/builder.js";
@@ -127,7 +127,7 @@ test("native desktop and terminal request prefixes match the current TS ContextB
         );
         const cwd = f.cwd;
         // TS ContextBuilder 的完整系统消息与上下文前缀冻结为观察（路径按临时根归一化）。
-        const expected = await nodeOracle(`prefix.${surface}.${apiType}`, async () => {
+        const expected = await goldenOracle(`prefix.${surface}.${apiType}`, async () => {
           const { wrapSystemReminderForSource } = await import(systemReminderModule);
           const built = await buildTsContext({ env, cwd, surface });
           return {
@@ -218,7 +218,7 @@ test("native prompt keeps the first Git snapshot across turns and restart while 
     ]);
     // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
     const cwd = f.cwd;
-    const expected = await nodeOracle("gitSnapshot", async () => {
+    const expected = await goldenOracle("gitSnapshot", async () => {
       const built = await buildTsContext({ env, cwd });
       return built.systemMessages
         .map((m: { content: string }) => normalizeContextText(m.content, f.root, cwd))
@@ -291,7 +291,7 @@ test("instruction sources match TS nearest-file, Git boundary and bounded UTF-8 
     );
     // Node 在提示词中使用 Host 传入的工作目录（不 realpath），见 rust-request-context.md。
     const cwd = f.cwd;
-    const expected = await nodeOracle("instructions", async () => {
+    const expected = await goldenOracle("instructions", async () => {
       const { wrapSystemReminderForSource } = await import(systemReminderModule);
       const built = await buildTsContext({ env, cwd });
       return normalizeContextText(

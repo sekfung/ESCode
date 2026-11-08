@@ -3,12 +3,12 @@ import test from "node:test";
 import { basename, resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // `v4/conversation/backgroundBashOutput`：后台 Bash 详情面板的输出尾窗。运行中、结算后与未知 workId 三种应答
 // 两侧一致（输出路径只比文件名）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const command = "echo first; sleep 2; echo second";
 
 async function observe(kind: "node" | "rust") {
@@ -44,7 +44,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -95,7 +95,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust read background Bash output for the details panel the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.settled.status, "completed");

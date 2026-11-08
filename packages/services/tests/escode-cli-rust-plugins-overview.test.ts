@@ -6,14 +6,14 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 3 期：`plugins/overview`。
 // 比对整份结果（marketplaces / availablePlugins / installedPlugins / restorableBuiltins /
 // diagnostics / capability），只剔除第 4 期才实现的 hookDetails；另比对 overview 补写的
 // known_marketplaces.json（除时间戳 addedAt）。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function writeJson(path: string, value: unknown) {
   await mkdir(dirname(path), { recursive: true });
@@ -131,16 +131,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-overview-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -195,7 +195,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust return the same plugins overview", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust.known, node.known);
   assert.deepEqual(rust.result.marketplaces, node.result.marketplaces);

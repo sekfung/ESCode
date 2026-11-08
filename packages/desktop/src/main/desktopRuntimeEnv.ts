@@ -10,6 +10,7 @@ import {
   ESCODE_BUILD_COMMIT_ID_ENV,
   ESCODE_AGENT_RUNTIME,
   ESCODE_COMMIT,
+  ESCODE_DESKTOP_PACKAGED_ENV,
   ESCODE_DYNAMIC_WORKFLOW_MODE_ENV,
   ESCODE_ENV,
   ESCODE_PRODUCT_FLAVOR,
@@ -593,6 +594,9 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
 
   return {
     ...inheritedEnv,
+    // 打包标记：runtime resolver 据此跳过 monorepo 开发二进制探测，避免安装包从仓库目录启动时
+    // 误用本地 cargo 产物（Node runtime 退场后开发态探测只剩 Rust，但隔离语义不变）。
+    ...(packagedDesktop ? { [ESCODE_DESKTOP_PACKAGED_ENV]: "1" } : {}),
     // ESCode 运行时不再使用 NODE_ENV；它会被用户 shell、包管理器和测试框架复用。
     // 这里显式下发 ESCODE_RUNTIME_ENV，并在继承环境里清掉 NODE_ENV，避免 host/agent/Bash 被污染。
     [ESCODE_RUNTIME_ENV_KEY]: resolveHostProcessNodeEnv(),

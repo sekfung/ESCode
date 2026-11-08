@@ -6,11 +6,11 @@ import { mkdtemp, readdir, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-official-plugin-seed.md：Node 与 Rust 共享同一官方插件缓存。
 // 任一 runtime 先 seed，另一个启动时必须认出缓存为当前版本、不改写任何文件，且发现相同的插件技能。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 
 async function snapshot(dir: string) {
@@ -59,7 +59,7 @@ async function run(kind: "node" | "rust", root: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -69,9 +69,9 @@ async function run(kind: "node" | "rust", root: string) {
           respond,
           env: {
             // 开发树中 Rust 可执行文件不在插件源旁：与 Node 入口使用同一候选目录与插件宿主。
-            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
             ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-            ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+            ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
           },
         });
   try {
@@ -110,7 +110,7 @@ for (const [first, second] of [
     // （录制时 Node 已 seed，这一步只是复用），之后仍验证第二个 runtime 不改写。
     const a =
       first === "node"
-        ? await nodeOracle("node-seeds", () => run("node", root))
+        ? await goldenOracle("node-seeds", () => run("node", root))
         : canonical(await run("rust", root));
     if (first === "node") await canonical(await run("rust", root));
     const seeded = await snapshot(storage);
@@ -119,7 +119,7 @@ for (const [first, second] of [
     assert.ok(seeded["marketplaces/zcode-plugins-official/bundled-marketplace.json"]);
     const b =
       second === "node"
-        ? await nodeOracle("node-reuses", () => run("node", root))
+        ? await goldenOracle("node-reuses", () => run("node", root))
         : canonical(await run("rust", root));
     assert.deepEqual(await snapshot(storage), seeded);
     assert.ok(a.skills?.includes("browser-use:control-browser"));

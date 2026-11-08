@@ -4,13 +4,13 @@ import { dirname, join, resolve } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-hooks.md H2：工作区（项目）hooks 的软门禁与审核。项目配置声明 UserPromptSubmit hook：首轮待信任
 // （不执行，`workspaceHookAdmission` 提示条出现）；requestWorkspaceHookReview 打开审核交互，respondWorkspaceHookReview
 // 信任全部项后提示条消失，下一轮项目 hook 执行并追加上下文。比对状态、审核载荷、ACK、模型请求与 hook 行。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 const hookScript = `
 let raw = "";
@@ -30,15 +30,15 @@ async function observe(kind: "node" | "rust") {
     end(res, "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -167,7 +167,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust gate and review workspace hooks the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
@@ -183,14 +183,14 @@ test("Node and Rust answer a stale workspace hook trust grant the same way", asy
   const grant = async (kind: "node" | "rust") => {
     const env = {
       ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-      ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
     };
     const respond = (_req: any, res: any) => res.end();
     const f =
       kind === "node"
         ? await fixture({
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             registry: true,
             respond,
             env,
@@ -221,7 +221,7 @@ test("Node and Rust answer a stale workspace hook trust grant the same way", asy
       await f.close();
     }
   };
-  const node = await nodeOracle("grant", () => grant("node"));
+  const node = await goldenOracle("grant", () => grant("node"));
   assert.equal((node as any).accepted, false);
   assert.deepEqual(await canonical(await grant("rust")), node);
 });

@@ -3,12 +3,12 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // TaskOutput 读后台 Bash：运行中非阻塞读（not_ready）与阻塞读到终态（success + exit code + 输出）。模型看到的是
 // TS formatTaskOutputModelContent 的 XML 块（task id / 输出路径抹掉）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const command = "sleep 2; printf 'line one\\nline two\\n'";
 
 const call = (id: string, name: string, args: unknown) => ({
@@ -50,7 +50,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -83,7 +83,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust read a background Bash task with TaskOutput the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_TO) console.log(JSON.stringify({ node, rust }, null, 1));
   assert.deepEqual(node.schemaErrors, []);

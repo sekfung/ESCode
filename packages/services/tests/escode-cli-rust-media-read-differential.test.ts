@@ -14,13 +14,13 @@ import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { anthropic, responses } from "./escode-cli-rust-protocol-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-media-read.md：Read 图片后，Node 与 Rust 在三种协议下发给模型的工具结果与
 // 媒体消息形态一致（预算内原图字节一致）。
 // Node 一侧渲染 PDF 在 Windows CI 上多次超过 fixture 默认 8s 的等待（docs/specs/rust-ci.md 记录的超时）。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const properties = {
   contextWindow: 200000,
   inputFormat: {
@@ -128,7 +128,7 @@ async function observe(kind: "node" | "rust", apiType: string, image: Buffer | T
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -186,7 +186,7 @@ test("Node and Rust resize an oversized Read image to the same format and dimens
           }
         : m,
     );
-  const node = await nodeOracle("resize-wide", () =>
+  const node = await goldenOracle("resize-wide", () =>
     observe("node", "openai-chat-completions", wide),
   );
   const rust = canonical(await observe("rust", "openai-chat-completions", wide));
@@ -196,7 +196,7 @@ test("Node and Rust resize an oversized Read image to the same format and dimens
 
 for (const apiType of ["openai-chat-completions", "anthropic-messages", "openai-responses"]) {
   test(`Node and Rust project Read image results the same way (${apiType})`, async () => {
-    const node = await nodeOracle(`image-${apiType}`, () => observe("node", apiType));
+    const node = await goldenOracle(`image-${apiType}`, () => observe("node", apiType));
     assert.deepEqual(node.schemaErrors, []);
     const rust = canonical(await observe("rust", apiType));
     assert.deepEqual(rust.tail, node.tail);
@@ -229,7 +229,7 @@ for (const apiType of ["openai-chat-completions", "anthropic-messages", "openai-
         props: pdfProps,
         ...(pages ? { args: { pages } } : {}),
       };
-      const node = await nodeOracle(`pdf-${apiType}-${pages ?? "none"}`, () =>
+      const node = await goldenOracle(`pdf-${apiType}-${pages ?? "none"}`, () =>
         observe("node", apiType, target),
       );
       const rust = canonical(await observe("rust", apiType, target));
@@ -249,7 +249,7 @@ const clip = Buffer.from([0, 0, 0, 20, 102, 116, 121, 112, 105, 115, 111, 109, 0
 for (const apiType of ["openai-chat-completions", "anthropic-messages"]) {
   test(`Node and Rust read videos the same way (${apiType})`, async () => {
     const target = { name: "clip.mp4", bytes: clip, props: videoProps };
-    const node = await nodeOracle(`video-${apiType}`, () => observe("node", apiType, target));
+    const node = await goldenOracle(`video-${apiType}`, () => observe("node", apiType, target));
     const rust = canonical(await observe("rust", apiType, target));
     assert.deepEqual(rust.tail, node.tail);
     assert.deepEqual(rust.schemaErrors, []);
@@ -272,7 +272,7 @@ async function observeAttachment(kind: "node" | "rust", name: string, bytes: Buf
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -324,7 +324,7 @@ for (const [label, name, bytes] of [
   ["undecodable", "broken.png", Buffer.from("not really a png")],
 ] as const) {
   test(`Node and Rust prepare ${label} image attachments the same way`, async () => {
-    const node = await nodeOracle(`attachment-${label}`, () =>
+    const node = await goldenOracle(`attachment-${label}`, () =>
       observeAttachment("node", name, bytes),
     );
     const rust = canonical(await observeAttachment("rust", name, bytes));
@@ -355,7 +355,7 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -435,7 +435,7 @@ async function observeUpload(kind: "node" | "rust", bytes: Buffer) {
 }
 
 test("Node and Rust derive the same local path for uploaded image attachments", async () => {
-  const node = await nodeOracle("upload", () => observeUpload("node", wide));
+  const node = await goldenOracle("upload", () => observeUpload("node", wide));
   const rust = canonical(await observeUpload("rust", wide));
   assert.equal(node.derivedMatchesUpload, true, JSON.stringify(node.content));
   assert.deepEqual(rust, node);

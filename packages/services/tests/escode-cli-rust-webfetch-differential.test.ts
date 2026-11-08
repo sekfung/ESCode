@@ -5,11 +5,11 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-webfetch.md：同一轮 WebFetch 在 Node 与 Rust 上发给辅助模型的处理请求、
 // 回给主模型的工具结果必须一致。需要访问公网，默认跳过；ESCODE_WEBFETCH_LIVE=1 时运行。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const live = process.env.ESCODE_WEBFETCH_LIVE === "1";
 const URL_UNDER_TEST = process.env.ESCODE_WEBFETCH_URL ?? "https://example.com/";
 
@@ -71,7 +71,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -104,7 +104,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust process a WebFetch page the same way", { skip: !live }, async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);

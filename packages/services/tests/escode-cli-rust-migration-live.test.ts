@@ -7,9 +7,9 @@ import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { DatabaseSync } from "node:sqlite";
-import { nodeOracle } from "./escode-cli-rust-golden.js";
+import { goldenOracle } from "./escode-cli-rust-golden.js";
 
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const goldenDir = resolve("packages/services/tests/fixtures/cli-golden");
 // Node 真实写出的 TS 数据冻结为仓内 seed：正常跑只复制这份 DB 给 Rust 导入，不再启动 Node。
 const seedDb = join(goldenDir, "migration-live.legacy-ts.sqlite");
@@ -61,7 +61,7 @@ async function observeNode() {
   const nodeFixture = await fixture({
     root,
     command: process.execPath,
-    args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+    args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
     registry: true,
   });
   let sessionId = "";
@@ -110,7 +110,7 @@ async function observeNode() {
 // docs/specs/rust-release-rollback.md「数据迁移」：用真实 Node runtime 写出的 TS 数据做导入验收，
 // 而不是手写 fixture——这是「真实用户数据」之外能拿到的最接近的口径。正常跑使用冻结的 seed DB。
 test("Rust imports a session written by the real Node runtime and preserves its content", async () => {
-  const node = await nodeOracle("live-import", observeNode);
+  const node = await goldenOracle("live-import", observeNode);
   // 1) Node 侧观察（golden）：会话、消息数量与协议 schema 都正常。
   assert(node.tsMessages >= 2, `Node runtime wrote ${node.tsMessages} messages`);
 

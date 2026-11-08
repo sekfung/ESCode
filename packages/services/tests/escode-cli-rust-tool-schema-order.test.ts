@@ -6,11 +6,11 @@ import { once } from "node:events";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-tool-schema-order.md：stdio、SSE 与 streamable HTTP MCP 工具的 inputSchema 按声明顺序发给模型（Node 保留原文顺序；
 // Rust 之前经 rmcp 与 serde_json 排序）。fixture 用 JSON.parse 读取请求体，保留线上键顺序。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const schema = {
   type: "object",
   properties: {
@@ -124,7 +124,7 @@ async function observe(kind: "node" | "rust", transport: "stdio" | "sse" | "http
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -183,7 +183,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 
 for (const transport of ["stdio", "sse", "http"] as const) {
   test(`${transport} MCP tool schemas reach the model in declaration order as in Node`, async () => {
-    const node = await nodeOracle(transport, () => observe("node", transport));
+    const node = await goldenOracle(transport, () => observe("node", transport));
     const rust = canonical(await observe("rust", transport));
     assert.equal(node, JSON.stringify(schema));
     assert.equal(rust, node);

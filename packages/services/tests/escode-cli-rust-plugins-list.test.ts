@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugins.md 第 1 期：`plugins/list` 的发现层与清单字段。
 // 第 1 期不输出 components / userConfig / configuredOptions / optionSources / hookDetails /
 // enabledSource / rootSource（schema 里都是可选字段），因此只比对两侧都已实现且必需的字段。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const FIELDS = [
   "id",
   "name",
@@ -78,15 +78,15 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           // 官方插件：Node 从随包根发现，Rust 靠同一份随包目录 seed 进 storage（与 App 的
           // processManager 注入一致），否则 Rust 侧会缺 node-repl-host / browser-use 两行。
           env: {
-            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
             ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-            ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+            ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
           },
         })
       : await fixture({
@@ -94,9 +94,9 @@ async function observe(kind: Runtime) {
           registry: true,
           mode: "yolo",
           env: {
-            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
             ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-            ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+            ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
           },
         });
   try {
@@ -148,7 +148,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust list plugins with the same discovery fields", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);

@@ -5,7 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 默认并发直接问实现（bootstrap/app/workflow-default-concurrency.ts 是唯一实现，
 // docs/dynamic-workflow/concurrency.md）：`max(4, min(16, availableParallelism() − 2))`。
@@ -23,7 +23,7 @@ const SETTINGS_ROWS = CAN_RETUNE ? 4 : 2;
 // 实现；Rust 只做模型目录（补 current）与落设置轮。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   "interface Answer { total: number; }",
   'const counter = agent("counter", { system: "You count things carefully." });',
@@ -77,9 +77,9 @@ async function observe(kind: "node" | "rust") {
     }
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   let pump: ReturnType<typeof setInterval> | undefined;
   const f =
@@ -87,7 +87,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -222,7 +222,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust amend workflow run settings from the GUI the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：确认 Node 侧真的走到了修订与就地调并发，避免两侧同样为空也判等。

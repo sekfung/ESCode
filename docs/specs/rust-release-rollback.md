@@ -156,21 +156,21 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
   「安装/升级/降级」这条安装器链路，不等于删除 Node runtime 所需的「Rust-only 三平台发行门禁」。
 - 实现入口：`scripts/ci-install-desktop.mjs --version-drill <base-artifacts> <head-artifacts>`。
 
-### Rust-only 安装门禁（2026-11-02 设计）
+### Rust-only 安装门禁（2026-11-02 设计，2026-11-09 成为默认）
 
-`--rust-only` 把安装包演练从「Rust Host 可选」推进到「不依赖 Node agent bundle」：
+> 2026-11-09：`--rust-only` 与 `rust_only` 输入已删除，安装门禁默认按 Rust-only 执行；以下步骤保留为设计记录。
 
-1. 安装（或覆盖安装）后断言 `resources/glm/escode-cli-rust[.exe]` 存在，删除
-   `resources/glm/zcode.cjs`；若未来安装包已不含 Node bundle，则把「不存在」视为通过，不伪造删除成功。
+`--rust-only` 曾把安装包演练从「Rust Host 可选」推进到「不依赖 Node agent bundle」：
+
+1. 安装（或覆盖安装）后断言 `resources/glm/escode-cli-rust[.exe]` 存在，并确认不含
+   `resources/glm/zcode.cjs`；若安装包已不含 Node bundle，则把「不存在」视为通过。
 2. 启动真实安装包：数据库启动终态必须 `ready`，日志必须出现 Rust Host
    `started` 与 renderer `attached`，且不得出现 per-window Node utility Host。
 3. `escode-cli-rust-installed-rust-only.test.ts` 只通过安装包内的 Rust 二进制创建会话、发送一轮输入并等待
    完成；不加载 `zcode.cjs`，schema 错误必须为 0。
-4. `rust-version-drill.yml` 的 `rust_only=true` 把同一流程套到 base → head → 降级三个阶段；任一步
-   需要 Node agent bundle、启动失败或 Host 断言不符都直接失败，不跳过、不回退。
+4. ~~`rust-version-drill.yml` 的 `rust_only=true`~~ 已删除；版本演练三个阶段固定按 Rust-only 安装门禁执行。
 
-边界：当前正式安装包仍带 Node bundle，因此本门禁先证明「移除 Node agent bundle 后应用仍可运行」；
-真正把 `zcode.cjs` 从打包产物删除仍需单独的打包开关与产物检查，不能把本门禁当成产物已精简的证据。
+边界：正式安装包已不含 Node bundle，本门禁是当前发布默认路径，不再是「未来删除」的预演。
 
 **实跑证据（2026-11-02，四平台全绿）**
 
@@ -197,32 +197,35 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 - 操作约束：工作流文件已在默认分支 `main`（`d25e3f38`）；`workflow_dispatch` 的 `--ref dev` 决定
   checkout 的脚本版本，因此持续修 `scripts/ci-install-desktop.mjs` 后重新 dispatch 即可，不必改 `main`。
 
-### Rust-only 打包产物开关（2026-11-02 设计）
+### Rust-only 打包产物开关（2026-11-02 设计，2026-11-09 收口）
+
+> 2026-11-09：Node runtime 退场后 `ESCODE_BUNDLE_NODE_AGENT` 与 `rust_only` 输入已删除，
+> Rust-only 成为唯一发布形态；`zcode.cjs` 不再构建/暂存，产物断言固定要求 Rust + `plugin-host.cjs`。
+> 以下开关描述保留为设计记录，实际行为以本节执行说明与 [rust-packaging.md](rust-packaging.md) 为准。
 
 安装门禁只能证明「运行时删掉 `zcode.cjs` 仍可用」，不能证明产物本身已精简。产物级开关与门禁如下：
 
-1. `ESCODE_BUNDLE_NODE_AGENT=0` 让打包链路不再把 `zcode.cjs` / `.node-bundle-meta.json` 放进
-   `resources/glm`，改为保留独立的 `plugin-host.cjs`。官方插件仍由 Electron-as-Node 执行
-   `__escode-plugin-host`，因此不能把插件宿主一起删掉。`prepare:agent-bundle` 仍构建 CLI 与官方插件
+1. ~~`ESCODE_BUNDLE_NODE_AGENT=0`~~（已删除）打包链路固定不再把 `zcode.cjs` / `.node-bundle-meta.json`
+   放进 `resources/glm`，只保留独立的 `plugin-host.cjs`。官方插件仍由 Electron-as-Node 执行
+   `__escode-plugin-host`，因此不能把插件宿主一起删掉。`prepare:agent-bundle` 仍构建插件宿主与官方插件
    runtime，并继续 stage 官方插件 seed、`packages/bundled-skills`、`rea-runtime` 与 sharp/koffi 原生依赖。
-2. 该开关必须与 `ESCODE_BUNDLE_RUST_AGENT` 同时开启；两者同时关闭会让安装包没有任何 agent runtime，
-   构建阶段直接失败，不产出无法启动的包。
+2. `ESCODE_BUNDLE_RUST_AGENT` 仍控制是否内置 Rust 二进制；Node 退场后关闭它会让安装包没有任何
+   agent runtime，产物断言直接失败。
 3. 产物断言在两个位置执行：`electron-builder.config.js` 的 `afterPack`（本地打包即失败）与
-   `assert-release-artifacts.mjs`（release 产物门禁）。Rust-only 构建要求
+   `assert-release-artifacts.mjs`（release 产物门禁）。要求
    `resources/glm/escode-cli-rust[.exe]` 与 `resources/glm/plugin-host.cjs` 存在，且
-   `resources/glm/zcode.cjs` 与 `.node-bundle-meta.json` 不存在；所有构建都要求至少存在一种 agent runtime。
-4. `release` 工作流的 `workflow_dispatch` 输入 `rust_only=true` 使用该开关构建四平台产物，并跳过依赖 Node
-   agent bundle 的 Node → Rust → Node 回退演练，改为执行 Rust-only 安装、Host 启动与安装包会话门禁。
-5. `ci-install-desktop.mjs` 在 Linux 上按 `resources/glm/escode-cli-rust` 反查 `glm` 目录，兼容已移除
-   `zcode.cjs` 的产物；Rust-only 安装阶段只要求 Rust 二进制。
+   `resources/glm/zcode.cjs` 与 `.node-bundle-meta.json` 不存在。
+4. ~~`release` 工作流的 `rust_only=true` 输入~~（已删除）四平台产物默认 Rust-only，直接执行 Host 启动与
+   安装包会话门禁，不再有 Node → Rust → Node 回退演练。
+5. `ci-install-desktop.mjs` 在 Linux 上按 `resources/glm/escode-cli-rust` 反查 `glm` 目录；安装阶段只要求
+   Rust 二进制。
 6. Windows 打包态启动诊断以「至少存在一种随包 agent runtime」为完整：Rust-only 有 Rust 二进制、
    无 Node bundle 时不报警；仅 Rust 与 Node 两者都缺失时才记录资源损坏警告。
-7. 版本演练要移除 base/降级安装包里的 Node bundle。Linux apt 安装目录 `/opt/ESCode` 归 root，
-   `zcode.cjs` / `.node-bundle-meta.json` 的删除在普通用户 EACCES 时走 `sudo`，避免失败或半剥离产物。
+7. ~~版本演练要移除 base/降级安装包里的 Node bundle~~（2026-11-09 起 base/降级可能是仍含 Node bundle 的旧安装包，
+   但 head 及新产物默认不含；门禁只要求 Rust 二进制与插件宿主）。
 
-边界：该开关只负责「产物不含 Node agent bundle」。把 `ESCODE_BUNDLE_NODE_AGENT=0` 设为发布默认、删除 TS CLI、
-本地 Node Host 路径与 `ESCODE_AGENT_SERVER_RUNTIME=node` 回退，仍需三平台 Rust-only 安装/升级/回滚演练与
-P1 残余项收敛后再单独确认。
+边界：2026-11-09 起 Rust-only 已是唯一发布形态，`ESCODE_BUNDLE_NODE_AGENT` / `rust_only` /
+`ESCODE_AGENT_SERVER_RUNTIME=node` 均已删除；三平台真实 `release` 与安装包演练仍需在 CI 复核。
 
 **实跑证据（2026-11-03，四平台全绿）**
 
@@ -323,16 +326,16 @@ Rust Host 启动（S6 起不再演练 Node Host），断言每次 Host 类型正
 `host switch and rollback drill passed: node → rust → node, settings preserved`；
 本地 linux-x64 当前源码包也已跑通。
 
-golden freeze（阶段 3）：Host parity 切片已支持冻结 Node 侧观察（`scripts/diff-escode-cli-rust-parity.mjs --record`）
-与只跑 Rust 的判定（`--golden`），冻结资产在 `scripts/fixtures/parity/`；settings interop 增加
-“TS 写出的冻结 `setting.json` → Rust 单向读入”用例。Desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
+golden freeze（阶段 3）：Host parity 切片已支持只跑 Rust 的判定（`--golden`），冻结资产在
+`scripts/fixtures/parity/`；Node runtime 退场后录制能力（`--record` / `--live-node`）已删除，golden 只读。
+settings interop 增加“TS 写出的冻结 `setting.json` → Rust 单向读入”用例。Desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
 `import @escode/services` / `services/src/*`，原 TS 观察冻结在
 `packages/desktop/test/fixtures/golden/`（大 JSON 用 gzip，seed 库在录制前快照）；
 生成器 `scripts/generate-rusthost-*-golden.ts --check`（汇总入口
 `pnpm check:rust-host-golden`）检测漂移。真实 `@escode/client` 保留（客户端契约，不是 oracle）。
 CLI 确定性 oracle 已清零：`packages/services/tests/escode-cli-rust-*.test.ts` 共 156 个，
 正常跑只启动 Rust；观察冻结在 `packages/services/tests/fixtures/cli-golden/`
-（`nodeOracle` record/load，`ESCODE_RECORD_CLI_GOLDEN=1` 重录；legacy DB 用 gzip seed）。
+（`goldenOracle` 只读加载；legacy DB 用 gzip seed）。
 例外为非确定性 benchmark/rehearsal（`long-history-bench`、`real-data-rehearsal`、
 `real-provider-bench`，默认跳过）与仅 Windows 的 `shell-resume-notice`（golden 待 Windows 重录）。
 Node Host 入口与运行链路已于 2026-11-04 删除；TS CLI 仍按 P1 残余项与单独确认保留。

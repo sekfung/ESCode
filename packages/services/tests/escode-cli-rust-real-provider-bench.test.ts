@@ -10,7 +10,7 @@ import { fixture } from "./escode-cli-rust-fixture.js";
 // 两侧使用同一份 personal provider 配置（密钥运行时读取，不打印），交替执行以抵消供应商侧漂移。
 const providerId = process.env.ESCODE_BENCH_PROVIDER_ID;
 const rounds = Number(process.env.ESCODE_BENCH_ROUNDS ?? 20);
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 // 场景：short 一词回复；long 约 300 词的流式长回复；tool 先调用 Read 再回答（统计工具是否成功）。
 const scenario = (process.env.ESCODE_BENCH_SCENARIO ?? "short") as "short" | "long" | "tool";
 const prompts = {
@@ -106,7 +106,7 @@ async function measure(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           env,
         })

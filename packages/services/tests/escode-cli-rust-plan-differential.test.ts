@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { z } from "zod";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plan-mode.md：plan 模式在 Node 与 Rust 上的协议投影与模型可见内容必须一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 type Answer = "approve" | "feedback" | "decline";
 const PLAN = "1. Read the code\n2. Change it";
@@ -44,7 +44,7 @@ export async function observePlan(kind: Runtime, answer: Answer) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -137,7 +137,7 @@ export async function observePlan(kind: Runtime, answer: Answer) {
 
 for (const answer of ["approve", "feedback", "decline"] as const) {
   test(`Node and Rust handle ExitPlanMode ${answer} the same way`, async () => {
-    const node = await nodeOracle(`exit-${answer}`, () => observePlan("node", answer));
+    const node = await goldenOracle(`exit-${answer}`, () => observePlan("node", answer));
     if (process.env.ESCODE_PLAN_DIFF_DUMP)
       console.log("DUMP", answer, JSON.stringify(node, null, 1));
     const rust = canonical(await observePlan("rust", answer));
@@ -160,7 +160,7 @@ async function observeEnter(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -192,7 +192,7 @@ async function observeEnter(kind: Runtime) {
 }
 
 test("Node and Rust enter plan mode the same way", async () => {
-  const node = await nodeOracle("enter", () => observeEnter("node"));
+  const node = await goldenOracle("enter", () => observeEnter("node"));
   const rust = canonical(await observeEnter("rust"));
   assert.deepEqual(rust, node);
 });

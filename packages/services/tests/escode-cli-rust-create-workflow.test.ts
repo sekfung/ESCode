@@ -6,14 +6,14 @@ import { tmpdir } from "node:os";
 import { applyConversationDeltas } from "@escode/shared/escode-protocol-v4";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md「运行面实现计划」M1：CreateWorkflow（无 actor 脚本）。技能门之后提交 →
 // alwaysAsk 确认（无「总是允许」）→ 后台启动 → run 结算 → 完成通知作为后台结果轮续跑。Rust 经工作流宿主
 // 复用 TS run 服务与 handler；模型看到的工具结果与完成通知两侧一致（run id / 路径 / 耗时抹掉）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const script = [
   'const paths = await files.glob("*.txt");',
   "log(`found ${paths.length}`);",
@@ -52,16 +52,16 @@ async function observe(
     }
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -193,7 +193,7 @@ async function observe(
 }
 
 test("Node and Rust run a CreateWorkflow script in the background the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   if (process.env.DEBUG_PERM)
     console.log(JSON.stringify({ node: node.permissions, rust: rust.permissions }));
@@ -216,7 +216,7 @@ test("Node and Rust run a CreateWorkflow script in the background the same way",
 
 test("Node and Rust apply workflow settings adjusted in the permission window", async () => {
   const adjustments = { max_concurrency: 2, subagent_model: "personal:fixture/model-b" };
-  const node = await nodeOracle("adjusted", () => observe("node", adjustments));
+  const node = await goldenOracle("adjusted", () => observe("node", adjustments));
   const rust = await canonical(await observe("rust", adjustments));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.permissions[0].adjustable?.subagent_model, true);
@@ -232,7 +232,7 @@ test("Node and Rust apply workflow settings adjusted in the permission window", 
 
 test("Node and Rust reject an unusable model adjustment before starting the run", async () => {
   const adjustments = { subagent_model: "missing/model" };
-  const node = await nodeOracle("adjust-failed", () => observe("node", adjustments, false));
+  const node = await goldenOracle("adjust-failed", () => observe("node", adjustments, false));
   const rust = await canonical(await observe("rust", adjustments, false));
   assert.deepEqual(node.schemaErrors, []);
   assert.equal(node.permissions.length, 1);

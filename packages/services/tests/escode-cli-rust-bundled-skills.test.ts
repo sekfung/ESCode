@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md：随 CLI 内置的技能包（bundled-skills / dynamic-workflows）。
 // 动态工作流开启的会话里模型能看到 `dynamic-workflows` 技能，关闭的会话里看不到；它永远不进 `$` 引用面板。
 // 两侧都从 Node CLI 产物旁的 packages/bundled-skills 发现（Rust 经 Host 给的基准目录）。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const SKILL = "dynamic-workflows";
 
 async function observe(kind: "node" | "rust") {
@@ -25,16 +25,16 @@ async function observe(kind: "node" | "rust") {
     end(res, "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -76,7 +76,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust expose the bundled dynamic-workflows skill the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node, {
     seenWhenEnabled: true,

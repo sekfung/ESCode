@@ -28,21 +28,11 @@ const shouldPrepareWindowsCuaHelper =
 // 到屏幕底部，仍可用），所以无条件挂在 darwin 上不会让构建变脆。
 const shouldPrepareMacosWindowBounds = target.os === "darwin";
 
-// 本机桌面包内置 agent 的 JS bundle（prepare:agent-bundle），运行时由 app 的 Electron Node runtime 执行。
-// 远端跨平台原生二进制仍由上面的 prepare:remote-assets 提供。
+// 桌面包内置的 agent 资产：Rust runtime（prepare:rust-agent）与官方插件宿主（prepare:agent-bundle）。
+// Node agent runtime 已退场，不再暂存 zcode.cjs；远端跨平台原生二进制仍由 prepare:remote-assets 提供。
 // native-search 归档随仓库分发，准备步骤只做本地解包校验，不需要任何下载源配置。
-// Rust runtime 默认随包（默认 runtime 已切到 Rust，见 docs/specs/rust-packaging.md）；ESCODE_BUNDLE_RUST_AGENT=0 可关闭，
-// 此时安装包只含 Node runtime，桌面端自动用 Node。
 const shouldPrepareRustAgent = process.env.ESCODE_BUNDLE_RUST_AGENT !== "0";
 const shouldPrepareRustHost = process.env.ESCODE_BUNDLE_RUST_HOST !== "0";
-// Rust-only 产物开关（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
-// prepare:agent-bundle 仍负责插件 seed / 技能包 / REA 与原生依赖，只跳过 Node agent bundle 本身的暂存。
-const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
-if (!shouldBundleNodeAgent && !shouldPrepareRustAgent) {
-  throw new Error(
-    "ESCODE_BUNDLE_NODE_AGENT=0 requires ESCODE_BUNDLE_RUST_AGENT!=0; the package would have no agent runtime",
-  );
-}
 const localRuntimeScripts = [
   "prepare:agent-bundle",
   ...(shouldPrepareRustAgent ? ["prepare:rust-agent"] : []),

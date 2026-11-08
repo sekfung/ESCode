@@ -6,14 +6,14 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「forkAssistant」：fork child 按**被选轮**的协作模式执行
 // （TS 取被选 assistant 消息上的 execution state），父会话之后切换模式不影响 child；
 // session/read 的 session.mode 与 settings.permission.mode 是同一事实。
 // 曾经的缺陷：Node 的 session.mode 取父会话创建时的 permission（显示 build），实际执行却是 yolo；
 // Rust 继承父会话当前模式。两侧都已修复，这里逐字比较。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const any = z.any();
 type Runtime = "node" | "rust";
 
@@ -29,7 +29,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -77,7 +77,7 @@ async function observe(kind: Runtime) {
 }
 
 test("a forked child runs in the mode of the forked turn on both runtimes", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检 Node 基准：父会话当前是 build，child 跟被选轮走 yolo，两个字段一致。
   assert.deepEqual(node, {

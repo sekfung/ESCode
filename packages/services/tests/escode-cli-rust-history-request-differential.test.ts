@@ -5,12 +5,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 import type { SessionId } from "@escode/contracts";
 
 // 模型请求语义：同一份由真实 TS store 写出的历史，Node 与 Rust 继续对话时发给模型的会话部分必须一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const session = "history-request" as SessionId;
 const workspace = "history-request-workspace";
 
@@ -52,7 +52,7 @@ async function observe(kind: "node" | "rust", source: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ root, registry: true, legacy: true });
@@ -92,7 +92,7 @@ test("Node and Rust send the same conversation to the model when continuing an i
     workspace,
     root: dir,
   });
-  const node = await nodeOracle("imported-history", () => observe("node", source));
+  const node = await goldenOracle("imported-history", () => observe("node", source));
   const rust = canonical(await observe("rust", source));
   if (process.env.ESCODE_HREQ_DUMP)
     console.log(

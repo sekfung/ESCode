@@ -5,18 +5,18 @@ import { escodeMcpListResultSchema, type ESCodeProtocolMcpServer } from "@escode
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { httpServer, stdioServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md「协议协商默认值」：server 对 server/discover 完全不响应时，
 // stdio 在探测预算（min(5s, timeoutMs/2)）后回落 legacy；HTTP 超时则是协商失败、不回落。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust", transport: "stdio" | "http") {
   const f =
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ registry: true });
@@ -65,7 +65,7 @@ async function observe(kind: "node" | "rust", transport: "stdio" | "http") {
 
 for (const transport of ["stdio", "http"] as const)
   test(`MCP ${transport} auto probe timeout matches Node`, async () => {
-    const node = await nodeOracle(`probe-timeout-${transport}`, () => observe("node", transport));
+    const node = await goldenOracle(`probe-timeout-${transport}`, () => observe("node", transport));
     const rust = canonical(await observe("rust", transport));
     assert.deepEqual(rust.outcome, node.outcome);
     if (transport === "http") {

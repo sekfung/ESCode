@@ -7,7 +7,7 @@ import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { escodeSessionListResultSchema } from "@escode/shared";
 import type { SessionId } from "@escode/contracts";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
 
 // 每个用例多次冷启动 Node 与 shell，Windows CI 上超过 fixture 默认 8s 的等待（CI 实测超时，本地通过）。
@@ -18,7 +18,7 @@ const SEEDED = "sess_seeded-other-workspace";
 
 // docs/specs/rust-read-session-context.md：会话 B 引用会话 A（#sess_*）并调用 ReadSessionContext。
 // 两个 runtime 的引用提醒、辅助抽取请求与工具结果，在归一化 id / 时间 / 路径后必须一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 
 async function observe(kind: "node" | "rust", seeded = false) {
@@ -85,7 +85,7 @@ async function observe(kind: "node" | "rust", seeded = false) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -162,7 +162,7 @@ async function observe(kind: "node" | "rust", seeded = false) {
 }
 
 test("Node and Rust read a referenced session the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);
@@ -180,7 +180,7 @@ test("Node and Rust read a referenced session the same way", async () => {
 });
 
 test("Node and Rust read a TS session from another workspace the same way", async () => {
-  const node = await nodeOracle("seeded", () => observe("node", true));
+  const node = await goldenOracle("seeded", () => observe("node", true));
   const rust = canonical(await observe("rust", true));
   assert.deepEqual(node.schemaErrors, []);
   assert.deepEqual(rust.schemaErrors, []);

@@ -3,13 +3,13 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-model-content.md：Bash 结果进入模型上下文的正文与 Node 逐字一致
 // （任务 id 与落盘路径每次不同，按占位比较）。
 // 七次 Bash（含 1s 超时与后台任务）加两侧 shell 启动，超过 fixture 默认 8s 的等待。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const CALLS: Record<string, unknown>[] = [
   { command: "printf '\\n  \\nhello\\n  world  \\n\\n'", description: "success" },
   { command: "echo out; echo err 1>&2; exit 3", description: "provider error" },
@@ -70,7 +70,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -91,7 +91,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Bash results reach the model with the same text as Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.equal(node.length, CALLS.length);
   assert.equal(node[0], "hello\n  world");

@@ -162,10 +162,14 @@ async function startMockProvider(modelRequests) {
 
 /** 跑一侧：capabilities → createSession → subscribe → sendText → 等 completedSuccess → 关闭。 */
 export async function runSide(options) {
-  const { side, repoRoot, nodeBundle, rustBinary, keep } = options;
+  const { side, repoRoot, pluginHostBundle, rustBinary, keep } = options;
+  // Node runtime 已退场：差分只跑 Rust 侧，golden 是冻结 oracle。
+  if (side !== "rust") {
+    throw new Error(`Node runtime 已退场，差分不再启动 ${side} 侧`);
+  }
   // 修复：Windows runner 的 tmpdir() 是 8.3 短路径；Node 子进程对其 fs.watch 触发 libuv 断言
   // `!_wcsnicmp(filename, dir, dirlen)` 崩溃，本脚本随即空等到作业超时（bench windows 被取消）。
-  // promises.realpath 走原生实现，展开为长路径（与 bench-escode-cli-node-rust.mjs 同一修复）。
+  // promises.realpath 走原生实现，展开为长路径。
   const capRoot = await realpath(await mkdtemp(join(tmpdir(), `escode-parity-${side}-`)));
   const home = join(capRoot, "home");
   const workspace = join(capRoot, "workspace");
@@ -176,22 +180,19 @@ export async function runSide(options) {
   const { server, baseUrl } = await startMockProvider(modelRequests);
   const { builtinFile, personalFile, rustConfig } = await writeFixture(repoRoot, capRoot, baseUrl);
 
-  const command = side === "node" ? process.execPath : rustBinary;
-  const args =
-    side === "node"
-      ? [nodeBundle, "app-server", "--stdio", "--surface", "terminal", "--cwd", workspace]
-      : [
-          "app-server",
-          "--stdio",
-          "--surface",
-          "terminal",
-          "--cwd",
-          workspace,
-          "--data-dir",
-          join(capRoot, "rust-data"),
-          "--config",
-          rustConfig,
-        ];
+  const command = rustBinary;
+  const args = [
+    "app-server",
+    "--stdio",
+    "--surface",
+    "terminal",
+    "--cwd",
+    workspace,
+    "--data-dir",
+    join(capRoot, "rust-data"),
+    "--config",
+    rustConfig,
+  ];
   const child = spawn(command, args, {
     cwd: repoRoot,
     stdio: ["pipe", "pipe", "pipe"],
@@ -206,15 +207,12 @@ export async function runSide(options) {
       ESCODE_SESSION_DB_PATH: join(storage, "node.sqlite"),
       ESCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinFile,
       ESCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFile,
-      // 修复：Node 以入口文件所在目录发现随包官方插件并自动 seed；Rust 只在二进制目录 / cwd
-      // 找候选，本场景两者都没有插件资产，导致 Rust 缺 skills（system prompt 少
-      // Session-specific guidance 段、模型请求 messages 少一条）。差分夹具把两侧指到同一 base，
-      // 与 escode-cli-rust-* 差分用例的既有做法一致。
-      ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
-      // 官方插件的 JS MCP 服务（node_repl 等）经 Node 宿主运行；两侧必须拿到同一宿主路径，
-      // 否则 Rust 侧的 runtime manifest 不改写，模型工具面会比 Node 少。
+      // Rust 只在二进制目录 / cwd 找官方插件候选，本场景两者都没有插件资产；
+      // 差分夹具显式指到 dist，与 escode-cli-rust-* 差分用例的既有做法一致。
+      ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
+      // 官方插件的 JS MCP 服务（node_repl 等）由独立 plugin-host.cjs 承载。
       ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-      ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
       ESCODE_WORKSPACE_IDENTITY: workspace,
     },
   });
@@ -348,8 +346,8 @@ export async function runSide(options) {
     result.wallMs = Date.now() - started;
     result.stderrTail = stderr.split("\n").slice(-6).join("\n");
     result.workspaceFiles = await inventory(workspace);
-    // Rust 侧的存储落在 --data-dir（rust-data），Node 侧在 ESCODE_STORAGE_DIR；各取各自实际目录。
-    result.storageRoot = side === "node" ? storage : join(capRoot, "rust-data");
+    // Rust 侧的存储落在 --data-dir（rust-data）。
+    result.storageRoot = join(capRoot, "rust-data");
     result.storageFacts = {
       inventory: await inventory(result.storageRoot),
       sqlite: await sqliteFacts(result.storageRoot),

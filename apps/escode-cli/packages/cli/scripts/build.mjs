@@ -131,6 +131,9 @@ export const resolveBuildOptions = (args = [], env = process.env) => {
     sourcemap: e2eCoverage || !desktopAgent,
     // 桌面 agent 额外产出 Rust-only 安装包使用的插件宿主入口；普通 CLI / SEA 不需要。
     buildPluginHost: desktopAgent,
+    // Node agent runtime 已退场：桌面链路只需要插件宿主，不再产出 escode.cjs。
+    // 独立 CLI / SEA 发行仍走默认构建，继续产出完整 bundle。
+    pluginHostOnly: desktopAgent,
   };
 };
 
@@ -219,6 +222,7 @@ export const buildCli = async ({
   minify = false,
   sourcemap = true,
   buildPluginHost = false,
+  pluginHostOnly = false,
   env = process.env,
   version = readRootPackageVersion({
     root: rootDirectory,
@@ -279,17 +283,19 @@ export const buildCli = async ({
     }
   };
 
-  await buildBundle({ entryPoint: resolve(cliDirectory, "src/main.ts"), bundleOutfile: outfile });
+  // Node agent runtime 已退场：桌面链路只构建插件宿主，不再产出 escode.cjs；独立 CLI/SEA 发行仍走完整构建。
+  if (!pluginHostOnly) {
+    await buildBundle({ entryPoint: resolve(cliDirectory, "src/main.ts"), bundleOutfile: outfile });
+    await chmod(outfile, executableFileMode);
+    // escode.cjs 内联了第三方代码；dist 旁的伴随声明供发行 CLI 与统一分发包（build-escode）复制。
+    await stageThirdPartyNotices(resolve(cliDirectory, "dist"), resolve(rootDirectory, "../.."));
+  }
   if (buildPluginHost) {
     await buildBundle({
       entryPoint: resolve(cliDirectory, "src/plugin-host-entry.ts"),
       bundleOutfile: resolve(cliDirectory, "dist/plugin-host.cjs"),
     });
   }
-
-  await chmod(outfile, executableFileMode);
-  // escode.cjs 内联了第三方代码；dist 旁的伴随声明供发行 CLI 与统一分发包（build-escode）复制。
-  await stageThirdPartyNotices(resolve(cliDirectory, "dist"), resolve(rootDirectory, "../.."));
 };
 
 const entryPath = process.argv[1];

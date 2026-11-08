@@ -9,7 +9,7 @@ import {
   type ESCodeAgentCommand,
 } from "../src/escode-agent/escodeAgentProcessManager.js";
 import type { RuntimeProcessLifecycleReporter } from "../src/process/runtimeProcessLifecycle.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-packaging.md「不回退 Node」与「换代等待旧 owner」：
 // - Rust 就绪前失败只记录诊断，后续启动仍按选择用 Rust，不改用 Node；
@@ -136,7 +136,7 @@ async function observeOwnerRelease() {
 }
 
 test("a Rust runtime that exits before ready does not switch later starts to Node", async () => {
-  const observed = await nodeOracle("crash-before-ready", observeCrashBeforeReady);
+  const observed = await goldenOracle("crash-before-ready", observeCrashBeforeReady);
   // 两次启动都由 resolver 选择 Rust，且 resolver 从未收到 fallback 状态。
   assert.deepEqual(observed.resolverFallbackStates, [null, null]);
   assert.equal(observed.starts, 2);
@@ -169,7 +169,7 @@ test("a Rust runtime that exits before ready does not switch later starts to Nod
 });
 
 test("a replacement runtime starts only after the retiring runtime released the workspace", async () => {
-  const observed = await nodeOracle("owner-release", observeOwnerRelease);
+  const observed = await goldenOracle("owner-release", observeOwnerRelease);
   assert.equal(observed.starts, 2);
   assert.equal(
     observed.replacementKeptRunning,

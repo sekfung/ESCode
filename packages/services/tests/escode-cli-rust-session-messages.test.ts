@@ -5,7 +5,7 @@ import { z } from "zod";
 import { escodeSessionMessagesResultSchema } from "@escode/shared";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-session-loading.md：`session/messages`（TS `readMessages`）曾让 Rust 回 -32601。
 // Rust 响应必须满足 App 用的 `escodeSessionMessagesResultSchema`，并逐条符合 TS `readMessages`
@@ -15,8 +15,8 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // `id/sessionID/messageID`），过不了 App schema；Rust 返回 App schema（`messageId/partId/sessionId`）。
 // 差分用语义投影（去掉 synthetic/hidden reminder、step-start/step-finish 与未完成的占位 assistant），
 // 对拍用户/模型可见的 role、文本与工具调用。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
+const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle) };
 
 function respond(request: any, response: any) {
   response.writeHead(200, { "content-type": "text/event-stream" });
@@ -75,7 +75,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           mode: "yolo",
           registry: true,
           respond,
@@ -142,7 +142,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Rust session/messages matches the TS semantic history and the App schema", async () => {
-  const node = await nodeOracle("semantic", () => observe("node"));
+  const node = await goldenOracle("semantic", () => observe("node"));
   const rust = canonical(await observe("rust"));
   assert.deepEqual(rust.schemaErrors, []);
   assert.deepEqual(rust.projected, node.projected);

@@ -19,12 +19,6 @@ on:
       - packages/services/tests/escode-cli-rust-installed.test.ts
       - packages/services/tests/escode-cli-rust-installed-rust-only.test.ts
   workflow_dispatch:
-    inputs:
-      rust_only:
-        description: "build desktop packages without the Node agent bundle (Rust-only artifact gate)"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -119,11 +113,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     env:
-      # 安装包内置 Rust runtime（resources/glm/escode-cli-rust[.exe]），打包态默认选用；显式 node 才走 Node。
+      # 安装包内置 Rust runtime（resources/glm/escode-cli-rust[.exe]）；Node runtime 已退场，这是唯一 agent runtime。
       ESCODE_BUNDLE_RUST_AGENT: "1"
-      # rust_only 手动运行产出真实 Rust-only 安装包（不含 resources/glm/zcode.cjs），
-      # 用于验证打包开关与产物断言；普通 push/tag 运行保持 Node + Rust 双 runtime。
-      ESCODE_BUNDLE_NODE_AGENT: ${{ inputs.rust_only && '0' || '1' }}
       # 安装包内置的离线远程资源从本仓库源码构建（docs/specs/offline-remote-assets.md §7「制品来源」）：
       # prepare:remote-assets 只构建目标架构的 linux release，prepare:bundled-remote-assets 再从 mock-cdn 取用。
       # 不再下载上游 CDN 制品，其契约（server 能力标记、官方插件目录）与本仓库不一致。
@@ -206,7 +197,7 @@ jobs:
           if-no-files-found: error
 
   # 安装包真机演练（docs/specs/rust-release-rollback.md）：在各平台 runner 上安装真实安装包、确认应用能启动，
-  # 再用包内的 Node 与 Rust runtime 在同一数据目录上走 Node → Rust → 回退 Node。发布前必须通过。
+  # 再由 Rust Host + Rust runtime 在同一数据目录完成会话。发布前必须通过。
   installed:
     name: installed (${{ matrix.os }}-${{ matrix.arch }})
     needs: desktop
@@ -245,7 +236,7 @@ jobs:
           name: desktop-${{ matrix.os }}-${{ matrix.arch }}
           path: installer
       - name: install and launch
-        run: node scripts/ci-install-desktop.mjs installer ${{ inputs.rust_only && '--rust-only' || '' }}
+        run: node scripts/ci-install-desktop.mjs installer
       # Rust Host 门槛（rust-u2-window-host.md §6）：用同一个真实安装包启动，
       # 断言包内 escode-host 真的启动并挂上 renderer，且不会创建 utility Node 窗口 Host。
       - name: launch installed package with Rust Host
@@ -258,36 +249,7 @@ jobs:
       - name: Host restart drill
         shell: bash
         run: node scripts/ci-install-desktop.mjs --launch-only --host-switch-drill
-      - name: Node → Rust runtime rehearsal on the installed package
-        # Rust-only 产物没有 Node agent bundle，runtime 演练由 rust_only 的安装 / 会话门禁替代。
-        if: ${{ !inputs.rust_only }}
-        shell: bash
-        env:
-          TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.escode-cli-rust.json
-          # 安装包首次运行与退出比开发态慢，进程退出与请求等待放宽（仍要求正常退出与正确结果）。
-          ESCODE_TEST_EXIT_MS: "30000"
-          ESCODE_TEST_REQUEST_MS: "60000"
-        run: |
-          set -uo pipefail
-          # 预热：首次启动（Gatekeeper 扫描等）明显更慢，先各跑一次两个 runtime。
-          "$ESCODE_INSTALLED_GLM/escode-cli-rust" --help > /dev/null || true
-          ELECTRON_RUN_AS_NODE=1 "$ESCODE_INSTALLED_APP" -e "0" || true
-          node --import tsx --test packages/services/tests/escode-cli-rust-installed.test.ts 2>&1 | tee installed-test.log
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            # 日志需要登录才能读；失败要点转成公开的注解。
-            grep -E "✖|Error|assert|expected|actual|Timed out|stderr" installed-test.log | head -40 | while IFS= read -r line; do
-              echo "::error title=installed rehearsal::${line//%/%25}"
-            done
-          fi
-          exit "$status"
-      # Rust-only 门禁：删除包内 Node agent bundle 后，仍必须由 Rust Host + Rust runtime 启动并完成会话。
-      - name: launch installed package with Rust Host only
-        shell: bash
-        env:
-          ESCODE_INSTALLED_EXPECT_RUST_HOST: "1"
-        run: node scripts/ci-install-desktop.mjs --launch-only --rust-only
-      - name: Rust-only installed runtime session
+      - name: installed runtime session
         shell: bash
         env:
           TSX_TSCONFIG_PATH: packages/services/tests/tsconfig.escode-cli-rust.json

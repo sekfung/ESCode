@@ -36,7 +36,7 @@ fn archives_files_and_directories_with_release_layout() {
     let temp = tempfile::tempdir().expect("temp");
     std::fs::create_dir_all(temp.path().join("glm/linux-x64/packages")).expect("dir");
     std::fs::create_dir_all(temp.path().join("server")).expect("dir");
-    std::fs::write(temp.path().join("glm/linux-x64/zcode.cjs"), b"bundle").expect("file");
+    std::fs::write(temp.path().join("glm/linux-x64/plugin-host.cjs"), b"bundle").expect("file");
     std::fs::write(temp.path().join("glm/linux-x64/packages/a.js"), b"plugin").expect("file");
     std::fs::write(temp.path().join("server/zcode-server.cjs"), b"server").expect("file");
 
@@ -55,7 +55,7 @@ fn archives_files_and_directories_with_release_layout() {
     let entries = extract(&archive);
     let paths: Vec<&str> = entries.iter().map(|(path, _, _)| path.as_str()).collect();
     assert!(paths.contains(&"glm/linux-x64/"));
-    assert!(paths.contains(&"glm/linux-x64/zcode.cjs"));
+    assert!(paths.contains(&"glm/linux-x64/plugin-host.cjs"));
     assert!(paths.contains(&"glm/linux-x64/packages/a.js"));
     assert!(paths.contains(&"server/zcode-server.cjs"));
     let server = entries

@@ -7,11 +7,11 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-project-memory.md：Host 开启 Memory 时，Node 与 Rust 的 Memory 段、MEMORY.md 索引注入、
 // 轮次后的提取请求与写入的记忆文件一致；主会话直接写记忆 Markdown 在 build 模式下无需确认且跳过提取。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 const EXTRACTION = "You are now acting as the memory extraction subagent";
 
@@ -122,7 +122,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "build",
@@ -210,7 +210,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust inject, extract and permit project memory the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检：Node 注入了索引并完成两轮提取，直接写入的记忆文件落盘且未弹确认。
   assert.ok(node.secondContext.includes("- [Prefs](prefs.md) — tabs"), node.secondContext);

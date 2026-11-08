@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { once } from "node:events";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-oauth.md「兼容点」1、3、4：Rust 与 Node 共用同一份加密凭据文件。
 // Phase 3 之后正常跑只执行 Rust：TS 侧的密文、路径推导与种子凭据文件已冻结为 golden。
@@ -55,7 +55,7 @@ test("Rust decrypts frozen Node ciphertext with the shared AES-256-GCM format", 
   try {
     const value = "tok-值-🙂";
     // Node 加密使用随机 IV，只有密文本身可冻结；Rust 加密方向改为同格式 + Rust 自解密。
-    const nodeCiphertext = await nodeOracle("ciphertext", async () => {
+    const nodeCiphertext = await goldenOracle("ciphertext", async () => {
       const { createESCodeCredentialCipher } = await import(cipherModule);
       return createESCodeCredentialCipher({ env }).encrypt(value);
     });
@@ -77,7 +77,7 @@ test("Rust reads the frozen Node credential file, keeps its path and shares a cr
     ESCODE_CREDENTIAL_SECRET: SECRET,
   };
   // TS 路径推导：用固定基准目录录制，正常跑只拼接到当前临时根。
-  const pathShape = await nodeOracle("path", async () => {
+  const pathShape = await goldenOracle("path", async () => {
     const { resolveSharedESCodeCredentialsPath } = await import(storeModule);
     const base = "/golden-data-base";
     const file = resolveSharedESCodeCredentialsPath({
@@ -88,7 +88,7 @@ test("Rust reads the frozen Node credential file, keeps its path and shares a cr
   const file = join(root, ...pathShape.split("/"));
   assert.equal(file, join(root, ".escode", "v2", "credentials.json"));
   // 冻结 Node store 写出的种子凭据文件；正常跑把它复制到临时目录，不再执行 TS。
-  const seed = await nodeOracle("seed", async () => {
+  const seed = await goldenOracle("seed", async () => {
     const { createSharedESCodeCredentialStore } = await import(storeModule);
     const node = createSharedESCodeCredentialStore({ env });
     await node.save("mcp:oauth:abc:tokens", '{"access_token":"n"}');

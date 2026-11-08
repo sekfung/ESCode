@@ -44,25 +44,21 @@ export function findSourcemapLeaks(entries) {
   return leaks;
 }
 
-/** Rust-only / 默认产物的 agent runtime 断言：Rust-only 不得再带 Node bundle，任何产物都必须有可运行 runtime。 */
-export function findAgentRuntimeProblems(resourcesDir, { rustOnly = false } = {}) {
+/** 产物级 agent runtime 断言：Node runtime 退场后只接受 Rust 二进制 + 独立插件宿主。 */
+export function findAgentRuntimeProblems(resourcesDir) {
   const glmDir = join(resourcesDir, "glm");
   const nodeBundle = join(glmDir, "zcode.cjs");
   const nodeMeta = join(glmDir, ".node-bundle-meta.json");
   const pluginHost = join(glmDir, "plugin-host.cjs");
   const rustBinaries = [join(glmDir, "escode-cli-rust"), join(glmDir, "escode-cli-rust.exe")];
   const hasRust = rustBinaries.some((path) => existsSync(path));
-  const hasNode = existsSync(nodeBundle);
-  if (!rustOnly) {
-    return hasRust || hasNode
-      ? []
-      : [`missing agent runtime: expected ${rustBinaries[0]}[.exe] or ${nodeBundle}`];
-  }
   const problems = [];
   if (!hasRust) problems.push(`missing Rust agent runtime: ${rustBinaries[0]}[.exe]`);
-  if (hasNode) problems.push(`Rust-only package contains Node agent bundle: ${nodeBundle}`);
+  if (existsSync(nodeBundle)) {
+    problems.push(`package contains retired Node agent bundle: ${nodeBundle}`);
+  }
   if (existsSync(nodeMeta)) {
-    problems.push(`Rust-only package contains Node bundle metadata: ${nodeMeta}`);
+    problems.push(`package contains retired Node bundle metadata: ${nodeMeta}`);
   }
   if (!existsSync(pluginHost)) {
     problems.push(`missing standalone plugin host: ${pluginHost}`);
@@ -155,9 +151,8 @@ export function assertReleaseArtifacts({ distDir, env = process.env, logger = co
   const resourcesDirs = findPackagedResourcesDirs(distDir);
   if (resourcesDirs.length === 0)
     problems.push(`no packaged app (resources/app.asar) found under ${distDir}`);
-  const rustOnly = env.ESCODE_BUNDLE_NODE_AGENT?.trim() === "0";
   for (const resourcesDir of resourcesDirs) {
-    for (const problem of findAgentRuntimeProblems(resourcesDir, { rustOnly })) {
+    for (const problem of findAgentRuntimeProblems(resourcesDir)) {
       problems.push(problem);
     }
     for (const leak of findSourcemapLeaks(collectResourcesEntries(resourcesDir))) {

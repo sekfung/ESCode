@@ -7,10 +7,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-legacy-session-methods.md：App 仍在用的 legacy session/* 请求在 Node 与 Rust 上语义一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const any = z.any();
 const PROVIDER = "personal:fixture";
 const B64_MARK = "ATTACH-B64-CONTENT";
@@ -52,7 +52,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -175,7 +175,7 @@ async function observe(kind: Runtime) {
 }
 
 test("legacy session methods behave the same on Node and Rust", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // createModes 是已登记差异（Node legacy create 不体现 mode），不参与整体逐字比较。
   const { createModes: rustModes, ...rustRest } = rust;

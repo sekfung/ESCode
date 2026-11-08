@@ -5,11 +5,11 @@ import { escodeMcpListResultSchema } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { httpServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md「协议协商默认值」：未写 protocolVersion 的 HTTP 先 server/discover 再回落 initialize；
 // SSE 即使写 auto 也只走 legacy initialize。Node 与 Rust 的请求方法序列一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function methods(kind: "node" | "rust", transport: "http" | "sse", protocolVersion?: "auto") {
   const server = await httpServer(transport);
@@ -17,7 +17,7 @@ async function methods(kind: "node" | "rust", transport: "http" | "sse", protoco
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ registry: true });
@@ -56,7 +56,7 @@ for (const [transport, protocolVersion] of [
   ["sse", "auto"],
 ] as const)
   test(`MCP ${transport} protocol negotiation with ${protocolVersion ?? "no"} protocolVersion matches Node`, async () => {
-    const node = await nodeOracle(`methods-${transport}`, () =>
+    const node = await goldenOracle(`methods-${transport}`, () =>
       methods("node", transport, protocolVersion),
     );
     const rust = canonical(await methods("rust", transport, protocolVersion));

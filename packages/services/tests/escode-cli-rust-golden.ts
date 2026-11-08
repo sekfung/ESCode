@@ -1,23 +1,19 @@
-// Phase 3 golden freeze（CLI）：把 Node 侧观察冻结为仓内资产。
+// Phase 3 golden freeze（CLI）：Node 侧观察已冻结为仓内只读资产。
 //
 // 用法：
-//   const node = await nodeOracle("case-name", () => observe("node"));
+//   const node = await goldenOracle("case-name", () => observe("node"));
 //   const rust = await observe("rust");
 //
-// 正常跑只执行 run()（Node）当 `ESCODE_RECORD_CLI_GOLDEN=1`；否则直接加载
-// `packages/services/tests/fixtures/cli-golden/<suite>.<case>.json[.gz]`，不再启动 Node。
-// 删除 Node/TS CLI 之前用一次 `ESCODE_RECORD_CLI_GOLDEN=1` 重录。
+// 正常跑只加载 `packages/services/tests/fixtures/cli-golden/<suite>.<case>.json[.gz]`，不再启动 Node。
+// Node runtime 退场后录制能力已删除；第二个参数只保留历史调用点，不会执行。
 //
 // `suite` 取当前测试文件名（去掉 `escode-cli-rust-` 前缀与 `.test.ts`），保证跨文件 key 不冲突。
-import { deepEqual } from "node:assert/strict";
 import { existsSync, readdirSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { gzipSync, gunzipSync } from "node:zlib";
+import { gunzipSync } from "node:zlib";
 
 const goldenDir = resolve("packages/services/tests/fixtures/cli-golden");
-const recording = process.env.ESCODE_RECORD_CLI_GOLDEN === "1";
-const recordedThisRun = new Map<string, unknown>();
 const suite = basename(process.env.ESCODE_GOLDEN_SUITE ?? process.argv[1] ?? "unknown", ".test.ts")
   .replace(/^escode-cli-rust-/, "")
   .replace(/\.test$/, "");
@@ -115,43 +111,22 @@ function loadExisting(file: ReturnType<typeof paths>): string | undefined {
   return undefined;
 }
 
-/** 该 key 是否已有冻结观察（录制模式恒为 true，便于首次录制）。 */
+/** 该 key 是否已有冻结观察。 */
 export function hasGolden(name: string): boolean {
-  if (recording) return true;
   return loadExisting(paths(name)) !== undefined;
 }
 
-/** 超过 1 MiB 的观察（如内联附件正文）用 gzip 存储，避免仓库膨胀。 */
-export async function nodeOracle<T>(name: string, run: () => Promise<T>): Promise<T> {
+/**
+ * 读取冻结的 Node 侧观察（golden 只读）。
+ * 第二个参数是历史调用点保留的回放函数，Node runtime 退场后不再执行。
+ * 超过 1 MiB 的观察（如内联附件正文）以 gzip 存储。
+ */
+export async function goldenOracle<T>(name: string, _nodeReplay?: () => Promise<T>): Promise<T> {
   const file = paths(name);
-  if (recording) {
-    const value = canonical(await run());
-    const key = `${suite}.${name}`;
-    if (recordedThisRun.has(key)) {
-      deepEqual(
-        recordedThisRun.get(key),
-        value,
-        `CLI golden key reused with different observation: ${key}`,
-      );
-    }
-    recordedThisRun.set(key, value);
-    const json = `${JSON.stringify(value, null, 2)}\n`;
-    await mkdir(goldenDir, { recursive: true });
-    // 录制工作流（ESCODE_GOLDEN_PLATFORM=1）写平台专属文件；本地默认写通用文件。
-    const platformOnly = process.env.ESCODE_GOLDEN_PLATFORM === "1";
-    const plain = platformOnly ? file.platformPlain : file.plain;
-    const gzip = platformOnly ? file.platformGzip : file.gzip;
-    if (json.length > 1024 * 1024) {
-      await writeFile(gzip, gzipSync(Buffer.from(json)));
-    } else {
-      await writeFile(plain, json);
-    }
-    return value;
-  }
   const existing = loadExisting(file);
   if (!existing) {
     throw new Error(
-      `Missing CLI golden ${file.plain} (or ${file.platformPlain}); run once with ESCODE_RECORD_CLI_GOLDEN=1 to record.`,
+      `Missing CLI golden ${file.plain} (or ${file.platformPlain}); the frozen fixture must be committed.`,
     );
   }
   if (existing.endsWith(".gz")) {

@@ -11,18 +11,16 @@
 //
 // 用法：
 //   node scripts/bench-escode-app.mjs --list-configs
-//   node scripts/bench-escode-app.mjs --configs A,B --reps 3         # 真实桌面（需本机图形会话）
+//   node scripts/bench-escode-app.mjs --configs B,C --reps 3         # 真实桌面（需本机图形会话）
 //   node scripts/bench-escode-app.mjs --installed-app <可执行文件> --installed-glm <resources/glm> \
-//     --configs A,B,C --reps 3 --out .escode-runtime/app-bench-installed   # 安装包口径
+//     --configs B,C --reps 3 --out .escode-runtime/app-bench-installed   # 安装包口径
 //   node scripts/bench-escode-app.mjs --self-test                    # 合成进程树验证管线（无需桌面）
 //
-// 配置（dev，S6 起 Host 固定 Rust，配置差异只在 runtime）：
-//   A：Rust Host + Node CLI（pnpm dev:desktop + ESCODE_AGENT_SERVER_RUNTIME=node）
+// 配置（dev，S6 起 Host 固定 Rust，Node runtime 已退场）：
 //   B：Rust Host + Rust CLI（pnpm dev:desktop:escode-cli-rust）
 //   C：Rust Host + 内嵌 runtime（pnpm dev:desktop）
 //
 // 配置（安装包，--installed-app/--installed-glm 或 ESCODE_INSTALLED_APP/GLM）：
-//   A：Rust Host + Node CLI（ESCODE_AGENT_SERVER_RUNTIME=node）
 //   B：Rust Host + Rust CLI（包内 resources/glm/escode-cli-rust）
 //   C：Rust Host + 内嵌 runtime（runtime-link 默认 embedded）
 //
@@ -81,12 +79,6 @@ const root = resolve(import.meta.dirname, "..");
 const began = Date.now();
 
 const CONFIGS = {
-  A: {
-    label: "Rust Host + Node CLI（dev:desktop）",
-    command: ["pnpm", ["dev:desktop"]],
-    readyMarker: "electron-app",
-    env: { ESCODE_AGENT_SERVER_RUNTIME: "node" },
-  },
   B: {
     label: "Rust Host + Rust CLI（dev:desktop:escode-cli-rust）",
     command: ["pnpm", ["dev:desktop:escode-cli-rust"]],
@@ -108,7 +100,7 @@ const rustBinary = resolve(
 
 const { values } = parseArgs({
   options: {
-    configs: { type: "string", default: "A,B" },
+    configs: { type: "string", default: "B,C" },
     reps: { type: "string", default: "3" },
     settle: { type: "string", default: "20" },
     sample: { type: "string", default: "10" },

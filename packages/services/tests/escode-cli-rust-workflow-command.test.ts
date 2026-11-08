@@ -3,12 +3,12 @@ import test from "node:test";
 import { dirname, resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 内置 `/workflow`（TS builtin-workflow-command.ts）：动态工作流开启的会话展开成带技能前言的提示词，关闭的会话
 // 原文作普通提示词。userInput 行仍显示原文。比对两种会话第一次模型请求的末条用户消息与行文本。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const input = "/workflow count the txt files";
 
 async function observe(kind: "node" | "rust") {
@@ -20,15 +20,15 @@ async function observe(kind: "node" | "rust") {
     end(res, "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -76,7 +76,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust expand the builtin /workflow command the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(String(node.enabled.model), /Run custom command \/workflow\./);

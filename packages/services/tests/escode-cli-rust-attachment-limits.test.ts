@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fixture, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
-const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
+const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle) };
 process.env.ESCODE_TEST_REQUEST_MS ??= "60000";
 // 21–30 MiB 附件的落盘与请求体读写会超过 fixture 默认 8s 的等待。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
@@ -83,7 +83,7 @@ async function observeAttachment(
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ root, env: rustPluginEnv, registry: true });
@@ -190,7 +190,7 @@ const cases: {
 
 for (const item of cases) {
   test(`Node and Rust put a ${item.name} attachment into the model request the same way`, async () => {
-    const node = await nodeOracle(item.name, () =>
+    const node = await goldenOracle(item.name, () =>
       observeAttachment("node", item.fileName, item.mime, item.body(), item.properties),
     );
     const rust = canonical(

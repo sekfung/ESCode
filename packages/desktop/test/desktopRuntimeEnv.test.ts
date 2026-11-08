@@ -46,6 +46,7 @@ vi.mock("@escode/shared", () => ({
   ESCODE_APP_VERSION_ENV: "ESCODE_APP_VERSION",
   ESCODE_BUILD_COMMIT_ID_ENV: "ESCODE_BUILD_COMMIT_ID",
   ESCODE_RUNTIME_ENV_KEY: "ESCODE_RUNTIME_ENV",
+  ESCODE_DESKTOP_PACKAGED_ENV: "ESCODE_DESKTOP_PACKAGED",
   ESCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY: "ESCODE_TOOL_ENV_PASSTHROUGH_JSON",
   ESCODE_AGENT_RUNTIME: {
     binaryKind: "native-binary",
@@ -551,6 +552,19 @@ describe("desktopRuntimeEnv buildHostProcessEnv", () => {
 
     expect(env.ESCODE_APP_VERSION).toBe("0.0.0-test");
     expect(env.ESCODE_BUILD_COMMIT_ID).toBe("commit-test");
+  });
+
+  it("打包态注入 ESCODE_DESKTOP_PACKAGED，开发态不注入", async () => {
+    appMock.isPackaged = false;
+    const dev = (await import("../src/main/desktopRuntimeEnv.js")).buildHostProcessEnv({});
+    expect(dev.ESCODE_DESKTOP_PACKAGED).toBeUndefined();
+
+    appMock.isPackaged = true;
+    setTestResourcesPath("/mock/resources");
+    vi.resetModules();
+    const packaged = (await import("../src/main/desktopRuntimeEnv.js")).buildHostProcessEnv({});
+    expect(packaged.ESCODE_DESKTOP_PACKAGED).toBe("1");
+    setTestResourcesPath(undefined);
   });
 
   it("Rust Host 实例 env 与 host 进程同源，但不带 OTLP 连接配置", async () => {

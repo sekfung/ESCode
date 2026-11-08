@@ -5,12 +5,12 @@ import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-model-content.md：Bash 读文件命令回填读取状态（之后可直接 Edit/Write），
 // 格式化/修复类命令改写已读文件时提示重新 Read；与 Node 逐字一致。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const CALLS: [string, unknown][] = [
   // cat 读过的文件记为已读，随后 Edit 无需 Read（TS 回填 readFileState）。
   ["Bash", { command: "cat existing.txt", description: "cat" }],
@@ -64,7 +64,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -97,7 +97,7 @@ test(
       shortTemp && "Node read-state backfill does not apply under 8.3 short temp paths (see spec)",
   },
   async () => {
-    const node = await nodeOracle("observe", () => observe("node"));
+    const node = await goldenOracle("observe", () => observe("node"));
     const rust = await canonical(await observe("rust"));
     assert.equal(node.seen.length, CALLS.length);
     // 先比较两侧，再确认用例确实覆盖到回填与过期提示（CI 上 Node 的行为因环境而异时，先看到两侧差异）。

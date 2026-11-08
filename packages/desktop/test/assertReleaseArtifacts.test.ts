@@ -59,7 +59,7 @@ describe("release artifact hygiene", () => {
     expect(asarEntryPath("out/main/index.js")).toBe("app.asar/out/main/index.js");
   });
 
-  it("requires a Rust agent and rejects Node bundle files in Rust-only artifacts", async () => {
+  it("requires a Rust agent and rejects retired Node bundle files", async () => {
     const root = await mkdtemp(join(tmpdir(), "escode-rust-only-artifacts-"));
     try {
       const glm = join(root, "resources", "glm");
@@ -67,28 +67,22 @@ describe("release artifact hygiene", () => {
       writeFileSync(join(glm, "zcode.cjs"), "x();");
       writeFileSync(join(glm, ".node-bundle-meta.json"), "{}");
 
-      expect(findAgentRuntimeProblems(join(root, "resources"))).toEqual([]);
-      expect(
-        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
-      ).toContain("missing Rust agent runtime");
-      expect(
-        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
-      ).toContain("Rust-only package contains Node agent bundle");
+      expect(findAgentRuntimeProblems(join(root, "resources")).join("\n")).toContain(
+        "missing Rust agent runtime",
+      );
+      expect(findAgentRuntimeProblems(join(root, "resources")).join("\n")).toContain(
+        "package contains retired Node agent bundle",
+      );
 
       writeFileSync(join(glm, "escode-cli-rust"), "");
       rmSync(join(glm, "zcode.cjs"));
       rmSync(join(glm, ".node-bundle-meta.json"));
-      expect(
-        findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true }).join("\n"),
-      ).toContain("missing standalone plugin host");
+      expect(findAgentRuntimeProblems(join(root, "resources")).join("\n")).toContain(
+        "missing standalone plugin host",
+      );
 
       writeFileSync(join(glm, "plugin-host.cjs"), "");
-      expect(findAgentRuntimeProblems(join(root, "resources"), { rustOnly: true })).toEqual([]);
-
-      rmSync(join(glm, "escode-cli-rust"));
-      expect(findAgentRuntimeProblems(join(root, "resources")).join("\n")).toContain(
-        "missing agent runtime",
-      );
+      expect(findAgentRuntimeProblems(join(root, "resources"))).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -123,7 +117,8 @@ describe("release artifact hygiene", () => {
         const resources = join(dist, "linux-unpacked", "resources");
         mkdirSync(join(resources, "glm"), { recursive: true });
         await createPackage(app, join(resources, "app.asar"));
-        writeFileSync(join(resources, "glm", "zcode.cjs"), "x();");
+        writeFileSync(join(resources, "glm", "escode-cli-rust"), "x();");
+        writeFileSync(join(resources, "glm", "plugin-host.cjs"), "x();");
         writeFileSync(
           join(dist, leaky ? "ESCode-1.0.0-linux-x64_TEST.deb" : "ESCode-1.0.0-linux-x64.deb"),
           "",
@@ -171,7 +166,7 @@ describe("release artifact hygiene", () => {
         return dist;
       };
       const silent = { log: () => undefined };
-      const env = { ESCODE_ENV: "production", ESCODE_BUNDLE_NODE_AGENT: "0" };
+      const env = { ESCODE_ENV: "production" };
       const rustOnly = await build("rust-only", ["escode-cli-rust", "plugin-host.cjs"]);
       expect(() =>
         assertReleaseArtifacts({ distDir: rustOnly, env, logger: silent }),
@@ -179,7 +174,7 @@ describe("release artifact hygiene", () => {
 
       const stale = await build("stale", ["escode-cli-rust", "plugin-host.cjs", "zcode.cjs"]);
       expect(() => assertReleaseArtifacts({ distDir: stale, env, logger: silent })).toThrow(
-        /Rust-only package contains Node agent bundle/,
+        /package contains retired Node agent bundle/,
       );
 
       const missingHost = await build("missing-host", ["escode-cli-rust"]);

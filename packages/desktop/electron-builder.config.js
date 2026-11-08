@@ -50,9 +50,8 @@ const targetPlatform = getTargetPlatform();
 // 代码和完整供应链保留在显式 opt-in 后，便于未来恢复而不影响当前发布流程。
 const shouldPackageWindowsBrowserImportHelper =
   targetPlatform.os === "win32" && process.env.ESCODE_ENABLE_WINDOWS_BROWSER_IMPORT === "1";
-// Rust-only 产物开关（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
-// 此处按最终 resources 复核，避免 extraResources 的目录缺失只告警、产出一个没有 agent runtime 的包。
-const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
+// Node agent runtime 已退场：最终 resources 必须含 Rust 二进制与插件宿主，
+// 不能再携带 zcode.cjs（docs/specs/rust-packaging.md）。
 const builtinProviderConfig = await loadBuiltinProviderConfig();
 const desktopProductIdentity = resolveDesktopProductIdentity({
   ...process.env,
@@ -341,9 +340,9 @@ function assertPackagedBundledRemoteAssets(context) {
     resolve(releaseDir, `manifest-${remotePlatform}.json`),
     resolve(releaseDir, "server", "zcode-server.cjs"),
     resolve(releaseDir, "node", remotePlatform, "node"),
-    resolve(releaseDir, "glm", remotePlatform, "zcode.cjs"),
-    // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）。
+    // 远程默认 runtime 是 Rust；插件宿主由独立 plugin-host.cjs 承载。
     resolve(releaseDir, "glm", remotePlatform, "escode-cli-rust"),
+    resolve(releaseDir, "glm", remotePlatform, "plugin-host.cjs"),
     resolve(releaseDir, "tools", remotePlatform, "ripgrep", "rg"),
   ];
   const missingPaths = requiredPaths.filter((entry) => !existsSync(entry));
@@ -365,33 +364,22 @@ function assertPackagedAgentRuntimes(context) {
   const nodeBundle = resolve(glmDir, "zcode.cjs");
   const nodeMeta = resolve(glmDir, ".node-bundle-meta.json");
   const pluginHost = resolve(glmDir, "plugin-host.cjs");
-  const hasRust = existsSync(rustBinary);
-  const hasNode = existsSync(nodeBundle);
-  if (!hasRust && !hasNode) {
+  if (!existsSync(rustBinary)) {
     throw new Error(
-      `[electron-builder] packaged app has no agent runtime: expected one of ${rustBinary} or ${nodeBundle}. ` +
-        "Build must run prepare:runtime-assets with ESCODE_BUNDLE_RUST_AGENT or ESCODE_BUNDLE_NODE_AGENT enabled.",
+      `[electron-builder] packaged app has no Rust agent runtime: ${rustBinary}. ` +
+        "Build must run prepare:runtime-assets with ESCODE_BUNDLE_RUST_AGENT enabled.",
     );
   }
-  if (shouldBundleNodeAgent) return;
-  if (hasNode) {
+  if (existsSync(nodeBundle) || existsSync(nodeMeta)) {
     throw new Error(
-      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 but the package still contains ${nodeBundle}`,
-    );
-  }
-  if (existsSync(nodeMeta)) {
-    throw new Error(
-      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 but the package still contains ${nodeMeta}`,
-    );
-  }
-  if (!hasRust) {
-    throw new Error(
-      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 requires a bundled Rust agent: ${rustBinary}`,
+      `[electron-builder] Node agent runtime was retired but the package still contains ${
+        existsSync(nodeBundle) ? nodeBundle : nodeMeta
+      }`,
     );
   }
   if (!existsSync(pluginHost)) {
     throw new Error(
-      `[electron-builder] ESCODE_BUNDLE_NODE_AGENT=0 requires the standalone plugin host: ${pluginHost}`,
+      `[electron-builder] packaged app is missing the standalone plugin host: ${pluginHost}`,
     );
   }
 }
@@ -896,9 +884,8 @@ export default {
         ]
       : []),
     {
-      // agent 运行时资产，打包到 resources/glm。
-      // 桌面端内置的是 agent 的 JS bundle（glm/zcode.cjs，由 prepare:agent-bundle 生成），
-      // Host 进程用 app 自带的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行 `zcode.cjs app-server --stdio`。
+      // agent 运行时资产，打包到 resources/glm：Rust 二进制 + 官方插件宿主 plugin-host.cjs。
+      // zcode.cjs 已随 Node runtime 退场，由 assertPackagedAgentRuntimes 拒绝残留。
       from: `bundled-agents/${targetPlatform.key}/glm`,
       to: "glm",
       filter: ["**/*", "!**/*.map"],

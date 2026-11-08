@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「startSavedWorkflow」：设置页「已保存工作流」的「运行」在 Node 与
 // Rust 上给出一致的命令 ACK、启动轮两行（turnHeader + userInput）、session/read 的标题与状态、
@@ -15,7 +15,7 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Message = Record<string, any>;
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 /** 无参档：脚本只做一次工作区读取，用于「成功启动」的成功路径。 */
 const PLAIN_NAME = "count-txt";
 /** 带必填实参的档：用于 invalid_args（缺失必填实参）。 */
@@ -72,16 +72,16 @@ async function observe(kind: Runtime) {
     end(res, "stop");
   };
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -240,7 +240,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust start a saved workflow from the workflows hub the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   // 自检：确认 Node 侧真的走到了成功启动与四条拒绝，避免两侧同样为空也判等。

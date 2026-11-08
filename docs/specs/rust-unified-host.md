@@ -88,7 +88,7 @@ get_client(ws) ──[槽位 single-flight]──► spawn gen N+1 ──► ava
   - `--self-test` 用合成进程树验证发现/采样/交错/中位数/杀树全链路（实测 3 轮交错 PASS；夹具教训：合成 Buffer 必须被闭包持有，否则分配后无引用的 buffer 会被 V8 外部内存 GC 回收，读数随 GC 时机倒挂）。
   - **真实 A/B 基线已跑**（3 轮交错，2026-10-14），报告 `docs/reports/rust-app-perf-baseline-2026-10-14.md`：App 口径（electron 主进程子树）A 1419.6 / B 1293.6 MiB 工作集、私有提交 1102.2 / 974.5 MiB，B 不劣于 A。
   - 就绪判定修正为「electron 主进程 + renderer 按进程名在场」（旧判定被 dev 的 concurrently 参数含 "electron" 误触发，实测 electron 在 dev 约 t≈173 s 才出现，前三次候选轮数据作废）。
-  - §5 八项指标逐项记录，未覆盖 5 项的接入条件已列（多 workspace / 首段 / 优雅退出 / 进程内 RPC / 4 路流式）；三平台 CI 维持 CLI 级 `bench-escode-cli-node-rust.mjs`（Electron 需图形会话，App 级 CI 接入待阶段 2 后评估虚拟显示方案）。
+  - §5 八项指标逐项记录，未覆盖 5 项的接入条件已列（多 workspace / 首段 / 优雅退出 / 进程内 RPC / 4 路流式）；三平台 CI 现用 CLI 级 `bench-escode-cli-rust.mjs`（Node 对比 bench 随 Node runtime 退场删除；Electron 需图形会话，App 级 CI 接入待阶段 2 后评估虚拟显示方案）。
   - 2026-10-26：安装包口径 harness（`--installed-app/--installed-glm`、日志级就绪、
     `xvfb-run`）已落地，A/B/C 实测见 `docs/reports/rust-stage3-acceptance-2026-10-26.md`；
     App 级 CI 作业与首段/4 路流式会话驱动仍未接入。
@@ -222,11 +222,12 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
       本轮同时修复了 `yazl`/`buffer-crc32` 打包闭包、Node settings 未知键丢弃、drill userData
       单实例隔离与 RUSTSEC-2026-0386（tokio 1.53.3）。
 - [x] golden freeze：差分套件从"双跑 Node"切换为"goldens + spec"——Host parity 切片支持
-      `--record`/`--golden`/`--live-node` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
+      `--golden` 并按平台冻结 `scripts/fixtures/parity/session-baseline.<platform>-<arch>.node.golden.json`
       （三平台已录制；`rust-runtime-ci.yml` 只跑 `--golden` 阻塞门禁，缺失 golden 直接失败，
       欠账基线为空的平台自动追加 `--strict`——2026-10-31 Linux 已启用；2026-10-26 修复
       `currentDate` 未归一导致的 golden 次日失效；2026-11-01 跨月复跑补上 WebSearch 工具描述
-      `The current month is <Month> <Year>` 的归一，避免每月 1 日差分误报）；
+      `The current month is <Month> <Year>` 的归一，避免每月 1 日差分误报）。
+      2026-11-09 Node runtime 退场后 `--record` / `--live-node` 与录制 workflow 已删除，golden 为只读资产；
       settings interop 已有冻结夹具单向读入。
       desktop Host oracle 已清零：全部 `packages/desktop/test/rustHost*.test.ts` 不再
       `import @escode/services` / `services/src/*`；TS 观察冻结为
@@ -269,12 +270,10 @@ runtime-link：embedded 为默认（dev 开关整体控制 Rust Host），child 
   `app perf` success；Rust 首段 1417.5 ms vs Node 1772.5 ms，全进程 CPU 中位数 109.0% vs 134.8%。
   本地八点回归的 Host+Agent 斜率 Node 10.44 / Rust 11.49 MiB/ws、退出 2179 / 2174 ms——两项均未达到
   §5 的 ≤2.5 MiB 与 ≤0.2 s 初始目标，原因与口径差异记在验收报告 §5.2，作为后续独立工作包。
-- parity golden：`record-cli-goldens.yml` 负责 CLI parity 录制（先落盘 golden → 冻结本平台欠账
-  基线 → 只跑 Rust 的 `--golden` 验证）。`--record` 必写 `<platform>-<arch>` 文件，欠账基线也按
-  平台分文件（Windows 帧批次与 Linux 不同）。差分脚本不带模式参数时默认按 `--golden` 运行，只有
-  显式 `--record` 或 `--live-node` 才会启动 Node；`--live-node` 用于删除 Node 前的最后一次实时双跑
-  演练，不写 golden。`rust-runtime-ci.yml` 已切为 golden-only：平台 golden 缺失直接失败（不再实时
-  启动 Node oracle）；平台欠账基线为空时自动追加 `--strict`。
+- parity golden：~~`record-cli-goldens.yml` 负责 CLI parity 录制~~（2026-11-09 Node runtime 退场后已删除；
+  golden 为仓内只读资产）。欠账基线按平台分文件（Windows 帧批次与 Linux 不同）。差分脚本只有
+  `--golden` 一种模式，不再启动 Node。`rust-runtime-ci.yml` 已切为 golden-only：平台 golden 缺失直接失败；
+  平台欠账基线为空时自动追加 `--strict`。
   2026-10-31：`session-baseline` 的 7 条 T-4 帧批次/顺序差异已按 `index + 双侧 sha256` 登记为
   approved，Linux x64 基线清空并在 `--golden --strict` 下通过；macOS/Windows 需按各自 runner 的
   帧顺序重录/登记后再转 strict。macOS/Windows golden 由对应 runner 录制并已入库（run `40281946953`）。

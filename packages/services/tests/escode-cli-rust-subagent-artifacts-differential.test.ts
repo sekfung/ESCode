@@ -4,14 +4,14 @@ import { mkdtemp, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
-import { nodeOracle } from "./escode-cli-rust-golden.js";
+import { goldenOracle } from "./escode-cli-rust-golden.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { end, event, fixture } from "./escode-cli-rust-fixture.js";
 
 // docs/specs/rust-subagents.md：同一段 Agent 调用在 Node/Rust 上都必须写
 // `<storageRoot>/cli/agents/<parent>/<agent>/{output.txt,task.output,metadata.json}`，
 // 正文、文件集合与 metadata 关键字段一致，且不生成 transcript.jsonl。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 function artifactSuffix(path: string, sid: string, agentId: string) {
   const normalized = path.replaceAll("\\", "/");
@@ -68,7 +68,7 @@ async function observe(kind: "node" | "rust") {
           registry: true,
           mode: "yolo",
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           respond,
         })
       : await fixture({ root, registry: true, mode: "yolo", respond });
@@ -134,7 +134,7 @@ async function observe(kind: "node" | "rust") {
 
 test("Agent artifacts use the Node layout and metadata across Node and Rust", async () => {
   const rust = await observe("rust");
-  const node = await nodeOracle("agent-artifacts", () => observe("node"));
+  const node = await goldenOracle("agent-artifacts", () => observe("node"));
   assert.deepEqual(rust, node);
   assert.deepEqual(rust.files, ["metadata.json", "output.txt", "task.output"]);
   assert.equal(rust.output, "artifact result");

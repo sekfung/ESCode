@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile, readFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { once } from "node:events";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // Phase 3：TS 工具实现/handler/schema 只用于录制 golden；正常跑只执行 Rust 并比对冻结观察。
 const contractsDir = "../../../apps/escode-cli/packages/contracts/src/tools";
@@ -101,7 +101,7 @@ test("Node and Rust echo the requested lexical tool path (dots, separators, link
     const linkedWritten = join(mirror, "linked.txt");
     const relativeWrite = `sub${sep}..${sep}sub${sep}written.txt`;
     const tsWriteInput = `sub${sep}..${sep}sub${sep}ts-written.txt`;
-    const oracle = await nodeOracle("lexical", async () => {
+    const oracle = await goldenOracle("lexical", async () => {
       const { NodeFileSystemAdapter } = await import(fsAdapterModule);
       const { readTextFileForModel } = await import(readTextModule);
       const { resolveWorkspacePath } = await import(pathPolicyModule);
@@ -221,7 +221,7 @@ test("Rust tool definitions use frozen TS schemas and real TS file/search handle
       ["  a\n b\n", { old_string: "a\nb", new_string: "z", replace_all: true }],
       ["nothing\n", { old_string: "missing", new_string: "x" }],
     ];
-    const oracle = await nodeOracle("tools", async () => {
+    const oracle = await goldenOracle("tools", async () => {
       const { NodeFileSystemAdapter } = await import(fsAdapterModule);
       const { readTextFileForModel } = await import(readTextModule);
       const { globToolEntry } = await import(globHandlerModule);
@@ -413,7 +413,7 @@ test("Rust tool definitions use frozen TS schemas and real TS file/search handle
         assert.deepEqual(canonical(observed[key]), expected[key], `${name} ${key}`);
     }
     // 编辑/宽松匹配的 TS 结果单独录制：TS 会在工作区留下 *.txt，不能影响上面的 Glob/Grep 观察。
-    const edits = await nodeOracle("edits", async () => {
+    const edits = await goldenOracle("edits", async () => {
       const { NodeFileSystemAdapter } = await import(fsAdapterModule);
       const { writeToolEntry } = await import(writeHandlerModule);
       const { editToolEntry } = await import(editHandlerModule);

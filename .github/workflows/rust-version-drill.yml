@@ -14,11 +14,6 @@ on:
         description: "release run id that produced the head (current) installers"
         required: true
         type: string
-      rust_only:
-        description: "remove Node agent bundle and require Rust Host + Rust runtime at every stage"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -58,4 +53,4 @@ jobs:
           github-token: ${{ github.token }}
       - name: install, upgrade and downgrade
         shell: bash
-        run: node scripts/ci-install-desktop.mjs --version-drill ${{ inputs.rust_only && '--rust-only' || '' }} drill/base drill/head
+        run: node scripts/ci-install-desktop.mjs --version-drill drill/base drill/head

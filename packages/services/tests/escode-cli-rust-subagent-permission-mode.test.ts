@@ -5,13 +5,13 @@ import { join, resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { escodeSessionSubagentsResultSchema } from "@escode/shared";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-permission-modes.md「子代理的执行模式」：用户级/插件 profile 的
 // `permissionMode: auto|plan` 覆盖继承值；项目级来源在解析时剥离（仓库内容不能提权）。
 // 差分口径：子会话里写文件的工具行收口、模型看到的拒绝文案、父会话收到的 Agent 结果、
 // 子会话 mode 与磁盘副作用。只比「文件没写成」会漏掉权限模式本身，所以要看拒绝原文。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 
 function call(response: any, calls: { id: string; name: string; args: unknown }[]) {
@@ -59,7 +59,7 @@ async function observe(kind: Runtime, source: "user" | "project", permissionMode
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           respond,
@@ -125,7 +125,7 @@ async function observe(kind: Runtime, source: "user" | "project", permissionMode
 
 for (const permissionMode of ["plan", "auto"] as const) {
   test(`Node and Rust apply a user agent profile with permissionMode: ${permissionMode}`, async () => {
-    const node = await nodeOracle(`user-${permissionMode}`, () =>
+    const node = await goldenOracle(`user-${permissionMode}`, () =>
       observe("node", "user", permissionMode),
     );
     const rust = canonical(await observe("rust", "user", permissionMode));
@@ -143,7 +143,7 @@ for (const permissionMode of ["plan", "auto"] as const) {
 }
 
 test("Node and Rust strip permissionMode declared by a project agent profile", async () => {
-  const node = await nodeOracle("project-plan", () => observe("node", "project", "plan"));
+  const node = await goldenOracle("project-plan", () => observe("node", "project", "plan"));
   const rust = canonical(await observe("rust", "project", "plan"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.writeRows, ["success"]);

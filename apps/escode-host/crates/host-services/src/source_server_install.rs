@@ -219,7 +219,7 @@ fn display_version(component: &ReleaseComponent) -> String {
 
 fn agent_wrapper(provider: &str) -> String {
     format!(
-        "#!/bin/sh\nset -eu\nruntime_root=\"${{ESCODE_SERVER_RUNTIME_ROOT:-$HOME/.escode/server}}\"\nexec \"$runtime_root/node\" \"$HOME/.escode/server/agents/{provider}/zcode.cjs\" \"$@\"\n"
+        "#!/bin/sh\nset -eu\nexec \"$HOME/.escode/server/agents/{provider}/escode-cli-rust\" \"$@\"\n"
     )
 }
 

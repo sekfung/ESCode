@@ -8,13 +8,13 @@ import { join, resolve } from "node:path";
 import { escodeMcpListResultSchema, type ESCodeProtocolMcpServer } from "@escode/shared";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-mcp-parity.md「传输失败分类」：Node 先按传输设置默认 failureKind
 // （stdio = process_start_failed，http/sse = network_unreachable），只有版本协商类错误才
 // 改写为 protocol_negotiation_failed。Rust 必须产出同一分类，不能把进程退出、JSON-RPC
 // 拒绝或首连断流误报成协商失败。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function closedPort(): Promise<number> {
   const server = createServer();
@@ -31,7 +31,7 @@ async function observe(kind: "node" | "rust", config: ESCodeProtocolMcpServer) {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
         })
       : await fixture({ registry: true });
@@ -252,7 +252,7 @@ for (const name of [
   test(`MCP ${name} failureKind matches Node`, async () => {
     const current = await caseFor(name);
     try {
-      const node = await nodeOracle(name, () => observe("node", current.config));
+      const node = await goldenOracle(name, () => observe("node", current.config));
       const rust = canonical(await observe("rust", current.config));
       assert.deepEqual(rust, node);
     } finally {

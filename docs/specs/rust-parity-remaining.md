@@ -67,15 +67,23 @@ TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
 随包/已部署 Rust 二进制仍是打包与远程的唯一来源，缺失直接报错。共享描述符删除
 `nodeBundleEntryFile` / `resolveNodeBundleSegments`；远端插件宿主与 Windows 启动诊断改指
 `plugin-host.cjs` / Rust 二进制。linux-x64 `--golden --strict` 复核为 0 open / 0 新差异 / 0 欠账，
-runtime selection 13 例通过（含本地 Rust 真实完成一轮）。TS CLI 构建/打包资产、`zcode.cjs` 与
-Node oracle/bench 尚未删除，见 [rust-packaging.md](rust-packaging.md) 退场清单步骤 3–4。
+runtime selection 13 例通过（含本地 Rust 真实完成一轮）。
+
+2026-11-09 Node runtime 退场步骤 3–4（产物与差分）已完成：桌面 `build:desktop-agent` 改为
+`--plugin-host-only`，`stage-agent-bundle` / `prepare:agent-bundle` 不再产出或暂存 `zcode.cjs`；
+`ESCODE_BUNDLE_NODE_AGENT`、`rust_only` 发布输入、Node → Rust → Node 演练与 `record cli goldens`
+workflow 已删除；`release.yml` / `rust-runtime-ci.yml` 默认 Rust-only，产物断言只接受
+`escode-cli-rust` + `plugin-host.cjs`。远端 glm 组件与 `escode-agent` wrapper 改指 Rust 二进制；
+`nodeOracle` 更名 `goldenOracle` 并变为只读，`--record` / `--live-node` 与
+`bench-escode-cli-node-rust.mjs`、App bench Node 组已删除。`apps/escode-cli` 工作区保留用于
+plugin-host 构建与独立 CLI/SEA 发行。三平台真实 `release` / 安装包演练仍需在 CI 复核。
 
 2026-11-04 资源采样残留清理：Node Host 退场后，TS `packages/services/src/process/processResourceSampler.ts`
 已无生产调用方（`pnpm dep:refs` 只剩自身测试与 `services/src/node.ts` 的 re-export），源码与测试一并删除；
 资源管理器 host 采样由 Rust Host `apps/escode-host/crates/host-services/src/process_sampler.rs` 承担。
 
 2026-11-04 Node runtime 删除前置复核：CLI 差分门禁已只启动 Rust 并对比冻结 golden
-（`scripts/diff-escode-cli-rust-parity.mjs --golden`），`--live-node` 仅用于显式双跑演练；
+（`scripts/diff-escode-cli-rust-parity.mjs --golden`；当时的 `--live-node` 双跑演练已于 2026-11-09 删除）；
 `linux-x64` / `darwin-arm64` / `win32-x64` 的 per-platform 欠账基线均为空，CI 会自动追加
 `--strict`（`.github/workflows/rust-runtime-ci.yml`）。因此「差分套件完全依赖冻结 golden」
 不再阻塞删除；剩余门槛是真实供应商流式长尾、按在用第三方 MCP 实测、真实安装包切换演练
@@ -144,15 +152,14 @@ rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 欠账�
 其中 macOS/Windows 均以 `--golden --strict` 运行并判定 parity（同样 0 欠账、0 新差异），跨平台 golden
 strict 门禁就此转绿。
 
-当前门禁形态（2026-11-03 复核并收紧默认模式）：
-`packages/services/tests/escode-cli-rust-golden.ts` 的 `nodeOracle` 只读写冻结 golden，未录制时缺文件直接失败，
-不会启动 Node；`scripts/diff-escode-cli-rust-parity.mjs` 不带模式参数时按 `--golden` 运行，只有显式
-`--record` 或 `--live-node` 才启动 Node，避免删除 Node 后默认差分悄悄回退到实时 oracle。
+当前门禁形态（2026-11-03 收紧默认模式；2026-11-09 Node runtime 退场后进一步收口）：
+`packages/services/tests/escode-cli-rust-golden.ts` 的 `goldenOracle` 只读冻结 golden，缺文件直接失败，
+不会启动 Node；`scripts/diff-escode-cli-rust-parity.mjs` 只有 `--golden` 一种模式，`--record` /
+`--live-node` 与 `record cli goldens` workflow 均已删除，golden 是仓内只读资产。
 `.github/workflows/rust-runtime-ci.yml` 的平台解析步骤要求 golden 存在，并在
 `scripts/diff-escode-cli-rust-parity.baseline.<platform>.json` 为空时自动追加 `--strict`。三份平台欠账基线
 （`darwin-arm64` / `linux-x64` / `win32-x64` 的 `session-baseline`）均为空数组，因此三平台 CI 实际都跑
-`--golden --strict`。删除 Node runtime 的前置条件「差分套件完全依赖冻结 golden，不再启动 Node oracle，
-并切到 `--strict`」据此已满足；录制新 golden 仍需 `record cli goldens` workflow，不在 CI 里回退到实时 Node。
+`--golden --strict`。
 
 2026-11-04 本地复核（Linux x64，release 二进制）：`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict`
 判定 parity：frames 7、rpcResponses 3、storageProgress 1、modelRequests 1 全部已批准，0 open / 0 欠账 /

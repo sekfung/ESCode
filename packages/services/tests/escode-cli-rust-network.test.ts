@@ -10,10 +10,10 @@ import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { titleReply, titleRequest } from "./escode-cli-rust-title-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 import { createCaSignedLeaf } from "./escode-cli-rust-tls-fixture.js";
 
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 /**
  * docs/specs/rust-net-proxy.md「Host 下发配置」：设置页的自定义 CA 由 services 注入
@@ -65,7 +65,7 @@ test("settings-page CA is trusted by Node and Rust", async () => {
       kind === "node"
         ? {
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             registry: true,
             // 生产里 services 同时注入两者（Node 只认前者、Rust 只认后者）。
             env: { NODE_EXTRA_CA_CERTS: caCert, ESCODE_AGENT_CA_CERT: caCert },
@@ -106,7 +106,7 @@ test("settings-page CA is trusted by Node and Rust", async () => {
     }
   };
   try {
-    const node = await nodeOracle("ca-trust", () => observeKind("node"));
+    const node = await goldenOracle("ca-trust", () => observeKind("node"));
     const rust = canonical(await observeKind("rust"));
     assert.equal(node, "trusted", `tlsErrors=${tlsErrors} requests=${requests}`);
     assert.deepEqual(rust, node, `tlsErrors=${tlsErrors} requests=${requests}`);

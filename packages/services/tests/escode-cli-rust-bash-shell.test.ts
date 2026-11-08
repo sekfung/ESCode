@@ -4,13 +4,13 @@ import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-bash-shell-snapshot.md：用户 ~/.bashrc 的函数与 alias 经 shell 初始化快照可用；
 // 出错行号、离开工作区时的 cwd 重置提示与 Node 一致（临时目录名按占位比较）。
 // 有 ~/.bashrc 时 Node 每次 Bash 在 Windows 上约 5–8s（快照 source 与 Git Bash 启动），六次调用超过 30s。
 process.env.ESCODE_TEST_WAIT_MS ??= "120000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const CALLS: Record<string, unknown>[] = [
   { command: "greet_from_rc world" },
   { command: "rc_alias" },
@@ -54,7 +54,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -92,7 +92,7 @@ test(
   "Bash sees the user's shell init and reports cwd and errors the same way as Node",
   { skip: windows && "Git Bash snapshot creation sits at TS's 10s timeout on Windows" },
   async () => {
-    const node = await nodeOracle("observe", () => observe("node"));
+    const node = await goldenOracle("observe", () => observe("node"));
     const rust = await canonical(await observe("rust"));
     assert.equal(node.length, CALLS.length);
     assert.equal(node[0], "hello world");

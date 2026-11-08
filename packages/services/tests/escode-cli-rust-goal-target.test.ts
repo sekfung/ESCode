@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「session/read 的 session 投影」：有 Goal 的会话现在也投影
 // `session.target`（TS `mapSessionGoal` + `escodeSessionGoalSchema` strict）。给 Goal 补了
@@ -15,7 +15,7 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // `session.target` 逐字段一致（时间戳比类型与存在性，不比具体值）。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const UUIDS = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
 async function observe(kind: Runtime) {
@@ -37,7 +37,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -101,7 +101,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust project a goal-bearing session/read target the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   // 自检：确认 Node 侧真的带上 target 且状态归一为 complete，避免两侧同样为空也判等。
   assert.equal(node.hasTarget, true);
   assert.equal(node.target.status, "complete");

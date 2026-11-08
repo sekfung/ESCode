@@ -9,12 +9,12 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W4：plugins/marketplace/add|remove|update 与安装时按需拉取。
 // 只用本地源（目录 / .json 文件 / 回环 URL / 本地 git 仓库声明），不刷新官方 CDN 市场。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function write(path: string, content: string) {
   await mkdir(dirname(path), { recursive: true });
@@ -135,16 +135,16 @@ async function observe(kind: Runtime) {
   const port = (server.address() as { port: number }).port;
 
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -257,7 +257,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust manage plugin marketplaces the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);

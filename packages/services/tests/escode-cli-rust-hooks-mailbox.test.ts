@@ -5,12 +5,12 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-hooks.md H3：`ESCODE_MESSAGE_ENABLED` 灰度下的会话 mailbox 内部 hooks。开轮前的未读消息由
 // UserPromptSubmit 并入上下文；轮中到达的消息在工具之后（PostToolUse）作为本轮 guide 输入。比对模型请求。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust") {
   const requests: any[] = [];
@@ -54,16 +54,16 @@ async function observe(kind: "node" | "rust") {
   };
   mailbox = await mkdtemp(join(tmpdir(), "escode-mailbox-"));
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
     ESCODE_MESSAGE_ENABLED: "1",
   };
   const f =
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -117,7 +117,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust drain the session mailbox through hooks the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   if (process.env.ESCODE_DUMP) console.log(JSON.stringify(node, null, 1));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);

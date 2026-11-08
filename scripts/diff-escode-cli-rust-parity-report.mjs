@@ -11,7 +11,7 @@ function renderReport(scenario, evidence) {
     "",
     `- 判定：**${evidence.verdict === "parity" ? "无新差异（含已批准差异与已知欠账）" : `发现 ${newDivergences.length} 处新差异`}**` +
       `；已知欠账（基线内）${knownDebt.count} 处、已登记 open 偏移 ${openOffsets.length} 处（default 不判失败，--strict 判失败）`,
-    `- 平台：${evidence.platform}；Node bundle sha256 \`${evidence.artifacts.node.sha256.slice(0, 16)}…\`；Rust binary sha256 \`${evidence.artifacts.rust.sha256.slice(0, 16)}…\``,
+    `- 平台：${evidence.platform}；golden sha256 \`${evidence.artifacts.node.sha256.slice(0, 16)}…\`；Rust binary sha256 \`${evidence.artifacts.rust.sha256.slice(0, 16)}…\``,
     `- 归一化规则：${NORMALIZATION.map((rule) => rule.id).join(" / ")}（明细见 evidence.json；新增规则需 review）`,
     `- 字节级（键序归一前）差异行数：frames ${evidence.byteLevelDiffering.frames}、modelRequests ${evidence.byteLevelDiffering.modelRequests}（诊断项，不参与判定）`,
     `- 时序事实：prefs 请求先于首轮模型请求——node ${timing.node.prefs.map((p) => `${p.scope}:${p.beforeFirstTurnRequest}`).join(" ") || "-"}；rust ${timing.rust.prefs.map((p) => `${p.scope}:${p.beforeFirstTurnRequest}`).join(" ") || "-"}`,

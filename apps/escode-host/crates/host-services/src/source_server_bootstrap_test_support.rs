@@ -140,8 +140,13 @@ pub(super) fn write_release(release_dir: &Path, platform: &str) {
         );
     }
     write(
-        &release_dir.join(format!("glm/{platform}/zcode.cjs")),
-        "glm",
+        &release_dir.join(format!("glm/{platform}/escode-cli-rust")),
+        "rust",
+        true,
+    );
+    write(
+        &release_dir.join(format!("glm/{platform}/plugin-host.cjs")),
+        "plugin-host",
         false,
     );
     write(

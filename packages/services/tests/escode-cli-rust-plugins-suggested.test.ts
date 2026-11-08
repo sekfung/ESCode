@@ -7,13 +7,13 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W5b：plugins/resolveSuggestedReference。非官方 / 非法 id 直接
 // unavailable；本地已有（内置官方插件）返回 ready/disabled；否则先发 plugins/operationProgress refreshing，
 // 刷新官方目录（本地回环服务充当 CDN）后返回 missing（带 listing）、未列出或刷新失败。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const OFFICIAL = "zcode-plugins-official";
 
 async function write(path: string, content: unknown) {
@@ -51,16 +51,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-suggested-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -132,7 +132,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust resolve suggested plugin references the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);

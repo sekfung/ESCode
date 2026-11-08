@@ -8,12 +8,12 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W3：仓库类源。非 GitHub URL 走 Archive → 系统 Git 回退：
 // 普通 clone、ref（分支）、sha pin（检出旧提交）、git-subdir、子目录缺失、仓库不存在、Git 不可用。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function write(path: string, content: string) {
   await mkdir(dirname(path), { recursive: true });
@@ -88,9 +88,9 @@ async function observe(kind: Runtime, gitBinary?: string) {
   const repo = join(root, "repos", "tool");
   const first = await makeRepo(repo);
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
     ...(gitBinary ? { ESCODE_GIT_BINARY: gitBinary } : {}),
   };
   const f =
@@ -98,7 +98,7 @@ async function observe(kind: Runtime, gitBinary?: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -182,7 +182,7 @@ async function observe(kind: Runtime, gitBinary?: string) {
 }
 
 test("Node and Rust install plugins from git sources the same way", async () => {
-  const node = await nodeOracle("install", () => observe("node"));
+  const node = await goldenOracle("install", () => observe("node"));
   const rust = canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);
@@ -200,7 +200,7 @@ test("Node and Rust install plugins from git sources the same way", async () => 
 
 test("Node and Rust report an unavailable system Git the same way", async () => {
   const missing = join(tmpdir(), "escode-no-such-git", "git.exe");
-  const node = await nodeOracle("git-unavailable", () => observe("node", missing));
+  const node = await goldenOracle("git-unavailable", () => observe("node", missing));
   const rust = canonical(await observe("rust", missing));
   assert.deepEqual(rust, node);
   assert.equal((node.gitplain as any).diagnostics[0].code, "plugin_git_unavailable");

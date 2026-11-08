@@ -181,21 +181,24 @@ test("rejects missing root package versions during CLI builds", async () => {
   }
 });
 
-test("desktop agent builds minify the app-facing JS bundle", () => {
+test("desktop agent builds only the plugin host bundle", () => {
   assert.deepEqual(resolveBuildOptions([]), {
     minify: false,
     sourcemap: true,
     buildPluginHost: false,
+    pluginHostOnly: false,
   });
   assert.deepEqual(resolveBuildOptions(["--desktop-agent"]), {
     minify: true,
     sourcemap: false,
     buildPluginHost: true,
+    pluginHostOnly: true,
   });
   assert.deepEqual(resolveBuildOptions(["--desktop-agent"], { ESCODE_E2E_COVERAGE: "1" }), {
     minify: false,
     sourcemap: true,
     buildPluginHost: true,
+    pluginHostOnly: true,
   });
 });
 

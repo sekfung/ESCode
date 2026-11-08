@@ -59,7 +59,7 @@
         "leftSha256": "55d68443fe13ab4e0604d19514d76f8cfcfd2ce9ede4392bac97ec35dafe443d",
         "rightSha256": "edfc2d7212dfb159a4098f42e9f924c91bf6cd16aa3839657d8846fdbb083c1d"
       },
-      "reason": "标题请求形态已知差异：Node 非流式（body 仅 model/messages/max_completion_tokens），Rust 始终流式（stream:true + stream_options）；scripts/bench-escode-cli-node-rust.mjs 已按请求 stream 分别应答并注释。字段名已与 Node 对齐为 max_completion_tokens。",
+      "reason": "标题请求形态已知差异：冻结 golden 为 Node 非流式（body 仅 model/messages/max_completion_tokens），Rust 始终流式（stream:true + stream_options）。字段名已与 Node 对齐为 max_completion_tokens。",
       "removal": "统一标题请求流式形态（或确认非流式为契约）后移除"
     },
     {

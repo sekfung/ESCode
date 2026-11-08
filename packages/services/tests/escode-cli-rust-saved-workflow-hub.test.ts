@@ -5,13 +5,13 @@ import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 2 期：GUI 中枢 `workflows/*`（list / get / updateMeta /
 // delete / move）在 Node 与 Rust 上同名同形。`workflows/runs` 是第 4 期的 journal，不在用例里。
 // fixture 把 HOME/USERPROFILE 指到临时 root，所以"全局档"落在临时目录，两侧都安全。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const workflowFile = (description: string, whenToUse?: string) =>
   [
     "/* escode-workflow",
@@ -31,7 +31,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
         })
@@ -121,7 +121,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("workflows/* hub matches Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检：Node 侧的形状与语义确实是我们期望的那套。
   assert.equal((node.observed.listProject as any).workflows.length, 1);

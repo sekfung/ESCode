@@ -4,12 +4,12 @@ import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-tool-input-validation.md（内置工具）与 rust-file-tool-results.md：内置工具的入参校验、
 // Read/Write/Edit 的结果与错误文案，以及发给模型的内置 schema 属性顺序，与 Node 逐字一致。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const CALLS: [string, unknown][] = [
   ["Read", {}],
   ["Read", { file_path: 5 }],
@@ -159,7 +159,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -183,7 +183,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("built-in tool validation, file tool results and schema order match Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.equal(node.seen.length, CALLS.length);
   for (const [index, [name, args]] of CALLS.entries()) {

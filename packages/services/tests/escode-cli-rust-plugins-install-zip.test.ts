@@ -9,13 +9,13 @@ import yazl from "yazl";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-plugin-marketplace-write.md W2：zip 源安装。本地回环 HTTP 服务提供 zip（回环允许 http），
 // 覆盖单顶层目录 strip、显式 path、同源重定向转发自定义头、sha256 不符、manifest 名不符、多顶层无 manifest、
 // 非 HTTPS、禁用头；比对协议返回、安装记录、缓存文件树与服务端收到的请求。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 function makeZip(files: Record<string, string>): Promise<Buffer> {
   return new Promise((resolvePromise, reject) => {
@@ -109,16 +109,16 @@ async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-plugins-zip-${kind}-`));
   await mkdir(join(root, ".escode", "cli"), { recursive: true });
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env,
@@ -219,7 +219,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust install plugins from zip sources the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   for (const key of Object.keys(node)) {
     assert.deepEqual(rust[key], node[key], key);

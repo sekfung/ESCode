@@ -5,12 +5,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-browser-use.md「第 4 期细则」：子进程环境清洗、出网配置恢复与 CUA 凭据定向注入。
 // 每个用例多次冷启动 Node 与 shell，Windows CI 上超过 fixture 默认 8s 的等待（CI 实测超时，本地通过）。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const PROBE_KEYS = [
   "NODE_ENV",
   "OTEL_SERVICE_NAME",
@@ -70,7 +70,7 @@ function launch(
   kind: "node" | "rust",
   respond: any,
   env: Record<string, string>,
-  bundle = nodeBundle,
+  bundle = pluginHostBundle,
 ) {
   return kind === "node"
     ? fixture({
@@ -145,7 +145,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 }
 
 test("Bash and MCP stdio children see the same sanitized environment as Node", async () => {
-  const node = await nodeOracle("observeTools", () => observeTools("node"));
+  const node = await goldenOracle("observeTools", () => observeTools("node"));
   const rust = await canonical(await observeTools("rust"));
   assert.equal(node.length, 2);
   // 凭据、遥测与 NODE_ENV 被删；代理由 ESCODE_HTTP_PROXY 统一改写；透传 JSON 恢复后自身被删。
@@ -196,8 +196,8 @@ async function officialBase(root: string) {
   // Rust 读 ESCODE_OFFICIAL_PLUGINS_BASE_DIR；TS 以入口文件目录为 base，因此 Node 从同一 base 下的 bundle 副本启动。
   const base = join(root, "official", "dist");
   await mkdir(base, { recursive: true });
-  await copyFile(nodeBundle, join(base, "escode.cjs"));
-  await symlink(join(dirname(nodeBundle), "provider"), join(base, "provider"), "junction");
+  await copyFile(pluginHostBundle, join(base, "escode.cjs"));
+  await symlink(join(dirname(pluginHostBundle), "provider"), join(base, "provider"), "junction");
   await symlink(
     resolve("apps/escode-cli/packages/node-repl-host"),
     join(root, "official", "node-repl-host"),
@@ -298,7 +298,7 @@ async function observeCua(kind: "node" | "rust") {
 }
 
 test("Computer Use credentials reach only node_repl, and retired CUA servers stay hidden, as in Node", async () => {
-  const node = await nodeOracle("observeCua", () => observeCua("node"));
+  const node = await goldenOracle("observeCua", () => observeCua("node"));
   const rust = await canonical(await observeCua("rust"));
   assert.equal(node.env.ESCODE_CUA_NODE_REPL_HOST, "1");
   assert.ok(node.definitions.includes("mcp__node_repl__js"));

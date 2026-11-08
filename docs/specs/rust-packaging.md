@@ -106,22 +106,20 @@ sequenceDiagram
 
 ## 默认切换（2026-10-03，用户决定）
 
-- 选择顺序：`ESCODE_AGENT_SERVER_RUNTIME=node` → Node；`=escode-cli-rust` → Rust；**未设置**时，若无自定义命令且不在 monorepo
-  开发态（开发入口在场即保持 Node，改源码立刻生效），用随包 Rust 二进制。（2026-10-12 起找不到二进制直接报错，不回退 Node。）
-- 打包态隔离（2026-10-12）：开发入口按 `process.cwd()` 向上探测，安装包在仓库目录下启动（CI installed job、开发者从终端启动）
-  会误命中 monorepo 源码入口，回到 Node 且因 tsx 入口没有 `storagePreparationEntry` 报 `unsupported_runtime`。Main 在
-  `app.isPackaged` 时向 Host 注入 `ESCODE_DESKTOP_PACKAGED=1`，解析器据此跳过开发入口探测（默认选择、Node 回退链与插件宿主 env
-  三处同口径），打包态的 runtime 选择与 cwd 无关。
-- 打包：`ESCODE_BUNDLE_RUST_AGENT` 默认开启（`=0` 关闭时安装包只含 Node，须同时设置 `ESCODE_AGENT_SERVER_RUNTIME=node`，否则启动报错）。
-  `ESCODE_BUNDLE_NODE_AGENT=0` 可产出不含 `resources/glm/zcode.cjs` 的 Rust-only 安装包，并保留
-  `plugin-host.cjs` 继续承载官方插件；两者同时关闭会在构建期报错（见 rust-release-rollback.md
-  「Rust-only 打包产物开关」）。
-- 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖默认选 Rust、二进制缺失报错、开发态 / 显式 node / 非桌面安装包保持 Node。
+- 选择顺序（2026-11-09 起唯一）：Rust。`ESCODE_AGENT_SERVER_RUNTIME` 已删除，残留值被忽略；开发态自动发现
+  `apps/escode-cli-rust/target/{release,debug}`，打包/远程态只认随包或已部署 Rust 二进制，缺失直接报错、不回退 Node。
+- 打包态隔离（2026-10-12）：开发二进制按 `process.cwd()` 向上探测，安装包在仓库目录下启动（CI installed job、开发者从终端启动）
+  可能误命中 monorepo 的 `target` 产物。Main 在 `app.isPackaged` 时向 Host 注入 `ESCODE_DESKTOP_PACKAGED=1`，
+  解析器据此跳过开发二进制与插件宿主探测，打包态的选择与 cwd 无关。
+- 打包：`ESCODE_BUNDLE_RUST_AGENT` 控制是否内置 Rust 二进制（发布链路固定开启）。`ESCODE_BUNDLE_NODE_AGENT`
+  已删除，产物固定不含 `resources/glm/zcode.cjs`，只保留 `plugin-host.cjs` 承载官方插件；缺 Rust 或插件宿主在构建期报错
+  （见 rust-release-rollback.md「Rust-only 打包产物开关」）。
+- 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖开发态本地 Rust、打包/远程 Rust、二进制缺失报错与插件宿主 env。
 
 ## 远程环境使用 Rust（2026-10-12，用户决定）
 
-远程工作区（SSH / WSL / Docker）此前只部署 `glm/<platform>/zcode.cjs`，远端 agent 永远是 Node。与桌面一致，
-打包产物的远程环境也默认使用 Rust，且不回退 Node。
+远程工作区（SSH / WSL / Docker）此前只部署 `glm/<platform>/zcode.cjs`，远端 agent 永远是 Node。2026-11-09
+Node runtime 退场后，远端只部署 Rust 二进制与 `plugin-host.cjs`，wrapper 直接执行 Rust。
 
 ### 制品
 
@@ -131,7 +129,7 @@ sequenceDiagram
 | `linux-arm64`                 | `aarch64-unknown-linux-musl`                   | 同上                                              |
 | `darwin-x64` / `darwin-arm64` | `x86_64-apple-darwin` / `aarch64-apple-darwin` | macOS 远端                                        |
 
-- 位置：远程 release 的 glm 组件内 `glm/<platform>/escode-cli-rust`，与 `zcode.cjs` 同一组件（同一 manifest SHA）。
+- 位置：远程 release 的 glm 组件内 `glm/<platform>/escode-cli-rust` 与 `plugin-host.cjs`（同一 manifest SHA）。
 - 来源（`scripts/prepare-prebuilds.mjs` → `scripts/remote-rust-agent.mjs`，唯一 owner）：
   1. `ESCODE_REMOTE_RUST_BINARIES_DIR=<dir>`：取 `<dir>/<platform>/escode-cli-rust`（CI 由 `rust-runtime` job 产物提供）；
   2. 未设置时用本机 cargo 构建对应 target（Linux musl 需要 `musl-tools`）；
@@ -145,13 +143,13 @@ sequenceDiagram
 ### 部署与选择
 
 - 部署（`apps/escode-host/crates/host-services/src/source_server_install.rs`）：Rust Host 安装 glm 组件目录到
-  `~/.escode/server/agents/glm`（含 `escode-cli-rust` 与现有 `zcode.cjs`），并生成 Node wrapper `escode-agent`。
-  Rust-only 打包会从组件中移除 `zcode.cjs`；TS CLI 退场时 wrapper 应改为执行 Rust 或被删除。
+  `~/.escode/server/agents/glm`（`escode-cli-rust` + `plugin-host.cjs` + 插件资产），并生成执行 Rust 二进制的
+  `escode-agent` wrapper。
 - 远端选择：桌面安装包的 Host 连接远程时给远端 server 注入 `ESCODE_REMOTE_PACKAGED_RUNTIME=1`。resolver 视
-  `ESCODE_DESKTOP_PACKAGED=1` 或 `ESCODE_REMOTE_PACKAGED_RUNTIME=1` 为「打包运行时」：跳过 monorepo 开发入口探测、
-  默认 Rust、缺二进制直接报错。开发态 App（未打包）连接远程时不注入，远端维持 Node（开发部署只同步 JS bundle）。
+  `ESCODE_DESKTOP_PACKAGED=1` 或 `ESCODE_REMOTE_PACKAGED_RUNTIME=1` 为「打包运行时」：跳过开发二进制探测、
+  只选 Rust、缺二进制直接报错。
 - 远端插件宿主：Rust 命令的 `ESCODE_PLUGIN_HOST_EXEC_PATH` / `ESCODE_PLUGIN_HOST_ENTRYPOINT` 在远端取
-  `$ESCODE_SERVER_RUNTIME_ROOT/node` 与 `~/.escode/server/agents/glm/zcode.cjs`（存在时）。
+  `$ESCODE_SERVER_RUNTIME_ROOT/node` 与 `~/.escode/server/agents/glm/plugin-host.cjs`（存在时）。
 - 数据：远端 Rust 会话库 `~/.escode/rust/rust-sessions.sqlite`；首次打开 workspace 时只读导入远端既有 TS 历史
   （`~/.escode/cli/db/db.sqlite`），与桌面同一迁移语义。
 
@@ -173,11 +171,13 @@ sequenceDiagram
 > 删除 `ESCODE_AGENT_SERVER_RUNTIME=node` 与 `resources/glm/zcode.cjs` 的完整范围。前置门槛与证据见
 > [rust-parity-remaining.md](rust-parity-remaining.md)；产品确认前不执行，避免把“计划”当成现状。
 >
-> **2026-11-09 进度**：步骤 1（linux-x64 `--golden --strict` 复核）与步骤 2（选择/描述层）已完成。
-> `ESCODE_AGENT_SERVER_RUNTIME` 不再被读取（残留值被忽略，不再接受 `node`）；开发态改选
-> `apps/escode-cli-rust/target/{release,debug}/escode-cli-rust`，打包态仍只认随包/已部署 Rust；
-> 远端插件宿主改指 `plugin-host.cjs`；Windows 启动诊断只要求 Rust 二进制。步骤 3（构建/打包资产与
-> `ESCODE_BUNDLE_NODE_AGENT`）与步骤 4（Node oracle / bench Node 侧）尚未执行，`zcode.cjs` 仍会被构建和携带。
+> **2026-11-09 进度**：步骤 1–4 已完成。`ESCODE_AGENT_SERVER_RUNTIME` 不再被读取；开发态改选
+> `apps/escode-cli-rust/target/{release,debug}/escode-cli-rust`，打包/远程态只认随包或已部署 Rust；
+> `escode.cjs` 不再构建与暂存，桌面/远端 glm 只含 Rust 二进制与 `plugin-host.cjs`；
+> `ESCODE_BUNDLE_NODE_AGENT` 已删除，产物断言只接受 Rust + 插件宿主并拒绝 `zcode.cjs`；
+> 差分脚本删除 `--record` / `--live-node`，golden 为只读资产，Node bench 与 App bench Node 组已删除。
+> 仍需在真实发布链路（三平台 `release` 的 `rust-runtime` / `desktop` / `installed`）复核，并保留
+> 「只能降级到含 Node CLI 的旧安装包」的回滚说明；本机未执行三平台安装包演练。
 
 | 面   | 位置                                                                                                                                      | 退场动作                                                                                                              |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -191,14 +191,18 @@ sequenceDiagram
 | 测试 | `escode-cli-rust-runtime-selection.test.ts`、`escode-cli-rust-installed-rust-only.test.ts`                                                | 删除 `node` 选择断言；保留 Rust-only 缺 bundle 断言                                                                   |
 | 文档 | `rust-packaging.md`、`rust-release-rollback.md`、`rust-ci.md`、`rust-cli-architecture.md`、`apps/escode-cli-rust/README.md`               | 删除回退说明；保留“只能降级到含 Node CLI 的旧安装包”                                                                  |
 
-顺序：
+顺序（2026-11-09 已执行；Node 录制能力在同日删除）：
 
-1. 各平台用 `ESCODE_RECORD_CLI_GOLDEN=1` 最终重录；确认 `--golden --strict` 为 0 open / 0 新差异 / 0 欠账。
+1. ~~各平台用 `ESCODE_RECORD_CLI_GOLDEN=1` 最终重录~~（录制能力已删除）；确认 `--golden --strict` 为 0 open / 0 新差异 / 0 欠账。
 2. 删除选择与描述层（含 `node` 显式值），开发态改本地 Rust 二进制；跑 `pnpm test:escode-cli-rust`。
 3. 删除构建/打包资产与 `ESCODE_BUNDLE_NODE_AGENT`，重跑 Rust-only release 三平台。
 4. 删除 Node oracle 与 bench 侧，保留 `fixtures/cli-golden`。
 5. 更新回滚文档：旧安装包仍含 Node CLI，降级路径不变。
 
+> 执行补充（2026-11-09）：`apps/escode-cli` 工作区保留——桌面/远端仍需它构建 `plugin-host.cjs`，
+> 独立 CLI/SEA 发行也仍是其产品；桌面 `build:desktop-agent` 改为 `--plugin-host-only`，不再产出 `escode.cjs`。
+> `release.yml` 的 `rust_only` 输入与 Node → Rust → Node 演练已删除，所有发布产物默认 Rust-only。
+
 验证：`pnpm typecheck`、`pnpm lint`、`pnpm check:escode-cli-rust`、`pnpm test:escode-cli-rust`、
-`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict`、`release.yml` 的 `rust_only` 三平台、
-installed Rust-only（`zcode.cjs` 不存在且 Rust 正常启动）。
+`node scripts/diff-escode-cli-rust-parity.mjs --golden --strict`、`release.yml` 的 `rust-runtime` / `desktop` /
+`installed` 三平台、installed Rust-only（`zcode.cjs` 不存在且 Rust 正常启动）。

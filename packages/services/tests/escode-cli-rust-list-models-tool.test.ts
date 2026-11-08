@@ -5,12 +5,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 6 期：灰度为开时 ListModels 的模型面、行级 display 与
 // 目录事实（当前档、档位表、上下文窗）在 Node 与 Rust 上一致。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 
 async function observe(kind: "node" | "rust") {
@@ -42,7 +42,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -78,7 +78,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("ListModels matches Node for a configured registry", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检：两行目录、档位表在场、会话模型标 current、上下文窗在场。
   assert.match(node.tool ?? "", /^<models count="2">/);

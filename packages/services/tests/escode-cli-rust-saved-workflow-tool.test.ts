@@ -5,13 +5,13 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 2 期：ListSavedWorkflows 在灰度为开时，Node 与 Rust
 // 对同一份项目档给出的模型面内容与行级 display 一致（路径按 workspace 归一后逐字比较）。
 // 灰度关闭时该工具两侧都不注册，由 dynamic-workflow-policy 用例覆盖。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 const WORKFLOW_FILE = [
   "/* escode-workflow",
@@ -61,7 +61,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -110,7 +110,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("ListSavedWorkflows matches Node for the project archive", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检：模型面确实是清单，而不是空容器或别的东西。
   assert.match(node.tool ?? "", /^<saved_workflows count="1">/);

@@ -6,14 +6,14 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 process.env.ESCODE_TEST_REQUEST_MS ??= "30000";
 
 // docs/specs/rust-plugins.md「旧 CUA 配置迁移」：Node 的 createConfig 会在装载时迁移旧 id 并
 // best-effort 写回；Rust 的 plugins/list 走同一装载路径后，启用态与文件字节都必须一致。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const LEGACY = "escode-cua@zcode-plugins-official";
 const CANONICAL = "computer-use@zcode-plugins-official";
 
@@ -24,19 +24,13 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [
-            nodeBundle,
-            "app-server",
-            "--stdio",
-            "--cwd",
-            cwd,
-          ],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
           env: {
-            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
             ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-            ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+            ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
           },
         })
       : await fixture({
@@ -44,9 +38,9 @@ async function observe(kind: Runtime) {
           registry: true,
           mode: "yolo",
           env: {
-            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+            ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
             ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-            ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+            ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
           },
         });
   try {
@@ -80,9 +74,7 @@ async function observe(kind: Runtime) {
     return {
       before,
       after,
-      canonical: cua
-        ? { enabled: cua.enabled, enabledSource: cua.enabledSource }
-        : null,
+      canonical: cua ? { enabled: cua.enabled, enabledSource: cua.enabledSource } : null,
       hasLegacy: result.plugins.some((plugin: any) => plugin.id === LEGACY),
       schemaErrors: h.schemaErrors,
     };
@@ -93,7 +85,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust migrate legacy CUA plugin config on plugins/list", async () => {
-  const node = await nodeOracle("cua-migration", () => observe("node"));
+  const node = await goldenOracle("cua-migration", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.deepEqual(node.schemaErrors, []);

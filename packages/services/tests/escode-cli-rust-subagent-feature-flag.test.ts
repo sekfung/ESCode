@@ -4,12 +4,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-subagents.md：`features.subagent=false` 时 TS 不注入 SubagentPort，
 // Agent/SendMessage 既不进模型可见工具面，直接调用也报 ConfigurationError。
 // 这里比对两侧的模型可见工具名清单（顺序也一致），默认值必须仍然是「都在」。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 
 async function toolNames(kind: Runtime, subagent: boolean) {
@@ -22,7 +22,7 @@ async function toolNames(kind: Runtime, subagent: boolean) {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -53,7 +53,7 @@ async function toolNames(kind: Runtime, subagent: boolean) {
 }
 
 test("features.subagent=false hides Agent/SendMessage from the tool surface on both runtimes", async () => {
-  const node = await nodeOracle("disabled", () => toolNames("node", false));
+  const node = await goldenOracle("disabled", () => toolNames("node", false));
   const rust = canonical(await toolNames("rust", false));
   assert.deepEqual(rust, node);
   assert.ok(!node.includes("Agent"), JSON.stringify(node));
@@ -61,7 +61,7 @@ test("features.subagent=false hides Agent/SendMessage from the tool surface on b
 });
 
 test("the default tool surface still offers Agent/SendMessage on both runtimes", async () => {
-  const node = await nodeOracle("enabled", () => toolNames("node", true));
+  const node = await goldenOracle("enabled", () => toolNames("node", true));
   const rust = canonical(await toolNames("rust", true));
   assert.deepEqual(rust, node);
   assert.ok(node.includes("Agent"));

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 6 期：ListWorkflowRuns 在 Node 与 Rust 上一致。
 //
@@ -15,7 +15,7 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // 再往两个库里播**同一组** run 行，然后比较两侧读出的模型面与 display。
 // 「读得懂 TS 写的库」由存储层语料（同一份 DDL/行）另行覆盖。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 const NOW = 1_700_000_000_000;
 
@@ -82,7 +82,7 @@ async function observe(kind: "node" | "rust", root: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -122,7 +122,7 @@ async function migrate(kind: "node" | "rust", root: string) {
       ? {
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           mode: "yolo",
         }
@@ -164,7 +164,7 @@ async function seeded(kind: "node" | "rust") {
 }
 
 test("ListWorkflowRuns matches Node for a seeded journal", async () => {
-  const node = await nodeOracle("seeded-journal", () => seeded("node"));
+  const node = await goldenOracle("seeded-journal", () => seeded("node"));
   const rust = canonical(await seeded("rust"));
   // 自检：三次运行（completed / stopped / running），两条消息分别是全量与被过滤的 stopped。
   assert.match(node.messages[0] ?? "", /^<workflow_runs count="3">/);

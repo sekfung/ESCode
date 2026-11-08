@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「session/read 的 session 投影」：`session` 与 `settings` 两个
 // 投影块逐字段与 Node 的 `mapSessionInfo` / `mapSessionSettings` 对齐——traceId 的存在性、无目标时的
@@ -15,15 +15,15 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // （`escode-cli-rust-session-read.test.ts`）覆盖。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const UUIDS = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
 async function observe(kind: Runtime) {
   const root = await mkdtemp(join(tmpdir(), `escode-session-read-session-${kind}-`));
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const respond = (_req: any, res: any) => {
     event(res, { content: "noted" });
@@ -34,7 +34,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -98,7 +98,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust project the session/read session block the same way", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   // 自检：确认 Node 侧真的带上这几个字段、新会话真的省掉 titleSource，避免两侧同为缺失也判等。
   assert.equal(node.fresh.session.traceIdType, "string");
   assert.equal(node.fresh.session.hasTarget, true);

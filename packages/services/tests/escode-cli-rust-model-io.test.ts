@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
 import { readModelTrajectory } from "../src/escode-agent/modelTrajectory.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-model-io.md：Rust 写 model-io 记录，App「模型调用轨迹」侧栏读出与 Node 相同的内容。
 // 用 App 自己的 readModelTrajectory 读两侧文件，比对映射后的记录（剔除 id / 时间 / 耗时等非确定字段）。
 type Runtime = "node" | "rust";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const text = (m: any) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
 
 async function observe(kind: Runtime, fullRetention = false) {
@@ -64,16 +64,16 @@ async function observe(kind: Runtime, fullRetention = false) {
   };
   // 官方插件宿主环境与 App processManager 一致，否则 Rust 侧缺随包插件（技能 / node_repl）。
   const env = {
-    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+    ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
     ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-    ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+    ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
   };
   const f =
     kind === "node"
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           titleRequests: "respond",
@@ -172,7 +172,7 @@ async function observe(kind: Runtime, fullRetention = false) {
 }
 
 test("Rust writes model-io that the App trajectory pane reads like Node's", async () => {
-  const node = await nodeOracle("default", () => observe("node"));
+  const node = await goldenOracle("default", () => observe("node"));
   const rust = canonical(await observe("rust"));
   // 落盘的压缩形态允许不同：Node 的消息带随最新消息移动的 cache 标记，前缀指纹对不上，主回合总写 full；
   // Rust 投影后无这些标记，可以合法地写 delta。App 展开后的内容才是契约（下方逐条比对）。
@@ -194,7 +194,7 @@ test("Rust writes model-io that the App trajectory pane reads like Node's", asyn
 });
 
 test("full model-IO retention is applied the same way as Node", async () => {
-  const node = await nodeOracle("full-retention", () => observe("node", true));
+  const node = await goldenOracle("full-retention", () => observe("node", true));
   const rust = canonical(await observe("rust", true));
   assert.deepEqual(rust, node);
   assert.equal((node.preference as any).fullRetentionEnabled, true);

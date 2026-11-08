@@ -19,23 +19,8 @@ test("显式 --golden 仍是 golden-only", () => {
   assert.equal(resolveParityMode({ golden: true }), "golden");
 });
 
-test("--record 运行双侧并写 golden", () => {
-  assert.equal(resolveParityMode({ record: true }), "record");
-  assert.deepEqual(sidesForMode("record"), ["node", "rust"]);
-});
-
-test("--live-node 显式运行双侧但不写 golden", () => {
-  assert.equal(resolveParityMode({ liveNode: true }), "live");
-  assert.deepEqual(sidesForMode("live"), ["node", "rust"]);
-});
-
-test("互斥模式直接失败，避免误用覆盖 golden", () => {
-  assert.throws(
-    () => resolveParityMode({ record: true, liveNode: true }),
-    /--record 与 --live-node 不能同时使用/,
-  );
-  assert.throws(
-    () => resolveParityMode({ golden: true, liveNode: true }),
-    /--golden 与 --live-node 不能同时使用/,
-  );
+test("Node runtime 退场后不存在 record/live 模式", () => {
+  assert.equal(resolveParityMode({ record: true }), "golden");
+  assert.throws(() => sidesForMode("record"), /Node runtime 已退场/);
+  assert.throws(() => sidesForMode("live"), /Node runtime 已退场/);
 });

@@ -5,13 +5,13 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-dynamic-workflow.md 第 1 期：动态工作流灰度门。
 // `workspace/updateDynamicWorkflowPolicy` 的回显与灰度关闭时的工具面在 Node 与 Rust 上一致；
 // Rust 在工具实现前不注册工作流工具，所以两侧都不含这份名单（开关只决定之后各期的可见性）。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 /** TS `DYNAMIC_WORKFLOW_TOOL_NAMES`（关闭态下架的十个工具；旧的 `Workflow` 工具不在列）。 */
 const WORKFLOW_TOOLS = [
   "CreateWorkflow",
@@ -40,7 +40,7 @@ async function observe(kind: "node" | "rust") {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -92,7 +92,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("dynamic workflow policy and tool surface match Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 自检：两侧回显各自的入参，且灰度关闭时下架全部工作流工具。
   assert.equal(node.enabled.enabled, true);

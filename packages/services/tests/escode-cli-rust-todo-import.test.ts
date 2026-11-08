@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { escodeSessionStateSnapshotSchema } from "@escode/shared";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // Phase 3：TS session store 只在录制时生成种子 SQLite；正常跑复制仓内冻结的 .sqlite 资产。
 const sessionStoreModule =
@@ -100,7 +100,7 @@ test("Rust imports authoritative frozen Todo lists and backfills missing native 
   try {
     const source = await seed(f, SEED_VALID);
     // TS store 读出的权威 Todo 列表冻结为观察；种子文件与观察同批录制。
-    const seeded = await nodeOracle("seedTodos", async () => {
+    const seeded = await goldenOracle("seedTodos", async () => {
       const { createSqliteSessionStore } = await import(sessionStoreModule);
       const store = createSqliteSessionStore({ dbPath: source });
       const first = await store.readTodos({ sessionID: "first" as any });

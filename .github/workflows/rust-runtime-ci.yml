@@ -194,19 +194,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-desktop-agent-cli.mjs
       - run: cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
-      - name: Node vs Rust paired benchmark
+      - name: Rust runtime benchmark
         shell: bash
         run: |
-          node scripts/bench-escode-cli-node-rust.mjs apps/escode-cli/packages/cli/dist/escode.cjs "" bench-results 5
+          node scripts/bench-escode-cli-rust.mjs apps/escode-cli-rust/target/release/escode-cli-rust 8 1 256 > bench-results.json
           {
-            echo "### Node vs Rust (${{ matrix.os }}, median of 5)"
+            echo "### Rust runtime (${{ matrix.os }})"
             echo '```json'
-            cat bench-results/summary.json
+            cat bench-results.json
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       # 差分门禁（docs/specs/rust-unified-host.md §4.2 / 阶段 3 golden freeze）：
-      # 只跑 Rust 并对冻结 golden 判定，CI 不再启动 Node oracle；平台 golden 缺失直接失败，
-      # 由 record cli goldens workflow 录制后提交。欠账基线为空的平台自动追加 --strict。
+      # 只跑 Rust 并对冻结 golden 判定；Node runtime 已退场，CI 不再启动 Node oracle，
+      # golden 为仓内只读资产，缺失直接失败。欠账基线为空的平台自动追加 --strict。
       - name: Resolve parity golden for this platform
         id: parity-golden
         shell: bash
@@ -219,7 +219,7 @@ jobs:
             echo "file=$file" >> "$GITHUB_OUTPUT"
           else
             echo "mode=missing" >> "$GITHUB_OUTPUT"
-            echo "::error file=${file}::平台 parity golden 缺失：先用 record cli goldens workflow 录制并提交"
+            echo "::error file=${file}::平台 parity golden 缺失：该文件是仓内只读 oracle，必须提交后才能跑门禁"
           fi
           # 欠账基线为空 = 该平台的差异已逐条登记为 approved（index + 双侧 sha256 精确钉住），
           # 此时启用 --strict：任何新增未登记差异或 open 偏移都会阻塞。未清账平台保持观察期，
@@ -233,7 +233,7 @@ jobs:
         if: steps.parity-golden.outputs.mode != 'golden'
         shell: bash
         run: |
-          echo "缺少平台 parity golden：先用 record cli goldens workflow 录制并提交（CI 不再启动 Node oracle）" >&2
+          echo "缺少平台 parity golden：该文件是仓内只读 oracle，必须提交后才能跑门禁（CI 不再启动 Node oracle）" >&2
           exit 1
       - name: Rust parity against frozen golden (session-baseline)
         if: steps.parity-golden.outputs.mode == 'golden'

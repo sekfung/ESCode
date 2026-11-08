@@ -5,12 +5,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { end, event, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 执行作用域：会话忙时收到带 `modelExecution` 的输入，TS core admission 直接拒绝
 // （不排队、不 steer）。这条用例确认 V4 层回给客户端的 ACK 逐字一致，而不是只确认"被拒"。
 process.env.ESCODE_TEST_WAIT_MS ??= "30000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust") {
   const root = await mkdtemp(join(tmpdir(), `escode-model-execution-${kind}-`));
@@ -21,7 +21,7 @@ async function observe(kind: "node" | "rust") {
     ...(kind === "node"
       ? {
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
         }
       : {}),
     registry: true,
@@ -66,7 +66,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("busy modelExecution admission ACK matches Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.ok(node.reasonCode, JSON.stringify(node));
   assert.deepEqual(rust, node, JSON.stringify({ node, rust }));

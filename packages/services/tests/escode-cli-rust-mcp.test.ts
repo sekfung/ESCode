@@ -9,9 +9,9 @@ import { z } from "zod";
 import { event, end, fixture, waitForFile } from "./escode-cli-rust-fixture.js";
 import { httpServer, listMcp, stdioServer } from "./escode-cli-rust-mcp-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 function respond(request: any, response: any) {
   response.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -116,7 +116,13 @@ async function credentialChange(kind: "node" | "rust") {
           registry: true,
           respond: credentialRespond,
           command: process.execPath,
-          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }: { cwd: string }) => [
+            pluginHostBundle,
+            "app-server",
+            "--stdio",
+            "--cwd",
+            cwd,
+          ],
         }
       : { mode: "yolo", registry: true, respond: credentialRespond },
   );
@@ -151,7 +157,9 @@ async function credentialChange(kind: "node" | "rust") {
 }
 
 test("MCP credential change reconnects with the rotated env in both runtimes", async () => {
-  const node = canonical(await nodeOracle("mcp-credential-change", () => credentialChange("node")));
+  const node = canonical(
+    await goldenOracle("mcp-credential-change", () => credentialChange("node")),
+  );
   const rust = canonical(await credentialChange("rust"));
   assert.deepEqual(rust, node);
   assert.equal(node.first, "connected");
@@ -169,7 +177,13 @@ async function headerCredentialChange(kind: "node" | "rust") {
       ? {
           mode: "yolo",
           command: process.execPath,
-          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }: { cwd: string }) => [
+            pluginHostBundle,
+            "app-server",
+            "--stdio",
+            "--cwd",
+            cwd,
+          ],
         }
       : { mode: "yolo" },
   );
@@ -199,7 +213,7 @@ async function headerCredentialChange(kind: "node" | "rust") {
 
 test("MCP HTTP credential change reconnects with the rotated header in both runtimes", async () => {
   const node = canonical(
-    await nodeOracle("mcp-header-credential-change", () => headerCredentialChange("node")),
+    await goldenOracle("mcp-header-credential-change", () => headerCredentialChange("node")),
   );
   const rust = canonical(await headerCredentialChange("rust"));
   assert.deepEqual(rust, node);
@@ -243,7 +257,13 @@ async function sseReconnectObservation(kind: "node" | "rust") {
           mode: "yolo",
           respond,
           command: process.execPath,
-          args: ({ cwd }: { cwd: string }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }: { cwd: string }) => [
+            pluginHostBundle,
+            "app-server",
+            "--stdio",
+            "--cwd",
+            cwd,
+          ],
         }
       : { mode: "yolo", respond },
   );
@@ -273,7 +293,9 @@ async function sseReconnectObservation(kind: "node" | "rust") {
 }
 
 test("legacy SSE reconnects after a dropped stream in both runtimes", async () => {
-  const node = canonical(await nodeOracle("sse-reconnect", () => sseReconnectObservation("node")));
+  const node = canonical(
+    await goldenOracle("sse-reconnect", () => sseReconnectObservation("node")),
+  );
   const rust = canonical(await sseReconnectObservation("rust"));
   assert.equal(node.status, "connected");
   // 用户可见结果（重连次数、连接状态、工具数）必须一致。
@@ -282,7 +304,7 @@ test("legacy SSE reconnects after a dropped stream in both runtimes", async () =
   assert.deepEqual(rustOutcome, nodeOutcome);
   assert.equal(rustIds.length, nodeIds.length);
   // 当前 SDK（@modelcontextprotocol/sdk 1.29）的 SSEClientTransport 自己包了一层 fetch：每次连接都用 _commonHeaders()
-  // 重建 Headers，覆盖 eventsource 算出的 Last-Event-ID（apps/escode-cli/packages/cli/dist/escode.cjs 可证），
+  // 重建 Headers，覆盖 eventsource 算出的 Last-Event-ID（apps/escode-cli/packages/cli/dist/plugin-host.cjs 可证），
   // 所以 Node 侧永远是 null。Rust 按 EventSource 语义在重连时携带已见的 id。
   assert.deepEqual(nodeIds, [null, null]);
   assert.deepEqual(rustIds, [null, "1"]);
@@ -332,7 +354,7 @@ async function mcpProxyRoutes(
             mode: "yolo",
             respond,
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             env,
           }
         : { root, mode: "yolo", respond, env },
@@ -368,7 +390,7 @@ test("MCP HTTP transport goes through the configured proxy in both runtimes", as
     ESCODE_HTTP_PROXY: proxyUrl,
     ESCODE_NO_PROXY: "127.0.0.1",
   });
-  const node = await nodeOracle("proxy-env", () => mcpProxyRoutes("node", configure));
+  const node = await goldenOracle("proxy-env", () => mcpProxyRoutes("node", configure));
   const rust = canonical(await mcpProxyRoutes("rust", configure));
   assert.equal(node, "proxied");
   assert.deepEqual(rust, node);
@@ -389,7 +411,7 @@ const writeNetwork = async (dir: string, proxyUrl: string) => {
 test("user config network section routes MCP through the proxy in both runtimes", async () => {
   const configure = (proxyUrl: string, cwd: string) =>
     writeNetwork(join(dirname(cwd), ".escode", "cli"), proxyUrl);
-  const node = await nodeOracle("user-config-proxy", () => mcpProxyRoutes("node", configure));
+  const node = await goldenOracle("user-config-proxy", () => mcpProxyRoutes("node", configure));
   const rust = canonical(await mcpProxyRoutes("rust", configure));
   assert.equal(node, "proxied");
   assert.deepEqual(rust, node);
@@ -397,7 +419,7 @@ test("user config network section routes MCP through the proxy in both runtimes"
 
 test("project config network section does not reach the process-level MCP pool in either runtime", async () => {
   const configure = (proxyUrl: string, cwd: string) => writeNetwork(join(cwd, ".escode"), proxyUrl);
-  const node = await nodeOracle("project-config-proxy", () => mcpProxyRoutes("node", configure));
+  const node = await goldenOracle("project-config-proxy", () => mcpProxyRoutes("node", configure));
   const rust = canonical(await mcpProxyRoutes("rust", configure));
   assert.equal(node, "direct");
   assert.deepEqual(rust, node);
@@ -445,7 +467,7 @@ async function bashProxyEnv(kind: "node" | "rust"): Promise<string> {
           registry: true,
           respond: bash,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
         }
       : { root, mode: "yolo", registry: true, respond: bash },
   );
@@ -471,7 +493,7 @@ async function bashProxyEnv(kind: "node" | "rust"): Promise<string> {
 }
 
 test("project config network section reaches Bash subprocess env in both runtimes", async () => {
-  const node = await nodeOracle("bash-proxy-env", () => bashProxyEnv("node"));
+  const node = await goldenOracle("bash-proxy-env", () => bashProxyEnv("node"));
   const rust = canonical(await bashProxyEnv("rust"));
   assert.ok(node.includes("https_proxy=http://127.0.0.1:9"), node);
   assert.deepEqual(rust, node);
@@ -533,7 +555,7 @@ test("project config network section routes WebFetch through the proxy in both r
             registry: true,
             respond: fetchOnce,
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           }
         : { root, mode: "yolo", registry: true, respond: fetchOnce },
     );
@@ -552,7 +574,7 @@ test("project config network section routes WebFetch through the proxy in both r
     }
   };
   try {
-    const node = await nodeOracle("webfetch-proxy", () => observeKind("node"));
+    const node = await goldenOracle("webfetch-proxy", () => observeKind("node"));
     const rust = canonical(await observeKind("rust"));
     assert.equal(node, "proxied");
     assert.deepEqual(rust, node);

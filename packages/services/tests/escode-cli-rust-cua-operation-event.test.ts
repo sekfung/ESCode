@@ -4,12 +4,12 @@ import { resolve } from "node:path";
 import { escodeComputerUseOperationEventSchema } from "@escode/shared";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // `computer-use/operation-event`（Desktop Computer Use 顶部提示的生命周期元数据）：一轮带一次 Bash 调用、随后关闭会话，
 // 两侧发出同序的 turn-started / tool-scheduled / tool-started / turn-completed / session-closed。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 
 async function observe(kind: "node" | "rust") {
   let requests = 0;
@@ -37,7 +37,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -75,7 +75,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust emit the same Computer Use operation lifecycle", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.equal(node.invalid, 0);
   assert.equal(rust.invalid, 0);

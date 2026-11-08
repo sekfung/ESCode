@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-shell-selection.md「已知差异」：曾记「TS 把 shell 选择落库为 session entry，
 // 冷恢复沿用创建时的 shell；Rust 只做进程内缓存、冷恢复重新问 Host」。
@@ -16,7 +16,7 @@ import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
 // `bash_shell_selection`；两侧冷恢复都按当前设置重新解析，改设置对既有会话立即生效。
 // 差分口径：同一 workspace、同一会话，先以 Git Bash 跑一次，改成 CMD 后重启进程续跑，
 // 比较两次 Bash 的实际 shell（`ver` 只在 cmd 下输出 Windows 版本）。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const gitBash = "C:\\Program Files\\Git\\bin\\bash.exe";
 type Runtime = "node" | "rust";
 
@@ -52,7 +52,7 @@ async function observe(kind: Runtime) {
         ? await fixture({
             root,
             command: process.execPath,
-            args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+            args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
             registry: true,
             mode: "yolo",
             respond,
@@ -122,7 +122,7 @@ test(
   "changing the shell setting applies to an existing session on both runtimes",
   { skip: process.platform !== "win32" || !existsSync(gitBash) },
   async () => {
-    const node = await nodeOracle("observe", () => observe("node"));
+    const node = await goldenOracle("observe", () => observe("node"));
     const rust = await canonical(await observe("rust"));
     assert.deepEqual(rust.shell, node.shell);
     // 自检：阶段 1 走的是 Git Bash（cmd 才有 Windows 版本行），阶段 2 改成 CMD 后二者都换过来。

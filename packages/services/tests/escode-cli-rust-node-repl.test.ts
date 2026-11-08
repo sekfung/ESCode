@@ -4,15 +4,15 @@ import { dirname, resolve } from "node:path";
 import { escodeMcpListResultSchema } from "@escode/shared";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-browser-use.md 第 1 期：Browser Use 启用且 node-repl-host 存在时注册内置 node_repl，
 // 经 Host 提供的插件启动器运行同一个真实宿主；两侧的设置页状态、会话工具定义与一次 js 调用结果一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const env: Record<string, string> = {
-  ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle),
+  ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle),
   ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-  ESCODE_PLUGIN_HOST_ENTRYPOINT: nodeBundle,
+  ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHostBundle,
 };
 
 async function observe(kind: "node" | "rust") {
@@ -48,7 +48,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -84,7 +84,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("node_repl is registered and runs JavaScript the same way as Node", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   // 设置页 mcp/list 不列出内置 node_repl；会话里可用并执行。
   assert.equal(node.status, undefined);
@@ -127,7 +127,7 @@ async function observeLargeResult(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -158,7 +158,7 @@ async function observeLargeResult(kind: "node" | "rust") {
 }
 
 test("node_repl large js output is persisted to an artifact with the same envelope as Node", async () => {
-  const node = await nodeOracle("largeResult", () => observeLargeResult("node"));
+  const node = await goldenOracle("largeResult", () => observeLargeResult("node"));
   const rust = await observeLargeResult("rust");
   assert.deepEqual(rust, node);
   // Node resultBudget 的 artifact 路径：完整输出落盘、模型只看信封。
@@ -210,7 +210,7 @@ async function observeBrowser(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -269,7 +269,7 @@ async function observeBrowser(kind: "node" | "rust") {
 }
 
 test("node_repl browser calls go through the runtime broker to the Host the same way as Node", async () => {
-  const node = await nodeOracle("observeBrowser", () => observeBrowser("node"));
+  const node = await goldenOracle("observeBrowser", () => observeBrowser("node"));
   const rust = await canonical(await observeBrowser("rust"));
   assert.match(String(node.toolResult), /iab-1/);
   // v3.15.1 起 node_repl 与 runtime 共享连接记忆，两侧都在轮尾发 turnEnded，请求序列逐项一致。
@@ -321,7 +321,7 @@ async function observeTurnScreenshot(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -409,7 +409,7 @@ test("node_repl tool cards and the browser turn-end screenshot match Node", asyn
     })),
   });
   const node = shape(
-    await nodeOracle("observeTurnScreenshot", () => observeTurnScreenshot("node")),
+    await goldenOracle("observeTurnScreenshot", () => observeTurnScreenshot("node")),
   );
   const rust = shape(await canonical(await observeTurnScreenshot("rust")));
   assert.deepEqual(node.commands, [
@@ -436,7 +436,7 @@ async function observeAmbient(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -463,7 +463,7 @@ async function observeAmbient(kind: "node" | "rust") {
 }
 
 test("browser ambient context wraps the model-visible input the same way as Node", async () => {
-  const node = await nodeOracle("observeAmbient", () => observeAmbient("node"));
+  const node = await goldenOracle("observeAmbient", () => observeAmbient("node"));
   const rust = await canonical(await observeAmbient("rust"));
   assert.match(String(node.userText), /in-app-browser-context/);
   assert.equal(node.rowText, "what is on this page?");

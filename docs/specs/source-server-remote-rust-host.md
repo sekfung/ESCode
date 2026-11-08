@@ -1789,6 +1789,11 @@ previousSourceServerId 存在且 != handshake.sourceServerId
 > 对应 tsup/typecheck 入口全部删除。`windowHostControllerService` / `windowHostControllerProjection`
 > 保留为 Rust 差分 golden 的 TS 观察源，不再有可启动的 Node Host 进程。TS CLI / Node runtime
 > 仍受 P1 残余项约束，需单独确认后删除。
+>
+> 2026-11-09：Node runtime 退场完成（选择/描述层、构建/打包资产、差分 oracle 与 bench Node 侧）。
+> 远程 glm 组件只含 `escode-cli-rust` + `plugin-host.cjs`，`escode-agent` wrapper 直接执行 Rust；
+> `ESCODE_AGENT_SERVER_RUNTIME`、`ESCODE_BUNDLE_NODE_AGENT` 与 `rust_only` 发布输入均已删除。
+> 三平台真实 `release` / 安装包演练仍需在 CI 复核（本机只完成 linux-x64 strict golden 与单测/构建验证）。
 
 - S2–S4 验收全绿（含 Windows/macOS 主链）。
 - 删除后的 E2E 矩阵全绿，SSH/WSL/Docker 日志中不再出现 per-window Node Host、`ProviderProvisioningExecute`

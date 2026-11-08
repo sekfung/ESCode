@@ -698,12 +698,10 @@ function stageRemoteBundledSkillPack(glmDir) {
   console.log(`  [ok] mock-cdn glm bundled skill pack ${remoteBundledSkillPack.stagedPath}`);
 }
 
-// 远端 agent 现在跑编译出来的 zcode.cjs（而不是各平台独立的原生二进制）：
-// 远端部署时已经有一份独立 node（跑 zcode-server.cjs），agent 复用它执行 zcode.cjs 即可，
-// 不必再为每个平台准备一份内嵌 node 的 SEA 二进制。zcode.cjs 跨平台同一份，逐平台只是放进各自的
-// glm/<platform> 组件目录，保持现有 manifest 组件结构不变。
+// 远端 agent 使用随包的 Rust 二进制；Node runtime 退场后 glm 组件只保留
+// escode-cli-rust、plugin-host.cjs（官方插件宿主）与插件资产，不再携带 zcode.cjs。
 function stageRemoteAgentBundles() {
-  console.log("==> Building escode-cli bundle for remote agents");
+  console.log("==> Building plugin host bundle for remote agents");
   // 复用桌面同款构建脚本（turbo build:desktop-agent --filter=@escode/cli），命中缓存时几乎瞬时。
   runCommand(process.execPath, [join(rootDir, "scripts/build-desktop-agent-cli.mjs")], {
     cwd: rootDir,
@@ -712,22 +710,23 @@ function stageRemoteAgentBundles() {
   // browser-use runtime 的 tsc 依赖 @escode/core/dist。远端资产也必须先构建
   // agent CLI 依赖，避免 CI 干净检出时被开发机缓存掩盖的 TS2307。
   buildRemoteOfficialPluginRuntimes();
-  const cliBundlePath = join(rootDir, "apps/escode-cli/packages/cli/dist/escode.cjs");
-  if (!existsSync(cliBundlePath)) {
-    throw new Error(`[prepare-prebuilds] expected cli bundle missing: ${cliBundlePath}`);
+  const pluginHostBundlePath = join(rootDir, "apps/escode-cli/packages/cli/dist/plugin-host.cjs");
+  if (!existsSync(pluginHostBundlePath)) {
+    throw new Error(
+      `[prepare-prebuilds] expected plugin host bundle missing: ${pluginHostBundlePath}`,
+    );
   }
 
   for (const platformKey of remotePlatforms) {
     const glmDir = join(releaseDir, "glm", platformKey);
-    // 干净重建：glm 组件只含 zcode.cjs、escode-cli-rust 与插件资产，清掉历史遗留的原生二进制 / 旧 meta，
-    // 避免被打进组件 tar 把远端资源撑大。
+    // 干净重建：glm 组件只含 plugin-host.cjs、escode-cli-rust 与插件资产，
+    // 清掉历史遗留的原生二进制 / zcode.cjs / 旧 meta，避免被打进组件 tar 把远端资源撑大。
     rmSync(glmDir, { recursive: true, force: true });
     mkdirSync(glmDir, { recursive: true });
-    copyFileSync(cliBundlePath, join(glmDir, "zcode.cjs"));
+    copyFileSync(pluginHostBundlePath, join(glmDir, "plugin-host.cjs"));
     stageRemoteOfficialPlugins(glmDir);
     stageRemoteBundledSkillPack(glmDir);
-    console.log(`  [ok] mock-cdn glm/${platformKey}/zcode.cjs`);
-    // 远程默认 runtime 是 Rust（docs/specs/rust-packaging.md「远程环境使用 Rust」）：与 zcode.cjs 同一组件。
+    console.log(`  [ok] mock-cdn glm/${platformKey}/plugin-host.cjs`);
     stageRemoteRustAgent({ platformKey, glmDir, rootDir });
     console.log(`  [ok] mock-cdn glm/${platformKey}/escode-cli-rust`);
   }
@@ -1030,9 +1029,9 @@ function buildReusableComponentRequiredPaths(componentId, platformKey) {
     case "node-pty":
       return platformKey.startsWith("darwin-") ? ["pty.node", "spawn-helper"] : ["pty.node"];
     case "glm":
-      // GLM 现在是编译产物 zcode.cjs（跨平台同一份），远端用已部署的 node 执行它。
+      // 远端 glm 组件由 Rust agent + 插件宿主组成（Node runtime 已退场）。
       // 复用时还要确认官方插件 seed 资源完整，否则旧 release 会继续产出 0 builtin plugin 的远端资源包。
-      return ["zcode.cjs", ...remoteOfficialPluginRequiredPaths];
+      return ["escode-cli-rust", "plugin-host.cjs", ...remoteOfficialPluginRequiredPaths];
     case "bfs":
       return ["bfs"];
     case "ripgrep":

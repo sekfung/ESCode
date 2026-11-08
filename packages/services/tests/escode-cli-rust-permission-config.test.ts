@@ -4,12 +4,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { event, end, fixture } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-permission-modes.md「工具能力表」：`permission.allowedTools` / `disallowedTools`
 // 来自 `~/.escode/cli/config.json`（与 --allowed-tools/--disallowed-tools 同源）。Node 用它做
 // 精确名字的硬禁用/直通；Rust 之前完全没读这段配置，遇到被禁用的工具会照常弹确认。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 
 function writeCall(res: any, id: string) {
@@ -43,7 +43,7 @@ async function observe(kind: Runtime, permission: Record<string, unknown>, mode:
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -84,7 +84,7 @@ async function observe(kind: Runtime, permission: Record<string, unknown>, mode:
 }
 
 test("Node and Rust both hard-deny a tool listed in permission.disallowedTools", async () => {
-  const node = await nodeOracle("disallowed-build", () =>
+  const node = await goldenOracle("disallowed-build", () =>
     observe("node", { disallowedTools: ["Write"] }, "build"),
   );
   const rust = canonical(await observe("rust", { disallowedTools: ["Write"] }, "build"));
@@ -96,7 +96,7 @@ test("Node and Rust both hard-deny a tool listed in permission.disallowedTools",
 });
 
 test("Node and Rust both pre-approve a tool listed in permission.allowedTools", async () => {
-  const node = await nodeOracle("allowed-build", () =>
+  const node = await goldenOracle("allowed-build", () =>
     observe("node", { allowedTools: ["Write"] }, "build"),
   );
   const rust = canonical(await observe("rust", { allowedTools: ["Write"] }, "build"));
@@ -107,7 +107,7 @@ test("Node and Rust both pre-approve a tool listed in permission.allowedTools", 
 });
 
 test("yolo still bypasses permission.disallowedTools on both runtimes", async () => {
-  const node = await nodeOracle("disallowed-yolo", () =>
+  const node = await goldenOracle("disallowed-yolo", () =>
     observe("node", { disallowedTools: ["Write"] }, "yolo"),
   );
   const rust = canonical(await observe("rust", { disallowedTools: ["Write"] }, "yolo"));

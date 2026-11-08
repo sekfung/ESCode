@@ -14,28 +14,20 @@
 // 禁止 trim / 合并 / 重排等"近似"手段（§4.1 禁止清单）。
 //
 // 用法：
-//   node scripts/diff-escode-cli-rust-parity.mjs                       # 默认只跑 Rust，对 golden 判定
+//   node scripts/diff-escode-cli-rust-parity.mjs                       # 只跑 Rust，对 golden 判定
 //   node scripts/diff-escode-cli-rust-parity.mjs --rust-binary <path> --keep
-//   node scripts/diff-escode-cli-rust-parity.mjs --record              # 冻结 Node 侧观察为 golden
 //   node scripts/diff-escode-cli-rust-parity.mjs --golden              # 同默认，显式声明 golden-only
-//   node scripts/diff-escode-cli-rust-parity.mjs --live-node           # 显式实时双跑，不写 golden
 //
-// golden freeze（阶段 3）：`--record` 把 Node 侧的归一化观察写进 `scripts/fixtures/parity/`；
-// `--golden`（默认）不再启动 Node，只用冻结资产作 oracle。删除 Node 之前 CI 先切到 `--golden`。
+// Node runtime 已退场：golden 是冻结在 `scripts/fixtures/parity/` 的只读 oracle，脚本不再启动 Node。
 //
-// 依赖产物：Rust 二进制（cargo build --release）；--record/--live-node 另需
-// `apps/escode-cli/packages/cli/dist/escode.cjs`（scripts/build-desktop-agent-cli.mjs 或 CLI 包构建）。
+// 依赖产物：Rust 二进制（cargo build --release）。
 
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runSide } from "./diff-escode-cli-rust-parity-capture.mjs";
-import {
-  loadGolden,
-  recordGolden,
-  resolveGoldenFile,
-} from "./diff-escode-cli-rust-parity-golden.mjs";
+import { loadGolden, resolveGoldenFile } from "./diff-escode-cli-rust-parity-golden.mjs";
 import {
   clip,
   countByteLevelDifferences,
@@ -55,14 +47,11 @@ const { values } = parseArgs({
   options: {
     scenario: { type: "string", default: "session-baseline" },
     out: { type: "string", default: ".escode-runtime/parity" },
-    "node-bundle": { type: "string" },
     "rust-binary": { type: "string" },
     approved: { type: "string" },
     baseline: { type: "string" },
     "update-baseline": { type: "boolean", default: false },
-    record: { type: "boolean", default: false },
     golden: { type: "boolean", default: false },
-    "live-node": { type: "boolean", default: false },
     "golden-file": { type: "string" },
     keep: { type: "boolean", default: false },
     strict: { type: "boolean", default: false },
@@ -70,15 +59,13 @@ const { values } = parseArgs({
   allowPositionals: false,
 });
 
-const nodeBundle = resolve(
-  root,
-  values["node-bundle"] ?? "apps/escode-cli/packages/cli/dist/escode.cjs",
-);
 const rustBinary = resolve(
   root,
   values["rust-binary"] ??
     `apps/escode-cli-rust/target/release/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
 );
+// 官方插件宿主：差分环境需要它 seed 插件（Node runtime 退场后不再有完整 agent bundle）。
+const pluginHostBundle = resolve(root, "apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const outRoot = resolve(root, values.out);
 const approvedFile = resolve(
   root,
@@ -102,7 +89,6 @@ const goldenFile = resolveGoldenFile({
   root,
   scenario,
   explicit: values["golden-file"],
-  record: mode === "record",
 });
 
 const approved = JSON.parse(await readFile(approvedFile, "utf8"));
@@ -118,7 +104,13 @@ for (const entry of approved.entries) {
 console.log(parityMode.describeMode(mode, scenario, goldenFile));
 const sides = {};
 for (const side of parityMode.sidesForMode(mode)) {
-  sides[side] = await runSide({ side, repoRoot: root, nodeBundle, rustBinary, keep: values.keep });
+  sides[side] = await runSide({
+    side,
+    repoRoot: root,
+    pluginHostBundle,
+    rustBinary,
+    keep: values.keep,
+  });
   console.log(
     `[parity] ${side}: exit ${sides[side].exitCode}，frames ${sides[side].frames.length}，` +
       `modelRequests ${sides[side].modelRequests.length}，startup ${sides[side].startupMs}ms`,
@@ -152,27 +144,15 @@ function normalizeSide(side) {
 }
 for (const side of Object.values(sides)) normalizeSide(side);
 
-if (mode === "record") {
-  await recordGolden({
-    file: goldenFile,
-    scenario,
-    side: sides.node,
-    nodeBundleSha256: sha256(await readFile(nodeBundle)),
-  });
-  console.log(`[parity] golden 已写入：${goldenFile}`);
-}
-
-if (mode === "golden") {
-  const loaded = await loadGolden({ file: goldenFile, scenario });
-  sides.node = loaded.side;
-  // 冻结资产里的 raw frames/modelRequests 必须按当前 NORMALIZATION 重新归一；
-  // 否则新增/修改的规则不会作用于已录制的 golden。
-  normalizeSide(sides.node);
-  console.log(
-    `[parity] golden: frames ${sides.node.frames.length}，` +
-      `modelRequests ${sides.node.modelRequests.length}，录制于 ${loaded.recordedAt}`,
-  );
-}
+const loaded = await loadGolden({ file: goldenFile, scenario });
+sides.node = loaded.side;
+// 冻结资产里的 raw frames/modelRequests 必须按当前 NORMALIZATION 重新归一；
+// 否则新增/修改的规则不会作用于已录制的 golden。
+normalizeSide(sides.node);
+console.log(
+  `[parity] golden: frames ${sides.node.frames.length}，` +
+    `modelRequests ${sides.node.modelRequests.length}，录制于 ${loaded.recordedAt}`,
+);
 
 const byteLevelDiffering = {
   frames: countByteLevelDifferences(sides.node.framesByteLevel, sides.rust.framesByteLevel),
@@ -347,9 +327,10 @@ const evidence = {
     chunksPerTurn: 4,
   },
   artifacts: {
-    node: sides.node.golden
-      ? { golden: goldenFile, sha256: sha256(await readFile(goldenFile)) }
-      : { bundle: nodeBundle, sha256: sha256(await readFile(nodeBundle)) },
+    node: {
+      golden: goldenFile,
+      sha256: sha256(await readFile(goldenFile)),
+    },
     rust: { binary: rustBinary, sha256: sha256(await readFile(rustBinary)) },
   },
   normalization: NORMALIZATION,

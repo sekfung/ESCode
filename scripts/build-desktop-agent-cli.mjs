@@ -118,8 +118,7 @@ function stageDevAgentBundle() {
 async function runBootstrapWithRemoteBuild() {
   const cliDist = resolve(repoRoot, "apps/escode-cli/packages/cli/dist");
   if (
-    existsSync(resolve(cliDist, "escode.cjs")) &&
-    // Rust-only 打包依赖独立插件宿主；旧产物没有它时必须重新构建，不能带着缺失继续 stage。
+    // Node agent runtime 已退场：桌面链路只需要插件宿主产物。
     existsSync(resolve(cliDist, "plugin-host.cjs"))
   ) {
     await stageBuiltinProviderConfig({
@@ -127,7 +126,7 @@ async function runBootstrapWithRemoteBuild() {
       env: pnpmRunEnv,
       directory: resolve(repoRoot, "apps/escode-cli/packages/cli/dist/provider"),
     });
-    console.log("[build-desktop-agent-cli] reuse existing escode-cli desktop agent bundle");
+    console.log("[build-desktop-agent-cli] reuse existing plugin host bundle");
     return;
   }
 

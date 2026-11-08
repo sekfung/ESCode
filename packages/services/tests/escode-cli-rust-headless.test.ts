@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { binary, fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-headless-prompt.md：同一模型夹具与 Provider Registry 下分别运行 Node `escode.cjs -p` 与 Rust `-p`，
 // 比较 stdout / stderr / 退出码。各 runtime 用独立的 HOME（会话库互不影响），模型回复只由请求内容决定。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 type Runtime = "node" | "rust";
 const RUN_TIMEOUT_MS = 60_000;
 
@@ -65,7 +65,7 @@ async function setup() {
   const run = (kind: Runtime, args: string[]) =>
     new Promise<{ code: number | null; stdout: string; stderr: string }>((done) => {
       const command = kind === "node" ? process.execPath : binary;
-      const argv = kind === "node" ? [nodeBundle, ...args] : args;
+      const argv = kind === "node" ? [pluginHostBundle, ...args] : args;
       const child = spawn(command, [...argv, "--cwd", workspaces[kind]], {
         cwd: workspaces[kind],
         env: {
@@ -162,7 +162,7 @@ async function observe(kind: Runtime) {
 }
 
 test("headless -p prints the same results and errors on Node and Rust", async () => {
-  const node = await nodeOracle("runs", () => observe("node"));
+  const node = await goldenOracle("runs", () => observe("node"));
   const rust = canonical(await observe("rust"));
   assert.equal(node.text.code, 0, node.text.stderr);
   assert.deepEqual(rust.text, node.text);

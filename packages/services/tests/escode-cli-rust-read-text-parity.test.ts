@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { once } from "node:events";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-file-tool-results.md「Read 文本大文件与 token 预算」：
 // TS readTextFileForModel + formatReadTextOutput 为 oracle，Rust Read 的模型文本与结构化输出必须逐字一致。
@@ -150,7 +150,7 @@ test("Node and Rust read text files with the same size, token, range and encodin
       await mkdir(join(d.root, "files"), { recursive: true });
       await writeFile(join(d.root, item.fileName), bytes);
     }
-    const oracle = await nodeOracle("cases", async () => {
+    const oracle = await goldenOracle("cases", async () => {
       const { NodeFileSystemAdapter } = await import(fsAdapterModule);
       const { readHandler } = await import(readModule);
       const { formatReadTextOutput } = await import(readTextModule);
@@ -202,7 +202,7 @@ test("Node and Rust keep token partial views out of the repeat-read cache", asyn
     const small = join(d.root, "small.txt");
     await writeFile(long, "y".repeat(200_000));
     await writeFile(small, "a\nb\n");
-    const oracle = await nodeOracle("partial-view-dedup", async () => {
+    const oracle = await goldenOracle("partial-view-dedup", async () => {
       const { NodeFileSystemAdapter } = await import(fsAdapterModule);
       const { readHandler } = await import(readModule);
       const { formatReadTextOutput } = await import(readTextModule);

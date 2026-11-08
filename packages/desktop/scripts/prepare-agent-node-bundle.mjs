@@ -1,16 +1,12 @@
 #!/usr/bin/env node
 /* oxlint-disable eslint(max-lines) -- 官方插件清单与 CUA/串口原生依赖的 stage 校验必须共用同一份打包上下文。 */
 
-// 桌面打包态的 agent 运行时资产：把 agent 的 JS bundle（zcode.cjs）放进 bundled-agents/<platform>/glm，
-// 由 app 内置的 Electron Node runtime（ELECTRON_RUN_AS_NODE）执行，替代以前随包内置的独立 Node 二进制。
+// 桌面打包态的 agent 运行时资产。Node agent runtime 已退场（2026-11-09）：
+// agent 本体是随包的 Rust 二进制（escode-cli-rust），这里只 stage 官方插件宿主
+// plugin-host.cjs、插件 seed、技能包与原生依赖，不再产出 zcode.cjs。
 //
-// 为什么这么做：
-// - agent 没有任何原生 NAPI 插件（ripgrep 是 WASM，其余纯 JS），可直接跑在 Electron 的 Node 上；
-// - Electron 41 内置 Node 24.x，与 escode-cli 的目标运行时一致；
-// - 单平台体积从 ~180MB 降到 ~16MB，且同一份 JS 跨平台通用；
-// - app-server 命令路径不会加载 @escode/tui，所以这里天然不打包 TUI。
-//
-// 远端（SSH/WSL/Docker）没有 Electron，仍走 prepare:remote-assets 的原生二进制，互不影响。
+// 远端（SSH/WSL/Docker）同样由 Rust runtime 承担 agent，插件宿主仍复用 Electron/独立 Node
+// 执行 plugin-host.cjs，互不影响。
 
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
@@ -27,7 +23,7 @@ import { stageKoffiIntoBundledAgents } from "./koffi-package-assets.mjs";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(desktopRoot, "..", "..");
-const cliBundlePath = resolve(repoRoot, "apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundlePath = resolve(repoRoot, "apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const adaptersRoot = resolve(repoRoot, "apps/escode-cli/packages/adapters");
 const pnpmRunEnv = {
   ...process.env,
@@ -78,10 +74,8 @@ const arch = normalizeArch(process.env.ESCODE_TARGET_ARCH || "") || process.arch
 const platformKey = `${platform}-${arch}`;
 
 const glmDir = resolve(desktopRoot, "bundled-agents", platformKey, "glm");
-// Rust-only 产物（docs/specs/rust-release-rollback.md「Rust-only 打包产物开关」）：
-// 插件 seed、技能包、REA 与 sharp/koffi 仍要 stage，只跳过 Node agent bundle 本身。
-const shouldBundleNodeAgent = process.env.ESCODE_BUNDLE_NODE_AGENT !== "0";
-// zcode.cjs / .node-bundle-meta.json 的落点由 stage-agent-bundle.mjs 自己解析（同源）。
+// Node agent runtime 已退场：插件 seed、技能包、REA 与 sharp/koffi 仍要 stage，
+// agent 侧只保留 plugin-host.cjs（官方插件宿主），不再产出/暂存 zcode.cjs。
 // node_repl 宿主抽成独立包
 // @escode/node-repl-host 之后，browser-use 不再产出 dist/mcp/server.js，CUA 资产
 // （docs/computer-use.md、scripts/computer-use-client.mjs）也已归 @escode/escode-cua-plugin。
@@ -319,9 +313,9 @@ function buildCliBundle() {
     cwd: repoRoot,
     env: pnpmRunEnv,
   });
-  if (!existsSync(cliBundlePath)) {
+  if (!existsSync(pluginHostBundlePath)) {
     throw new Error(
-      `[prepare:agent-bundle] expected cli bundle missing after build: ${cliBundlePath}`,
+      `[prepare:agent-bundle] expected plugin host bundle missing after build: ${pluginHostBundlePath}`,
     );
   }
 }
@@ -387,23 +381,20 @@ function assertOfficialPluginRuntime(plugin) {
 
 function stageBundle() {
   // 实现已抽到 stage-agent-bundle.mjs：dev 链（scripts/build-desktop-agent-cli.mjs）
-  // 必须用同一份，否则 dev 会继续跑上一次打包留下的陈旧 agent。
-  stageAgentBundle({ repoRoot, platformKey, includeNodeAgent: shouldBundleNodeAgent });
+  // 必须用同一份，避免两边对 glm 目录的产出一致性漂移。
+  stageAgentBundle({ repoRoot, platformKey });
 }
 
 function assertRustOnlyBundle() {
-  if (shouldBundleNodeAgent) return;
   for (const name of ["zcode.cjs", ".node-bundle-meta.json"]) {
     const path = join(glmDir, name);
     if (existsSync(path)) {
-      throw new Error(`[prepare:agent-bundle] Rust-only bundle must not contain ${path}`);
+      throw new Error(`[prepare:agent-bundle] bundle must not contain ${path}`);
     }
   }
   const pluginHost = join(glmDir, "plugin-host.cjs");
   if (!existsSync(pluginHost)) {
-    throw new Error(
-      `[prepare:agent-bundle] Rust-only bundle is missing plugin host: ${pluginHost}`,
-    );
+    throw new Error(`[prepare:agent-bundle] bundle is missing plugin host: ${pluginHost}`);
   }
 }
 
@@ -540,10 +531,8 @@ function stageKoffiForCuaPlugin() {
   );
 }
 
-// 修复原因：Electron 生产包只带 resources/glm/zcode.cjs 时，app-server 进程的
-// __dirname 附近没有官方插件目录，启动时 seed 找不到 source，用户侧不会自动得到内置插件。
-// 这里把官方插件按 bootstrap 的 rootCandidates 期望放到 glm/packages/*-plugin，
-// 让 Electron Node 运行 zcode.cjs 时复用同一套 filesystem seed 逻辑。
+// 官方插件按 bootstrap 的 rootCandidates 期望放到 glm/packages/*-plugin：
+// Rust runtime 启动时据此 seed 官方插件，插件 MCP 服务由 plugin-host.cjs 承载。
 // browser-use runtime 的声明生成依赖 @escode/core/dist。CI 干净检出没有该产物，
 // 必须先构建 CLI 依赖，再构建官方插件；开发机残留的 dist 曾掩盖这个顺序问题。
 buildCliBundle();

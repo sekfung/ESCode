@@ -7,11 +7,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-legacy-session-methods.md「重导入与历史替换」：
 // 同一 sessionId 重导入时删除旧导入段并保留真实续聊；Node 与 Rust 的消息序列/标题/时间一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const any = z.any();
 const PROVIDER = "personal:fixture";
 const SESSION_ID = "claude-import-repair-1";
@@ -63,7 +63,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -140,7 +140,7 @@ async function observe(kind: Runtime) {
 }
 
 test("Node and Rust replace imported history on re-import and keep follow-up chat", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
 });

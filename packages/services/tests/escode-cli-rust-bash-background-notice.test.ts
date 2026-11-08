@@ -3,12 +3,12 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // 后台 Bash 完成通知：`run_in_background` 的命令在回合结束后完成 → 一个后台结果轮，模型收到 `<task-notification>`
 // （task id / 输出文件路径 / 耗时抹掉）。Node 的 BackgroundTaskTracker 对 local_bash 发这条通知。
 process.env.ESCODE_TEST_WAIT_MS ??= "60000";
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const command = "sleep 2; echo hello-from-background";
 
 async function observe(kind: "node" | "rust") {
@@ -45,7 +45,7 @@ async function observe(kind: "node" | "rust") {
     kind === "node"
       ? await fixture({
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
           mode: "yolo",
@@ -86,7 +86,7 @@ async function observe(kind: "node" | "rust") {
 }
 
 test("Node and Rust notify the model when a background Bash command finishes", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(node.schemaErrors, []);
   assert.match(node.notification, /<task-notification>/);

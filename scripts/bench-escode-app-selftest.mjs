@@ -17,7 +17,7 @@ export function assertBenchHelpers() {
       throw new Error(`parseCpuTime(${text}) = ${parsed}, expected ${expected}`);
     }
   }
-  // 安装包配置与进程识别（不启动桌面）：A/B/C 的 Host/runtime 选择必须互斥，
+  // 安装包配置与进程识别（不启动桌面）：B/C 的 Host/runtime 选择必须互斥，
   // 且安装包主进程不能继续按 electron 进程名判定。
   const fakePaths = {
     app: "/opt/escode/escode-preview",
@@ -26,11 +26,8 @@ export function assertBenchHelpers() {
   };
   const installed = installedBenchConfigs(fakePaths);
   if (
-    installed.A.env.ESCODE_AGENT_SERVER_RUNTIME !== "node" ||
-    installed.B.env.ESCODE_AGENT_SERVER_RUNTIME !== "escode-cli-rust" ||
     installed.B.env.ESCODE_AGENT_SERVER_COMMAND !== fakePaths.rust ||
     installed.C.env.ESCODE_HOST_RUNTIME_LINK !== "embedded" ||
-    installed.A.env.ESCODE_RUST_HOST !== undefined ||
     installed.B.env.ESCODE_RUST_HOST !== undefined ||
     installed.C.env.ESCODE_RUST_HOST !== undefined
   ) {

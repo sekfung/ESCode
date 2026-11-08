@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { escodeWorkspaceUpdateInteractionPreferencesResultSchema } from "@escode/shared";
 import { fixture, event, end, type Harness } from "./escode-cli-rust-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 type Message = Record<string, any>;
 const askUserQuestionModule =
@@ -167,7 +167,7 @@ test("Rust AskUserQuestion matches TS normalization/formatting for partial, skip
     { answer: { action: "cancel" }, error: "cancelled" },
   ];
   // TS handler 的模型可见文案：只录制一次，正常跑读冻结值。
-  const formatted = await nodeOracle("format", async () => {
+  const formatted = await goldenOracle("format", async () => {
     const out: (string | null)[] = [];
     for (const c of cases) {
       if (c.error) {
@@ -238,7 +238,7 @@ test("Rust question validation agrees with TS and never announces invalid questi
     ),
   ];
   // TS 侧校验结论（是否合法、是否只有 refine/annotations 规则拒绝）冻结为观察。
-  const validation = await nodeOracle("validation", async () => {
+  const validation = await goldenOracle("validation", async () => {
     const { AskUserQuestionInputSchema } = await import(askUserQuestionInputModule);
     return invalid.map((input) => {
       const parsed = AskUserQuestionInputSchema.safeParse(input);
@@ -476,7 +476,7 @@ for (const action of ["stop", "startNow", "EOF", "deleteSession"] as const)
   });
 
 test("Rust question countdown becomes visible then explicitly skips with no invented preference", async () => {
-  const skipped = await nodeOracle("countdown", () => askFormat({ questions, answers: {} }));
+  const skipped = await goldenOracle("countdown", () => askFormat({ questions, answers: {} }));
   const f = await questionFixture({ questions }, 1, clockEnv);
   try {
     const h = f.start();

@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fixture } from "./escode-cli-rust-fixture.js";
 import { copyLegacySeed } from "./escode-cli-rust-legacy-seed.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-import-lifecycle.md「真实数据演练」：真实数据暴露的三种存储形态已冻结为仓内种子，
 // Node runtime 的观察录成 golden；正常跑只启动 Rust 并与 golden 逐行比对（不依赖用户数据）。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 const session = "shape-session";
 
 async function observe(kind: "node" | "rust", source: string) {
@@ -20,7 +20,7 @@ async function observe(kind: "node" | "rust", source: string) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
         })
       : await fixture({ root, legacy: true });
   try {
@@ -50,7 +50,7 @@ test("Rust imports rewind branches, model changes and empty reasoning exactly as
     root: dir,
   });
   // Node 侧观察只用于录制；正常跑直接加载 golden，不再启动 Node runtime。
-  const node = await nodeOracle("observe", () => observe("node", source));
+  const node = await goldenOracle("observe", () => observe("node", source));
   const rust = canonical(await observe("rust", source));
   if (process.env.ESCODE_SHAPES_DUMP) console.log("DUMP", JSON.stringify({ node, rust }));
   assert.deepEqual(rust, node);

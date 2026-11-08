@@ -6,14 +6,14 @@ import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { fixture, event, end } from "./escode-cli-rust-fixture.js";
 import { configureRegistry } from "./escode-cli-rust-registry-fixture.js";
-import { canonical, nodeOracle } from "./escode-cli-rust-golden.js";
+import { canonical, goldenOracle } from "./escode-cli-rust-golden.js";
 
 // docs/specs/rust-v4-command-gaps.md「forkAssistant 的 child 身份与边界」：
 // fork 出的 child 在 Node 与 Rust 上身份（id/taskType/title/titleSource）、列表可见性、
 // 边界行、child 首次模型请求的会话部分，以及 session/read 的 session 投影一致。
-const nodeBundle = resolve("apps/escode-cli/packages/cli/dist/escode.cjs");
+const pluginHostBundle = resolve("apps/escode-cli/packages/cli/dist/plugin-host.cjs");
 // v3.15.1 官方插件自带子代理与技能：Rust 与 Node 读同一官方插件根目录，避免把插件可见性差异误判为运行时差异。
-const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(nodeBundle) };
+const rustPluginEnv = { ESCODE_OFFICIAL_PLUGINS_BASE_DIR: dirname(pluginHostBundle) };
 const any = z.any();
 type Runtime = "node" | "rust";
 
@@ -42,7 +42,7 @@ async function observe(kind: Runtime) {
       ? await fixture({
           root,
           command: process.execPath,
-          args: ({ cwd }) => [nodeBundle, "app-server", "--stdio", "--cwd", cwd],
+          args: ({ cwd }) => [pluginHostBundle, "app-server", "--stdio", "--cwd", cwd],
           registry: true,
           respond,
         })
@@ -150,7 +150,7 @@ async function observe(kind: Runtime) {
 }
 
 test("forked session child keeps Node identity, fork boundary and provider transcript on both runtimes", async () => {
-  const node = await nodeOracle("observe", () => observe("node"));
+  const node = await goldenOracle("observe", () => observe("node"));
   const rust = await canonical(await observe("rust"));
   assert.deepEqual(rust, node);
   assert.equal(node.childIdPrefix, "sess_");

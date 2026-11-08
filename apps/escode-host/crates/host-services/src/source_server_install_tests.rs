@@ -109,7 +109,8 @@ fn release_dir(root: &Path) {
     write(&root.join("server/zcode-server.cjs"), "server", false);
     write(&root.join("node/linux-x64/node"), "node", true);
     write(&root.join("node-pty/linux-x64/pty.node"), "pty", false);
-    write(&root.join("glm/linux-x64/zcode.cjs"), "glm", false);
+    write(&root.join("glm/linux-x64/escode-cli-rust"), "rust", true);
+    write(&root.join("glm/linux-x64/plugin-host.cjs"), "plugin-host", false);
     write(&root.join("glm/linux-x64/packages/a.js"), "plugin", false);
     write(&root.join("tools/linux-x64/bfs/bfs"), "bfs", true);
     write(&root.join("tools/linux-x64/ripgrep/rg"), "rg", true);
@@ -147,9 +148,10 @@ async fn local_upload_installs_components_generated_files_and_meta() {
     assert_eq!(read(&server.join("node")), "node");
     assert_eq!(read(&server.join("zcode-server.cjs")), "server");
     assert_eq!(read(&server.join("build/Release/pty.node")), "pty");
-    assert_eq!(read(&server.join("agents/glm/zcode.cjs")), "glm");
+    assert_eq!(read(&server.join("agents/glm/escode-cli-rust")), "rust");
+    assert_eq!(read(&server.join("agents/glm/plugin-host.cjs")), "plugin-host");
     assert_eq!(read(&server.join("agents/glm/packages/a.js")), "plugin");
-    assert!(read(&server.join("agents/glm/escode-agent")).contains("/agents/glm/zcode.cjs"));
+    assert!(read(&server.join("agents/glm/escode-agent")).contains("/escode-cli-rust"));
     assert_eq!(read(&server.join("agents/glm/.version")), "0.13.3\n");
     assert_eq!(read(&server.join("tools/bfs/bfs")), "bfs");
     assert_eq!(read(&server.join("tools/ripgrep/rg")), "rg");
@@ -318,7 +320,7 @@ async fn remote_download_installs_from_the_manifest_artifact() {
 
     let server = home.join(".escode/server");
     assert_eq!(read(&server.join("node")), "node");
-    assert_eq!(read(&server.join("agents/glm/zcode.cjs")), "glm");
+    assert_eq!(read(&server.join("agents/glm/escode-cli-rust")), "rust");
     assert_eq!(read(&server.join("tools/ripgrep/rg")), "rg");
 }
 
