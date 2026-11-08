@@ -110,7 +110,9 @@ export async function startAgent(
         }
       : {};
   // 不继承 API key、真实用户认证及 Electron Node 标志，模型测试也只通过显式传入的隔离配置访问本地 fixture。
-  const child = spawn(node, [cli, "app-server"], {
+  // Node runtime 已退场：`cli` 是 Rust runtime 可执行文件，直接启动 app-server；
+  // `node` 仍用于夹具的 MCP server 子进程（mcp-server.mjs / plugin host）。
+  const child = spawn(cli, ["app-server"], {
     cwd: data,
     env: {
       PATH: process.env.PATH,

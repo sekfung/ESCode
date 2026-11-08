@@ -3,7 +3,7 @@ import { copyFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { Events } from "./agent.js";
 // 确定性本地模型只返回预置工具调用；授权、认领、执行、取消仍走真实 Agent。
-export async function startModel(root: string, cli: string) {
+export async function startModel(root: string, _cli: string) {
   const requests = new Events<any>();
   const plans: {
     key: string;
@@ -134,7 +134,10 @@ export async function startModel(root: string, cli: string) {
   const port = (server.address() as { port: number }).port;
   const builtin = join(root, "fixture-builtin.json"),
     personal = join(root, "fixture-personal.json");
-  await copyFile(resolve(cli, "../../../../../../config/provider/escode-builtin.json"), builtin);
+  await copyFile(
+    resolve(import.meta.dirname, "../../../../config/provider/escode-builtin.json"),
+    builtin,
+  );
   await writeFile(
     personal,
     JSON.stringify({

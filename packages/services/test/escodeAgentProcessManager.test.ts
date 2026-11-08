@@ -107,7 +107,6 @@ describe("resolveDefaultESCodeAgentCommand", () => {
   const originalBinaryEnv = process.env[ESCODE_AGENT_RUNTIME.binaryEnvVar];
   const originalNodeEnv = process.env.NODE_ENV;
   const originalRuntimeEnv = process.env[ESCODE_RUNTIME_ENV_KEY];
-  const originalBytecodeEnv = process.env.ESCODE_DESKTOP_AGENT_BYTECODE;
   const originalHome = process.env.HOME;
   const originalElectronVersion = Object.getOwnPropertyDescriptor(process.versions, "electron");
   const createdDirs: string[] = [];
@@ -121,7 +120,6 @@ describe("resolveDefaultESCodeAgentCommand", () => {
   }
 
   beforeEach(() => {
-    delete process.env.ESCODE_DESKTOP_AGENT_BYTECODE;
     // 修复原因：stdio tap 开关持久化在用户真实配置目录中。测试若直接读取该目录，
     // 本机开启抓包后会意外包装临时 Node agent，导致用例结果依赖用户环境。
     const dataBaseDir = mkdtempSync(join(tmpdir(), "escode-agent-manager-data-"));
@@ -137,7 +135,6 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     restoreEnv(ESCODE_AGENT_RUNTIME.binaryEnvVar, originalBinaryEnv);
     restoreEnv("NODE_ENV", originalNodeEnv);
     restoreEnv(ESCODE_RUNTIME_ENV_KEY, originalRuntimeEnv);
-    restoreEnv("ESCODE_DESKTOP_AGENT_BYTECODE", originalBytecodeEnv);
     restoreEnv("HOME", originalHome);
     if (originalElectronVersion)
       Object.defineProperty(process.versions, "electron", originalElectronVersion);

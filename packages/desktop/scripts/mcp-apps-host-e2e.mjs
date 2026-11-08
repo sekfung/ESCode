@@ -104,7 +104,23 @@ if (
       );
     });
   }
+  // Node runtime 已退场：夹具的 app-server 由 Rust 二进制提供。
+  await new Promise((accept, reject) => {
+    const child = spawn(
+      "cargo",
+      ["build", "--locked", "--manifest-path", "apps/escode-cli-rust/Cargo.toml"],
+      { cwd: root, stdio: "inherit" },
+    );
+    child.on("error", reject);
+    child.on("exit", (code) =>
+      code === 0 ? accept() : reject(new Error(`Rust runtime build failed (${code})`)),
+    );
+  });
 }
+const rustRuntime = join(
+  root,
+  `apps/escode-cli-rust/target/debug/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
+);
 const shared = join(root, "packages/shared/src");
 const sharedExports = JSON.parse(await readFile(join(shared, "../package.json"), "utf8")).exports;
 const alias = {
@@ -271,7 +287,7 @@ for (const mode of modes) {
             output,
             join(output, `${mode}-profile`),
             process.execPath,
-            join(root, "apps/escode-cli/packages/cli/dist/escode.cjs"),
+            rustRuntime,
             showcaseServer ?? "",
           ]
         : mode === "managed-empty"

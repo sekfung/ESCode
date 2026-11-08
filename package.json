@@ -35,7 +35,6 @@
     "test:docker:web-app-gateway": "node scripts/test-web-app-gateway-reset.mjs",
     "verify:pre-push": "pnpm run lint && node scripts/check-escode-cli-rust-boundaries.mjs && node scripts/check-escode-host-boundaries.mjs && pnpm run architecture:check -- --changed && pnpm run test:unit:affected",
     "build": "pnpm -r build",
-    "build:desktop-agent:bytecode": "node scripts/build-desktop-agent-bytecode.mjs",
     "build:docs": "pnpm --filter @escode/dev-docs build",
     "build:escode": "node scripts/build-escode.mjs",
     "build:bootstrap": "pnpm -r --filter \"./packages/*\" --filter \"!@escode/desktop\" build && pnpm --filter @escode/desktop build:no-runtime-assets",

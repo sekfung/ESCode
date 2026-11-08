@@ -143,7 +143,12 @@ const E2E_LOCAL_ENV_FILES = [
 // 代理、证书和缓存配置。所有读取 process.env 的 runner 初始化都必须位于该调用之后。
 loadE2ELocalEnv();
 const BUILD_DESKTOP_AGENT_SCRIPT = resolve(REPO_ROOT, "scripts/build-desktop-agent-cli.mjs");
+// 仅用于 E2E 夹具预置 legacy TS 会话库；产品运行时已改为 Rust，不再加载该 bundle。
 const ESCODE_CLI_ENTRYPOINT = resolve(REPO_ROOT, "apps/escode-cli/packages/cli/dist/escode.cjs");
+const RUST_RUNTIME_ENTRYPOINT = resolve(
+  REPO_ROOT,
+  `apps/escode-cli-rust/target/debug/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,
+);
 const E2E_HOME_DIR = resolve(
   process.env.ESCODE_E2E_HOME_DIR?.trim() ||
     // 修复原因：多个 WDIO 本地并发时会互相清理默认 .e2e-home，导致窗口白屏、
@@ -991,33 +996,48 @@ function prepareESCodeAgentServer() {
     // 修复原因：Windows 全量 E2E 分片由父 runner 统一构建一次 agent；子 WDIO 若再次构建，
     // 会并发覆盖同一 dist 目录。跳过时仍校验入口，避免旧或缺失产物静默启动。
     console.log("[e2e] ESCODE_E2E_SKIP_AGENT_BUILD=1, skipping agent build");
-    if (!existsSync(ESCODE_CLI_ENTRYPOINT)) {
-      throw new Error(`ESCode CLI entrypoint not found: ${ESCODE_CLI_ENTRYPOINT}`);
+    for (const path of [ESCODE_CLI_ENTRYPOINT, RUST_RUNTIME_ENTRYPOINT]) {
+      if (!existsSync(path)) {
+        throw new Error(`ESCode agent entrypoint not found: ${path}`);
+      }
     }
     configureESCodeAgentServerEnv();
     return;
   }
 
   // Bugfix: e2e 还在找仓库外的旧原生 escode-agent binary，并调用已经删除的
-  // `build:agent-exe`。当前桌面端统一通过 escode-cli 的 app-server JS bundle
-  // 暴露 ESCode Protocol，这里复用正式开发入口的构建脚本与 runtime resolver。
+  // `build:agent-exe`。当前桌面端由 Rust runtime 提供 app-server；这里构建 plugin-host
+  // 与 Rust 二进制，并额外构建 TS CLI bundle 仅供夹具预置 legacy 会话库。
   execFileSync(process.execPath, [BUILD_DESKTOP_AGENT_SCRIPT], {
     cwd: REPO_ROOT,
     env: createPnpmChildEnv(),
     stdio: "inherit",
   });
-
-  if (!existsSync(ESCODE_CLI_ENTRYPOINT)) {
-    throw new Error(`ESCode CLI entrypoint not found: ${ESCODE_CLI_ENTRYPOINT}`);
+  execFileSync("pnpm", ["--dir", "apps/escode-cli", "--filter", "@escode/cli", "build"], {
+    cwd: REPO_ROOT,
+    env: createPnpmChildEnv(),
+    stdio: "inherit",
+  });
+  if (!existsSync(RUST_RUNTIME_ENTRYPOINT)) {
+    console.log("[e2e] building Rust runtime debug binary");
+    execFileSync(
+      "cargo",
+      ["build", "--locked", "--manifest-path", "apps/escode-cli-rust/Cargo.toml"],
+      { cwd: REPO_ROOT, env: process.env, stdio: "inherit" },
+    );
+  }
+  for (const path of [ESCODE_CLI_ENTRYPOINT, RUST_RUNTIME_ENTRYPOINT]) {
+    if (!existsSync(path)) {
+      throw new Error(`ESCode agent entrypoint not found: ${path}`);
+    }
   }
 
   configureESCodeAgentServerEnv();
 }
 
 function configureESCodeAgentServerEnv() {
-  // 自定义命令没有 storagePreparationEntry / supportsStorageStartup 声明，会被启动准备拒绝。
-  // 构建后由正式 resolver 找到仓库 bundle（打包 E2E 则使用随包 bundle），保留完整启动契约。
-  delete process.env.ESCODE_AGENT_SERVER_COMMAND;
+  // 显式命令按 Rust 契约启动，Host 仍会补充 --cwd / --surface；不要让 E2E 落回开发探测。
+  process.env.ESCODE_AGENT_SERVER_COMMAND = RUST_RUNTIME_ENTRYPOINT;
   delete process.env.ESCODE_AGENT_SERVER_ARGS_JSON;
 }
 
