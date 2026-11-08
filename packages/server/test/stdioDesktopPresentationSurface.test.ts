@@ -224,8 +224,19 @@ describe("stdio Desktop presentation surface", () => {
           workspacePath: "/workspace/project",
         }),
       );
-      expect(resolvedCommand).toEqual({
-        args: ["zcode.cjs", "app-server", "--stdio", "--surface", "desktop"],
+      expect(resolvedCommand).toMatchObject({
+        runtime: "escode-cli-rust",
+        supportsStorageStartup: true,
+        storagePreparationMode: "process",
+        args: [
+          "zcode.cjs",
+          "app-server",
+          "--stdio",
+          "--cwd",
+          "/workspace/project",
+          "--surface",
+          "desktop",
+        ],
         command: process.execPath,
         cwd: "/workspace/project",
       });

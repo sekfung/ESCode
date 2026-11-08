@@ -81,22 +81,22 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     {
       name: "separate surface value",
       input: ["app-server", "--surface", "terminal", "--stdio"],
-      expected: ["app-server", "--stdio", "--surface", "desktop"],
+      expected: ["app-server", "--stdio", "--cwd", "/repo/workspace", "--surface", "desktop"],
     },
     {
       name: "equals surface value",
       input: ["app-server", "--surface=terminal", "--stdio"],
-      expected: ["app-server", "--stdio", "--surface", "desktop"],
+      expected: ["app-server", "--stdio", "--cwd", "/repo/workspace", "--surface", "desktop"],
     },
     {
       name: "orphan surface before another option",
       input: ["app-server", "--surface", "--stdio"],
-      expected: ["app-server", "--stdio", "--surface", "desktop"],
+      expected: ["app-server", "--stdio", "--cwd", "/repo/workspace", "--surface", "desktop"],
     },
     {
       name: "trailing orphan surface",
       input: ["app-server", "--surface"],
-      expected: ["app-server", "--surface", "desktop"],
+      expected: ["app-server", "--cwd", "/repo/workspace", "--surface", "desktop"],
     },
   ] as const;
 
@@ -108,6 +108,7 @@ describe("resolveDefaultESCodeAgentCommand", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalRuntimeEnv = process.env[ESCODE_RUNTIME_ENV_KEY];
   const originalBytecodeEnv = process.env.ESCODE_DESKTOP_AGENT_BYTECODE;
+  const originalHome = process.env.HOME;
   const originalElectronVersion = Object.getOwnPropertyDescriptor(process.versions, "electron");
   const createdDirs: string[] = [];
 
@@ -137,6 +138,7 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     restoreEnv("NODE_ENV", originalNodeEnv);
     restoreEnv(ESCODE_RUNTIME_ENV_KEY, originalRuntimeEnv);
     restoreEnv("ESCODE_DESKTOP_AGENT_BYTECODE", originalBytecodeEnv);
+    restoreEnv("HOME", originalHome);
     if (originalElectronVersion)
       Object.defineProperty(process.versions, "electron", originalElectronVersion);
     else delete process.versions.electron;
@@ -154,96 +156,39 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     }
   });
 
-  it("内置 dist escode-agent 通过 Electron Node 模式启动", () => {
+  it("开发态命中本地 cargo Rust 产物并由 Host 补充 cwd", () => {
     delete process.env.ESCODE_AGENT_SERVER_COMMAND;
     delete process.env.ESCODE_AGENT_SERVER_ARGS_JSON;
     delete process.env.ESCODE_AGENT_SERVER_CWD;
 
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-default-command-"));
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-dev-rust-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "escode");
-    const desktopDir = join(appRepoDir, "packages", "desktop");
-    const distEntrypoint = join(
-      appRepoDir,
+    const rustBinary = join(
+      sandboxRoot,
       "apps",
-      "escode-cli",
-      "packages",
-      "cli",
-      "dist",
-      "escode.cjs",
+      "escode-cli-rust",
+      "target",
+      "release",
+      process.platform === "win32" ? "escode-cli-rust.exe" : "escode-cli-rust",
     );
-    mkdirSync(desktopDir, { recursive: true });
-    mkdirSync(dirname(distEntrypoint), { recursive: true });
-    writeFileSync(distEntrypoint, "console.log('escode agent');\n");
-
-    process.chdir(desktopDir);
+    mkdirSync(dirname(rustBinary), { recursive: true });
+    writeFileSync(rustBinary, "");
+    process.chdir(sandboxRoot);
 
     const command = resolveDefaultESCodeAgentCommand({
       workspacePath: "/repo/workspace",
       workspaceKey: "/repo/workspace",
     });
 
-    expect(command).toEqual({
+    expect(command).toMatchObject({
+      runtime: "escode-cli-rust",
+      command: realpathSync(rustBinary),
+      storagePreparationMode: "process",
       supportsStorageStartup: true,
-      storagePreparationEntry: expect.any(String),
-      command: process.execPath,
-      args: [expect.any(String), "app-server", "--stdio"],
+      args: ["app-server", "--stdio", "--cwd", "/repo/workspace"],
       cwd: "/repo/workspace",
-      env: { ELECTRON_RUN_AS_NODE: "1" },
     });
-    expect(realpathSync(command!.args![0]!)).toBe(realpathSync(distEntrypoint));
-    expect(realpathSync(command!.storagePreparationEntry!)).toBe(realpathSync(distEntrypoint));
-  });
-
-  it.each([
-    [false, true],
-    [true, true],
-    [true, false],
-  ])(
-    "字节码开关只替换 Electron 的 stdio 入口，保留存储 Worker JS 入口：electron=%s enabled=%s",
-    (electron, enabled) => {
-      delete process.env.ESCODE_AGENT_SERVER_COMMAND;
-      process.env.ESCODE_DESKTOP_AGENT_BYTECODE = enabled ? "1" : "0";
-      Object.defineProperty(process.versions, "electron", {
-        configurable: true,
-        value: electron ? "41.0.3" : undefined,
-      });
-      const root = mkdtempSync(join(tmpdir(), "escode-bytecode-resolver-"));
-      createdDirs.push(root);
-      const source = join(root, "apps/escode-cli/packages/cli/dist/escode.cjs");
-      const bytecode = join(dirname(source), "escode.bytecode.cjs");
-      mkdirSync(dirname(source), { recursive: true });
-      writeFileSync(source, "");
-      writeFileSync(bytecode, "");
-      process.chdir(root);
-      const command = resolveDefaultESCodeAgentCommand({
-        workspacePath: root,
-        workspaceKey: root,
-        presentationSurface: "desktop",
-      });
-      expect(realpathSync(command!.args![0]!)).toBe(
-        realpathSync(electron && enabled ? bytecode : source),
-      );
-      expect(command!.args!.slice(1)).toEqual(["app-server", "--stdio", "--surface", "desktop"]);
-      expect(realpathSync(command!.storagePreparationEntry!)).toBe(realpathSync(source));
-      expect(command!.supportsStorageStartup).toBe(true);
-    },
-  );
-
-  it("字节码入口缺失时拒绝静默回退 JS", () => {
-    delete process.env.ESCODE_AGENT_SERVER_COMMAND;
-    process.env.ESCODE_DESKTOP_AGENT_BYTECODE = "1";
-    Object.defineProperty(process.versions, "electron", { configurable: true, value: "41.0.3" });
-    const root = mkdtempSync(join(tmpdir(), "escode-bytecode-missing-"));
-    createdDirs.push(root);
-    const source = join(root, "apps/escode-cli/packages/cli/dist/escode.cjs");
-    mkdirSync(dirname(source), { recursive: true });
-    writeFileSync(source, "");
-    process.chdir(root);
-    expect(() =>
-      resolveDefaultESCodeAgentCommand({ workspacePath: root, workspaceKey: root }),
-    ).toThrow(/字节码入口缺失/);
   });
 
   it("Desktop surface 会显式传给默认 app-server 命令", () => {
@@ -254,22 +199,17 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-desktop-surface-"));
     createdDirs.push(sandboxRoot);
 
-    const appRepoDir = join(sandboxRoot, "escode");
-    const desktopDir = join(appRepoDir, "packages", "desktop");
-    const distEntrypoint = join(
-      appRepoDir,
+    const rustBinary = join(
+      sandboxRoot,
       "apps",
-      "escode-cli",
-      "packages",
-      "cli",
-      "dist",
-      "escode.cjs",
+      "escode-cli-rust",
+      "target",
+      "release",
+      process.platform === "win32" ? "escode-cli-rust.exe" : "escode-cli-rust",
     );
-    mkdirSync(desktopDir, { recursive: true });
-    mkdirSync(dirname(distEntrypoint), { recursive: true });
-    writeFileSync(distEntrypoint, "console.log('escode agent');\n");
-
-    process.chdir(desktopDir);
+    mkdirSync(dirname(rustBinary), { recursive: true });
+    writeFileSync(rustBinary, "");
+    process.chdir(sandboxRoot);
 
     const command = resolveDefaultESCodeAgentCommand({
       presentationSurface: "desktop",
@@ -278,9 +218,10 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     });
 
     expect(command?.args).toEqual([
-      expect.any(String),
       "app-server",
       "--stdio",
+      "--cwd",
+      "/repo/workspace",
       "--surface",
       "desktop",
     ]);
@@ -305,23 +246,27 @@ describe("resolveDefaultESCodeAgentCommand", () => {
     },
   );
 
-  it("monorepo 不可达时回退到已部署原生 binary", () => {
+  it("monorepo 不可达时命中已部署的 Rust binary", () => {
     delete process.env.ESCODE_AGENT_SERVER_COMMAND;
     delete process.env.ESCODE_AGENT_SERVER_ARGS_JSON;
     delete process.env.ESCODE_AGENT_SERVER_CWD;
 
-    // Bugfix: SSH 远端把 zcode-server.cjs 部署到 ~/.escode/server/，cwd 不在仓库内、
-    // ESCODE_AGENT_SERVER_COMMAND 也没设；旧 resolver 只识别 env 和 monorepo 源码树，
-    // 即使 escode-agent 已部署到 ~/.escode/server/agents/glm/，resolver 也找不到。
-    // 这里用 GLM_BINARY_PATH（=runtime.binaryEnvVar）模拟该部署场景，
-    // 验证 resolver 复用 findESCodeAgentRuntimeBinary 命中已部署 binary。
-    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-deployed-binary-"));
+    // 远端宿主把 glm 组件部署到 ~/.escode/server/agents/glm/；cwd 不在仓库内时 resolver
+    // 仍应通过 homedir 候选链找到随包 Rust 二进制（Node runtime 退场后不再有原生 escode-agent）。
+    const sandboxRoot = mkdtempSync(join(tmpdir(), "escode-agent-deployed-rust-"));
     createdDirs.push(sandboxRoot);
-
-    const binaryPath = join(sandboxRoot, "escode-agent");
-    writeFileSync(binaryPath, "#!/bin/sh\necho escode-agent\n");
-
-    process.env[ESCODE_AGENT_RUNTIME.binaryEnvVar] = binaryPath;
+    const home = join(sandboxRoot, "home");
+    const binaryPath = join(
+      home,
+      ".escode",
+      "server",
+      "agents",
+      "glm",
+      process.platform === "win32" ? "escode-cli-rust.exe" : "escode-cli-rust",
+    );
+    mkdirSync(dirname(binaryPath), { recursive: true });
+    writeFileSync(binaryPath, "#!/bin/sh\necho escode-cli-rust\n");
+    process.env.HOME = home;
     process.chdir(sandboxRoot);
 
     const command = resolveDefaultESCodeAgentCommand({
@@ -329,9 +274,10 @@ describe("resolveDefaultESCodeAgentCommand", () => {
       workspaceKey: "/repo/workspace",
     });
 
-    expect(command).toEqual({
-      command: binaryPath,
-      args: ESCODE_AGENT_RUNTIME.spawnArgs,
+    expect(command).toMatchObject({
+      runtime: "escode-cli-rust",
+      command: realpathSync(binaryPath),
+      args: ["app-server", "--stdio", "--cwd", "/repo/workspace"],
       cwd: "/repo/workspace",
     });
   });
