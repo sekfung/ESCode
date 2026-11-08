@@ -112,8 +112,9 @@ sequenceDiagram
   可能误命中 monorepo 的 `target` 产物。Main 在 `app.isPackaged` 时向 Host 注入 `ESCODE_DESKTOP_PACKAGED=1`，
   解析器据此跳过开发二进制与插件宿主探测，打包态的选择与 cwd 无关。
 - 打包：`ESCODE_BUNDLE_RUST_AGENT` 控制是否内置 Rust 二进制（发布链路固定开启）。`ESCODE_BUNDLE_NODE_AGENT`
-  已删除，产物固定不含 `resources/glm/zcode.cjs`，只保留 `plugin-host.cjs` 承载官方插件；缺 Rust 或插件宿主在构建期报错
-  （见 rust-release-rollback.md「Rust-only 打包产物开关」）。
+  已删除，产物固定不含 `resources/glm/zcode.cjs`，只保留 `plugin-host.cjs` 承载官方插件与 Rust runtime 的
+  隐藏工作流子命令（`__escode-workflow-analyzer` / `__escode-workflow-host` / `__escode-workflow-snippet`）；
+  缺 Rust 或插件宿主在构建期报错（见 rust-release-rollback.md「Rust-only 打包产物开关」）。
 - 用例：`escode-cli-rust-runtime-selection.test.ts` 覆盖开发态本地 Rust、打包/远程 Rust、二进制缺失报错与插件宿主 env。
 
 ## 远程环境使用 Rust（2026-10-12，用户决定）

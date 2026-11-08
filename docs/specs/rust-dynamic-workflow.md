@@ -196,6 +196,10 @@ run 服务（`createDynamicWorkflowRunService`：launch / submit / 标签 / 生�
 prepareApproval / handler）；journal 用 TS 仓储（`createDwfJournalStore`，`node:sqlite`）直接写 Rust 会话库的 `dwf_*`
 表（Rust 建表、拥有库；WAL + busy_timeout 允许多进程）。Rust 负责工具派发与权限确认（`prepare_tool` 钩子）、会话、
 后台完成通知注入父会话、V4 投影，以及（M2）actor 的执行。
+2026-11-09 Node runtime 退场后，该宿主与插件宿主共用 `plugin-host.cjs` 入口：Rust-only 安装包不再携带 `zcode.cjs`，
+`plugin-host.cjs` 在导入 Agent 前分派 `__escode-plugin-host`、`__escode-workflow-analyzer`、
+`__escode-workflow-host` 与 `__escode-workflow-snippet`。Rust 侧仍通过 `ESCODE_PLUGIN_HOST_EXEC_PATH` +
+`ESCODE_PLUGIN_HOST_ENTRYPOINT` 启动。
 
 - **M1**（无 actor 脚本）：宿主协议 `tool.prepare` / `tool.execute` / `session.close`（Rust→宿主，按 id 多路复用）与
   `runEvent` / `runSettled`（宿主→Rust 通知，完成通知文案由宿主用 TS `runtime-task/notification.ts` 生成）；Rust 侧
