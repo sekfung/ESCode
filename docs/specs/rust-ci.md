@@ -9,9 +9,9 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 
 | job                | runner                                    | 内容                                                                                                                                                                      |
 | ------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| checks             | ubuntu-latest / windows-latest / macos-14 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`pnpm check:escode-host`、`typecheck`、`lint`、`architecture:check`；`cargo deny`（两个 workspace，仅 Linux）          |
-| test (matrix × 3)  | ubuntu-latest / windows-latest / macos-14 | `pnpm test:escode-cli-rust`、`pnpm test:escode-host`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件                                              |
-| bench-long-history | ubuntu-latest / windows-latest / macos-14 | 手动触发：20,000 轮真实 TS store 历史，Node bundle + Rust release 分别测量首次/二次打开与 `rows` 单页；断言分页 200 行、schema 错误为 0，结果写入 job summary 与 artifact |
+| checks             | ubuntu-latest / windows-latest / macos-15 | `pnpm check:escode-cli-rust`（边界、fmt、clippy）、`pnpm check:escode-host`、`typecheck`、`lint`、`architecture:check`；`cargo deny`（两个 workspace，仅 Linux）          |
+| test (matrix × 3)  | ubuntu-latest / windows-latest / macos-15 | `pnpm test:escode-cli-rust`、`pnpm test:escode-host`：生成资产 `--check`、测试 tsconfig 类型检查、`cargo test`、App 集成套件                                              |
+| bench-long-history | ubuntu-latest / windows-latest / macos-15 | 手动触发：20,000 轮真实 TS store 历史，Node bundle + Rust release 分别测量首次/二次打开与 `rows` 单页；断言分页 200 行、schema 错误为 0，结果写入 job summary 与 artifact |
 
 - checks 在三平台跑（2026-10-18 M1 复核修订，推翻同日“维持 ubuntu”的决定）：H0 要求门禁在 CI 三平台都跑；clippy 在 Windows/macOS 的 `cfg` 分支下需各自 lint，边界脚本/typecheck/lint/architecture 也需在 Windows 路径语义下验证。代价是 checks 作业时长约 ×3。`cargo deny` 只在 Linux 跑：`cargo-deny-action` 是 Docker action，且依赖图按全部目标平台解析，与宿主 OS 无关；Host 工作区同步启用（`apps/escode-host/deny.toml`，与 CLI 同一策略）。
 - 2026-11-01 fmt 覆盖修正：`check:escode-cli-rust` 的 `cargo fmt` 补 `--all`。此前不带 `--all` 只格式化 workspace 根包，各 crate 的格式问题只能靠 `check:escode-host` 的 `cargo fmt --all --check`（host 以 path 依赖引用 CLI crates）间接发现；同日用 `x86_64-pc-windows-gnu --all-targets -D warnings` 复查时发现并修复两处 Windows 专属 clippy 失败（仅 unix 使用的测试导入与辅助函数）。
@@ -19,7 +19,7 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
 - rust-cache 设 `cache-on-failure`；Windows runner 把工作区、临时目录、cargo/pnpm 目录排除出 Defender 实时扫描。
 - 手动触发（`workflow_dispatch`）可用 `platforms` 输入只跑部分平台（如 `["windows-latest"]`），用于定位单平台问题；push / PR 触发恒为三平台全量。验收以三平台全量运行为准。
 - Windows runner 默认 MSVC 工具链，覆盖此前本机只能用 GNU 目标得出源码级结论的缺口；macOS runner 为 arm64。
-- macOS 作业固定 `macos-14`，不使用 `macos-latest`：后者属于会持续排队并被平台取消的托管池（与发布工作流同因）。`macos-14` 仍是 arm64，与既有 macOS 行为一致。
+- macOS 作业固定受支持的 `macos-15`（arm64）/ `macos-15-intel`（x64）；`macos-14` 已从 GitHub 托管 runner 标签下线，继续使用会导致作业未分配机器即被取消。
 - `ESCODE_TEST_SERIAL=1`：cargo 测试 `--test-threads=1`、App 套件 `--test-concurrency=1`（每个用例起 runtime + 本地模型服务，并发会被接收超时误伤）。
 - 2026-11-04 时序偶发（已用重跑确认）：纯文档提交 `57564389` 的 `rust-runtime-ci` run `41731402450` 在 macOS 两个 test 分片
   各失败一次，都是时序敏感的深比较——`escode-cli-rust-model-io.test.ts` 的「full model-IO retention」用例 Rust 落盘 3 条记录、
@@ -27,7 +27,7 @@ macOS 暂不签名。仓库此前没有任何 CI 配置（无 `.github/`、无 G
   （GET 与 POST `tools/list`）顺序互换。同一代码的上一轮 run `41717428169`、下一轮 `43cc1e7e` 均 macOS 全绿，
   本地 Linux 在同款 `ESCODE_TEST_REQUEST_MS=60000` 下该文件 2/2 通过。处置：先 `gh run rerun --failed`；若复现，
   稳定观察点（等落盘记录条数齐、按 `mcpKey + method` 排序）后再收紧断言，不用放宽断言或加超时掩盖时序问题。
-  同日纯文档提交 `953cf62c` 的 run `41751772603` 在 `test (macos-14, 2/3)` 连续失败两次、第三次重跑通过：
+  同日纯文档提交 `953cf62c` 的 run `41751772603` 在 `test (macos-15, 2/3)` 连续失败两次、第三次重跑通过：
   第一次 `escode-cli-rust-eval-workflow-snippet.test.ts` 报 `official plugin rea is missing required seed assets:
 dist/mcp/server.js`（该 runner 上 `pnpm --filter @escode/bootstrap^... build` 的插件运行时产物缺失）；第二次
   `escode-cli-rust-fill-workflow-hole.test.ts` 的 `requestCount` 为 Rust 6 / Node 5；第三次同代码通过、run 转绿。

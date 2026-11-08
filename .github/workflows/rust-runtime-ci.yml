@@ -13,7 +13,7 @@ on:
       platforms:
         description: 'JSON 数组：要跑的 runner，如 ["windows-latest"]'
         required: false
-        default: '["ubuntu-latest","windows-latest","macos-14"]'
+        default: '["ubuntu-latest","windows-latest","macos-15"]'
         type: string
       # 三平台大历史是测量作业，默认不跑，避免每次 push/PR 都为每个平台造数万轮历史。
       long_history:
@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-14"]') }}
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -113,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-14"]') }}
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-15"]') }}
         # App 集成套件串行约 37 分钟（Windows）：按文件轮转分 3 片并行。第 1 片另跑与分片无关的检查、
         # cargo 测试与 test:escode-host（scripts/test-escode-cli-rust.mjs 的 ESCODE_TEST_SHARD）。
         shard: [1, 2, 3]
@@ -168,7 +168,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-14"]') }}
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -262,7 +262,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-14"]') }}
+        os: ${{ fromJSON(github.event.inputs.platforms || '["ubuntu-latest","windows-latest","macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:

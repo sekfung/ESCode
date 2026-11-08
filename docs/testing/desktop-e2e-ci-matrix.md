@@ -65,7 +65,7 @@ ESCODE_APP_PERF_LABEL=rust \
 | -------------- | ------------------------- | --------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
 | ubuntu-latest  | smoke + session-lifecycle | Rust Host 单进程、reload pid 不变 | 首连/重启恢复/原位重连/双窗口，零 Node 远程进程 | 首段 + 4 路流式 + 多 workspace/优雅退出（Node/Rust 各一次） |
 | windows-latest | smoke + session-lifecycle | 同上                              | 同上                                            | —（读数只与同平台历史比较，暂只在 Linux 采集）              |
-| macos-14       | smoke + session-lifecycle | 同上                              | 同上                                            | —                                                           |
+| macos-15       | smoke + session-lifecycle | 同上                              | 同上                                            | —                                                           |
 
 **未覆盖**：Host/network 分角色 CPU（当前是全进程树口径）、性能阈值判定（只积累趋势）。
 
