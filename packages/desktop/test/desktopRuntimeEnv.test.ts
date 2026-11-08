@@ -267,22 +267,11 @@ function expectRuntimePath(actualPath: string | undefined, expectedPath: string)
 }
 
 describe("desktopRuntimeEnv hasBundledAgentRuntime", () => {
-  it("accepts Rust-only, Node-only and full runtimes, and rejects an empty package", async () => {
+  it("accepts a bundled Rust runtime and rejects an empty package", async () => {
     const { hasBundledAgentRuntime } = await import("../src/main/desktopRuntimeEnv.js");
 
-    expect(
-      hasBundledAgentRuntime({ rustBinary: "/glm/escode-cli-rust", nodeBundle: undefined }),
-    ).toBe(true);
-    expect(hasBundledAgentRuntime({ rustBinary: undefined, nodeBundle: "/glm/zcode.cjs" })).toBe(
-      true,
-    );
-    expect(
-      hasBundledAgentRuntime({
-        rustBinary: "/glm/escode-cli-rust",
-        nodeBundle: "/glm/zcode.cjs",
-      }),
-    ).toBe(true);
-    expect(hasBundledAgentRuntime({ rustBinary: undefined, nodeBundle: undefined })).toBe(false);
+    expect(hasBundledAgentRuntime({ rustBinary: "/glm/escode-cli-rust" })).toBe(true);
+    expect(hasBundledAgentRuntime({ rustBinary: undefined })).toBe(false);
   });
 });
 
@@ -1090,10 +1079,7 @@ describe("desktopRuntimeEnv runtime identity", () => {
       appVersion: "3.16.2",
     });
     expect(
-      resolveRustHostRemoteAssets(
-        { remoteCdnBaseUrl: "https://cdn.example/remote" },
-        "3.16.2",
-      ),
+      resolveRustHostRemoteAssets({ remoteCdnBaseUrl: "https://cdn.example/remote" }, "3.16.2"),
     ).toEqual({
       cdnBaseUrls: ["https://cdn.example/remote"],
       appVersion: "3.16.2",

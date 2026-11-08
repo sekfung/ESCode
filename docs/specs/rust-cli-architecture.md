@@ -72,7 +72,7 @@ state transition → durable commit receipt → event projection
 - package/binary：`escode-cli-rust`
 - Rust 标识符：`escode_cli_rust`
 - 数据目录变量：`ESCODE_CLI_RUST_DATA_DIR`
-- runtime 选择：`ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust`
+- runtime 选择：唯一 runtime（开发态自动发现 `apps/escode-cli-rust/target/{release,debug}`；`ESCODE_AGENT_SERVER_RUNTIME` 已删除）
 
 V4 wire method、已有 SQLite schema 和 TS 只读导入语义不在本任务中改动。
 

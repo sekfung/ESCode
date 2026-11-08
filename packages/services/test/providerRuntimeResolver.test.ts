@@ -6,7 +6,6 @@ import {
   buildCleanEnv,
   resolveProviderConfigDir,
   findBinary,
-  findESCodeAgentRuntimeNodeBundle,
   findESCodePluginHostBundle,
 } from "../src/runtime-tools/providerRuntimeResolver.js";
 import { setDataBaseDir } from "../src/paths.js";
@@ -68,7 +67,6 @@ describe("providerRuntimeResolver glm workdir discovery", () => {
     expect(realpathSync(findESCodePluginHostBundle()!)).toBe(
       realpathSync(join(glm, "plugin-host.cjs")),
     );
-    expect(findESCodeAgentRuntimeNodeBundle()).toBeNull();
   });
 
   it("desktop dev cwd 在 packages/desktop 时仍会发现仓库相邻的 escode-cli", () => {

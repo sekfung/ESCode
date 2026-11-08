@@ -445,21 +445,10 @@ jobs:
         run: |
           cargo build --locked --manifest-path apps/escode-host/Cargo.toml
           cargo build --release --locked --manifest-path apps/escode-cli-rust/Cargo.toml --bin escode-cli-rust
-      # 同一负载跑 Node 与 Rust 两种 Agent runtime：阶段 3 要证明 Rust 组合不劣于当前组合。
-      - name: measure (node runtime)
-        env:
-          ESCODE_APP_PERF_LABEL: node
-          ESCODE_AGENT_SERVER_RUNTIME: node
-          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
-            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
-          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
-        run: |
-          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/perf/app-perf-streaming.perf.ts
+      # Node runtime 已退场：同一负载只测 Rust Agent runtime。
       - name: measure (rust runtime)
         env:
           ESCODE_APP_PERF_LABEL: rust
-          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
           ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
           E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
             packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
@@ -468,20 +457,9 @@ jobs:
           xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
             --spec ./test/e2e/perf/app-perf-streaming.perf.ts
       # 多 workspace 与优雅退出：每个 workspace 打开后真实跑一轮会话，检查点 N=1/4/8。
-      - name: measure workspaces (node runtime)
-        env:
-          ESCODE_APP_PERF_LABEL: node
-          ESCODE_AGENT_SERVER_RUNTIME: node
-          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
-            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
-          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
-        run: |
-          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
       - name: measure workspaces (rust runtime)
         env:
           ESCODE_APP_PERF_LABEL: rust
-          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
           ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
           E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
             packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
@@ -490,20 +468,9 @@ jobs:
           xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
             --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
       # 首段：应用内计时（submit 事件 → 首个 assistant 文本渲染），fixture 首字在 1ms。
-      - name: measure first segment (node runtime)
-        env:
-          ESCODE_APP_PERF_LABEL: node
-          ESCODE_AGENT_SERVER_RUNTIME: node
-          E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
-            packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json
-          ESCODE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/packages/desktop/.e2e-artifacts/app-perf
-        run: |
-          xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
-            --spec ./test/e2e/perf/app-perf-first-segment.perf.ts
       - name: measure first segment (rust runtime)
         env:
           ESCODE_APP_PERF_LABEL: rust
-          ESCODE_AGENT_SERVER_RUNTIME: escode-cli-rust
           ESCODE_AGENT_SERVER_COMMAND: ${{ github.workspace }}/apps/escode-cli-rust/target/release/escode-cli-rust
           E2E_PROVIDER_REPLAY_FIXTURE_PATH: >-
             packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json

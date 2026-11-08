@@ -310,8 +310,8 @@ jobs:
           draft: true
           files: artifacts/*
           body: |
-            Unsigned build. The desktop app and remote workspaces use the bundled Rust runtime; set
-            ESCODE_AGENT_SERVER_RUNTIME=node to use the Node runtime explicitly.
+            Unsigned build. The desktop app and remote workspaces use the bundled Rust runtime;
+            the Node agent runtime is no longer included.
       # 真实发布验收：草稿 Release 上的资产齐全，Rust runtime 压缩包可下载且 sha256 与构建时一致。
       - name: verify published assets
         shell: bash

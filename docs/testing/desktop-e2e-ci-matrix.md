@@ -47,7 +47,7 @@ runtime 各跑一遍：
 ```bash
 E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,\
 packages/desktop/test/e2e/fixtures/upstream/perf/app-perf-streaming.json \
-ESCODE_APP_PERF_LABEL=node ESCODE_AGENT_SERVER_RUNTIME=node \
+ESCODE_APP_PERF_LABEL=rust \
   xvfb-run -a pnpm --filter @escode/desktop exec wdio run wdio.conf.ts \
     --spec ./test/e2e/perf/app-perf-workspaces.perf.ts
 ```

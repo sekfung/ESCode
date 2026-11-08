@@ -23,7 +23,7 @@ crate 边界见 [架构规格](../../docs/specs/rust-cli-architecture.md)：`pro
 - 模型/工具结果及后台登记提交屏障；Read/List/Glob/Grep 最多四并发，写入/Shell 顺序执行；存储失败停止执行且禁止收口再次提交失败状态。
 - LLM Wiki：Global/Project 两层知识库，多格式导入（Markdown、TXT、CSV/TSV、JSON、YAML、XML、RST、DOCX、XLSX、PPTX、文本 PDF；DOC/XLS 经可选转换器），来源可追溯、增量更新；每轮按任务类型检索并注入，Code Review 附加评审协议；WikiSearch/WikiRead/WikiPropose/WikiManage 工具；`escode-cli-rust wiki …` 运维命令；Desktop「知识库」图谱页。见 [使用指南](docs/llm-wiki/03-usage.md)、[规格](docs/llm-wiki/01-spec.md)、[交付报告](docs/llm-wiki/02-delivery-report.md)。
 
-本 runtime 与 Node runtime 的差分对齐以 `docs/specs/rust-*.md` 各规格为准；桌面安装态默认 runtime 已是 Rust（未设置 `ESCODE_AGENT_SERVER_RUNTIME` 且无自定义命令时使用随包 Rust，二进制缺失或就绪前失败回退包内 Node；`ESCODE_AGENT_SERVER_RUNTIME=node` 显式回退），monorepo 开发态与自定义命令保持 Node 语义（见[架构规格](../../docs/specs/rust-cli-architecture.md)）。已支持 MCP（含 OAuth）、插件读面与市场写面、hooks、Skill、子代理、Goal、Plan 与按需激活的工作流工具面、Cron 自动任务、浏览器工具（内置 node_repl）、ReadSessionContext 与 shared context、Node REPL 和项目记忆；权限模式宣告 `yolo/build/edit/guarded`（不提供 OS sandbox），未支持的命令明确拒绝。Composer 附件已支持分片上传与文本/图片/PDF 基础链路，剩余媒体和容量边界见[对齐清单](../../docs/specs/rust-parity-remaining.md)；已知未跟进的缺口（插件 UI 面板、话题附件与归档、子代理运行时配置、记忆 Dream / Semantic Recall 等）见 [v3.15.1 漂移表](../../docs/specs/rust-v3.15.1-drift.md)。这两份文档是 Rust runtime 能力矩阵的权威来源。
+本 runtime 与 Node runtime 的差分对齐以 `docs/specs/rust-*.md` 各规格为准；Node runtime 已于 2026-11-09 退场，桌面安装态、远程部署与 monorepo 开发态都只运行 Rust（打包态使用随包二进制，开发态使用 `apps/escode-cli-rust/target/{release,debug}`，缺产物直接报错、不再回退 Node；见[架构规格](../../docs/specs/rust-cli-architecture.md)）。已支持 MCP（含 OAuth）、插件读面与市场写面、hooks、Skill、子代理、Goal、Plan 与按需激活的工作流工具面、Cron 自动任务、浏览器工具（内置 node_repl）、ReadSessionContext 与 shared context、Node REPL 和项目记忆；权限模式宣告 `yolo/build/edit/guarded`（不提供 OS sandbox），未支持的命令明确拒绝。Composer 附件已支持分片上传与文本/图片/PDF 基础链路，剩余媒体和容量边界见[对齐清单](../../docs/specs/rust-parity-remaining.md)；已知未跟进的缺口（插件 UI 面板、话题附件与归档、子代理运行时配置、记忆 Dream / Semantic Recall 等）见 [v3.15.1 漂移表](../../docs/specs/rust-v3.15.1-drift.md)。这两份文档是 Rust runtime 能力矩阵的权威来源。
 
 ## 构建与验证
 
@@ -89,7 +89,7 @@ pnpm dev:desktop:escode-cli-rust --config /absolute/path/model.json --data-dir /
 
 静态模式的 `reasoningParameters` 按协议配置：Chat 接受 reasoning_effort/thinking/enable_thinking，Responses 接受 reasoning 或 reasoning_effort，Anthropic 接受 thinking。Registry 模式自动使用 App option maps。模型切换先提交，下一个模型步骤生效；排队输入保留接收时的选型。默认选型来自 App `defaultModelSelection`，恢复会话保留自身选择。跨 provider/model 不回放私有推理签名，正文和工具关联保留。
 
-手工集成可设置 `ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust`、`ESCODE_AGENT_SERVER_COMMAND=<binary>`、`ESCODE_AGENT_SERVER_ARGS_JSON=["app-server","--stdio","--data-dir","...","--config","..."]`。Host 自动补充 `--cwd` 与 `--surface desktop`；不要在 args 中另传 `--cwd`。不设置这些变量仍使用原有 TS runtime。
+手工集成可设置 `ESCODE_AGENT_SERVER_COMMAND=<binary>` 与 `ESCODE_AGENT_SERVER_ARGS_JSON=["app-server","--stdio","--data-dir","...","--config","..."]`。Host 自动补充 `--cwd` 与 `--surface desktop`；不要在 args 中另传 `--cwd`。不设置 command 时，打包态使用随包 Rust 二进制，开发态使用本地 cargo 产物。
 
 直接使用协议入口：
 

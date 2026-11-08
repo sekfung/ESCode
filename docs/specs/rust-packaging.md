@@ -168,10 +168,16 @@ sequenceDiagram
 - 本机：`x86_64-unknown-linux-musl` release 构建成功并能以 `app-server --stdio` 完成启动握手（见提交说明）。
 - 未验证：aarch64 musl 与 macOS 远端产物（本机无对应工具链），真实 SSH 远端连接（需要 CI / 真机）。
 
-## Node runtime（TS CLI）退场清单（2026-11-04，未执行）
+## Node runtime（TS CLI）退场清单（2026-11-04 制定，2026-11-09 执行中）
 
 > 删除 `ESCODE_AGENT_SERVER_RUNTIME=node` 与 `resources/glm/zcode.cjs` 的完整范围。前置门槛与证据见
 > [rust-parity-remaining.md](rust-parity-remaining.md)；产品确认前不执行，避免把“计划”当成现状。
+>
+> **2026-11-09 进度**：步骤 1（linux-x64 `--golden --strict` 复核）与步骤 2（选择/描述层）已完成。
+> `ESCODE_AGENT_SERVER_RUNTIME` 不再被读取（残留值被忽略，不再接受 `node`）；开发态改选
+> `apps/escode-cli-rust/target/{release,debug}/escode-cli-rust`，打包态仍只认随包/已部署 Rust；
+> 远端插件宿主改指 `plugin-host.cjs`；Windows 启动诊断只要求 Rust 二进制。步骤 3（构建/打包资产与
+> `ESCODE_BUNDLE_NODE_AGENT`）与步骤 4（Node oracle / bench Node 侧）尚未执行，`zcode.cjs` 仍会被构建和携带。
 
 | 面   | 位置                                                                                                                                      | 退场动作                                                                                                              |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |

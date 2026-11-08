@@ -21,8 +21,7 @@ import { skipOccupationOnboardingIfPresent } from "../helpers/occupation-onboard
 import { sel } from "../helpers/selectors.js";
 
 // 知识库页（apps/escode-cli-rust/docs/llm-wiki/01-spec.md §11）：入口是 workspace 侧边栏「知识库」主视图，设置页不再提供该分区。
-// - Node runtime（开发态 E2E 默认）：页面必须明确显示「当前 runtime 不支持」，不渲染图谱。
-// - Rust runtime（ESCODE_AGENT_SERVER_RUNTIME=escode-cli-rust）：预置一条全局候选知识，
+// Node runtime 退场后只会运行 Rust runtime：预置一条全局候选知识，
 //   在图谱中选中 → 批准 → 确认框确认 → 条目文件状态落盘为 approved 且详情刷新。
 // 全局作用域不依赖项目身份哈希，预置文件位置只取决于存储目录。
 
@@ -98,28 +97,15 @@ describe("知识库 · 图谱 E2E", () => {
     await clearAppData();
   });
 
-  it("KG-01: 按 runtime 能力显示不支持态，或在图谱中审核候选知识并落盘", async function () {
+  it("KG-01: 在图谱中审核候选知识并落盘", async function () {
     this.timeout(120000);
-    const rust = (await appEnv("ESCODE_AGENT_SERVER_RUNTIME")) === "escode-cli-rust";
-    if (rust) {
-      // 必须在首次打开知识库页面前预置：runtime 的 Wiki 快照有 60s TTL。
-      seededFile = await seedGlobalProposal();
-    }
+    // 必须在首次打开知识库页面前预置：runtime 的 Wiki 快照有 60s TTL。
+    seededFile = await seedGlobalProposal();
 
     await skipOccupationOnboardingIfPresent();
     await waitForDefaultWorkspaceReady(30000);
     await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
     await openKnowledgeMainView();
-
-    if (!rust) {
-      const notice = await $('[data-testid="knowledge-phase-notice"][data-phase="unsupported"]');
-      await notice.waitForDisplayed({
-        timeout: 30000,
-        timeoutMsg: "Node runtime 下知识库页没有显示「不支持」提示",
-      });
-      expect(await $(sel("knowledge-graph-canvas")).isExisting()).toBe(false);
-      return;
-    }
 
     const node = await $(`[data-testid="knowledge-graph-node"][data-node-status="proposal"]`);
     await node.waitForDisplayed({ timeout: 30000, timeoutMsg: "图谱中没有出现预置的候选知识节点" });
@@ -162,10 +148,6 @@ describe("知识库 · 图谱 E2E", () => {
 
   it("KG-02: 从「导入文档」导入到项目 Wiki，并把条目提升到全局", async function () {
     this.timeout(120000);
-    if ((await appEnv("ESCODE_AGENT_SERVER_RUNTIME")) !== "escode-cli-rust") {
-      // Node runtime 没有导入能力（KG-01 已验证不支持态）。
-      this.skip();
-    }
     const docDir = join(DEFAULT_WORKSPACE, "docs");
     await mkdir(docDir, { recursive: true });
     await writeFile(

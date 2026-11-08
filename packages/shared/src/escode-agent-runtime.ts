@@ -11,21 +11,15 @@ export interface ESCodeAgentRuntimeDescriptor {
   missingBinaryMessage: string;
   resolveEntrySegments(platform: string): string[];
   /**
-   * 桌面端把 agent 的 JS bundle（zcode.cjs）打进 resources/glm，由 app 内置的 Electron Node runtime
-   * （ELECTRON_RUN_AS_NODE）直接执行，避免再随包内置一份独立 Node 二进制。
-   * 这里只放纯 JS 入口文件名，平台无关（与 resolveEntrySegments 的原生二进制路径平行）。
-   */
-  nodeBundleEntryFile: string;
-  resolveNodeBundleSegments(): string[];
-  /**
-   * Rust-only 安装包不携带完整 Node agent bundle 时，官方插件仍需要 `__escode-plugin-host`
-   * 的极小入口（plugin-host.cjs）。与 zcode.cjs 同放 resources/glm。
+   * 官方插件仍由 Node 插件宿主（`__escode-plugin-host`）承载，Rust runtime 只负责 seed 与代理。
+   * Node agent runtime 退场后安装包只携带这个极小入口（plugin-host.cjs），不再携带完整 agent bundle；
+   * 它与 Rust 二进制同放 resources/glm。
    */
   pluginHostEntryFile: string;
   resolvePluginHostSegments(): string[];
   /**
-   * Rust runtime（apps/escode-cli-rust）的原生二进制名，与 Node bundle 同放 glm 资源目录。
-   * 打包态未设置开关、无自定义命令且无开发入口时默认选用；显式 node 或本地开发/自定义命令仍走 Node。
+   * Rust runtime（apps/escode-cli-rust）的原生二进制名，与插件宿主同放 glm 资源目录。
+   * Node runtime 退场后它是唯一 agent runtime：打包态、开发态与远程部署都只用它。
    */
   rustBinaryName: string;
   resolveRustBinarySegments(platform: string): string[];
@@ -46,10 +40,6 @@ export const ESCODE_AGENT_RUNTIME: ESCodeAgentRuntimeDescriptor = {
   missingBinaryMessage:
     "[ESCode Agent] glm binary 未找到，请设置 ESCODE_AGENT_WORKDIR、GLM_BINARY_PATH 或先准备 GLM 运行时资源",
   resolveEntrySegments: (platform) => [resolvePlatformBinaryName("escode-agent", platform)],
-  nodeBundleEntryFile: "zcode.cjs",
-  resolveNodeBundleSegments() {
-    return [this.nodeBundleEntryFile];
-  },
   pluginHostEntryFile: "plugin-host.cjs",
   resolvePluginHostSegments() {
     return [this.pluginHostEntryFile];

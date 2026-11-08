@@ -62,7 +62,7 @@ console.info(
 );
 await run(process.execPath, [resolve(root, "scripts/dev-desktop-env.mjs"), "production"], {
   ...process.env,
-  ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust",
+  // Node runtime 已退场：Rust 是唯一 runtime，只需显式指定本地 cargo 产物。
   ESCODE_AGENT_SERVER_COMMAND: resolve(
     root,
     `apps/escode-cli-rust/target/${profile}/escode-cli-rust${process.platform === "win32" ? ".exe" : ""}`,

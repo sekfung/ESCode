@@ -19,7 +19,6 @@ import {
   ESCODE_PROCESS_DIAGNOSTIC_STACK_MAX_CHARS,
 } from "@escode/shared/process-diagnostic";
 import {
-  ESCODE_AGENT_RUNTIME,
   ESCODE_AGENT_PROVIDER,
   ESCODE_DESKTOP_PACKAGED_ENV,
   ESCODE_REMOTE_PACKAGED_RUNTIME_ENV,
@@ -29,10 +28,10 @@ import {
   sanitizeESCodeRuntimeEnv,
 } from "@escode/shared";
 import {
-  findESCodeAgentRuntimeBinary,
-  findESCodeAgentRuntimeNodeBundle,
-  findESCodePluginHostBundle,
+  findESCodeAgentDevRustBinary,
   findESCodeAgentRustBinary,
+  findESCodeDevPluginHostBundle,
+  findESCodePluginHostBundle,
 } from "../runtime-tools/providerRuntimeResolver.js";
 import { isEffectiveDevelopmentNodeEnv } from "#src/runtime-tools/nodeEnv.js";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
@@ -51,7 +50,7 @@ export interface ESCodeAgentCommand {
   storagePreparationMode?: "process";
   /** 本次部署的 Agent 支持迁移前的启动通知；旧自定义命令保持原协议。 */
   supportsStorageStartup?: boolean;
-  /** 由 resolver 标记的 Rust runtime 命令；启动失败时 manager 据此回退 Node（rust-packaging.md）。 */
+  /** 由 resolver 标记的 Rust runtime 命令；Node runtime 退场后仅用于启动失败归因，不再据此回退。 */
   runtime?: "escode-cli-rust";
   command: string;
   args?: string[];
@@ -373,47 +372,9 @@ async function buildESCodeAgentSpawnPreflight(
   };
 }
 
-function resolveBundledWorkspaceESCodeAgentCommand(
-  context: ESCodeAgentCommandResolverContext,
-): ESCodeAgentCommand | null {
-  const distEntrypoint = findUpward("apps/escode-cli/packages/cli/dist/escode.cjs");
-  if (distEntrypoint) {
-    const useBytecode =
-      process.versions.electron && process.env.ESCODE_DESKTOP_AGENT_BYTECODE === "1";
-    const entrypoint = useBytecode
-      ? join(dirname(distEntrypoint), "escode.bytecode.cjs")
-      : distEntrypoint;
-    // 此同步 command resolver 沿用既有 existsSync 契约；显式试验不能静默回退成 JS。
-    if (useBytecode && !existsSync(entrypoint)) {
-      throw new Error("桌面 Agent 字节码入口缺失，请运行 pnpm build:desktop-agent:bytecode");
-    }
-    return {
-      command: process.execPath,
-      args: [entrypoint, "app-server", "--stdio"],
-      // Worker 与 Electron Node 子进程的 V8 snapshot 可不同；临时存储准备继续用 JS。
-      storagePreparationEntry: distEntrypoint,
-      cwd: context.workspacePath,
-      // 桌面端 host 运行在 Electron utility process 中，process.execPath 指向 Electron Helper。
-      // 这里显式启用 Node 运行模式，避免内置 escode-agent 被当成 Electron/Chromium 子进程启动并卡在 GPU 初始化。
-      env: { ELECTRON_RUN_AS_NODE: "1" },
-    };
-  }
-
-  const sourceEntrypoint = findUpward("apps/escode-cli/packages/cli/src/main.ts");
-  const tsxEntrypoint = findUpward("node_modules/.bin/tsx");
-  if (!sourceEntrypoint || !tsxEntrypoint) {
-    return null;
-  }
-  return {
-    command: tsxEntrypoint,
-    args: [sourceEntrypoint, "app-server", "--stdio"],
-    cwd: context.workspacePath,
-  };
-}
-
 /**
  * 打包运行时：桌面安装包的 Local Host，或桌面安装包部署并拉起的远程 server。二者都随包带 Rust 二进制，
- * 默认 runtime 为 Rust 且不回退 Node（docs/specs/rust-packaging.md「不回退 Node」「远程环境使用 Rust」）。
+ * Node runtime 退场后 Rust 是唯一 runtime，不再按环境回退 Node（docs/specs/rust-packaging.md）。
  */
 function isPackagedAgentRuntime(): boolean {
   return (
@@ -423,63 +384,12 @@ function isPackagedAgentRuntime(): boolean {
 }
 
 /**
- * monorepo 开发入口（dist / tsx 源码）。
- * Bugfix：findUpward 从 process.cwd() 向上探测，安装包在仓库目录下启动时（CI installed job、开发者从终端启动）
- * 会误命中仓库源码入口：默认 runtime 退回 Node，且 tsx 入口没有 storagePreparationEntry，数据库启动报
- * unsupported_runtime。打包态的 runtime 选择不能取决于 cwd，因此 Main 注入打包标记时整体跳过开发入口探测。
+ * monorepo 开发态的本地 Rust 二进制（`apps/escode-cli-rust/target/{release,debug}`）。
+ * 打包态不探测仓库路径，避免安装包在仓库目录下启动时误用开发二进制；缺产物时由 resolver 报错。
  */
-function resolveWorkspaceDevESCodeAgentCommand(
-  context: ESCodeAgentCommandResolverContext,
-): ESCodeAgentCommand | null {
+function resolveDevRustBinary(): string | null {
   if (isPackagedAgentRuntime()) return null;
-  return resolveBundledWorkspaceESCodeAgentCommand(context);
-}
-
-function resolveDeployedESCodeAgentBinaryCommand(
-  context: ESCodeAgentCommandResolverContext,
-): ESCodeAgentCommand | null {
-  // 旧 resolver 只识别 ESCODE_AGENT_SERVER_COMMAND env 和 monorepo 源码树。
-  // SSH 远端把 zcode-server.cjs 单文件部署到 ~/.escode/server/，宿主进程的 cwd 不在仓库内、
-  // env 也不会被 ssh exec 继承，即使 escode-agent 已经部署到 ~/.escode/server/agents/glm/，
-  // resolver 也找不到，第一次 getClient 就抛 "ESCode agent server command is not configured"。
-  // 这里复用 findESCodeAgentRuntimeBinary 的候选链（含 GLM_BINARY_PATH env、
-  // packagedResourcesPath、~/.escode/server/agents/glm、bundled-agents 等），
-  // 把已部署的原生 binary 当成最终兜底，远端/桌面打包形态都能命中。
-  const binaryPath = findESCodeAgentRuntimeBinary();
-  if (!binaryPath) {
-    return null;
-  }
-  return {
-    command: binaryPath,
-    args: ESCODE_AGENT_RUNTIME.spawnArgs,
-    cwd: context.workspacePath,
-  };
-}
-
-function resolveElectronRuntimeESCodeAgentCommand(
-  context: ESCodeAgentCommandResolverContext,
-): ESCodeAgentCommand | null {
-  // 桌面打包态：host 跑在 Electron utility process 里，process.execPath 指向 Electron Helper，
-  // 它内置的 Node runtime 与 escode-cli 目标版本一致（Electron 41 = Node 24.x）。
-  // 这里直接用 app 自带的 Electron Node 执行打进 resources/glm 的 zcode.cjs，
-  // 不再随包内置一份独立 Node 二进制（体积从 ~180MB 降到 ~16MB，且跨平台同一份 JS）。
-  // 用 process.versions.electron 作为闸门：远端 SSH/WSL host 由系统 Node 运行、没有 electron，
-  // 会跳过这里继续走原生二进制兜底，桌面/远端两条链路互不影响。
-  if (!process.versions.electron) {
-    return null;
-  }
-  const bundlePath = findESCodeAgentRuntimeNodeBundle();
-  if (!bundlePath) {
-    return null;
-  }
-  return {
-    command: process.execPath,
-    args: [bundlePath, ...ESCODE_AGENT_RUNTIME.spawnArgs],
-    storagePreparationEntry: bundlePath,
-    cwd: context.workspacePath,
-    // 关键：必须以纯 Node 模式启动，否则子进程会被当成 Electron/Chromium 子进程卡在 GPU 初始化。
-    env: { ELECTRON_RUN_AS_NODE: "1" },
-  };
+  return findESCodeAgentDevRustBinary();
 }
 
 /** Rust runtime 的启动参数：Host 注入原始 workspacePath（OS cwd 会 realpath 化，丢失本地 identity fallback）。 */
@@ -492,50 +402,32 @@ function rustRuntimeArgs(args: string[], workspacePath: string): string[] {
 }
 
 /**
- * Rust runtime 自行 seed 官方插件时，插件 MCP 服务仍由 Node 插件宿主运行（docs/specs/rust-official-plugin-seed.md）：
- * 传入与 Node runtime 相同的 Electron-as-Node 可执行文件与 escode.cjs 入口，Rust 据此改写 plugin.json，
- * 与 Node seed 的结果逐字节一致。开发态 tsx 源码入口不传（TS 在该形态同样不产出可复用的前缀）。
+ * Rust runtime 自行 seed 官方插件时，插件 MCP 服务仍由 Node 插件宿主承载（docs/specs/rust-official-plugin-seed.md）：
+ * Node agent runtime 退场后不再复用完整 bundle，安装包/开发态都使用独立的 plugin-host.cjs，
+ * 由 Electron-as-Node 执行，保证 seed 结果与原 Node runtime 逐字节一致。
  */
-function rustPluginHostEnv(
-  context: ESCodeAgentCommandResolverContext,
-): Pick<ESCodeAgentCommand, "env"> {
-  const dev = resolveWorkspaceDevESCodeAgentCommand(context);
-  const node = dev ?? resolveElectronRuntimeESCodeAgentCommand(context);
-  const entrypoint = node?.args?.[0];
-  if (node && entrypoint?.endsWith(".cjs")) {
-    return {
-      env: {
-        ESCODE_PLUGIN_HOST_EXEC_PATH: node.command,
-        ESCODE_PLUGIN_HOST_ENTRYPOINT: entrypoint,
-      },
-    };
-  }
-  // Rust-only 安装包没有 zcode.cjs：官方插件仍由同一个 Electron Node 执行独立 plugin-host.cjs。
-  // 开发态继续使用上面的源码 / dist 入口，避免固定到打包残留的 bundle。
-  if (!dev && process.versions.electron) {
-    const pluginHost = findESCodePluginHostBundle();
-    if (pluginHost) {
-      return {
-        env: {
-          ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
-          ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHost,
-        },
-      };
-    }
-  }
-  return remotePluginHostEnv();
+function rustPluginHostEnv(): Pick<ESCodeAgentCommand, "env"> {
+  if (!process.versions.electron) return remotePluginHostEnv();
+  const pluginHost = findESCodePluginHostBundle() ?? findESCodeDevPluginHostBundle();
+  if (!pluginHost) return {};
+  return {
+    env: {
+      ESCODE_PLUGIN_HOST_EXEC_PATH: process.execPath,
+      ESCODE_PLUGIN_HOST_ENTRYPOINT: pluginHost,
+    },
+  };
 }
 
 /**
- * 远端没有 Electron：插件宿主用远程部署的独立 node（与 zcode-server.cjs 同一份）执行 agents/glm/zcode.cjs，
- * 与远端 wrapper（escodeAgentBundleWrapper）同一布局。
+ * 远端没有 Electron：插件宿主用远程部署的独立 node（与 zcode-server.cjs 同一份）执行
+ * agents/glm/plugin-host.cjs，与远端安装布局一致。
  */
 function remotePluginHostEnv(): Pick<ESCodeAgentCommand, "env"> {
   if (process.env[ESCODE_REMOTE_PACKAGED_RUNTIME_ENV] !== "1") return {};
   const runtimeRoot =
     process.env.ESCODE_SERVER_RUNTIME_ROOT?.trim() || join(homedir(), ".escode", "server");
   const nodePath = join(runtimeRoot, "node");
-  const entrypoint = findESCodeAgentRuntimeNodeBundle();
+  const entrypoint = findESCodePluginHostBundle();
   if (!entrypoint || !existsSync(nodePath)) return {};
   return {
     env: {
@@ -547,29 +439,20 @@ function remotePluginHostEnv(): Pick<ESCodeAgentCommand, "env"> {
 
 export interface ESCodeAgentCommandResolverDeps {
   findRustBinary(): string | null;
-  /** monorepo 开发态的 Node 入口（源码 / dist）；在场时默认 runtime 保持 Node。缺省按仓库结构探测。 */
-  findDevCommand?(context: ESCodeAgentCommandResolverContext): ESCodeAgentCommand | null;
+  /** monorepo 开发态的本地 Rust 二进制；打包态不调用。缺省按仓库结构探测。 */
+  findDevRustBinary?(): string | null;
 }
 
 export function resolveDefaultESCodeAgentCommand(
   context: ESCodeAgentCommandResolverContext,
-  deps: ESCodeAgentCommandResolverDeps = { findRustBinary: () => findESCodeAgentRustBinary() },
+  deps: ESCodeAgentCommandResolverDeps = {
+    findRustBinary: () => findESCodeAgentRustBinary(),
+    findDevRustBinary: () => resolveDevRustBinary(),
+  },
 ): ESCodeAgentCommand | null {
-  // 运行时选择的唯一入口（docs/specs/rust-packaging.md）：默认用随包 Rust runtime，找不到二进制直接报错、
-  // 就绪前失败也不改选 Node（不自动回退）；ESCODE_AGENT_SERVER_RUNTIME=node 是显式选择 Node。monorepo 开发态
-  // （源码 / dist 入口在场）与自定义命令保持原有 Node 语义：开发改源码要立刻生效，自定义命令的协议形态由调用方决定。
-  const runtime = process.env.ESCODE_AGENT_SERVER_RUNTIME?.trim() || undefined;
-  if (runtime && runtime !== "escode-cli-rust" && runtime !== "node") {
-    throw new Error("Unsupported ESCODE_AGENT_SERVER_RUNTIME");
-  }
-  // 默认 Rust 属于打包运行时（桌面安装包，或其部署的远程 server，二者都随包带 Rust 二进制）。开发态 App
-  // 部署的远端只有 JS bundle，未注入标记时保持 Node 链。
-  const defaultRust =
-    runtime === undefined &&
-    isPackagedAgentRuntime() &&
-    !process.env.ESCODE_AGENT_SERVER_COMMAND?.trim() &&
-    (deps.findDevCommand ?? resolveWorkspaceDevESCodeAgentCommand)(context) === null;
-  const rust = runtime === "escode-cli-rust" || defaultRust;
+  // 唯一 runtime 是 Rust（docs/specs/rust-packaging.md「Node runtime 退场」）：不再读取
+  // ESCODE_AGENT_SERVER_RUNTIME，也不存在 Node 回退。开发态优先本地 cargo 产物，
+  // 打包/远程态只认随包或已部署的二进制；缺失即报错，不静默切换 runtime。
   const baseArgs = parseArgsJson(process.env.ESCODE_AGENT_SERVER_ARGS_JSON) ?? [
     "app-server",
     "--stdio",
@@ -581,45 +464,36 @@ export function resolveDefaultESCodeAgentCommand(
     supportsStorageStartup: true,
     args: rustRuntimeArgs(baseArgs, context.workspacePath),
     cwd,
-    ...rustPluginHostEnv(context),
+    ...rustPluginHostEnv(),
   });
   const command = process.env.ESCODE_AGENT_SERVER_COMMAND?.trim();
   if (command) {
     const cwd = process.env.ESCODE_AGENT_SERVER_CWD?.trim() || context.workspacePath;
     return applyPresentationSurfaceToCommand(
-      rust ? rustCommand(command, cwd) : { command, args: baseArgs, cwd },
+      rustCommand(command, cwd),
       context.presentationSurface,
     );
   }
-  if (rust) {
-    const binary = deps.findRustBinary();
-    if (binary) {
-      return applyPresentationSurfaceToCommand(
-        rustCommand(binary, context.workspacePath),
-        context.presentationSurface,
-      );
-    }
-    // 修复原因：旧实现在这里静默改用 Node，Rust 期会话（rust-sessions.sqlite）随之全部打不开。
-    // 选中 Rust 却没有随包二进制属于安装包缺陷，直接报错，不切换 runtime。
-    errorLog("escode-cli-rust runtime selected but no bundled binary was found", {
-      event: "escode_agent.runtime.rust_binary_missing",
-      explicit: runtime === "escode-cli-rust",
-    });
-    throw new Error(
-      "ESCode Rust runtime (escode-cli-rust) is not installed. Reinstall ESCode, or set ESCODE_AGENT_SERVER_RUNTIME=node to use the Node runtime explicitly.",
+
+  // 顺序：开发态本地 cargo 产物 → 随包/已部署 Rust 二进制。打包标记会屏蔽开发态探测，
+  // 避免安装包在仓库目录下启动时误用陈旧 target 产物。
+  const devBinary = isPackagedAgentRuntime()
+    ? null
+    : (deps.findDevRustBinary ?? resolveDevRustBinary)();
+  const binary = devBinary ?? deps.findRustBinary();
+  if (binary) {
+    return applyPresentationSurfaceToCommand(
+      rustCommand(binary, context.workspacePath),
+      context.presentationSurface,
     );
   }
-
-  // 顺序：env 显式覆盖 → monorepo dev 源码/dist（dev 改源码立刻生效，不会被远端历史装的 native binary
-  // 抢先匹配）→ 桌面打包态 Electron Node runtime 跑 zcode.cjs → 已部署 native binary（远端 SSH 兜底）。
-  const bundled =
-    resolveWorkspaceDevESCodeAgentCommand(context) ??
-    resolveElectronRuntimeESCodeAgentCommand(context);
-  return applyPresentationSurfaceToCommand(
-    bundled
-      ? { ...bundled, supportsStorageStartup: true }
-      : resolveDeployedESCodeAgentBinaryCommand(context),
-    context.presentationSurface,
+  // 修复原因：旧实现在这里静默改用 Node，Rust 期会话（rust-sessions.sqlite）随之全部打不开。
+  // Node runtime 退场后已无回退目标，缺二进制属于安装包缺陷，直接报错。
+  errorLog("escode-cli-rust runtime selected but no bundled binary was found", {
+    event: "escode_agent.runtime.rust_binary_missing",
+  });
+  throw new Error(
+    "ESCode Rust runtime (escode-cli-rust) is not installed. Run pnpm build:escode-cli-rust in development, or reinstall ESCode.",
   );
 }
 

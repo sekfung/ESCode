@@ -15,7 +15,6 @@ test("Host service uses the real native runtime", async () => {
   const keys = [
     "ESCODE_AGENT_SERVER_COMMAND",
     "ESCODE_AGENT_SERVER_ARGS_JSON",
-    "ESCODE_AGENT_SERVER_RUNTIME",
     "ESCODE_DATA_BASE_DIR",
     "HOME",
   ] as const;
@@ -30,7 +29,6 @@ test("Host service uses the real native runtime", async () => {
       "--config",
       f.config,
     ]),
-    ESCODE_AGENT_SERVER_RUNTIME: "escode-cli-rust",
     ESCODE_DATA_BASE_DIR: f.root,
     HOME: f.root,
   });

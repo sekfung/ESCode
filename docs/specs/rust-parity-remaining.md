@@ -61,6 +61,15 @@ tasks-index 准备继续使用 `main/rustHostStorageStartup.ts` 自有 worker；
 `windowHostControllerService` / `windowHostControllerProjection` 只作为 golden 生成器的 TS 观察源保留。
 TS CLI 与 `ESCODE_AGENT_SERVER_RUNTIME=node` 未动。
 
+2026-11-09 Node runtime 退场步骤 2（选择/描述层）：删除 `ESCODE_AGENT_SERVER_RUNTIME` 读取与
+`node` 显式值，`resolveDefaultESCodeAgentCommand` 改为 Rust-only；开发态自动发现
+`apps/escode-cli-rust/target/{release,debug}`（打包标记下禁用，避免安装包误用仓库产物），
+随包/已部署 Rust 二进制仍是打包与远程的唯一来源，缺失直接报错。共享描述符删除
+`nodeBundleEntryFile` / `resolveNodeBundleSegments`；远端插件宿主与 Windows 启动诊断改指
+`plugin-host.cjs` / Rust 二进制。linux-x64 `--golden --strict` 复核为 0 open / 0 新差异 / 0 欠账，
+runtime selection 13 例通过（含本地 Rust 真实完成一轮）。TS CLI 构建/打包资产、`zcode.cjs` 与
+Node oracle/bench 尚未删除，见 [rust-packaging.md](rust-packaging.md) 退场清单步骤 3–4。
+
 2026-11-04 资源采样残留清理：Node Host 退场后，TS `packages/services/src/process/processResourceSampler.ts`
 已无生产调用方（`pnpm dep:refs` 只剩自身测试与 `services/src/node.ts` 的 re-export），源码与测试一并删除；
 资源管理器 host 采样由 Rust Host `apps/escode-host/crates/host-services/src/process_sampler.rs` 承担。
