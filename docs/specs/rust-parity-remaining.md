@@ -76,7 +76,17 @@ workflow 已删除；`release.yml` / `rust-runtime-ci.yml` 默认 Rust-only，�
 `escode-cli-rust` + `plugin-host.cjs`。远端 glm 组件与 `escode-agent` wrapper 改指 Rust 二进制；
 `nodeOracle` 更名 `goldenOracle` 并变为只读，`--record` / `--live-node` 与
 `bench-escode-cli-node-rust.mjs`、App bench Node 组已删除。`apps/escode-cli` 工作区保留用于
-plugin-host 构建与独立 CLI/SEA 发行。三平台真实 `release` / 安装包演练仍需在 CI 复核。
+plugin-host 构建与独立 CLI/SEA 发行。
+
+2026-11-09 完整验证与发行门禁：
+
+- `pnpm check:escode-cli-rust` 通过（边界、fmt、clippy `-D warnings`）。
+- `pnpm test:escode-cli-rust`（`ESCODE_TEST_SERIAL=1`，request/exit 60s/30s）最终 **435 tests：
+  423 passed / 0 failed / 12 skipped**，cargo test 全绿；首轮失败 22 例的根因是 `plugin-host.cjs`
+  未分派 `__escode-workflow-host` 等隐藏子命令，已在 `b2ce44ac` 修复并复跑全绿。
+- `release` run `42530179482`（`2c2684a7`）的 8 个 rust-runtime、4 个 desktop、4 个 installed
+  全部 success；macOS 作业迁移到 `macos-15`/`macos-15-intel`，Windows installed 首次 NSIS
+  `0xC0000005` 重跑通过。三平台 Rust-only 发行门禁与安装包会话门禁已补齐。
 
 2026-11-04 资源采样残留清理：Node Host 退场后，TS `packages/services/src/process/processResourceSampler.ts`
 已无生产调用方（`pnpm dep:refs` 只剩自身测试与 `services/src/node.ts` 的 re-export），源码与测试一并删除；

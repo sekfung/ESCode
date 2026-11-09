@@ -259,6 +259,18 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 - Windows 首次 run 的 NSIS 崩溃和 macOS runner 排队取消均保留为环境证据；失败原因与产物断言、Rust-only
   启动语义无关，不能据此判定产物不可发布。
 
+**实跑证据（2026-11-09，Node runtime 退场后默认 Rust-only）**
+
+- `release` run [42530179482](https://github.com/sekfung/ESCode/actions/runs/42530179482)
+  （`dev` @ `2c2684a7`）：8 个 `rust runtime`、4 个 `desktop`、4 个 `installed` 全部 success。
+  `installed` 作业：win-x64 `128914441518`、mac-arm64 `128914442658`、mac-x64 `128914442714`、
+  linux-x64 `128914443462`；均通过真实安装包启动、Rust Host 重启演练与安装包内 Rust runtime 会话。
+- macOS runner：`macos-14` 已从 GitHub 托管标签下线，首轮（run `42527551171`）两个 darwin 作业未分配
+  runner 即 cancelled，desktop/installed 跳过；迁移到 `macos-15`（arm64）与 `macos-15-intel`（x64）后全部通过。
+- Windows `installed (win-x64)` 首次仍在 NSIS 启动阶段以 `0xC0000005` 崩溃，原作业重跑后通过；
+  与 2026-11-03 的环境性证据一致，非产物断言或 Rust 会话失败。
+- `publish` 因非 tag 触发按设计 skipped。
+
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 
 `packages/services/tests/escode-cli-rust-differential.test.ts` 用同一场景（一次 Read 工具调用的完整 turn）

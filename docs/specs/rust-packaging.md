@@ -179,6 +179,13 @@ Node runtime 退场后，远端只部署 Rust 二进制与 `plugin-host.cjs`，w
 > 差分脚本删除 `--record` / `--live-node`，golden 为只读资产，Node bench 与 App bench Node 组已删除。
 > 仍需在真实发布链路（三平台 `release` 的 `rust-runtime` / `desktop` / `installed`）复核，并保留
 > 「只能降级到含 Node CLI 的旧安装包」的回滚说明；本机未执行三平台安装包演练。
+>
+> 2026-11-09 发布门禁通过：`release` run
+> [42530179482](https://github.com/sekfung/ESCode/actions/runs/42530179482)（`dev` @ `2c2684a7`）
+> 的 8 个 `rust runtime`、4 个 `desktop`、4 个 `installed` 全部 success；产物断言确认安装包只含
+> `escode-cli-rust` + `plugin-host.cjs`。本次同时把已下线的 `macos-14` 标签迁移到
+> `macos-15`/`macos-15-intel`；Windows `installed` 首次 NSIS 启动崩溃 `0xC0000005`，原作业重跑后通过
+> （与 2026-11-03 环境性证据一致）。`publish` 因非 tag 触发按设计跳过。
 
 | 面   | 位置                                                                                                                                      | 退场动作                                                                                                              |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
