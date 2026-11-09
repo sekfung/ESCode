@@ -87,6 +87,8 @@ plugin-host 构建与独立 CLI/SEA 发行。
 - `release` run `42530179482`（`2c2684a7`）的 8 个 rust-runtime、4 个 desktop、4 个 installed
   全部 success；macOS 作业迁移到 `macos-15`/`macos-15-intel`，Windows installed 首次 NSIS
   `0xC0000005` 重跑通过。三平台 Rust-only 发行门禁与安装包会话门禁已补齐。
+- `rust-version-drill` run `42542453359`（`e74eeaf7`）四平台 success，完成 base
+  `41729737755` → head `42530179482` → base 的覆盖安装、三次启动与冻结设置校验。
 
 2026-11-04 资源采样残留清理：Node Host 退场后，TS `packages/services/src/process/processResourceSampler.ts`
 已无生产调用方（`pnpm dep:refs` 只剩自身测试与 `services/src/node.ts` 的 re-export），源码与测试一并删除；

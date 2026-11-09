@@ -270,6 +270,11 @@ App 通过 Host 启动参数选择 Agent runtime（`packages/services/src/escode
 - Windows `installed (win-x64)` 首次仍在 NSIS 启动阶段以 `0xC0000005` 崩溃，原作业重跑后通过；
   与 2026-11-03 的环境性证据一致，非产物断言或 Rust 会话失败。
 - `publish` 因非 tag 触发按设计 skipped。
+- 版本升级/降级：`rust-version-drill` run
+  [42542453359](https://github.com/sekfung/ESCode/actions/runs/42542453359)（`dev` @ `e74eeaf7`），
+  base 取 run `41729737755` 的安装包、head 取 run `42530179482` 的安装包；四平台
+  mac-arm64 `128920197329`、win-x64 `128920197578`、linux-x64 `128920197626`、mac-x64 `128920197717`
+  全部 success，完成 base → head → base 覆盖安装、三次启动与冻结设置校验。
 
 ## 两个 runtime 的能力声明差异（2026-09-24 差分实测）
 
